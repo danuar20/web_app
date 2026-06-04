@@ -1,0 +1,17 @@
+[Unit]
+Description=Web App Flask Service
+After=network.target
+
+[Service]
+Type=simple
+User=dans
+Group=dans
+WorkingDirectory=/home/dans/App/web_app
+Environment=PATH=/home/dans/App/web_app/venv/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=/home/dans/App/web_app/.env
+ExecStart=/home/dans/App/web_app/venv/bin/python run.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

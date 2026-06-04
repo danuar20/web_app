@@ -6,7 +6,9 @@ from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env from the project root (absolute path, works regardless of CWD)
+_project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(_project_dir, ".env"))
 
 def create_app():
     app = Flask(
@@ -16,19 +18,19 @@ def create_app():
     )
 
     # ── 1. SECRET KEY ─────────────────────────────────────────────────────────
-    # Append PID so sessions are invalidated after every server restart
     secret_key = os.getenv("FLASK_SECRET_KEY")
     if not secret_key:
         raise RuntimeError(
             "FLASK_SECRET_KEY environment variable is not set. "
             "Set it to a strong random value before starting the server."
         )
-    app.secret_key = secret_key + "-pid" + str(os.getpid())
+    app.secret_key = secret_key
 
     app.config['JSON_SORT_KEYS'] = False
 
     # ── 2. SECURE SESSION COOKIES ───────────────────────────────────────────────
-    app.config['SESSION_COOKIE_SECURE']  = os.getenv("FLASK_ENV") == "production"
+    # NOTE: SECURE=False because app runs on HTTP (no SSL behind reverse proxy)
+    app.config['SESSION_COOKIE_SECURE']  = False
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE']  = 'Lax'
 
