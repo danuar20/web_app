@@ -1,8 +1,8 @@
 from werkzeug.security import generate_password_hash
 from app.db import db_webapp
 
-username = "infra2"
-password = "12345"
+username = "username123"
+password = "password123"
 
 hashed = generate_password_hash(password)
 
