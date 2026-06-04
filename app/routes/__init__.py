@@ -1,0 +1,48 @@
+# Routes package — all blueprints are imported here so app/__init__.py
+# can register them in one place.
+from flask import Blueprint
+
+# Auth — home, login, logout, dashboard, health, api/cities, api/sites
+from . import auth_routes
+auth = auth_routes.auth
+
+# Dashboard — served by auth_routes (same blueprint)
+# Productivity — /productivity, /city_level, /site_level
+from . import productivity_routes
+prod = productivity_routes.prod
+
+# 2G KPI Daily — /kpi_2g_daily (BSC Level & Site Level)
+from . import kpi_2g_daily_routes
+kpi2g_daily = kpi_2g_daily_routes.kpi2g_daily
+
+# 2G KPI Hourly — /kpi_2g_hourly (BSC Level & Site Level)
+from . import kpi_2g_hourly_routes
+kpi2g_hourly = kpi_2g_hourly_routes.kpi2g_hourly
+
+# 4G KPI Hourly — /kpi_4g_hourly (per-site view)
+from . import kpi_4g_hourly_routes
+kpi4g_hourly = kpi_4g_hourly_routes.kpi4g_hourly
+
+# 4G KPI Hourly Trend — /kpi_4g_hourly/trend (cluster aggregation)
+from . import kpi_4g_trend_routes
+kpi4g_trend = kpi_4g_trend_routes.kpi4g_trend
+
+# 4G KPI Hourly Compare — /kpi_4g_hourly/compare (before/after comparison)
+from . import kpi_4g_compare_routes
+kpi4g_compare = kpi_4g_compare_routes.kpi4g_compare
+
+# 4G KPI API & Export — /api/kpi_4g_hourly, /export/kpi_4g_hourly
+from . import kpi_4g_api_routes
+kpi4g_api = kpi_4g_api_routes.kpi4g_api
+
+# Packet Loss — /pl_2g, /pl_4g, /api/pl_4g, /export/pl_2g, /export/pl_4g
+from . import packet_loss_routes
+pl = packet_loss_routes.pl
+
+# TA 4G — /ta_4g
+from . import ta_4g_routes
+ta4g = ta_4g_routes.ta4g
+
+# 5G KPI Hourly — /kpi_5g_hourly (per-site view)
+from . import kpi_5g_hourly_routes
+kpi5g_hourly = kpi_5g_hourly_routes.kpi5g_hourly

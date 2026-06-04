@@ -1,0 +1,410 @@
+{% extends "base.html" %}
+
+{% block nav_packet_loss %}active{% endblock %}
+{% block subpacket_open %}open{% endblock %}
+{% block nav_pl_2g %}active{% endblock %}
+{% block page_title %}Packet Loss — 2G{% endblock %}
+{% block page_sub %}Packet Loss, Latency & Jitter per hour per site{% endblock %}
+
+{% block topbar_chips %}
+<div class="info-chip"><i class="fas fa-satellite-dish" style="margin-right:4px"></i>{{ active_sites or (sites_list|length) or 0 }} sites</div>
+{% endblock %}
+
+{% block sidebar_quickstats %}{% endblock %}
+
+{% block page_content %}
+<style>
+.content-area { flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 14px; }
+.dropdown-container { position: relative; }
+.dropdown-toggle { width: 100%; padding: 8px 12px; border: 1px solid rgba(79,172,254,0.15); border-radius: 6px; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center; transition: border-color 0.18s, background 0.3s ease; }
+[data-theme="dark"] .dropdown-toggle { background: rgba(30,30,58,0.8); color: #c8d0e0; }
+[data-theme="light"] .dropdown-toggle { background: rgba(255,255,255,0.95); color: inherit; }
+.dropdown-menu { position: absolute; top: 100%; left: 0; right: 0; border: 1px solid rgba(79,172,254,0.12); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 1000; max-height: 300px; overflow-y: auto; display: none; flex-direction: column; }
+[data-theme="dark"] .dropdown-menu { background: #1a1a2e; }
+[data-theme="light"] .dropdown-menu { background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+[data-theme="dark"] .checkbox-label { color: rgba(200,208,224,0.8); }
+.dropdown-menu input[type=text] { font-size: 11px; }
+</style>
+
+<!-- FILTER BAR -->
+<form method="GET" action="/pl_2g" id="filterForm">
+<div class="filter-bar">
+    <div class="filter-group">
+        <div class="filter-label">Date From</div>
+        <input type="date" name="from_date" class="f-input" value="{{ from_date }}" id="fFrom">
+    </div>
+    <div class="filter-group">
+        <div class="filter-label">Date To</div>
+        <input type="date" name="to_date" class="f-input" value="{{ to_date }}" id="fTo">
+    </div>
+
+    <div class="filter-group">
+        <div class="filter-label">Site ID</div>
+        <div class="dropdown-container">
+            <button type="button" class="dropdown-toggle" onclick="toggleDropdown()">
+                Select Sites ({{ sel_sites|length if sel_sites else 0 }} selected) <i class="fas fa-chevron-down"></i>
+            </button>
+            <div class="dropdown-menu" id="siteDropdown" style="display: none;">
+                <input type="text" id="siteSearch" placeholder="Search sites..." onkeyup="filterSites()" style="width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid rgba(128,128,128,0.2); border-radius: 4px;">
+                <label class="checkbox-label" style="border-bottom: 1px solid rgba(128,128,128,0.1); padding-bottom: 8px; margin-bottom: 8px;">
+                    <input type="checkbox" id="siteSelectAll" onchange="toggleAllSites(this)">
+                    <span><strong>Select All</strong></span>
+                </label>
+                <div id="siteCheckboxes" style="max-height: 200px; overflow-y: auto;">
+                    {% for site in sites_list %}
+                    <label class="checkbox-label" data-site="{{ site }}">
+                        <input type="checkbox" name="site" value="{{ site }}" {% if site in sel_sites %}checked{% endif %}>
+                        <span>{{ site }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn-apply">
+        <i class="fas fa-play" style="font-size:10px;margin-right:4px"></i> Show
+    </button>
+
+    <div class="view-toggle">
+        <button type="button" class="view-toggle-btn active" id="viewChart" onclick="setView('chart', this)">
+            <i class="fas fa-chart-line"></i> Chart
+        </button>
+        <button type="button" class="view-toggle-btn" id="viewTable" onclick="setView('table', this)">
+            <i class="fas fa-table"></i> Table
+        </button>
+    </div>
+</div>
+</form>
+
+<div style="font-size:12px; color: #888; margin: 0 20px 10px;">
+    Last update: {{ last_update or 'N/A' }}
+</div>
+<div class="content-area">
+{% if chart_labels %}
+
+<div class="chart-grid" id="chartView">
+    {% set pl_meta = {
+        'plChart': {'title': '📦 Packet Loss 2G (%)', 'sub': 'Packet Loss Rate'},
+        'latencyChart': {'title': '⏱️ Latency (ms)', 'sub': 'Mean round-trip delay'},
+        'jitterChart': {'title': '📊 Jitter (ms)', 'sub': 'Mean delay jitter'}
+    } %}
+    {% for cid in ['plChart', 'latencyChart', 'jitterChart'] %}
+    {% set meta = pl_meta[cid] %}
+    <div class="card" id="card-{{ cid }}">
+        <div class="card-title">{{ meta.title }}</div>
+        <div class="card-sub">{{ meta.sub }}</div>
+        <div class="chart-wrap" style="height:200px;position:relative">
+            <div class="chart-loading" id="loading-{{ cid }}"><div class="shimmer"></div></div>
+            <canvas id="{{ cid }}" style="cursor:pointer" onclick="openChartModal(document.getElementById('{{ cid }}'))"></canvas>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- TABLE VIEW -->
+<div id="tableView" style="display:none;">
+    <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div class="card-title" style="margin:0">📊 Data Table View</div>
+            <button class="btn-apply" onclick="downloadTableData()" style="display:flex;align-items:center;gap:5px;">
+                <i class="fas fa-download" style="font-size:10px;margin-right:4px"></i> Download CSV
+            </button>
+        </div>
+        <div style="max-height:500px;overflow-y:auto;border:1px solid rgba(128,128,128,0.15);border-radius:6px;">
+            <style>
+                #tableView .data-table th { position: sticky; top: 0; z-index: 1; }
+                [data-theme="dark"]  #tableView .data-table th { background: #1a1a2e; }
+                [data-theme="light"] #tableView .data-table th { background: #f0f2f8; }
+            </style>
+            <table class="data-table" id="dataTable" style="min-width:600px">
+                <thead id="tableHead"></thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="empty-state">
+    <div style="font-size:40px;margin-bottom:12px">📡</div>
+    <div style="font-size:14px">Select date range and Site ID, then click <strong>Show</strong></div>
+</div>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+function toggleDropdown(){
+    var menu = document.getElementById("siteDropdown");
+    menu.style.display = menu.style.display === "none" ? "block" : "none";
+}
+
+function filterSites(){
+    var input = document.getElementById("siteSearch");
+    var filter = input.value.toUpperCase();
+    var checkboxes = document.getElementById("siteCheckboxes");
+    var labels = checkboxes.getElementsByTagName("label");
+    for(var i = 0; i < labels.length; i++){
+        var span = labels[i].getElementsByTagName("span")[0];
+        if(span){
+            var txtValue = span.textContent || span.innerText;
+            if(txtValue.toUpperCase().indexOf(filter) > -1){
+                labels[i].style.display = "";
+            } else {
+                labels[i].style.display = "none";
+            }
+        }
+    }
+}
+
+function toggleAllSites(selectAllCheckbox){
+    var checkboxes = document.querySelectorAll("#siteCheckboxes input[type='checkbox']");
+    checkboxes.forEach(function(cb){ cb.checked = selectAllCheckbox.checked; });
+    updateSelectedCount();
+}
+
+function updateSelectedCount(){
+    var selected = document.querySelectorAll("#siteCheckboxes input[type='checkbox']:checked").length;
+    var toggle = document.querySelector(".dropdown-toggle");
+    toggle.innerHTML = "Select Sites (" + selected + " selected) <i class='fas fa-chevron-down'></i>";
+    sortSelectedToTop();
+}
+
+function sortSelectedToTop(){
+    var container = document.getElementById("siteCheckboxes");
+    if(!container) return;
+    var labels = Array.from(container.querySelectorAll("label[data-site]"));
+    var selected = [], unselected = [];
+    labels.forEach(function(l){
+        var cb = l.querySelector("input[type='checkbox']");
+        if(cb && cb.checked) selected.push(l); else unselected.push(l);
+    });
+    selected.forEach(function(l){ container.removeChild(l); });
+    unselected.forEach(function(l){ container.removeChild(l); });
+    selected.forEach(function(l){ container.appendChild(l); });
+    unselected.forEach(function(l){ container.appendChild(l); });
+}
+
+document.addEventListener("click", function(event){
+    var container = document.querySelector(".dropdown-container");
+    if(!container.contains(event.target)){
+        document.getElementById("siteDropdown").style.display = "none";
+    }
+});
+
+document.addEventListener("change", function(event){
+    if(event.target.type === "checkbox" && event.target.name === "site"){
+        updateSelectedCount();
+    }
+});
+
+document.addEventListener("DOMContentLoaded", function(){
+    updateSelectedCount();
+    ["plChart","latencyChart","jitterChart"].forEach(function(id){
+        var el = document.getElementById("loading-" + id);
+        if(el) el.style.display = "none";
+    });
+});
+
+/* ── View Toggle (Chart / Table) ── */
+var currentView = "chart";
+function setView(view, btn){
+    currentView = view;
+    document.getElementById("chartView").style.display  = view === "chart" ? "" : "none";
+    document.getElementById("tableView").style.display  = view === "table" ? "" : "none";
+    document.querySelectorAll(".view-toggle-btn").forEach(function(b){ b.classList.remove("active"); });
+    if(btn) btn.classList.add("active");
+    if(view === "table") populateTable();
+}
+
+function populateTable(){
+    var thead = document.getElementById("tableHead");
+    var tbody = document.getElementById("tableBody");
+    if(!thead || !tbody || !chartLabels || chartLabels.length === 0) return;
+    thead.innerHTML = "<tr><th>Timestamp</th><th>Site ID</th><th>Packet Loss (%)</th><th>Latency (ms)</th><th>Jitter (ms)</th></tr>";
+    var rows = "";
+    for(var t = 0; t < chartLabels.length; t++){
+        var numSites = chartInstances.plChart.data.datasets.length;
+        for(var s = 0; s < numSites; s++){
+            var siteName = chartInstances.plChart.data.datasets[s].label || "Site";
+            var pl = chartInstances.plChart.data.datasets[s].data[t];
+            var lt = chartInstances.latencyChart.data.datasets[s] ? chartInstances.latencyChart.data.datasets[s].data[t] : undefined;
+            var ji = chartInstances.jitterChart.data.datasets[s] ? chartInstances.jitterChart.data.datasets[s].data[t] : undefined;
+            var fv = function(v){ return (v !== undefined && v !== null) ? parseFloat(v).toFixed(2) : "—"; };
+            rows += "<tr><td>" + (chartLabels[t] || "") + "</td>";
+            rows += "<td>" + siteName + "</td>";
+            rows += "<td>" + fv(pl) + "</td>";
+            rows += "<td>" + fv(lt) + "</td>";
+            rows += "<td>" + fv(ji) + "</td>";
+            rows += "</tr>";
+        }
+    }
+    tbody.innerHTML = rows;
+}
+
+/* ── Download CSV from table view ── */
+function downloadTableData(){
+    var thead = document.getElementById("tableHead");
+    var tbody = document.getElementById("tableBody");
+    if(!thead || !tbody) return;
+    var rows = [];
+    var headers = [];
+    thead.querySelectorAll("th").forEach(function(th){ headers.push(th.textContent || ""); });
+    tbody.querySelectorAll("tr").forEach(function(tr){
+        var row = [];
+        tr.querySelectorAll("td").forEach(function(td){ row.push(td.textContent || ""); });
+        if(row.length) rows.push(row);
+    });
+    var csv = [headers.join(",")];
+    rows.forEach(function(r){ csv.push(r.join(",")); });
+    var blob = new Blob([csv.join("\n")], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a"); a.href = url;
+    a.download = "pl_2g_data.csv"; a.click();
+    URL.revokeObjectURL(url);
+}
+
+var chartLabels  = {{ chart_labels  | tojson | safe }};
+var chartPl      = {{ chart_pl      | tojson | safe }};
+var chartLatency = {{ chart_latency | tojson | safe }};
+var chartJitter  = {{ chart_jitter  | tojson | safe }};
+
+(function(){
+    var qs = window.location.search;
+    if(qs && qs.length > 1){
+        sessionStorage.setItem("pl2g_last_qs", qs);
+    } else {
+        var saved = sessionStorage.getItem("pl2g_last_qs");
+        if(saved && saved.length > 1 && chartLabels.length === 0){
+            window.location.replace("/pl_2g" + saved);
+        }
+    }
+})();
+
+function tc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "#b0b8c8" : "#555"; }
+function gc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "rgba(79,172,254,0.08)" : "rgba(0,0,0,0.06)"; }
+
+var MON_SHORT = ["jan","feb","mar","apr","may","jun","jul","aug","sep","okt","nov","dec"];
+
+function hourlyTickCallback(val, idx){
+    var lbl = chartLabels[idx];
+    if(!lbl) return "";
+    var parts = lbl.split(" ");
+    if(parts.length < 2) return "";
+    var dateParts = parts[0].split("-");
+    if(dateParts.length < 3) return lbl;
+    var year = parseInt(dateParts[0], 10);
+    var month = parseInt(dateParts[1], 10) - 1;
+    var day = parseInt(dateParts[2], 10);
+    var dateObj = new Date(year, month, day);
+
+    if(chartLabels.length > 0){
+        var firstDate = chartLabels[0].split(" ")[0];
+        var lastDate = chartLabels[chartLabels.length - 1].split(" ")[0];
+        var firstParts = firstDate.split("-");
+        var lastParts = lastDate.split("-");
+        var firstDateObj = new Date(parseInt(firstParts[0]), parseInt(firstParts[1])-1, parseInt(firstParts[2]));
+        var lastDateObj = new Date(parseInt(lastParts[0]), parseInt(lastParts[1])-1, parseInt(lastParts[2]));
+        var totalDays = Math.ceil((lastDateObj - firstDateObj) / (1000 * 60 * 60 * 24)) + 1;
+        var interval = totalDays <= 7 ? 1 : totalDays <= 90 ? 3 : 7;
+        var daysSinceStart = Math.floor((dateObj - firstDateObj) / (1000 * 60 * 60 * 24));
+        if(daysSinceStart % interval !== 0) return "";
+    }
+
+    var dd = dateParts[2];
+    var mon = MON_SHORT[month];
+    return dd + " " + mon;
+}
+
+function makeOpts(leftLabel, yMin, yMax){
+    var opts = {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: {
+            legend: { display: true, position: "top", align: "center",
+                      labels: { color: tc(), font: { size: 11 }, boxWidth: 20, padding: 10 } },
+            tooltip: {
+                mode: "index", intersect: false,
+                backgroundColor: "rgba(10,10,30,0.88)",
+                titleFont: { size: 10 }, bodyFont: { size: 11 }, padding: 8,
+                callbacks: {
+                    title: function(items){ return items[0] ? items[0].label : ""; }
+                }
+            },
+            decimation: {
+                enabled: true,
+                algorithm: 'lttb',
+                samples: 200,
+                threshold: 500
+            }
+        },
+        interaction: { mode: "index", intersect: false },
+        scales: {
+            x: { ticks: { color: tc(), font: { size: 9 }, maxRotation: 0,
+                          autoSkip: true, autoSkipPadding: 20,
+                          callback: function(value){
+                            var tickLabel = value;
+                            if(typeof value === 'number' && Array.isArray(chartLabels)){
+                              tickLabel = chartLabels[value] || value;
+                            }
+                            if(typeof tickLabel === 'string' && tickLabel.indexOf(' ') > -1){
+                              var parts = tickLabel.split(' ');
+                              var dateParts = parts[0].split('-');
+                              if(dateParts.length === 3){
+                                var day = dateParts[2];
+                                var month = parseInt(dateParts[1], 10) - 1;
+                                var monthNames = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"];
+                                return day + ' ' + monthNames[month];
+                              }
+                            }
+                            return tickLabel;
+                          } }, grid: { color: gc() } },
+            y: { ticks: { color: tc(), font: { size: 10 } }, grid: { color: gc() },
+                 title: { display: true, text: leftLabel, color: tc(), font: { size: 10 } } }
+        }
+    };
+    if(yMin !== undefined) opts.scales.y.min = yMin;
+    if(yMax !== undefined) opts.scales.y.max = yMax;
+    return opts;
+}
+
+document.addEventListener("DOMContentLoaded", function(){
+    if(!chartLabels || chartLabels.length === 0) return;
+
+    var c1 = document.getElementById("plChart");
+    if(c1){
+        var ds1 = Object.entries(chartPl).map(function(e, i){
+            return { label: e[0], data: e[1], borderColor: ["#4facfe","#f093fb","#00c853","#ff9f40","#a78bfa","#ff5555","#00f2fe","#f6c90e","#8884d8","#ff6b6b"][i % 10],
+                     tension: 0.2, pointRadius: 0, pointHoverRadius: 5, borderWidth: 1.6 };
+        });
+        var plChart = new Chart(c1, { type: "line",
+            data: { labels: chartLabels, datasets: ds1 }, options: makeOpts("Packet Loss (%)") });
+        chartInstances.plChart = plChart;
+    }
+
+    var c2 = document.getElementById("latencyChart");
+    if(c2){
+        var ds2 = Object.entries(chartLatency).map(function(e, i){
+            return { label: e[0], data: e[1], borderColor: ["#4facfe","#f093fb","#00c853","#ff9f40","#a78bfa","#ff5555","#00f2fe","#f6c90e","#8884d8","#ff6b6b"][i % 10],
+                     tension: 0.2, pointRadius: 0, pointHoverRadius: 5, borderWidth: 1.6 };
+        });
+        var latencyChart = new Chart(c2, { type: "line",
+            data: { labels: chartLabels, datasets: ds2 }, options: makeOpts("Latency (ms)") });
+        chartInstances.latencyChart = latencyChart;
+    }
+
+    var c3 = document.getElementById("jitterChart");
+    if(c3){
+        var ds3 = Object.entries(chartJitter).map(function(e, i){
+            return { label: e[0], data: e[1], borderColor: ["#4facfe","#f093fb","#00c853","#ff9f40","#a78bfa","#ff5555","#00f2fe","#f6c90e","#8884d8","#ff6b6b"][i % 10],
+                     tension: 0.2, pointRadius: 0, pointHoverRadius: 5, borderWidth: 1.6 };
+        });
+        var jitterChart = new Chart(c3, { type: "line",
+            data: { labels: chartLabels, datasets: ds3 }, options: makeOpts("Jitter (ms)") });
+        chartInstances.jitterChart = jitterChart;
+    }
+});
+</script>
+{% endblock %}

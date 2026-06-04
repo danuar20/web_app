@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block nav_dashboard %}active{% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
+{% block page_sub %}NetKPI Monitor v2.0{% endblock %}
+
+{% block page_content %}
+<style>
+.welcome-wrap {
+    flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px;
+}
+.welcome-card { text-align: center; max-width: 400px; }
+.welcome-icon  { font-size: 56px; margin-bottom: 20px; line-height: 1; }
+.welcome-title { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+.welcome-sub   { font-size: 14px; opacity: 0.5; margin-bottom: 28px; line-height: 1.6; }
+.welcome-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 24px; background: linear-gradient(135deg,#4facfe,#00f2fe);
+    border-radius: 10px; color: white; font-weight: 600; font-size: 14px;
+    text-decoration: none; transition: opacity 0.2s;
+}
+.welcome-btn:hover { opacity: 0.85; color: white; }
+</style>
+
+<div class="welcome-wrap">
+    <div class="welcome-card">
+        <div class="welcome-icon">📡</div>
+        <div class="welcome-title">Selamat datang, {{ username }}!</div>
+        <div class="welcome-sub">
+            Pilih menu di sidebar kiri untuk mulai memantau<br>performa jaringan Anda.
+        </div>
+        <a href="/productivity" class="welcome-btn">
+            <i class="fas fa-chart-line"></i> Lihat Productivity
+        </a>
+    </div>
+</div>
+{% endblock %}

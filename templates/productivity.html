@@ -1,0 +1,417 @@
+{% extends "base.html" %}
+
+{% block nav_productivity %}active{% endblock %}
+{% block page_title %}Productivity{% endblock %}
+{% block page_sub %}Traffic & Payload — Year-over-Year{% endblock %}
+
+{% block topbar_chips %}
+{% if last_date_after %}
+<div class="info-chip">
+    <i class="fas fa-calendar-alt" style="font-size:10px"></i>
+    Data up to {{ last_date_after }}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block page_content %}
+<style>
+.content-area { flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.chart-grid   { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 14px; }
+@media(max-width:900px){ .chart-grid{grid-template-columns:1fr;} }
+
+/* Hierarchical table */
+.row-regional td { font-weight: 700; }
+[data-theme="dark"]  .row-regional td { background: rgba(79,172,254,0.07); }
+[data-theme="light"] .row-regional td { background: rgba(79,172,254,0.04); }
+.row-nop td { font-weight: 600; }
+[data-theme="dark"]  .row-nop td { background: rgba(255,255,255,0.03); }
+[data-theme="light"] .row-nop td { background: #f8f9fb; }
+.row-to td { font-size: 12px; }
+.toggle-row { cursor: pointer; }
+.toggle-row td:first-child::before { content:"▶ "; font-size:9px; opacity:0.45; transition:transform 0.15s; display:inline-block; }
+.toggle-row.expanded td:first-child::before { transform:rotate(90deg); }
+</style>
+
+<!-- PAGE TABS -->
+<div class="page-tabs">
+    <div class="page-tab active">📈 Trend YoY</div>
+    <div class="page-tab" onclick="location.href='/city_level'">🏙️ City Level</div>
+    <div class="page-tab" onclick="location.href='/site_level'">📡 Site Level</div>
+</div>
+
+<!-- FILTER BAR -->
+<form method="GET" action="/productivity" id="filterForm">
+<div class="filter-bar">
+
+    <div class="filter-group">
+        <div class="filter-label">Year Before</div>
+        <select name="year_before" class="f-select" style="width:110px" id="selYB">
+            <option value="">-- Select --</option>
+            {% for y in years_list %}
+            <option value="{{ y }}" {% if y|string == year_before|string %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="filter-group">
+        <div class="filter-label">Year After</div>
+        <select name="year_after" class="f-select" style="width:110px" id="selYA">
+            <option value="">-- Select --</option>
+            {% for y in years_list %}
+            <option value="{{ y }}" {% if y|string == year_after|string %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    {% if filter_error %}
+    <div class="filter-err"><i class="fas fa-exclamation-circle"></i> {{ filter_error }}</div>
+    {% endif %}
+
+    <button type="submit" class="btn-apply" id="btnApply">
+        <i class="fas fa-play" style="font-size:10px;margin-right:4px"></i> Show
+    </button>
+</div>
+</form>
+
+<div class="content-area">
+
+{% if chart_labels %}
+
+<!-- KPI CARDS -->
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <span class="kpi-icon">📦</span>
+        <div class="kpi-label">Total Payload {{ year_after }}</div>
+        <div class="kpi-value">{{ "%.1f"|format(total_payload_after / 1024) }}<span class="kpi-unit"> PB</span></div>
+        {% if ytd_payload_final is not none %}
+        <div class="kpi-delta {% if ytd_payload_final>=0 %}delta-up{% else %}delta-dn{% endif %}">
+            {% if ytd_payload_final>=0 %}▲{% else %}▼{% endif %} {{ "%.1f"|format(ytd_payload_final) }}% YTD
+        </div>
+        {% endif %}
+    </div>
+    <div class="kpi-card">
+        <span class="kpi-icon">📶</span>
+        <div class="kpi-label">Total Traffic {{ year_after }}</div>
+        <div class="kpi-value">{{ "%.1f"|format(total_traffic_after / 1000) }}<span class="kpi-unit"> Mio Erl</span></div>
+        {% if ytd_traffic_final is not none %}
+        <div class="kpi-delta {% if ytd_traffic_final>=0 %}delta-up{% else %}delta-dn{% endif %}">
+            {% if ytd_traffic_final>=0 %}▲{% else %}▼{% endif %} {{ "%.1f"|format(ytd_traffic_final) }}% YTD
+        </div>
+        {% endif %}
+    </div>
+    <div class="kpi-card">
+        <span class="kpi-icon">⚡</span>
+        <div class="kpi-label">Peak Daily Payload ({{ year_after }})</div>
+        <div class="kpi-value">{{ "%.2f"|format(peak_payload_after) }}<span class="kpi-unit"> TB</span></div>
+        <div class="kpi-delta delta-neu">Highest value in period</div>
+    </div>
+    <div class="kpi-card">
+        <span class="kpi-icon">📅</span>
+        <div class="kpi-label">Comparison</div>
+        <div class="kpi-value" style="font-size:18px">{{ year_before }}<span class="kpi-unit"> vs </span>{{ year_after }}</div>
+        <div class="kpi-delta delta-neu">up to {{ last_date_after }}</div>
+    </div>
+</div>
+
+<!-- CHARTS -->
+<div class="chart-grid">
+    <div class="card">
+        <div class="card-title">📈 Payload Trend</div>
+        <div class="card-sub">Daily by day-of-year: {{ year_before }} vs {{ year_after }} (until day {{ last_date_after }}) · YTD cumulative (%)</div>
+        <div class="chart-wrap" style="width:100%;height:220px"><canvas id="payloadChart"></canvas></div>
+        <div class="chart-legend">
+            <div class="legend-item"><div class="legend-line" style="background:#8884d8"></div> {{ year_before }}</div>
+            <div class="legend-item"><div class="legend-line" style="background:#4facfe"></div> {{ year_after }}</div>
+            <div class="legend-item"><div class="legend-dash" style="border-color:#00c853"></div> YTD %</div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-title">📡 Traffic Trend</div>
+        <div class="card-sub">Daily by day-of-year: {{ year_before }} vs {{ year_after }} (until day {{ last_date_after }}) · YTD cumulative (%)</div>
+        <div class="chart-wrap" style="width:100%;height:220px"><canvas id="trafficChart"></canvas></div>
+        <div class="chart-legend">
+            <div class="legend-item"><div class="legend-line" style="background:#ff9f40"></div> {{ year_before }}</div>
+            <div class="legend-item"><div class="legend-line" style="background:#f093fb"></div> {{ year_after }}</div>
+            <div class="legend-item"><div class="legend-dash" style="border-color:#00c853"></div> YTD %</div>
+        </div>
+    </div>
+</div>
+
+<!-- TABLE -->
+<div class="table-card">
+    <div class="table-card-header">
+        <div class="table-card-title">Regional / NOP / TO Table</div>
+        <div class="live-badge"><div class="live-dot"></div> Live</div>
+    </div>
+    <div class="table-scroll">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Regional / NOP / TO</th>
+                    <th>Payload {{ year_before }} (TB)</th>
+                    <th>Payload {{ year_after }} (TB)</th>
+                    <th>YTD Payload</th>
+                    <th>Traffic {{ year_before }} (KErl)</th>
+                    <th>Traffic {{ year_after }} (KErl)</th>
+                    <th>YTD Traffic</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% set ri = namespace(val=0) %}
+            {% for reg in table_rows %}
+            {% set ri.val = ri.val + 1 %}
+            <tr class="row-regional toggle-row" onclick="toggleGroup('rg{{ri.val}}',this)">
+                <td>🌐 {{ reg.label }}</td>
+                <td>{{ "%.1f"|format(reg.p_before) }}</td>
+                <td>{{ "%.1f"|format(reg.p_after) }}</td>
+                <td>{% if reg.ytd_p is not none %}<span class="{% if reg.ytd_p>=0 %}ytd-pos{% else %}ytd-neg{% endif %}">{% if reg.ytd_p>=0 %}▲{% else %}▼{% endif %} {{ "%.2f"|format(reg.ytd_p) }}%</span>{% else %}<span class="ytd-na">—</span>{% endif %}</td>
+                <td>{{ "%.0f"|format(reg.t_before) }}</td>
+                <td>{{ "%.0f"|format(reg.t_after) }}</td>
+                <td>{% if reg.ytd_t is not none %}<span class="{% if reg.ytd_t>=0 %}ytd-pos{% else %}ytd-neg{% endif %}">{% if reg.ytd_t>=0 %}▲{% else %}▼{% endif %} {{ "%.2f"|format(reg.ytd_t) }}%</span>{% else %}<span class="ytd-na">—</span>{% endif %}</td>
+            </tr>
+            {% set ni = namespace(val=0) %}
+            {% for nop in reg.children %}
+            {% set ni.val = ni.val + 1 %}
+            <tr class="row-nop toggle-row child-rg{{ri.val}}" onclick="toggleGroup('np{{ri.val}}_{{ni.val}}',this)" style="display:none">
+                <td style="padding-left:22px">📍 {{ nop.label }}</td>
+                <td>{{ "%.1f"|format(nop.p_before) }}</td>
+                <td>{{ "%.1f"|format(nop.p_after) }}</td>
+                <td>{% if nop.ytd_p is not none %}<span class="{% if nop.ytd_p>=0 %}ytd-pos{% else %}ytd-neg{% endif %}">{% if nop.ytd_p>=0 %}▲{% else %}▼{% endif %} {{ "%.2f"|format(nop.ytd_p) }}%</span>{% else %}<span class="ytd-na">—</span>{% endif %}</td>
+                <td>{{ "%.0f"|format(nop.t_before) }}</td>
+                <td>{{ "%.0f"|format(nop.t_after) }}</td>
+                <td>{% if nop.ytd_t is not none %}<span class="{% if nop.ytd_t>=0 %}ytd-pos{% else %}ytd-neg{% endif %}">{% if nop.ytd_t>=0 %}▲{% else %}▼{% endif %} {{ "%.2f"|format(nop.ytd_t) }}%</span>{% else %}<span class="ytd-na">—</span>{% endif %}</td>
+            </tr>
+            {% for to in nop.children %}
+            <tr class="row-to child-rg{{ri.val}} child-np{{ri.val}}_{{ni.val}}" style="display:none">
+                <td style="padding-left:38px">↳ {{ to.label }}</td>
+                <td>{{ "%.1f"|format(to.p_before) }}</td>
+                <td>{{ "%.1f"|format(to.p_after) }}</td>
+                <td>{% if to.ytd_p is not none %}<span class="{% if to.ytd_p>=0 %}ytd-pos{% else %}ytd-neg{% endif %}">{% if to.ytd_p>=0 %}▲{% else %}▼{% endif %} {{ "%.2f"|format(to.ytd_p) }}%</span>{% else %}<span class="ytd-na">—</span>{% endif %}</td>
+                <td>{{ "%.0f"|format(to.t_before) }}</td>
+                <td>{{ "%.0f"|format(to.t_after) }}</td>
+                <td>{% if to.ytd_t is not none %}<span class="{% if to.ytd_t>=0 %}ytd-pos{% else %}ytd-neg{% endif %}">{% if to.ytd_t>=0 %}▲{% else %}▼{% endif %} {{ "%.2f"|format(to.ytd_t) }}%</span>{% else %}<span class="ytd-na">—</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+            {% endfor %}
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% else %}
+<div class="empty-state">
+    <div style="font-size:40px;margin-bottom:12px">📊</div>
+    <div style="font-size:14px">Select Year Before, Year After, then click <strong>Show</strong></div>
+</div>
+{% endif %}
+
+</div><!-- /content-area -->
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+/* ── Data from Flask ── */
+var chartLabels   = {{ chart_labels    | tojson | safe }};
+var payloadBefore = {{ payload_before  | tojson | safe }};
+var payloadAfter  = {{ payload_after   | tojson | safe }};
+var payloadYTD    = {{ payload_ytd     | tojson | safe }};
+var trafficBefore = {{ traffic_before  | tojson | safe }};
+var trafficAfter  = {{ traffic_after   | tojson | safe }};
+var trafficYTD    = {{ traffic_ytd     | tojson | safe }};
+var yearBefore    = "{{ year_before }}";
+var yearAfter     = "{{ year_after }}";
+
+/* ── Cache last query state in sessionStorage ── */
+(function(){
+    var qs = window.location.search;
+    if(qs && qs.length > 1){
+        sessionStorage.setItem("productivity_last_qs", qs);
+    } else {
+        var saved = sessionStorage.getItem("productivity_last_qs");
+        if(saved && saved.length > 1 && chartLabels.length === 0){
+            /* Redirect silently to last query */
+            window.location.replace("/productivity" + saved);
+        }
+    }
+})();
+
+/* ── Chart helpers ── */
+function tc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "#b0b8c8" : "#555"; }
+function gc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "rgba(79,172,254,0.08)" : "rgba(0,0,0,0.06)"; }
+
+/* Month names for x-axis label (YYYY-MM-DD labels, show month name at day 01) */
+var MON_NAMES = {
+    "01":"Jan","02":"Feb","03":"Mar","04":"Apr","05":"Mei","06":"Jun",
+    "07":"Jul","08":"Agt","09":"Sep","10":"Okt","11":"Nov","12":"Des"
+};
+
+function chartOpts(leftLabel){
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,   /* disable animation for snappy resize */
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                mode: 'index', intersect: false,
+                backgroundColor: 'rgba(10,10,30,0.88)',
+                titleFont: { size: 11 }, bodyFont: { size: 11 }, padding: 10,
+                callbacks: {
+                    title: function(items){
+                        /* Show full date as tooltip title */
+                        return items[0] ? items[0].label : "";
+                    },
+                    label: function(ctx){
+                        var v = ctx.raw;
+                        if(v === null || v === undefined) return null;
+                        var suf = ctx.datasetIndex === 2 ? "%" : "";
+                        return " " + ctx.dataset.label + ": " + parseFloat(v).toFixed(2) + suf;
+                    }
+                }
+            },
+            /* Decimation: auto-downsample series with > 500 points to 200 using LTTB */
+            decimation: {
+                enabled: true,
+                algorithm: 'lttb',
+                samples: 200,
+                threshold: 500
+            }
+        },
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+            x: {
+                ticks: {
+                    color: tc(),
+                    font: { size: 10 },
+                    maxRotation: 0,
+                    autoSkip: true,
+                    autoSkipPadding: 40,
+                    callback: function(val, idx){
+                        /* chartLabels are already in "DD Mon" format (01 Jan, 02 Jan, etc) */
+                        return chartLabels[idx];
+                    }
+                },
+                grid: { color: gc() }
+            },
+            y: {
+                position: 'left',
+                title: { display: true, text: leftLabel, color: tc(), font: { size: 10 } },
+                ticks: { color: tc(), font: { size: 10 } },
+                grid: { color: gc() }
+            },
+            y1: {
+                position: 'right',
+                title: { display: true, text: 'YTD kumulatif (%)', color: '#00c853', font: { size: 10 } },
+                ticks: { color: '#00c853', font: { size: 10 } },
+                grid: { drawOnChartArea: false }
+            }
+        }
+    };
+}
+
+var payloadChart = null, trafficChart = null;
+
+function renderChart(){
+    var c1 = document.getElementById('payloadChart');
+    if(c1){
+        if(payloadChart) payloadChart.destroy();
+        payloadChart = new Chart(c1, {
+            type: 'line',
+            data: { labels: chartLabels, datasets: [
+                { label: yearBefore + ' (TB)', data: payloadBefore, borderColor: '#8884d8',
+                  tension: 0.3, pointRadius: 0, pointHoverRadius: 5, yAxisID: 'y', borderWidth: 1.8 },
+                { label: yearAfter  + ' (TB)', data: payloadAfter,  borderColor: '#4facfe',
+                  tension: 0.3, pointRadius: 0, pointHoverRadius: 5, yAxisID: 'y', borderWidth: 1.8 },
+                { label: 'YTD (%)',             data: payloadYTD,    borderColor: '#00c853',
+                  borderDash:[5,3], tension: 0.3, pointRadius: 0, pointHoverRadius: 5, yAxisID: 'y1', borderWidth: 1.4 }
+            ]},
+            options: chartOpts('TeraBytes')
+        });
+        chartInstances.payloadChart = payloadChart;
+        /* Make canvas clickable to open modal */
+        c1.style.cursor = 'pointer';
+        c1.onclick = function(){ openChartModal(c1); };
+    }
+    var c2 = document.getElementById('trafficChart');
+    if(c2){
+        if(trafficChart) trafficChart.destroy();
+        trafficChart = new Chart(c2, {
+            type: 'line',
+            data: { labels: chartLabels, datasets: [
+                { label: yearBefore + ' (KErl)', data: trafficBefore, borderColor: '#ff9f40',
+                  tension: 0.3, pointRadius: 0, pointHoverRadius: 5, yAxisID: 'y', borderWidth: 1.8 },
+                { label: yearAfter  + ' (KErl)', data: trafficAfter,  borderColor: '#f093fb',
+                  tension: 0.3, pointRadius: 0, pointHoverRadius: 5, yAxisID: 'y', borderWidth: 1.8 },
+                { label: 'YTD (%)',              data: trafficYTD,    borderColor: '#00c853',
+                  borderDash:[5,3], tension: 0.3, pointRadius: 0, pointHoverRadius: 5, yAxisID: 'y1', borderWidth: 1.4 }
+            ]},
+            options: chartOpts('Kilo Erlang')
+        });
+        chartInstances.trafficChart = trafficChart;
+        /* Make canvas clickable to open modal */
+        c2.style.cursor = 'pointer';
+        c2.onclick = function(){ openChartModal(c2); };
+    }
+}
+
+/* Resize charts on browser window resize — uses chartInstances (no global vars needed) */
+window.addEventListener("resize", function(){
+    Object.values(chartInstances).forEach(function(ch){
+        if(ch && typeof ch.resize === 'function'){ ch.resize(); ch.update(); }
+    });
+});
+
+/* ── NSA multi-select all toggle ── */
+function toggleAllNSA(){
+    var allCb = document.getElementById("nsaAll");
+    document.querySelectorAll("[name='nsa']").forEach(function(b){ b.checked = allCb.checked; });
+    msUpdateLabel("nsaDrop", "nsa", "Semua NSA");
+}
+
+/* ── Year validation ── */
+function validateYears(){
+    var yb  = document.getElementById("selYB").value;
+    var ya  = document.getElementById("selYA").value;
+    var btn = document.getElementById("btnApply");
+    if(yb && ya && yb >= ya){
+        btn.disabled = true; btn.style.opacity = "0.5";
+        btn.title = "Year Before must be smaller than Year After";
+    } else {
+        btn.disabled = false; btn.style.opacity = "1"; btn.title = "";
+    }
+}
+document.getElementById("selYB").addEventListener("change", validateYears);
+document.getElementById("selYA").addEventListener("change", validateYears);
+validateYears();
+
+/* ── Hierarchical table expand/collapse ── */
+function toggleGroup(groupId, rowEl){
+    rowEl.classList.toggle("expanded");
+    var show = rowEl.classList.contains("expanded");
+    /* Show/hide direct children */
+    document.querySelectorAll(".child-" + groupId).forEach(function(r){
+        r.style.display = show ? "" : "none";
+        /* When collapsing, also collapse grandchildren */
+        if(!show){
+            r.classList.remove("expanded");
+            /* Extract grandchild group IDs from this row's toggle */
+            if(r.classList.contains("toggle-row")){
+                /* hide its children too */
+                var gcls = Array.from(r.classList).filter(function(c){ return c.startsWith("child-"); });
+                /* we rely on grandchildren having their own child- classes */
+            }
+        }
+    });
+    /* If collapsing a NOP row, also hide its TO children */
+    if(!show){
+        /* find all rows that are children of children */
+        document.querySelectorAll("[class*='child-"+groupId+"_']").forEach(function(r){
+            r.style.display = "none";
+        });
+    }
+}
+
+document.addEventListener("DOMContentLoaded", renderChart);
+</script>
+{% endblock %}

@@ -1,0 +1,466 @@
+{% extends "base.html" %}
+
+{% block nav_productivity %}active{% endblock %}
+{% block page_title %}Site Level{% endblock %}
+{% block page_sub %}Payload, Traffic, Availability & RRC — per Site ID{% endblock %}
+
+{% block page_content %}
+<style>
+.content-area { flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.chart-grid   { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+@media(max-width:900px){ .chart-grid{grid-template-columns:1fr;} }
+.dropdown-container { position: relative; }
+.dropdown-toggle { width: 100%; padding: 8px 12px; border: 1px solid rgba(79,172,254,0.15); border-radius: 6px; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center; font-size: 12px; transition: border-color 0.18s, background 0.3s ease; }
+[data-theme="dark"] .dropdown-toggle { background: rgba(30,30,58,0.8); color: #c8d0e0; }
+[data-theme="light"] .dropdown-toggle { background: rgba(255,255,255,0.95); color: inherit; }
+.dropdown-menu { position: absolute; top: 100%; left: 0; right: 0; border: 1px solid rgba(79,172,254,0.12); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 1000; overflow: hidden; display: none; flex-direction: column; }
+[data-theme="dark"] .dropdown-menu { background: #1a1a2e; }
+[data-theme="light"] .dropdown-menu { background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+.checkbox-label { font-size: 11px; }
+[data-theme="dark"] .checkbox-label { color: rgba(200,208,224,0.8); }
+.dropdown-menu label { font-size: 11px; }
+[data-theme="dark"] .dropdown-menu label { color: rgba(200,208,224,0.8); }
+.dropdown-menu input[type=text] { font-size: 11px; }
+
+/* Comparison table */
+.compare-city-header {
+    padding: 8px 16px;
+    background: rgba(79,172,254,0.08);
+    border-bottom: 1px solid rgba(79,172,254,0.15);
+}
+.compare-city-label {
+    font-size: 12px; font-weight: 700;
+    color: #4facfe;
+    letter-spacing: 0.3px;
+}
+.compare-row td { font-size: 12px; }
+.delta-pos { color: #00c853; font-weight: 600; }
+.delta-neg { color: #f87171; font-weight: 600; }
+</style>
+
+<!-- PAGE TABS -->
+<div class="page-tabs">
+    <div class="page-tab" onclick="location.href='/productivity'">📈 Trend YoY</div>
+    <div class="page-tab" onclick="location.href='/city_level'">🏙️ City Level</div>
+    <div class="page-tab active">📡 Site Level</div>
+</div>
+
+<!-- FILTER BAR -->
+<form method="GET" action="/site_level" id="filterForm">
+<div class="filter-bar">
+    <div class="filter-group">
+        <div class="filter-label">From Date</div>
+        <input type="date" name="from_date" class="f-input" style="width:140px" value="{{ from_date }}">
+    </div>
+    <div class="filter-group">
+        <div class="filter-label">To Date</div>
+        <input type="date" name="to_date" class="f-input" style="width:140px" value="{{ to_date }}">
+    </div>
+
+    <!-- NSA multi-select -->
+    <div class="filter-group" style="min-width:200px">
+        <div class="filter-label">NSA</div>
+        <div class="dropdown-container">
+            <button type="button" class="dropdown-toggle" onclick="toggleDropdown('nsaDropdown')">
+                <span id="nsaToggleLabel">All NSA ({{ nsas_list|length }})</span> <i class="fas fa-chevron-down"></i>
+            </button>
+            <div class="dropdown-menu" id="nsaDropdown">
+                <input type="text" id="nsaSearch" placeholder="Search NSA..." onkeyup="filterList('nsa')" style="width:100%;padding:6px 8px;margin-bottom:4px;border:1px solid rgba(128,128,128,0.2);border-radius:4px">
+                <label style="padding:4px 8px;cursor:pointer;border-bottom:1px solid rgba(128,128,128,0.1);margin-bottom:4px;font-size:11px">
+                    <input type="checkbox" id="nsaSelectAll" onchange="toggleAllInList('nsa')"> <strong>Select All</strong>
+                </label>
+                <div id="nsaCheckboxes" style="max-height:180px;overflow-y:auto">
+                    {% for n in nsas_list %}
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="nsa" value="{{ n }}" {% if n in sel_nsas %}checked{% endif %}
+                        onchange="updateCount('nsa','{{ nsas_list|length }}')"> <span>{{ n }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- City multi-select -->
+    <div class="filter-group" style="min-width:280px">
+        <div class="filter-label">KABUPATEN / Kota</div>
+        <div class="dropdown-container">
+            <button type="button" class="dropdown-toggle" onclick="toggleDropdown('cityDropdown')">
+                <span id="cityToggleLabel">All City ({{ filtered_cities|length }})</span> <i class="fas fa-chevron-down"></i>
+            </button>
+            <div class="dropdown-menu" id="cityDropdown" style="min-width:280px">
+                <input type="text" id="citySearch" placeholder="Search city..." onkeyup="filterList('city')" style="width:100%;padding:6px 8px;margin-bottom:4px;border:1px solid rgba(128,128,128,0.2);border-radius:4px">
+                <label style="padding:4px 8px;cursor:pointer;border-bottom:1px solid rgba(128,128,128,0.1);margin-bottom:4px;font-size:11px">
+                    <input type="checkbox" id="citySelectAll" onchange="toggleAllInList('city')"> <strong>Select All</strong>
+                </label>
+                <div id="cityCheckboxes" style="max-height:200px;overflow-y:auto">
+                    {% for c in filtered_cities %}
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="city" value="{{ c }}" {% if c in sel_cities %}checked{% endif %}
+                        onchange="updateCount('city','{{ filtered_cities|length }}')"> <span>{{ c }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Site multi-select -->
+    <div class="filter-group">
+        <div class="filter-label">Site ID</div>
+        <div class="dropdown-container">
+            <button type="button" class="dropdown-toggle" onclick="toggleDropdown('siteDropdown')">
+                <span id="siteToggleLabel">All Site ({{ sites_list|length }})</span> <i class="fas fa-chevron-down"></i>
+            </button>
+            <div class="dropdown-menu" id="siteDropdown">
+                <input type="text" id="siteSearch" placeholder="Search site..." onkeyup="filterList('site')" style="width:100%;padding:6px 8px;margin-bottom:4px;border:1px solid rgba(128,128,128,0.2);border-radius:4px">
+                <label style="padding:4px 8px;cursor:pointer;border-bottom:1px solid rgba(128,128,128,0.1);margin-bottom:4px;font-size:11px">
+                    <input type="checkbox" id="siteSelectAll" onchange="toggleAllInList('site')"> <strong>Select All</strong>
+                </label>
+                <div id="siteCheckboxes" style="max-height:220px;overflow-y:auto">
+                    {% for s in sites_list %}
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="site" value="{{ s }}" {% if s in sel_sites %}checked{% endif %}
+                        onchange="updateCount('site','{{ sites_list|length }}')"> <span>{{ s }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn-apply">
+        <i class="fas fa-play" style="font-size:10px;margin-right:4px"></i> Show
+    </button>
+
+    <div class="filter-group">
+        <div class="filter-label">Compare Week Before</div>
+        <select name="yw_before" class="f-input" style="width:140px;cursor:pointer">
+            <option value="">— Select —</option>
+            {% for w in yw_list %}
+            <option value="{{ w }}" {% if w==yw_before %}selected{% endif %}>{{ w }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-group">
+        <div class="filter-label">Compare Week After</div>
+        <select name="yw_after" class="f-input" style="width:140px;cursor:pointer">
+            <option value="">— Select —</option>
+            {% for w in yw_list %}
+            <option value="{{ w }}" {% if w==yw_after %}selected{% endif %}>{{ w }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-group" style="align-self:flex-end">
+        <div class="filter-label">&nbsp;</div>
+        <button type="submit" class="btn-apply">
+            <i class="fas fa-balance-scale" style="font-size:10px;margin-right:4px"></i> Compare
+        </button>
+    </div>
+</div>
+</form>
+
+<div class="content-area">
+
+{# ══════════════════════════════════════════════════════════════
+   CHART VIEW — shown when a date range + site filter is applied.
+══════════════════════════════════════════════════════════════ #}
+{% if chart_labels %}
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <span class="kpi-icon">📦</span>
+        <div class="kpi-label">Total Payload (GB)</div>
+        <div class="kpi-value">{{ "%.1f"|format(kpi_payload) }}<span class="kpi-unit"> GB</span></div>
+    </div>
+    <div class="kpi-card">
+        <span class="kpi-icon">📶</span>
+        <div class="kpi-label">Total Traffic (KErl)</div>
+        <div class="kpi-value">{{ "%.1f"|format(kpi_traffic) }}<span class="kpi-unit"> KEr</span></div>
+    </div>
+    <div class="kpi-card">
+        <span class="kpi-icon">📡</span>
+        <div class="kpi-label">Avg Availability</div>
+        <div class="kpi-value">{{ "%.2f"|format(kpi_availability) if kpi_availability is not none else '—' }}<span class="kpi-unit"> %</span></div>
+    </div>
+    <div class="kpi-card">
+        <span class="kpi-icon">👥</span>
+        <div class="kpi-label">Total RRC User</div>
+        <div class="kpi-value">{{ "%.0f"|format(kpi_rrc) }}<span class="kpi-unit"> sessions</span></div>
+    </div>
+</div>
+
+<div class="chart-grid">
+    <div class="card">
+        <div class="card-title">📦 Payload (GB)</div>
+        <div class="card-sub">{{ sel_sites|length }} site · {{ from_date }} - {{ to_date }}</div>
+        <div class="chart-wrap" style="width:100%"><canvas id="payloadChart"></canvas></div>
+    </div>
+    <div class="card">
+        <div class="card-title">📶 Traffic (KErl)</div>
+        <div class="card-sub">{{ sel_sites|length }} site · {{ from_date }} - {{ to_date }}</div>
+        <div class="chart-wrap" style="width:100%"><canvas id="trafficChart"></canvas></div>
+    </div>
+    <div class="card">
+        <div class="card-title">📡 Availability (%)</div>
+        <div class="card-sub">{{ sel_sites|length }} site · {{ from_date }} - {{ to_date }}</div>
+        <div class="chart-wrap" style="width:100%"><canvas id="availabilityChart"></canvas></div>
+    </div>
+    <div class="card">
+        <div class="card-title">👥 RRC User</div>
+        <div class="card-sub">{{ sel_sites|length }} site · {{ from_date }} - {{ to_date }}</div>
+        <div class="chart-wrap" style="width:100%"><canvas id="rrcChart"></canvas></div>
+    </div>
+</div>
+
+{% endif %}
+
+{# ══════════════════════════════════════════════════════════════
+   COMPARISON TABLE — always shown when Y_W Before/After + Compare is active.
+   Lives OUTSIDE the chart block so it shows independently.
+══════════════════════════════════════════════════════════════ #}
+{% set compare_has_data = compare_table and compare_table[0].rows %}
+{% if compare_table and compare_has_data %}
+<div class="table-card" style="margin-top:4px">
+    <div class="table-card-header">
+        <div class="table-card-title">
+            📊 KPI Week Comparison: {{ yw_before }} vs {{ yw_after }}
+        </div>
+    </div>
+    <div class="table-scroll">
+        {% for city_group in compare_table %}
+        <div class="compare-city-header">
+            <div class="compare-city-label">{{ city_group.city }}</div>
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Site ID</th>
+                    <th>Payload {{ yw_before }} (GB)</th>
+                    <th>Payload {{ yw_after }} (GB)</th>
+                    <th>Payload Δ%</th>
+                    <th>Traffic {{ yw_before }} (KEr)</th>
+                    <th>Traffic {{ yw_after }} (KEr)</th>
+                    <th>Traffic Δ%</th>
+                    <th>Avail {{ yw_before }} (%)</th>
+                    <th>Avail {{ yw_after }} (%)</th>
+                    <th>Avail Δ%</th>
+                    <th>RRC {{ yw_before }}</th>
+                    <th>RRC {{ yw_after }}</th>
+                    <th>RRC Δ%</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in city_group.rows %}
+                <tr class="compare-row">
+                    <td style="font-weight:600">{{ row.site }}</td>
+                    <td>{{ "%.2f"|format(row.pb) }}</td>
+                    <td>{{ "%.2f"|format(row.pa) }}</td>
+                    <td>
+                        {% if row.pch is not none %}
+                        <span class="{% if row.pch >= 0 %}delta-pos{% else %}delta-neg{% endif %}">
+                            {{ "%.1f"|format(row.pch) }}%
+                        </span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>{{ "%.2f"|format(row.tb) }}</td>
+                    <td>{{ "%.2f"|format(row.ta) }}</td>
+                    <td>
+                        {% if row.tch is not none %}
+                        <span class="{% if row.tch >= 0 %}delta-pos{% else %}delta-neg{% endif %}">
+                            {{ "%.1f"|format(row.tch) }}%
+                        </span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>{{ "%.2f"|format(row.ab) }}</td>
+                    <td>{{ "%.2f"|format(row.aa) }}</td>
+                    <td>
+                        {% if row.ach is not none %}
+                        <span class="{% if row.ach >= 0 %}delta-pos{% else %}delta-neg{% endif %}">
+                            {{ "%.1f"|format(row.ach) }}%
+                        </span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>{{ "%.0f"|format(row.rb) }}</td>
+                    <td>{{ "%.0f"|format(row.ra) }}</td>
+                    <td>
+                        {% if row.rch is not none %}
+                        <span class="{% if row.rch >= 0 %}delta-pos{% else %}delta-neg{% endif %}">
+                            {{ "%.1f"|format(row.rch) }}%
+                        </span>
+                        {% else %}—{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endfor %}
+    </div>
+</div>
+{% elif yw_before and yw_after %}
+<div class="empty-state" style="margin-top:4px">
+    <div style="font-size:28px;margin-bottom:8px">📋</div>
+    <div style="font-size:13px">Tidak ada data untuk perbandingan minggu<br><strong>{{ yw_before }}</strong> vs <strong>{{ yw_after }}</strong></div>
+</div>
+{% endif %}
+
+{# ══════════════════════════════════════════════════════════════
+   EMPTY STATE — shown when neither chart_labels nor compare_table exist.
+══════════════════════════════════════════════════════════════ #}
+{% if not chart_labels and not compare_table %}
+<div class="empty-state">
+    <div style="font-size:40px;margin-bottom:12px">📡</div>
+    <div style="font-size:14px">Select <strong>From/To Date</strong> and <strong>Site ID</strong>, then click <strong>Show</strong></div>
+</div>
+{% endif %}
+
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+var chartLabels   = {{ chart_labels | tojson | safe }};
+var chartPayload  = {{ chart_payload | tojson | safe }};
+var chartTraffic  = {{ chart_traffic | tojson | safe }};
+var chartAvail    = {{ chart_availability | tojson | safe }};
+var chartRRC      = {{ chart_rrc | tojson | safe }};
+
+var PALETTE = ['#4facfe','#f093fb','#00c853','#ff9f40','#8884d8','#a78bfa','#34d399','#f87171','#60a5fa','#fbbf24'];
+function tc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "#b0b8c8" : "#555"; }
+function gc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "rgba(79,172,254,0.08)" : "rgba(0,0,0,0.06)"; }
+function colorAt(i){ return PALETTE[i % PALETTE.length]; }
+
+var MON_SHORT = ["jan","feb","mar","apr","may","jun","jul","aug","sep","okt","nov","dec"];
+
+function dateTickCallback(val, idx){
+    var lbl = chartLabels[idx];
+    if(!lbl) return lbl;
+    var parts = lbl.split("-");
+    if(parts.length < 3) return lbl;
+    return parts[2] + "/" + parts[1];
+}
+
+function makeDatasets(dataObj){
+    var ds = [], idx = 0;
+    for(var key in dataObj){
+        ds.push({ label: key, data: dataObj[key], borderColor: colorAt(idx),
+            backgroundColor: colorAt(idx)+'22', tension: 0.3, pointRadius: 2, pointHoverRadius: 5, borderWidth: 1.8, fill: false });
+        idx++;
+    }
+    return ds;
+}
+
+function chartOpts(title){
+    return {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: { legend: { display: true, position: 'bottom', labels: { color: tc(), font: { size: 10 }, boxWidth: 12, padding: 8 } },
+            tooltip: { mode: 'index', intersect: false, backgroundColor: 'rgba(10,10,30,0.88)', titleFont:{size:11}, bodyFont:{size:11}, padding:10 } },
+        interaction: { mode: 'index', intersect: false },
+        scales: { x: { ticks: { color: tc(), font:{size:8}, maxRotation: 45, autoSkip: true, autoSkipPadding: 20 }, grid:{color:gc()} },
+                  y: { title:{display:true,text:title,color:tc(),font:{size:10}}, ticks:{color:tc(),font:{size:10}}, grid:{color:gc()} } }
+    };
+}
+
+var payloadChart, trafficChart, availabilityChart, rrcChart;
+
+function renderCharts(){
+    var c1=document.getElementById('payloadChart');
+    if(c1){ if(payloadChart) payloadChart.destroy(); payloadChart=new Chart(c1,{type:'line',data:{labels:chartLabels,datasets:makeDatasets(chartPayload)},options:chartOpts('Payload (GB)')}); chartInstances.payloadChart=payloadChart; c1.style.cursor='pointer'; c1.onclick=function(){openChartModal(c1);}; }
+
+    var c2=document.getElementById('trafficChart');
+    if(c2){ if(trafficChart) trafficChart.destroy(); trafficChart=new Chart(c2,{type:'line',data:{labels:chartLabels,datasets:makeDatasets(chartTraffic)},options:chartOpts('Traffic (KErl)')}); chartInstances.trafficChart=trafficChart; c2.style.cursor='pointer'; c2.onclick=function(){openChartModal(c2);}; }
+
+    var c3=document.getElementById('availabilityChart');
+    if(c3){ if(availabilityChart) availabilityChart.destroy(); availabilityChart=new Chart(c3,{type:'line',data:{labels:chartLabels,datasets:makeDatasets(chartAvail)},options:chartOpts('Availability (%)')}); chartInstances.availabilityChart=availabilityChart; c3.style.cursor='pointer'; c3.onclick=function(){openChartModal(c3);}; }
+
+    var c4=document.getElementById('rrcChart');
+    if(c4){ if(rrcChart) rrcChart.destroy(); rrcChart=new Chart(c4,{type:'line',data:{labels:chartLabels,datasets:makeDatasets(chartRRC)},options:chartOpts('RRC User')}); chartInstances.rrcChart=rrcChart; c4.style.cursor='pointer'; c4.onclick=function(){openChartModal(c4);}; }
+}
+
+window.addEventListener("resize", function(){ Object.values(chartInstances).forEach(function(ch){ if(ch && typeof ch.resize==='function'){ ch.resize(); ch.update(); } }); });
+
+/* ── Dropdown helpers ── */
+function toggleDropdown(id){
+    document.querySelectorAll('.dropdown-menu').forEach(function(m){ if(m.id !== id) m.style.display='none'; });
+    var m = document.getElementById(id);
+    m.style.display = m.style.display === 'none' ? 'flex' : 'none';
+}
+document.addEventListener("click", function(e){
+    if(!e.target.closest('.dropdown-container')){
+        document.querySelectorAll('.dropdown-menu').forEach(function(m){ m.style.display='none'; });
+    }
+});
+
+function filterList(prefix){
+    var input = document.getElementById(prefix+'Search');
+    var filter = input.value.toUpperCase();
+    var container = document.getElementById(prefix+'Checkboxes');
+    var labels = container.getElementsByTagName("label");
+    for(var i=0;i<labels.length;i++){
+        var span = labels[i].getElementsByTagName("span")[0];
+        if(span && span.textContent.toUpperCase().indexOf(filter)>-1) labels[i].style.display="";
+        else labels[i].style.display="none";
+    }
+}
+
+function toggleAllInList(prefix){
+    var checked = document.getElementById(prefix+'SelectAll').checked;
+    document.querySelectorAll("#"+prefix+"Checkboxes input[type='checkbox']").forEach(function(cb){ cb.checked=checked; });
+    if(checked) moveSelectedToTop(prefix);
+    updateCount(prefix, 0);
+}
+
+function moveSelectedToTop(prefix){
+    var container = document.getElementById(prefix+'Checkboxes');
+    var allLabels = Array.from(container.querySelectorAll('label'));
+    var selected = [], unselected = [];
+    allLabels.forEach(function(label){
+        var cb = label.querySelector('input[type="checkbox"]');
+        if(cb && cb.checked) selected.push(label); else unselected.push(label);
+    });
+    container.innerHTML = '';
+    selected.forEach(function(l){ container.appendChild(l); });
+    unselected.forEach(function(l){ container.appendChild(l); });
+}
+
+function updateCount(prefix, total){
+    var checked = document.querySelectorAll("#"+prefix+"Checkboxes input[type='checkbox']:checked").length;
+    var total2 = total || document.querySelectorAll("#"+prefix+"Checkboxes label").length;
+    var label = document.getElementById(prefix+"ToggleLabel");
+    var labelTxt = {'nsa':'NSA','city':'City','site':'Site'}[prefix] || prefix;
+    label.textContent = (checked===total2 ? 'All '+labelTxt+' ('+total2+')' : (checked===0 ? 'All '+labelTxt+' ('+total2+')' : checked+' '+labelTxt+' selected'));
+}
+
+function refreshOptions(){
+    var form = document.getElementById('filterForm');
+    form.action = '/site_level';
+    form.submit();
+}
+
+document.addEventListener("DOMContentLoaded", function(){
+    ['nsa','city','site'].forEach(function(prefix){
+        var container = document.getElementById(prefix+'Checkboxes');
+        if(container){
+            var allLabels = Array.from(container.querySelectorAll('label'));
+            var selected = [], unselected = [];
+            allLabels.forEach(function(label){
+                var cb = label.querySelector('input[type="checkbox"]');
+                if(cb && cb.checked) selected.push(label); else unselected.push(label);
+            });
+            if(selected.length){ container.innerHTML = ''; selected.forEach(function(l){container.appendChild(l);}); unselected.forEach(function(l){container.appendChild(l);}); }
+        }
+    });
+    updateCount('nsa', 0);
+    updateCount('city', {{ filtered_cities|length }});
+    updateCount('site', {{ sites_list|length }});
+    if(chartLabels.length > 0) renderCharts();
+
+    // Sync visible Y_W selects into hidden inputs so values are always submitted
+    var ywBefore = document.querySelector('select[name="yw_before"]');
+    var ywAfter = document.querySelector('select[name="yw_after"]');
+    var ywBeforeHidden = document.getElementById('yw_before_hidden');
+    var ywAfterHidden = document.getElementById('yw_after_hidden');
+    if(ywBefore && ywBeforeHidden){ ywBeforeHidden.value = ywBefore.value; ywBefore.addEventListener('change', function(){ ywBeforeHidden.value = this.value; }); }
+    if(ywAfter && ywAfterHidden){ ywAfterHidden.value = ywAfter.value; ywAfter.addEventListener('change', function(){ ywAfterHidden.value = this.value; }); }
+});
+</script>
+{% endblock %}

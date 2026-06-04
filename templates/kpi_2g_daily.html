@@ -1,0 +1,530 @@
+{% extends "base.html" %}
+
+{% block nav_2g %}sub-open{% endblock %}
+{% block sub2g_open %}open{% endblock %}
+{% block nav_2g_daily %}active{% endblock %}
+{% block page_title %}2G KPI — Daily{% endblock %}
+{% block page_sub %}2G KPI daily metrics at BSC and Site level{% endblock %}
+
+{% block topbar_chips %}
+<div class="info-chip"><i class="fas fa-server" style="margin-right:4px"></i>
+    {% if view_mode == 'bsc' %}
+        {{ bsc_list|length }} BSC available
+        {% if sel_bscs %}({{ sel_bscs|length }} selected){% endif %}
+    {% else %}
+        {{ site_list|length }} Sites available
+        {% if sel_sites %}({{ sel_sites|length }} selected){% endif %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block sidebar_quickstats %}{% endblock %}
+
+{% block page_content %}
+<style>
+.content-area { flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+.dropdown-container { position: relative; }
+.dropdown-toggle { width: 100%; padding: 8px 12px; border: 1px solid rgba(79,172,254,0.15); border-radius: 6px; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center; font-size: 12px; transition: border-color 0.18s, background 0.3s ease; }
+[data-theme="dark"] .dropdown-toggle { background: rgba(30,30,58,0.8); color: #c8d0e0; }
+[data-theme="light"] .dropdown-toggle { background: rgba(255,255,255,0.95); color: inherit; }
+.dropdown-menu { position: absolute; top: 100%; left: 0; right: 0; border: 1px solid rgba(79,172,254,0.12); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 1000; display: none; flex-direction: column; }
+[data-theme="dark"] .dropdown-menu { background: #1a1a2e; }
+[data-theme="light"] .dropdown-menu { background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+.checkbox-label { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 5px 8px; font-size: 12px; transition: background 0.12s; }
+[data-theme="dark"] .checkbox-label { color: rgba(200,208,224,0.8); }
+[data-theme="light"] .checkbox-label { color: #333; }
+.checkbox-label:hover { background: rgba(79,172,254,0.08); }
+.checkbox-label input[type=checkbox] { accent-color: #4facfe; width: 14px; height: 14px; cursor: pointer; }
+.chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 14px; }
+
+/* 2G Daily table — sticky header + proper scrolling */
+.kpi-table-wrap { display: flex; flex-direction: column; overflow: hidden; }
+.kpi-table-wrap .table-scroll { overflow: auto; max-height: calc(100vh - 380px); min-height: 120px; flex: 1; }
+.data-table th { position: sticky; top: 0; z-index: 2; }
+</style>
+
+<!-- PAGE TABS -->
+<div class="page-tabs">
+    <div class="page-tab {% if view_mode=='bsc' %}active{% endif %}" onclick="location.href='/kpi_2g_daily?view=bsc{% if sel_bscs %}{% for b in sel_bscs %}&bsc={{ b }}{% endfor %}{% endif %}{% if sel_sites %}{% for s in sel_sites %}&site={{ s }}{% endfor %}{% endif %}'">
+        <i class="fas fa-server" style="margin-right:5px;font-size:11px"></i> BSC Level
+    </div>
+    <div class="page-tab {% if view_mode=='site' %}active{% endif %}" onclick="location.href='/kpi_2g_daily?view=site{% if sel_bscs %}{% for b in sel_bscs %}&bsc={{ b }}{% endfor %}{% endif %}{% if sel_sites %}{% for s in sel_sites %}&site={{ s }}{% endfor %}{% endif %}'">
+        <i class="fas fa-satellite" style="margin-right:5px;font-size:11px"></i> Site Level
+    </div>
+</div>
+
+<!-- FILTER BAR -->
+<form method="GET" action="/kpi_2g_daily" id="filterForm">
+<input type="hidden" name="view" value="{{ view_mode }}">
+<div class="filter-bar">
+    <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;flex:1">
+        <div class="filter-group">
+            <div class="filter-label">Date From</div>
+            <input type="date" name="from_date" class="f-input" value="{{ from_date }}">
+        </div>
+        <div class="filter-group">
+            <div class="filter-label">Date To</div>
+            <input type="date" name="to_date" class="f-input" value="{{ to_date }}">
+        </div>
+
+        {% if view_mode == 'bsc' %}
+        <div class="filter-group" style="min-width:160px;flex:0 0 200px">
+            <div class="filter-label">BSC Name</div>
+            <div class="dropdown-container">
+                <button type="button" class="dropdown-toggle" onclick="toggleDropdown('bscDropdown')">
+                    Select BSC ({{ sel_bscs|length if sel_bscs else 0 }}) <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="dropdown-menu" id="bscDropdown" style="display: none; min-width:220px">
+                    <input type="text" id="bscSearch" placeholder="Search BSC..." onkeyup="filterBSC()" style="width:100%;padding:7px;margin-bottom:6px;border:1px solid rgba(128,128,128,0.2);border-radius:4px;">
+                    <label class="checkbox-label" style="border-bottom:1px solid rgba(128,128,128,0.1);padding-bottom:6px;margin-bottom:6px;">
+                        <input type="checkbox" id="bscSelectAll" onchange="toggleAllBSC(this)">
+                        <span><strong>Select All</strong></span>
+                    </label>
+                    <div id="bscCheckboxes" style="max-height:200px;overflow-y:auto;">
+                        {% for bsc in bsc_list %}
+                        <label class="checkbox-label" data-bsc="{{ bsc }}">
+                            <input type="checkbox" name="bsc" value="{{ bsc }}" {% if bsc in sel_bscs %}checked{% endif %}>
+                            <span>{{ bsc }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% elif view_mode == 'site' %}
+        <div class="filter-group" style="min-width:160px;flex:0 0 200px">
+            <div class="filter-label">Site ID</div>
+            <div class="dropdown-container">
+                <button type="button" class="dropdown-toggle" onclick="toggleDropdown('siteDropdown')">
+                    Select Sites ({{ sel_sites|length if sel_sites else 0 }}) <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="dropdown-menu" id="siteDropdown" style="display: none; min-width:220px">
+                    <input type="text" id="siteSearch" placeholder="Search sites..." onkeyup="filterSites()" style="width:100%;padding:7px;margin-bottom:6px;border:1px solid rgba(128,128,128,0.2);border-radius:4px;">
+                    <label class="checkbox-label" style="border-bottom:1px solid rgba(128,128,128,0.1);padding-bottom:6px;margin-bottom:6px;">
+                        <input type="checkbox" id="siteSelectAll" onchange="toggleAllSites(this)">
+                        <span><strong>Select All</strong></span>
+                    </label>
+                    <div id="siteCheckboxes" style="max-height:200px;overflow-y:auto;">
+                        {% for site in site_list %}
+                        <label class="checkbox-label" data-site="{{ site }}">
+                            <input type="checkbox" name="site" value="{{ site }}" {% if site in sel_sites %}checked{% endif %}>
+                            <span>{{ site }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <button type="submit" class="btn-apply">
+        <i class="fas fa-play" style="font-size:10px;margin-right:4px"></i> Show
+    </button>
+</div>
+</form>
+
+<div style="font-size:12px; color:#888; margin: 0 20px 10px;">
+    Last update: {{ last_update or 'N/A' }}
+</div>
+
+<div class="content-area">
+{% if table_rows or chart_labels %}
+<div style="margin: 0 0 10px; display: flex; gap: 10px; align-items: center;">
+    <div class="view-toggle">
+        <button type="button" class="view-toggle-btn active" id="viewChart" onclick="setView('chart', this)">
+            <i class="fas fa-chart-bar"></i> Chart
+        </button>
+        <button type="button" class="view-toggle-btn" id="viewTable" onclick="setView('table', this)">
+            <i class="fas fa-table"></i> Table
+        </button>
+    </div>
+</div>
+
+<!-- CHART VIEW -->
+<div id="chartView">
+    <div class="chart-grid">
+    {% set chart_meta = {
+        'tchChart':        {'title': 'TCH Traffic (Erl)',       'sub': 'TCH Traffic'},
+        'sdcchChart':      {'title': 'SDCCH Traffic (Erl)',     'sub': 'SDCCH Traffic'},
+        'payloadChart':    {'title': 'Payload (MB)',           'sub': 'Total Payload (EDGE+GPRS)'},
+        'availChart':      {'title': 'Availability (%)',       'sub': 'TCH Availability'},
+        'accessChart':     {'title': 'Accessibility (%)',      'sub': 'CSSR (Call Setup SR)'},
+        'retChart':        {'title': 'Retainability (%)',       'sub': 'CCSR (Call Completion SR)'},
+        'hoChart':         {'title': 'HO SR (%)',               'sub': 'Handover Success Rate'},
+        'tchblkChart':     {'title': 'TCH Blocking (%)',       'sub': 'TCH Blocking Rate'},
+        'sdcchblkChart':   {'title': 'SDCCH Blocking (%)',    'sub': 'SDCCH Blocking Rate'},
+        'sdsrChart':       {'title': 'SDSR (%)',               'sub': 'SDCCH Success Rate'},
+        'tbfEstChart':     {'title': 'TBF Est (%)',           'sub': 'TBF Establishment SR'},
+        'tchDropChart':    {'title': 'TCH Drop (%)',          'sub': 'TCH Drop Rate'},
+        'tbfCompChart':    {'title': 'TBF Comp (%)',           'sub': 'TBF Completion SR'},
+        'sd2tchChart':     {'title': 'SD to TCH (%)',          'sub': 'SD to TCH Success Rate'},
+        'icmChart':        {'title': 'ICM Band 3-5 (%)',      'sub': 'Interference Band 3-5'},
+        'dlRxqChart':      {'title': 'DL RxQual 0-4 (%)',     'sub': 'Downlink RxQual'},
+        'ulRxqChart':      {'title': 'UL RxQual 0-4 (%)',     'sub': 'Uplink RxQual'},
+    } %}
+    {% set canvas_ids = ['tchChart','sdcchChart','payloadChart','availChart','accessChart','retChart','hoChart','tchblkChart','sdcchblkChart','sdsrChart','tbfEstChart','tchDropChart','tbfCompChart','sd2tchChart','icmChart','dlRxqChart','ulRxqChart'] %}
+    {% for cid in canvas_ids %}
+    {% set meta = chart_meta.get(cid, {'title': cid, 'sub': ''}) %}
+    <div class="card" id="card-{{ cid }}">
+        <div class="card-title">{{ meta.title }}</div>
+        <div class="card-sub">{{ meta.sub }}</div>
+        <div class="chart-wrap" style="height:220px;position:relative">
+            <canvas id="{{ cid }}" style="cursor:pointer" onclick="openChartModal(document.getElementById('{{ cid }}'))"></canvas>
+        </div>
+    </div>
+    {% endfor %}
+    </div>
+</div>
+
+<!-- TABLE VIEW -->
+<div id="tableView" style="display:none;">
+<div class="table-card">
+    <div class="table-card-header">
+        <div class="table-card-title">
+            <i class="fas fa-table" style="margin-right:6px;color:#4facfe"></i>
+            {{ 'BSC' if view_mode=='bsc' else 'Site' }} Level — {{ (active_bscs if view_mode=='bsc' else active_sites) or table_rows|length }} record(s)
+        </div>
+        <button class="csv-btn" onclick="downloadCSV()"
+            style="padding:5px 14px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:600;background:rgba(79,172,254,0.15);color:#4facfe;transition:background 0.15s;">
+            <i class="fas fa-download"></i> CSV
+        </button>
+    </div>
+    <div class="table-scroll">
+        <table class="data-table" id="kpiTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Date</th>
+                    <th>{{ 'BSC Name' if view_mode=='bsc' else 'Site ID' }}</th>
+                    <th>TCH Traffic (Erl)</th>
+                    <th>SDCCH Traffic (Erl)</th>
+                    <th>Payload (MB)</th>
+                    <th>Availability (%)</th>
+                    <th>Accessibility (%)</th>
+                    <th>Retainability (%)</th>
+                    <th>HO SR (%)</th>
+                    <th>TCH Blocking (%)</th>
+                    <th>TCH Block Num</th>
+                    <th>SDCCH Blocking (%)</th>
+                    <th>SDCCH Block Num</th>
+                    <th>SDSR (%)</th>
+                    <th>TBF Establishment SR (%)</th>
+                    <th>TCH Drop (%)</th>
+                    <th>TCH Drop Num</th>
+                    <th>TBF Completion SR (%)</th>
+                    <th>SD to TCH SR (%)</th>
+                    <th>Fast Return LTE</th>
+                    <th>ICM Band 3-5 (%)</th>
+                    <th>DL RxQual 0-4 (%)</th>
+                    <th>UL RxQual 0-4 (%)</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                {% for row in table_rows %}
+                <tr class="kpi-row">
+                    <td style="opacity:0.4;font-size:11px">{{ loop.index }}</td>
+                    <td style="font-weight:600;white-space:nowrap">{{ row.date }}</td>
+                    <td style="font-weight:600;">{{ row.bsc if view_mode=='bsc' else row.site }}</td>
+                    <td>{{ row.tch if row.tch is not none else '—' }}</td>
+                    <td>{{ row.sdcch if row.sdcch is not none else '—' }}</td>
+                    <td>{{ row.payload|int if row.payload is not none else '—' }}</td>
+                    <td class="kpi-cell" data-kpi-id="availChart">{{ row.avail if row.avail is not none else '—' }}</td>
+                    <td class="kpi-cell" data-kpi-id="accessChart">{{ row.access if row.access is not none else '—' }}</td>
+                    <td class="kpi-cell" data-kpi-id="retChart">{{ row.ret if row.ret is not none else '—' }}</td>
+                    <td class="kpi-cell" data-kpi-id="hoChart">{{ row.ho if row.ho is not none else '—' }}</td>
+                    <td class="kpi-cell" data-kpi-id="tchblkChart">{{ row.tchblk if row.tchblk is not none else '—' }}</td>
+                    <td>{{ row.tchblk_n if row.tchblk_n else '—' }}</td>
+                    <td class="kpi-cell" data-kpi-id="sdcchblkChart">{{ row.sdcchblk if row.sdcchblk is not none else '—' }}</td>
+                    <td>{{ row.sdcchblk_n if row.sdcchblk_n else '—' }}</td>
+                    <td class="kpi-cell" data-kpi-id="sdsrChart">{{ row.sdsr if row.sdsr is not none else '—' }}</td>
+                    <td class="kpi-cell" data-kpi-id="tbfEstChart">{{ row.tbf_est if row.tbf_est is not none else '—' }}</td>
+                    <td class="kpi-cell" data-kpi-id="tchDropChart">{{ row.tch_drop if row.tch_drop is not none else '—' }}</td>
+                    <td>{{ row.tch_drop_n if row.tch_drop_n else '—' }}</td>
+                    <td class="kpi-cell" data-kpi-id="tbfCompChart">{{ row.tbf_comp if row.tbf_comp is not none else '—' }}</td>
+                    <td class="kpi-cell" data-kpi-id="sd2tchChart">{{ row.sd2tch if row.sd2tch is not none else '—' }}</td>
+                    <td>{{ row.fastreturn|int if row.fastreturn else 0 }}</td>
+                    <td class="kpi-cell" data-kpi-id="icmChart">{{ row.icm if row.icm is not none else '—' }}</td>
+                    <td class="kpi-cell" data-kpi-id="dlRxqChart">{{ row.dl_rxq if row.dl_rxq is not none else '—' }}</td>
+                    <td class="kpi-cell" data-kpi-id="ulRxqChart">{{ row.ul_rxq if row.ul_rxq is not none else '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-chart-bar" style="font-size:48px;margin-bottom:14px;display:block;opacity:0.3"></i>
+    <div style="font-size:15px;font-weight:600;margin-bottom:6px;">No data to display</div>
+    <div style="font-size:12px;opacity:0.6;margin-bottom:16px;">Select a date range and filter criteria to view 2G KPI daily data</div>
+</div>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+/* KPI defaults injected by server */
+window.KPI_DEFAULTS_2G = {{ kpi_defaults|tojson }};
+/* Override KPI_ALERT_ENABLED AFTER initAppSettings() runs — disable for large site-level data */
+(function(){
+    var viewMode = "{{ view_mode }}";
+    var rowCount = {{ table_rows|length }};
+    if(viewMode === "site" && rowCount >= 500){
+        window.KPI_ALERT_ENABLED = false;
+    }
+})();
+
+/* ── BSC dropdown helpers ── */
+function toggleDropdown(id){
+    var menu = document.getElementById(id);
+    menu.style.display = menu.style.display === "none" ? "flex" : "none";
+}
+function toggleAllBSC(cb){
+    document.querySelectorAll("#bscCheckboxes input[type='checkbox']").forEach(function(c){ c.checked = cb.checked; });
+    updateBSCCount();
+}
+function filterBSC(){
+    var input = document.getElementById("bscSearch");
+    var filter = input.value.toUpperCase();
+    document.querySelectorAll("#bscCheckboxes label").forEach(function(lbl){
+        var span = lbl.querySelector("span");
+        lbl.style.display = span && span.textContent.toUpperCase().indexOf(filter) > -1 ? "" : "none";
+    });
+}
+function updateBSCCount(){
+    var n = document.querySelectorAll("#bscCheckboxes input[type='checkbox']:checked").length;
+    var t = document.querySelector(".dropdown-toggle");
+    if(t) t.innerHTML = "Select BSC (" + n + ") <i class='fas fa-chevron-down'></i>";
+}
+
+/* ── Site dropdown helpers ── */
+function toggleAllSites(cb){
+    document.querySelectorAll("#siteCheckboxes input[type='checkbox']").forEach(function(c){ c.checked = cb.checked; });
+    updateSiteCount();
+}
+function filterSites(){
+    var input = document.getElementById("siteSearch");
+    var filter = input.value.toUpperCase();
+    document.querySelectorAll("#siteCheckboxes label").forEach(function(lbl){
+        var span = lbl.querySelector("span");
+        lbl.style.display = span && span.textContent.toUpperCase().indexOf(filter) > -1 ? "" : "none";
+    });
+}
+function updateSiteCount(){
+    var n = document.querySelectorAll("#siteCheckboxes input[type='checkbox']:checked").length;
+    var t = document.querySelector(".dropdown-toggle");
+    if(t) t.innerHTML = "Select Sites (" + n + ") <i class='fas fa-chevron-down'></i>";
+}
+
+/* Apply KPI breach highlighting — disabled when data is too large (site level > 500 rows) */
+function applyKPIPreCheck(){
+    if(!window.KPI_ALERT_ENABLED) return;
+    document.querySelectorAll(".kpi-cell").forEach(function(cell){
+        var val = cell.textContent.trim();
+        if(val === "---" || val === "") return;
+        var id = cell.getAttribute("data-kpi-id");
+        if(!id) return;
+        var breach = checkKPIBreach(val, id);
+        if(breach === "over"){
+            cell.classList.add("kpi-breach-over");
+            cell.innerHTML = val + '<span class="kpi-alert-badge over">HIGH</span>';
+        } else if(breach === "under"){
+            cell.classList.add("kpi-breach-under");
+            cell.innerHTML = val + '<span class="kpi-alert-badge under">LOW</span>';
+        }
+    });
+}
+
+/* Date auto-fill — only when no date is selected AND no data is loaded (clean state) */
+/* Charts/table only render when from_date+to_date are provided; suppress auto-fill on tab switch */
+document.addEventListener("DOMContentLoaded", function(){
+    var fromInput = document.querySelector("input[name=from_date]");
+    var toInput   = document.querySelector("input[name=to_date]");
+    /* Only pre-fill if dates are both empty AND no chart data is present
+       (i.e. the page loaded without query params — prevents auto-fill on level switch) */
+    var hasChartData = (typeof chartLabels !== 'undefined' && chartLabels && chartLabels.length > 0);
+    if(!fromInput.value && !toInput.value && !hasChartData){
+        var last = "{{ last_update }}";
+        if(last){
+            var d = new Date(last);
+            var d30 = new Date(d); d30.setDate(d.getDate() - 30);
+            fromInput.value = d30.toISOString().split("T")[0];
+            toInput.value   = last;
+        }
+    }
+    /* Show chart container only when data is present */
+    if(hasChartData){
+        document.getElementById("chartView").style.display = "";
+    }
+    applyKPIPreCheck();
+});
+
+/* Shift+click header to sort */
+document.querySelectorAll("#kpiTable thead th").forEach(function(th, ci){
+    th.style.cursor = "pointer";
+    th.addEventListener("click", function(e){
+        if(e.shiftKey){ sortTable(ci); }
+    });
+});
+function sortTable(colIdx){
+    var tbody = document.getElementById("tableBody");
+    var rows  = Array.from(tbody.querySelectorAll("tr"));
+    var asc   = tbody.getAttribute("data-sort-asc") !== "false";
+    rows.sort(function(a, b){
+        var va = a.cells[colIdx].textContent.trim().replace(/[^\d.\-]/g,"");
+        var vb = b.cells[colIdx].textContent.trim().replace(/[^\d.\-]/g,"");
+        var na = parseFloat(va); var nb = parseFloat(vb);
+        if(isNaN(na) || isNaN(nb)) return va.localeCompare(vb);
+        return asc ? na - nb : nb - na;
+    });
+    rows.forEach(function(r){ tbody.appendChild(r); });
+    tbody.setAttribute("data-sort-asc", !asc);
+}
+
+/* CSV Download */
+function downloadCSV(){
+    var rows = [["#","Date","{{ 'BSC Name' if view_mode=='bsc' else 'Site ID' }}",
+        "TCH Traffic (Erl)","SDCCH Traffic (Erl)","Payload (MB)","Availability (%)",
+        "Accessibility (%)","Retainability (%)","HO SR (%)","TCH Blocking (%)","TCH Block Num",
+        "SDCCH Blocking (%)","SDCCH Block Num","SDSR (%)","TBF Establishment SR (%)",
+        "TCH Drop (%)","TCH Drop Num","TBF Completion SR (%)","SD to TCH SR (%)",
+        "Fast Return LTE","ICM Band 3-5 (%)","DL RxQual 0-4 (%)","UL RxQual 0-4 (%)"]];
+
+    document.querySelectorAll("#tableBody tr").forEach(function(tr, i){
+        var cells = Array.from(tr.querySelectorAll("td")).map(function(c){ return c.textContent.trim(); });
+        rows.push([i+1].concat(cells));
+    });
+
+    var csv = rows.map(function(r){ return r.join(","); }).join("\n");
+    var blob = new Blob(["﻿" + csv], {type:"text/csv;charset=utf-8"});
+    var link = document.createElement("a"); link.href = URL.createObjectURL(blob);
+    link.download = "2G_Daily_{{ view_mode }}_{{ from_date or 'all' }}_{{ to_date or 'all' }}.csv";
+    link.click();
+}
+
+/* Close dropdown on outside click */
+document.addEventListener("click", function(e){
+    var containers = document.querySelectorAll(".dropdown-container");
+    var opened = [];
+    containers.forEach(function(c){ if(c.contains(e.target)) opened.push(c); });
+    if(opened.length === 0){
+        document.querySelectorAll(".dropdown-menu").forEach(function(m){ m.style.display = "none"; });
+    }
+});
+document.addEventListener("change", function(e){
+    if(e.target.name === "bsc") updateBSCCount();
+    if(e.target.name === "site") updateSiteCount();
+});
+
+/* ── View Toggle ── */
+var currentView = "chart";
+function setView(view, btn){
+    currentView = view;
+    document.getElementById("chartView").style.display  = view === "chart" ? "" : "none";
+    document.getElementById("tableView").style.display  = view === "table" ? "" : "none";
+    document.querySelectorAll(".view-toggle-btn").forEach(function(b){ b.classList.remove("active"); });
+    if(btn) btn.classList.add("active");
+    if(view === "table") applyKPIPreCheck();
+}
+
+/* ── Chart Data & Initialization ── */
+var chartLabels   = {{ chart_labels | tojson | safe }};
+var chartTch      = {{ chart_tch | tojson | safe }};
+var chartSdcch    = {{ chart_sdcch | tojson | safe }};
+var chartPayload  = {{ chart_payload | tojson | safe }};
+var chartAvail    = {{ chart_avail | tojson | safe }};
+var chartAccess   = {{ chart_access | tojson | safe }};
+var chartRet      = {{ chart_ret | tojson | safe }};
+var chartHo       = {{ chart_ho | tojson | safe }};
+var chartTchblk   = {{ chart_tchblk | tojson | safe }};
+var chartSdcchblk = {{ chart_sdcchblk | tojson | safe }};
+var chartSdsr     = {{ chart_sdsr | tojson | safe }};
+var chartTbfEst   = {{ chart_tbf_est | tojson | safe }};
+var chartTbfComp  = {{ chart_tbf_comp | tojson | safe }};
+var chartTchDrop  = {{ chart_tch_drop | tojson | safe }};
+var chartSd2tch   = {{ chart_sd2tch | tojson | safe }};
+var chartIcm      = {{ chart_icm | tojson | safe }};
+var chartDlRxq    = {{ chart_dl_rxq | tojson | safe }};
+var chartUlRxq    = {{ chart_ul_rxq | tojson | safe }};
+
+var COLORS = ["#4facfe","#f093fb","#00c853","#ff9f40","#a78bfa","#ff5555","#00f2fe","#f6c90e"];
+
+function tc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "#b0b8c8" : "#555"; }
+function gc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "rgba(79,172,254,0.08)" : "rgba(0,0,0,0.06)"; }
+
+function makeOpts(leftLabel, yMin, yMax){
+    var opts = {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: {
+            legend: { display: true, position: "top", align: "center",
+                      labels: { color: tc(), font: { size: 11 }, boxWidth: 20, padding: 8 } },
+            tooltip: { mode: "index", intersect: false,
+                backgroundColor: "rgba(10,10,30,0.88)",
+                titleFont: { size: 10 }, bodyFont: { size: 11 }, padding: 8 },
+            decimation: { enabled: true, algorithm: 'lttb', samples: 200, threshold: 500 }
+        },
+        interaction: { mode: "index", intersect: false },
+        scales: {
+            x: { ticks: { color: tc(), font: { size: 9 }, maxRotation: 0,
+                          autoSkip: true, autoSkipPadding: 20,
+                          callback: function(value){
+                            var tickLabel = (typeof value === 'number' && Array.isArray(chartLabels)) ? (chartLabels[value] || value) : value;
+                            if(typeof tickLabel === 'string' && tickLabel.indexOf('-') > -1){
+                              var parts = tickLabel.split('-');
+                              if(parts.length === 3){
+                                var day = parts[2];
+                                var mon = parseInt(parts[1], 10) - 1;
+                                var yr  = parts[0].slice(-2);
+                                var monthNames = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"];
+                                return day + ' ' + monthNames[mon] + " '" + yr;
+                              }
+                            }
+                            return tickLabel;
+                          } }, grid: { color: gc() } },
+            y: { ticks: { color: tc(), font: { size: 10 } }, grid: { color: gc() },
+                 title: { display: true, text: leftLabel, color: tc(), font: { size: 10 } } }
+        }
+    };
+    if(yMin !== undefined && yMin !== null) opts.scales.y.min = yMin;
+    if(yMax !== undefined && yMax !== null) opts.scales.y.max = yMax;
+    return opts;
+}
+
+document.addEventListener("DOMContentLoaded", function(){
+    if(!chartLabels || chartLabels.length === 0) return;
+
+    function buildChart(canvasId, dataDict, yLabel, yMin, yMax){
+        var c = document.getElementById(canvasId);
+        if(!c) return;
+        var ds = Object.entries(dataDict).map(function(e, i){
+            return { label: e[0], data: e[1], borderColor: COLORS[i % COLORS.length],
+                     tension: 0.3, fill: false,
+                     pointRadius: 0, pointHoverRadius: 5, borderWidth: 2 };
+        });
+        var ch = new Chart(c, { type: "line", data: { labels: chartLabels, datasets: ds }, options: makeOpts(yLabel, yMin, yMax) });
+        chartInstances[canvasId] = ch;
+    }
+
+    buildChart("availChart",      chartAvail,    "Availability (%)");
+    buildChart("accessChart",     chartAccess,   "CSSR (%)");
+    buildChart("retChart",        chartRet,      "CCSR (%)");
+    buildChart("hoChart",         chartHo,       "HO SR (%)");
+    buildChart("tchblkChart",     chartTchblk,   "TCH Blocking (%)");
+    buildChart("sdcchblkChart",   chartSdcchblk, "SDCCH Blocking (%)");
+    buildChart("sdsrChart",       chartSdsr,     "SDSR (%)");
+    buildChart("tbfEstChart",     chartTbfEst,   "TBF Est (%)");
+    buildChart("tbfCompChart",    chartTbfComp,  "TBF Comp (%)");
+    buildChart("tchDropChart",    chartTchDrop,  "TCH Drop (%)");
+    buildChart("sd2tchChart",     chartSd2tch,   "SD→TCH (%)");
+    buildChart("icmChart",        chartIcm,      "ICM B35 (%)");
+    buildChart("dlRxqChart",      chartDlRxq,    "DL RxQual (%)");
+    buildChart("ulRxqChart",      chartUlRxq,    "UL RxQual (%)");
+    buildChart("payloadChart",    chartPayload,  "Payload (MB)");
+    buildChart("tchChart",        chartTch,      "TCH Traffic (Erl)");
+    buildChart("sdcchChart",      chartSdcch,    "SDCCH Traffic (Erl)");
+});
+</script>
+{% endblock %}

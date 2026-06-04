@@ -1,0 +1,109 @@
+from flask import Flask, render_template
+from flask_wtf import CSRFProtect
+
+
+from datetime import datetime, timedelta
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+def create_app():
+    app = Flask(
+        __name__,
+        template_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates"),
+        static_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+    )
+
+    # ── 1. SECRET KEY ─────────────────────────────────────────────────────────
+    # Append PID so sessions are invalidated after every server restart
+    secret_key = os.getenv("FLASK_SECRET_KEY")
+    if not secret_key:
+        raise RuntimeError(
+            "FLASK_SECRET_KEY environment variable is not set. "
+            "Set it to a strong random value before starting the server."
+        )
+    app.secret_key = secret_key + "-pid" + str(os.getpid())
+
+    app.config['JSON_SORT_KEYS'] = False
+
+    # ── 2. SECURE SESSION COOKIES ───────────────────────────────────────────────
+    app.config['SESSION_COOKIE_SECURE']  = os.getenv("FLASK_ENV") == "production"
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE']  = 'Lax'
+
+    # ── 3. CSRF PROTECTION via Flask-WTF ───────────────────────────────────────
+    app.config['WTF_CSRF_ENABLED']    = True
+    app.config['WTF_CSRF_TIME_LIMIT']  = 3600
+
+    # Initialize CSRF protection so `csrf_token()` is available in templates
+    csrf = CSRFProtect()
+    csrf.init_app(app)
+
+    # ── 4. CUSTOM JINJA2 FILTERS ────────────────────────────────────────────────
+    def _date_modify(value, modifier):
+        try:
+            dt = datetime.strptime(str(value), '%Y-%m-%d') if value != "now" else datetime.now()
+        except (ValueError, TypeError):
+            dt = datetime.now()
+        parts = modifier.strip().split()
+        if len(parts) == 2:
+            delta = timedelta(**{parts[1]: int(parts[0])})
+            return (dt + delta).strftime('%Y-%m-%d')
+        return value
+
+    def _fmt_date(value, fmt='%Y-%m-%d'):
+        if value == "now":
+            return datetime.now().strftime(fmt)
+        if isinstance(value, datetime):
+            return value.strftime(fmt)
+        try:
+            return datetime.strptime(str(value), '%Y-%m-%d').strftime(fmt)
+        except (ValueError, TypeError):
+            return value
+
+    app.jinja_env.filters['date_modify'] = _date_modify
+    app.jinja_env.filters['date'] = _fmt_date
+
+    # ── 5. REGISTER BLUEPRINTS ─────────────────────────────────────────────────
+    from .routes import (
+        auth, prod,
+        kpi2g_daily, kpi2g_hourly,
+        kpi4g_hourly, kpi4g_trend, kpi4g_compare, kpi4g_api,
+        kpi5g_hourly,
+        pl, ta4g
+    )
+    app.register_blueprint(auth)
+    app.register_blueprint(prod)
+    app.register_blueprint(kpi2g_daily)
+    app.register_blueprint(kpi2g_hourly)
+    app.register_blueprint(kpi4g_hourly)
+    app.register_blueprint(kpi4g_trend)
+    app.register_blueprint(kpi4g_compare)
+    app.register_blueprint(kpi4g_api)
+    app.register_blueprint(kpi5g_hourly)
+    app.register_blueprint(pl)
+    app.register_blueprint(ta4g)
+ 
+
+    # ── 6. CUSTOM ERROR HANDLERS ───────────────────────────────────────────────
+    @app.errorhandler(404)
+    def handle_404(e):
+        return render_template("error.html", code=404,
+                               message="Page not found."), 404
+
+    @app.errorhandler(500)
+    def handle_500(e):
+        import logging
+        logging.error("Unhandled 500 error: %s", str(e), exc_info=True)
+        return render_template("error.html", code=500,
+                               message="An internal error occurred. Please try again later."), 500
+
+    @app.errorhandler(Exception)
+    def handle_unexpected(e):
+        import logging
+        logging.error("Unhandled exception: %s", str(e), exc_info=True)
+        return render_template("error.html", code=500,
+                               message="An unexpected error occurred. Please try again later."), 500
+
+    return app
