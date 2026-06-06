@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 
 {% block nav_productivity %}active{% endblock %}
-{% block page_title %}Productivity{% endblock %}
+{% block subProd_open %}open{% endblock %}
+{% block nav_prod_trend %}active{% endblock %}
+{% block page_title %}Productivity — Trend YoY{% endblock %}
 {% block page_sub %}Traffic & Payload — Year-over-Year{% endblock %}
 
 {% block topbar_chips %}
@@ -32,14 +34,7 @@
 .toggle-row.expanded td:first-child::before { transform:rotate(90deg); }
 </style>
 
-<!-- PAGE TABS -->
-<div class="page-tabs">
-    <div class="page-tab active">📈 Trend YoY</div>
-    <div class="page-tab" onclick="location.href='/city_level'">🏙️ City Level</div>
-    <div class="page-tab" onclick="location.href='/site_level'">📡 Site Level</div>
-</div>
 
-<!-- FILTER BAR -->
 <form method="GET" action="/productivity" id="filterForm">
 <div class="filter-bar">
 

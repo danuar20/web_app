@@ -49,8 +49,143 @@ def login():
 @login_required
 def dashboard():
     from ._utils import _no_cache
-    response = make_response(render_template("dashboard.html", username=session["username"]))
+    from datetime import datetime
+    response = make_response(render_template("dashboard.html",
+        username=session["username"],
+        now=datetime.now().strftime("%d %b %Y %H:%M"),
+    ))
     return _no_cache(response)
+
+# ── Dashboard API (async data) ────────────────────────────────────────────────
+_dash_cache = {"ts": 0, "data": None}
+_DASH_CACHE_SECS = 300  # 5 minutes
+
+@auth.route("/api/dashboard")
+@login_required
+def api_dashboard():
+    from app.db.db_webapp import get_postgres_connection, get_connection
+    from app.db.db_pumaz import get_pumaz_connection
+    from ._utils import json_response
+    import time as _time
+
+    now = _time.time()
+    if _dash_cache["data"] and (now - _dash_cache["ts"]) < _DASH_CACHE_SECS:
+        return json_response(_dash_cache["data"])
+
+    summary = {
+        "postgres_db": {"status": "unknown", "last_update_2g": None, "last_update_4g": None, "last_update_5g": None, "site_count_2g": 0, "site_count_4g": 0, "site_count_5g": 0},
+        "pumaz_db": {"status": "unknown", "last_update": None},
+        "webapp_db": {"status": "unknown"},
+        "trend_labels": [],
+        "trend_payload": {},
+        "trend_traffic": {},
+    }
+
+    # ── PostgreSQL DB ──
+    try:
+        conn = get_postgres_connection()
+        cur = conn.cursor()
+        cur.execute("SET statement_timeout = '15s'")
+
+        for mv, key in [("mv_siteid_2g", "site_count_2g"), ("mv_siteid_4g", "site_count_4g"), ("mv_siteid_5g", "site_count_5g")]:
+            try:
+                cur.execute(f'SELECT COUNT(*) FROM "{mv}"')
+                summary["postgres_db"][key] = (cur.fetchone() or [0])[0]
+            except Exception:
+                pass
+
+        for tbl, key in [("2g_kpi_zte", "last_update_2g"), ("4g_kpi_zte", "last_update_4g"), ("5g_kpi_zte", "last_update_5g")]:
+            try:
+                cur.execute(f'SELECT MAX(datehour) FROM "{tbl}"')
+                row = cur.fetchone()
+                if row and row[0]:
+                    summary["postgres_db"][key] = row[0].strftime("%d %b %Y")
+            except Exception:
+                pass
+
+        summary["postgres_db"]["status"] = "ok"
+        cur.close(); conn.close()
+    except Exception:
+        summary["postgres_db"]["status"] = "error"
+
+    # ── Pumaz DB ──
+    pumaz_ok = False
+    try:
+        conn = get_pumaz_connection()
+        cur = conn.cursor()
+        cur.execute("SET statement_timeout = '30s'")
+
+        cur.execute('SELECT MAX("Date") FROM traffic_payload')
+        row = cur.fetchone()
+        summary["pumaz_db"]["last_update"] = row[0].strftime("%d %b %Y") if row and row[0] else None
+        summary["pumaz_db"]["status"] = "ok"
+        pumaz_ok = True
+        cur.close(); conn.close()
+    except Exception:
+        summary["pumaz_db"]["status"] = "error"
+
+    # ── Productivity trend 14 hari (Traffic + Payload per Tech) ──
+    if pumaz_ok:
+        try:
+            conn = get_pumaz_connection()
+            cur = conn.cursor()
+            cur.execute("SET statement_timeout = '30s'")
+
+            # Payload per Tech
+            cur.execute("""
+                SELECT "Date"::date AS d, "Tech", SUM("Payload (MB)")/1024.0/1024.0 AS val
+                FROM traffic_payload
+                WHERE "Date" >= CURRENT_DATE - INTERVAL '14 days' AND "Tech" IS NOT NULL
+                GROUP BY "Date"::date, "Tech" ORDER BY d, "Tech"
+            """)
+            rows = cur.fetchall()
+            dates = []
+            payload_by_tech = {}
+            for r in rows:
+                d_str = r[0].strftime("%d %b")
+                if d_str not in dates:
+                    dates.append(d_str)
+                tech = r[1]
+                if tech not in payload_by_tech:
+                    payload_by_tech[tech] = []
+                payload_by_tech[tech].append(round(float(r[2] or 0), 2))
+
+            # Traffic per Tech
+            cur.execute("""
+                SELECT "Date"::date AS d, "Tech", SUM("Traffic (erlang)")/1000.0 AS val
+                FROM traffic_payload
+                WHERE "Date" >= CURRENT_DATE - INTERVAL '14 days' AND "Tech" IS NOT NULL
+                GROUP BY "Date"::date, "Tech" ORDER BY d, "Tech"
+            """)
+            rows = cur.fetchall()
+            traffic_by_tech = {}
+            for r in rows:
+                tech = r[1]
+                if tech not in traffic_by_tech:
+                    traffic_by_tech[tech] = []
+                traffic_by_tech[tech].append(round(float(r[2] or 0), 2))
+
+            summary["trend_labels"] = dates
+            summary["trend_payload"] = payload_by_tech
+            summary["trend_traffic"] = traffic_by_tech
+
+            cur.close(); conn.close()
+        except Exception:
+            pass
+
+    # ── Webapp DB ──
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        cur.close(); conn.close()
+        summary["webapp_db"]["status"] = "ok"
+    except Exception:
+        summary["webapp_db"]["status"] = "error"
+
+    _dash_cache["ts"] = now
+    _dash_cache["data"] = summary
+    return json_response(summary)
 
 # ── Health check ───────────────────────────────────────────────────────────────
 @auth.route("/health")

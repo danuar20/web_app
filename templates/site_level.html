@@ -1,8 +1,19 @@
 {% extends "base.html" %}
 
 {% block nav_productivity %}active{% endblock %}
-{% block page_title %}Site Level{% endblock %}
+{% block subProd_open %}open{% endblock %}
+{% block nav_prod_site %}active{% endblock %}
+{% block page_title %}Productivity — Site Level{% endblock %}
 {% block page_sub %}Payload, Traffic, Availability & RRC — per Site ID{% endblock %}
+
+{% block topbar_chips %}
+{% if last_update %}
+<div class="info-chip">
+    <i class="fas fa-calendar-alt" style="font-size:10px"></i>
+    Last update: {{ last_update }}
+</div>
+{% endif %}
+{% endblock %}
 
 {% block page_content %}
 <style>
@@ -37,13 +48,6 @@
 .delta-pos { color: #00c853; font-weight: 600; }
 .delta-neg { color: #f87171; font-weight: 600; }
 </style>
-
-<!-- PAGE TABS -->
-<div class="page-tabs">
-    <div class="page-tab" onclick="location.href='/productivity'">📈 Trend YoY</div>
-    <div class="page-tab" onclick="location.href='/city_level'">🏙️ City Level</div>
-    <div class="page-tab active">📡 Site Level</div>
-</div>
 
 <!-- FILTER BAR -->
 <form method="GET" action="/site_level" id="filterForm">

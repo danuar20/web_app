@@ -417,6 +417,18 @@ def city_level():
     if yw_before and yw_after and not sel_cities and cities_list:
         sel_cities = cities_list
 
+    last_update = None
+    try:
+        conn2 = get_pumaz_connection()
+        cur2 = conn2.cursor()
+        cur2.execute('SELECT MAX("Date") FROM traffic_payload')
+        row = cur2.fetchone()
+        if row and row[0]:
+            last_update = row[0].strftime("%d %b %Y")
+        cur2.close(); conn2.close()
+    except Exception:
+        pass
+
     return _no_cache(make_response(render_template("city_level.html",
         username=session["username"],
         nsas_list=nsas_list, cities_list=cities_list,
@@ -434,6 +446,7 @@ def city_level():
         kpi_availability=kpi_availability,
         kpi_rrc=round(kpi_rrc, 0),
         compare_table=compare_table,
+        last_update=last_update,
     )))
 
 # ── Site Level ─────────────────────────────────────────────────────────────────
@@ -642,6 +655,18 @@ def site_level():
     if yw_before and yw_after and not sel_sites and sites_list:
         sel_sites = sites_list
 
+    last_update = None
+    try:
+        conn2 = get_pumaz_connection()
+        cur2 = conn2.cursor()
+        cur2.execute('SELECT MAX("Date") FROM traffic_payload')
+        row = cur2.fetchone()
+        if row and row[0]:
+            last_update = row[0].strftime("%d %b %Y")
+        cur2.close(); conn2.close()
+    except Exception:
+        pass
+
     return _no_cache(make_response(render_template("site_level.html",
         username=session["username"],
         nsas_list=nsas_list, cities_list=cities_list, sites_list=sites_list,
@@ -659,4 +684,5 @@ def site_level():
         kpi_availability=kpi_availability,
         kpi_rrc=round(kpi_rrc, 0),
         compare_table=compare_table,
+        last_update=last_update,
     )))

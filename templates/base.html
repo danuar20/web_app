@@ -1200,10 +1200,22 @@ body.mobile-view .mob-nav-item.active {
         <div class="menu-dot" style="background:#4facfe"></div>
         <span class="menu-item-label">Dashboard</span>
       </a>
-      <a href="/productivity" class="menu-item {% block nav_productivity %}{% endblock %}">
+      <div class="menu-item {% block nav_productivity %}{% endblock %}" onclick="toggleSub('subProd', this)">
         <div class="menu-dot" style="background:#00c853"></div>
         <span class="menu-item-label">Productivity</span>
-      </a>
+        <i class="fas fa-chevron-right menu-arrow"></i>
+      </div>
+      <div class="sub-menu {% block subProd_open %}{% endblock %}" id="subProd">
+        <a href="/productivity" class="sub-item {% block nav_prod_trend %}{% endblock %}">
+          <span class="sub-item-dot"></span> Trend YoY
+        </a>
+        <a href="/city_level" class="sub-item {% block nav_prod_city %}{% endblock %}">
+          <span class="sub-item-dot"></span> City Level
+        </a>
+        <a href="/site_level" class="sub-item {% block nav_prod_site %}{% endblock %}">
+          <span class="sub-item-dot"></span> Site Level
+        </a>
+      </div>
     </div>
 
     <div class="menu-section">
@@ -2111,9 +2123,9 @@ function closeYBar(){
 }
 
 function openChartModal(chartEl){
-    var card = chartEl.closest('.card');
+    var card = chartEl.closest('.card') || chartEl.closest('.dash-chart-card');
     if(!card) return;
-    var title = card.querySelector('.card-title');
+    var title = card.querySelector('.card-title') || card.querySelector('.dash-chart-title');
     var titleText = title ? title.textContent.trim() : 'Chart Preview';
     var chartId = chartEl.id;
     if(!chartId || !chartInstances[chartId]) return;
