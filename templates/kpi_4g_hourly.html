@@ -539,7 +539,7 @@ document.addEventListener("DOMContentLoaded", function(){
                      tension: 0.2, pointRadius: 0, pointHoverRadius: 5, borderWidth: 1.6 };
         });
         var cssrChart = new Chart(c2, { type: "line",
-            data: { labels: chartLabels, datasets: ds2 }, options: makeOpts("CSSR (%)", 85, 100) });
+            data: { labels: chartLabels, datasets: ds2 }, options: makeOpts("CSSR (%)") });
         chartInstances.cssrChart = cssrChart;
     }
 
@@ -627,7 +627,7 @@ document.addEventListener("DOMContentLoaded", function(){
                      tension: 0.2, pointRadius: 0, pointHoverRadius: 5, borderWidth: 1.6 };
         });
         var availChart = new Chart(c10, { type: "line",
-            data: { labels: chartLabels, datasets: ds10 }, options: makeOpts("Availability (%)", 95, 100) });
+            data: { labels: chartLabels, datasets: ds10 }, options: makeOpts("Availability (%)") });
         chartInstances.availChart = availChart;
     }
 
@@ -638,7 +638,7 @@ document.addEventListener("DOMContentLoaded", function(){
                      tension: 0.2, pointRadius: 0, pointHoverRadius: 5, borderWidth: 1.6 };
         });
         var erabSrChart = new Chart(c11, { type: "line",
-            data: { labels: chartLabels, datasets: ds11 }, options: makeOpts("ERAB SR (%)", 85, 100) });
+            data: { labels: chartLabels, datasets: ds11 }, options: makeOpts("ERAB SR (%)") });
         chartInstances.erabSrChart = erabSrChart;
     }
 
@@ -649,7 +649,7 @@ document.addEventListener("DOMContentLoaded", function(){
                      tension: 0.2, pointRadius: 0, pointHoverRadius: 5, borderWidth: 1.6 };
         });
         var rrcSrChart = new Chart(c12, { type: "line",
-            data: { labels: chartLabels, datasets: ds12 }, options: makeOpts("RRC SR (%)", 85, 100) });
+            data: { labels: chartLabels, datasets: ds12 }, options: makeOpts("RRC SR (%)") });
         chartInstances.rrcSrChart = rrcSrChart;
     }
 
@@ -660,7 +660,7 @@ document.addEventListener("DOMContentLoaded", function(){
                      tension: 0.2, pointRadius: 0, pointHoverRadius: 5, borderWidth: 1.6 };
         });
         var s1SrChart = new Chart(c13, { type: "line",
-            data: { labels: chartLabels, datasets: ds13 }, options: makeOpts("S1 SR (%)", 95, 100) });
+            data: { labels: chartLabels, datasets: ds13 }, options: makeOpts("S1 SR (%)") });
         chartInstances.s1SrChart = s1SrChart;
     }
 
@@ -671,7 +671,7 @@ document.addEventListener("DOMContentLoaded", function(){
                      tension: 0.2, pointRadius: 0, pointHoverRadius: 5, borderWidth: 1.6 };
         });
         var sdrChart = new Chart(c14, { type: "line",
-            data: { labels: chartLabels, datasets: ds14 }, options: makeOpts("SDR (%)", 0, 5) });
+            data: { labels: chartLabels, datasets: ds14 }, options: makeOpts("SDR (%)") });
         chartInstances.sdrChart = sdrChart;
     }
 
@@ -682,7 +682,7 @@ document.addEventListener("DOMContentLoaded", function(){
                      tension: 0.2, pointRadius: 0, pointHoverRadius: 5, borderWidth: 1.6 };
         });
         var ifhoChart = new Chart(c15, { type: "line",
-            data: { labels: chartLabels, datasets: ds15 }, options: makeOpts("IFHO (%)", 90, 100) });
+            data: { labels: chartLabels, datasets: ds15 }, options: makeOpts("IFHO (%)") });
         chartInstances.ifhoChart = ifhoChart;
     }
 
@@ -693,7 +693,7 @@ document.addEventListener("DOMContentLoaded", function(){
                      tension: 0.2, pointRadius: 0, pointHoverRadius: 5, borderWidth: 1.6 };
         });
         var csfbChart = new Chart(c16, { type: "line",
-            data: { labels: chartLabels, datasets: ds16 }, options: makeOpts("CSFB (%)", 90, 100) });
+            data: { labels: chartLabels, datasets: ds16 }, options: makeOpts("CSFB (%)") });
         chartInstances.csfbChart = csfbChart;
     }
 
@@ -715,7 +715,7 @@ document.addEventListener("DOMContentLoaded", function(){
                      tension: 0.2, pointRadius: 0, pointHoverRadius: 5, borderWidth: 1.6 };
         });
         var cqiChart = new Chart(c18, { type: "line",
-            data: { labels: chartLabels, datasets: ds18 }, options: makeOpts("CQI", 0, 15) });
+            data: { labels: chartLabels, datasets: ds18 }, options: makeOpts("CQI") });
         chartInstances.cqiChart = cqiChart;
     }
 });

@@ -101,23 +101,29 @@
 
 <div class="chart-grid" id="chartView">
     {% set chart_meta = {
-        'payloadChart': {'title': '📦 Payload (MB)', 'sub': 'Total Payload · ' + (from_date or '') + ' — ' + (to_date or '')},
+        'tchChart': {'title': '📡 TCH Traffic (Erl)', 'sub': 'TCH Traffic per Hour'},
+        'sdcchChart': {'title': '📡 SDCCH Traffic (Erl)', 'sub': 'SDCCH Traffic per Hour'},
+        'fullrateChart': {'title': '🔷 Full Rate Traffic (Erl)', 'sub': 'Full Rate Traffic per Hour'},
+        'halfrateChart': {'title': '🔶 Half Rate Traffic (Erl)', 'sub': 'Half Rate Traffic per Hour'},
+        'payloadChart': {'title': '📦 Payload (MB)', 'sub': 'Total Payload per Hour'},
         'availChart': {'title': '⚡ Availability (%)', 'sub': 'TCH Availability'},
         'cssrChart': {'title': '📶 CSSR (%)', 'sub': 'Call Setup Success Rate'},
         'ccsrChart': {'title': '🔗 CCSR (%)', 'sub': 'Call Completion Success Rate'},
         'hosrChart': {'title': '🔄 HOSR (%)', 'sub': 'Handover Success Rate'},
         'tchblkChart': {'title': '🚫 TCH Blocking (%)', 'sub': 'TCH Blocking Rate'},
+        'tchblkNumChart': {'title': '🚫 TCH Block Num', 'sub': 'TCH Block Count'},
         'sdcchblkChart': {'title': '🚫 SDCCH Blocking (%)', 'sub': 'SDCCH Blocking Rate'},
+        'sdcchblkNumChart': {'title': '🚫 SD Block Num', 'sub': 'SDCCH Block Count'},
         'sdsrChart': {'title': '📡 SDSR (%)', 'sub': 'SDCCH Success Rate'},
         'tbfEstChart': {'title': '📶 TBF Est (%)', 'sub': 'TBF Establishment Rate'},
         'tbfCompChart': {'title': '📶 TBF Comp (%)', 'sub': 'TBF Completion Rate'},
         'tchDropChart': {'title': '📉 TCH Drop (%)', 'sub': 'TCH Drop Rate'},
-        'sd2tchChart': {'title': '📞 SD→TCH (%)', 'sub': 'SD to TCH Success Rate'},
+        'tchDropNumChart': {'title': '📉 TCH Drop Num', 'sub': 'TCH Drop Count'},
         'fastreturnChart': {'title': '🔄 FastReturn', 'sub': 'Fast Return to LTE'},
-        'icmChart': {'title': '📊 ICM Band 3-5 (%)', 'sub': 'Interference'},
-        'interferenceChart': {'title': '📡 Interference (%)', 'sub': 'ICM Interference Ono'},
+        'icmChart': {'title': '📊 ICM Band 3-5 (%)', 'sub': 'ICM Band'},
+        'interferenceChart': {'title': '📡 ICM Interference (%)', 'sub': 'ICM Interference'},
     } %}
-    {% set canvas_ids = ['payloadChart','availChart','cssrChart','ccsrChart','hosrChart','tchblkChart','sdcchblkChart','sdsrChart','tbfEstChart','tbfCompChart','tchDropChart','sd2tchChart','fastreturnChart','icmChart','interferenceChart'] %}
+    {% set canvas_ids = ['tchChart','sdcchChart','fullrateChart','halfrateChart','payloadChart','availChart','cssrChart','ccsrChart','hosrChart','tchblkChart','tchblkNumChart','sdcchblkChart','sdcchblkNumChart','sdsrChart','tbfEstChart','tbfCompChart','tchDropChart','tchDropNumChart','fastreturnChart','icmChart','interferenceChart'] %}
     {% for cid in canvas_ids %}
     {% set meta = chart_meta.get(cid, {'title': cid, 'sub': ''}) %}
     <div class="card" id="card-{{ cid }}">
@@ -274,7 +280,7 @@ document.addEventListener("change", function(event){
 
 document.addEventListener("DOMContentLoaded", function(){
     updateSelectedCount();
-    var canvasIds = ["payloadChart","availChart","cssrChart","ccsrChart","hosrChart","tchblkChart","sdcchblkChart","sdsrChart","tbfEstChart","tbfCompChart","tchDropChart","sd2tchChart","fastreturnChart","icmChart","interferenceChart"];
+    var canvasIds = ["tchChart","sdcchChart","fullrateChart","halfrateChart","payloadChart","availChart","cssrChart","ccsrChart","hosrChart","tchblkChart","tchblkNumChart","sdcchblkChart","sdcchblkNumChart","sdsrChart","tbfEstChart","tbfCompChart","tchDropChart","tchDropNumChart","fastreturnChart","icmChart","interferenceChart"];
     canvasIds.forEach(function(id){
         var el = document.getElementById("loading-" + id);
         if(el) el.style.display = "none";
@@ -304,9 +310,9 @@ function populateTable(){
     var thead = document.getElementById("tableHead");
     var tbody = document.getElementById("tableBody");
     if(!thead || !tbody || chartLabels.length === 0) return;
-    thead.innerHTML = "<tr><th>Timestamp</th><th>Site ID</th><th>TCH Traffic</th><th>SDCCH Traffic</th><th>Payload (MB)</th><th>Avail (%)</th><th>CSSR (%)</th><th>CCSR (%)</th><th>HOSR (%)</th><th>TCH Blk (%)</th><th>SDCCH Blk (%)</th><th>SDSR (%)</th><th>TBF Est (%)</th><th>TBF Comp (%)</th><th>TCH Drop (%)</th><th>SD→TCH (%)</th><th>FastReturn</th><th>ICM (%)</th><th>Interference (%)</th></tr>";
-    var kpiKeys = ["payloadChart","availChart","cssrChart","ccsrChart","hosrChart","tchblkChart","sdcchblkChart","sdsrChart","tbfEstChart","tbfCompChart","tchDropChart","sd2tchChart","fastreturnChart","icmChart","interferenceChart"];
-    var firstCh = chartInstances.payloadChart;
+    thead.innerHTML = "<tr><th>Timestamp</th><th>Site ID</th><th>TCH Traffic</th><th>SDCCH Traffic</th><th>Full Rate</th><th>Half Rate</th><th>Payload (MB)</th><th>Avail (%)</th><th>CSSR (%)</th><th>CCSR (%)</th><th>HOSR (%)</th><th>TCH Blk (%)</th><th>TCH Blk Num</th><th>SDCCH Blk (%)</th><th>SDCCH Blk Num</th><th>SDSR (%)</th><th>TBF Est (%)</th><th>TBF Comp (%)</th><th>TCH Drop (%)</th><th>TCH Drop Num</th><th>FastReturn</th><th>ICM Band (%)</th><th>ICM Interference (%)</th></tr>";
+    var kpiKeys = ["tchChart","sdcchChart","fullrateChart","halfrateChart","payloadChart","availChart","cssrChart","ccsrChart","hosrChart","tchblkChart","tchblkNumChart","sdcchblkChart","sdcchblkNumChart","sdsrChart","tbfEstChart","tbfCompChart","tchDropChart","tchDropNumChart","fastreturnChart","icmChart","interferenceChart"];
+    var firstCh = chartInstances.tchChart;
     if(!firstCh || !firstCh.data.datasets || firstCh.data.datasets.length === 0) return;
     var numSites = firstCh.data.datasets.length;
 
@@ -351,18 +357,24 @@ function downloadTableData(){
 }
 
 var chartLabels = {{ chart_labels | tojson | safe }};
+var chartTch = {{ chart_tch | tojson | safe }};
+var chartSdcch = {{ chart_sdcch | tojson | safe }};
+var chartFullrate = {{ chart_fullrate | tojson | safe }};
+var chartHalfrate = {{ chart_halfrate | tojson | safe }};
 var chartPayload = {{ chart_payload | tojson | safe }};
 var chartAvail = {{ chart_avail | tojson | safe }};
 var chartCssr = {{ chart_cssr | tojson | safe }};
 var chartCcsr = {{ chart_ccsr | tojson | safe }};
 var chartHosr = {{ chart_hosr | tojson | safe }};
 var chartTchblk = {{ chart_tchblk | tojson | safe }};
+var chartTchblkNum = {{ chart_tchblk_num | tojson | safe }};
 var chartSdcchblk = {{ chart_sdcchblk | tojson | safe }};
+var chartSdcchblkNum = {{ chart_sdcchblk_num | tojson | safe }};
 var chartSdsr = {{ chart_sdsr | tojson | safe }};
 var chartTbfEst = {{ chart_tbf_est | tojson | safe }};
 var chartTbfComp = {{ chart_tbf_comp | tojson | safe }};
 var chartTchDrop = {{ chart_tch_drop | tojson | safe }};
-var chartSd2tch = {{ chart_sd2tch | tojson | safe }};
+var chartTchDropNum = {{ chart_tch_drop_num | tojson | safe }};
 var chartFastreturn = {{ chart_fastreturn | tojson | safe }};
 var chartIcm = {{ chart_icm | tojson | safe }};
 var chartInterference = {{ chart_interference | tojson | safe }};
@@ -454,20 +466,26 @@ function createChart(canvasId, dataObj, options) {
 document.addEventListener("DOMContentLoaded", function(){
     if(!chartLabels || chartLabels.length === 0) return;
 
+    createChart("tchChart", chartTch, makeOpts("TCH Traffic (Erl)"));
+    createChart("sdcchChart", chartSdcch, makeOpts("SDCCH Traffic (Erl)"));
+    createChart("fullrateChart", chartFullrate, makeOpts("Full Rate Traffic (Erl)"));
+    createChart("halfrateChart", chartHalfrate, makeOpts("Half Rate Traffic (Erl)"));
     createChart("payloadChart", chartPayload, makeOpts("Payload (MB)"));
-    createChart("availChart", chartAvail, makeOpts("Availability (%)", 95, 100));
-    createChart("cssrChart", chartCssr, makeOpts("CSSR (%)", 85, 100));
-    createChart("ccsrChart", chartCcsr, makeOpts("CCSR (%)", 85, 100));
-    createChart("hosrChart", chartHosr, makeOpts("HOSR (%)", 85, 100));
-    createChart("tchblkChart", chartTchblk, makeOpts("TCH Blocking (%)", 0, 5));
-    createChart("sdcchblkChart", chartSdcchblk, makeOpts("SDCCH Blocking (%)", 0, 5));
-    createChart("sdsrChart", chartSdsr, makeOpts("SDSR (%)", 85, 100));
-    createChart("tbfEstChart", chartTbfEst, makeOpts("TBF Est (%)", 75, 100));
-    createChart("tbfCompChart", chartTbfComp, makeOpts("TBF Comp (%)", 75, 100));
-    createChart("tchDropChart", chartTchDrop, makeOpts("TCH Drop (%)", 0, 5));
-    createChart("sd2tchChart", chartSd2tch, makeOpts("SD→TCH (%)", 80, 100));
+    createChart("availChart", chartAvail, makeOpts("Availability (%)"));
+    createChart("cssrChart", chartCssr, makeOpts("CSSR (%)"));
+    createChart("ccsrChart", chartCcsr, makeOpts("CCSR (%)"));
+    createChart("hosrChart", chartHosr, makeOpts("HOSR (%)"));
+    createChart("tchblkChart", chartTchblk, makeOpts("TCH Blocking (%)"));
+    createChart("tchblkNumChart", chartTchblkNum, makeOpts("TCH Block Num"));
+    createChart("sdcchblkChart", chartSdcchblk, makeOpts("SDCCH Blocking (%)"));
+    createChart("sdcchblkNumChart", chartSdcchblkNum, makeOpts("SDCCH Block Num"));
+    createChart("sdsrChart", chartSdsr, makeOpts("SDSR (%)"));
+    createChart("tbfEstChart", chartTbfEst, makeOpts("TBF Est (%)"));
+    createChart("tbfCompChart", chartTbfComp, makeOpts("TBF Comp (%)"));
+    createChart("tchDropChart", chartTchDrop, makeOpts("TCH Drop (%)"));
+    createChart("tchDropNumChart", chartTchDropNum, makeOpts("TCH Drop Num"));
     createChart("fastreturnChart", chartFastreturn, makeOpts("FastReturn"));
-    createChart("icmChart", chartIcm, makeOpts("ICM (%)", 85, 100));
+    createChart("icmChart", chartIcm, makeOpts("ICM (%)"));
     createChart("interferenceChart", chartInterference, makeOpts("Interference (%)"));
 });
 </script>

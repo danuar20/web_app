@@ -480,17 +480,17 @@ document.addEventListener("DOMContentLoaded", function(){
     // UL Payload in GB
     createChart("ulPayloadChart", chartUlPayload, makeOpts("UL Payload (GB)"));
     // Availability
-    createChart("availChart", chartAvail, makeOpts("Availability (%)", 95, 100));
+    createChart("availChart", chartAvail, makeOpts("Availability (%)", 0, 100));
     // RRC User
     createChart("rrcUserChart", chartRrcUser, makeOpts("RRC Users"));
     // NR Active User
     createChart("nrActiveUserChart", chartNrActiveUser, makeOpts("NR Active Users"));
     // NR Accessibility
-    createChart("nrAccessibilityChart", chartNrAccessibility, makeOpts("NR Access (%)", 85, 100));
+    createChart("nrAccessibilityChart", chartNrAccessibility, makeOpts("NR Access (%)", 0, 100));
     // NR Retainability
     createChart("nrRetainabilityChart", chartNrRetainability, makeOpts("NR Retain (%)", 0, 100));
     // NR Mobility
-    createChart("nrMobilityChart", chartNrMobility, makeOpts("NR Mobility (%)", 85, 100));
+    createChart("nrMobilityChart", chartNrMobility, makeOpts("NR Mobility (%)"));
     // DL PRB
     createChart("dlPrbChart", chartDlPrb, makeOpts("DL PRB (%)", 0, 100));
     // UL PRB
@@ -510,7 +510,7 @@ document.addEventListener("DOMContentLoaded", function(){
     // UL Interference
     createChart("ulInterferenceChart", chartUlInterference, makeOpts("UL Interference (dBm)"));
     // Packet Loss
-    createChart("packetLossChart", chartPacketLoss, makeOpts("Packet Loss (%)", 0, 10));
+    createChart("packetLossChart", chartPacketLoss, makeOpts("Packet Loss (%)"));
     // Latency DL
     createChart("latencyDlChart", chartLatencyDl, makeOpts("Latency DL (ms)"));
     // Latency UL

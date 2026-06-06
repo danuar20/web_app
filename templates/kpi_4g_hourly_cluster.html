@@ -444,7 +444,7 @@ document.addEventListener("DOMContentLoaded", function(){
         chartInstances[cid] = ch;
     }
     mk("payloadChart",  chartPayload,  null, null, "Payload (MB)");
-    mk("cssrChart",     chartCssr,     85,  100, "CSSR (%)");
+    mk("cssrChart",     chartCssr,     null, null, "CSSR (%)");
     mk("volteChart",    chartVolte,    null, null, "VoLTE (Erl)");
     mk("maxRrcChart",   chartMaxRrc,  null, null, "Max RRC Users");
     mk("activeUserChart", chartActiveUser, null, null, "Active Users");
@@ -452,13 +452,13 @@ document.addEventListener("DOMContentLoaded", function(){
     mk("ulPrbChart",   chartUlPrb,    0,   100, "UL PRB (%)");
     mk("dlThpChart",   chartDlThp,    null, null, "DL Thp (Mbps)");
     mk("ulThpChart",   chartUlThp,    null, null, "UL Thp (Mbps)");
-    mk("availChart",   chartAvail,    95,  100, "Availability (%)");
-    mk("erabSrChart",  chartErabSr,   85,  100, "ERAB SR (%)");
-    mk("rrcSrChart",   chartRrcSr,   85,  100, "RRC SR (%)");
-    mk("s1SrChart",    chartS1Sr,     95,  100, "S1 SR (%)");
-    mk("sdrChart",    chartSdr,      0,    5, "SDR (%)");
-    mk("ifhoChart",   chartIfho,     90,  100, "IFHO (%)");
-    mk("csfbChart",   chartCsfb,    85,  100, "CSFB (%)");
+    mk("availChart",   chartAvail,    null, null, "Availability (%)");
+    mk("erabSrChart",  chartErabSr,   null, null, "ERAB SR (%)");
+    mk("rrcSrChart",   chartRrcSr,   null, null, "RRC SR (%)");
+    mk("s1SrChart",    chartS1Sr,     null, null, "S1 SR (%)");
+    mk("sdrChart",    chartSdr,      null, null, "SDR (%)");
+    mk("ifhoChart",   chartIfho,     null, null, "IFHO (%)");
+    mk("csfbChart",   chartCsfb,    null, null, "CSFB (%)");
     mk("seChart",     chartSe,       null, null, "SE");
     mk("cqiChart",    chartCqi,      0,   15, "CQI");
 });

@@ -58,11 +58,13 @@ def kpi_2g_hourly():
     # Initialize
     sites_list = []; last_update = None; active_count = 0
     chart_labels = []
-    chart_tch = {}; chart_sdcch = {}; chart_payload = {}
+    chart_tch = {}; chart_sdcch = {}; chart_fullrate = {}; chart_halfrate = {}
+    chart_payload = {}
     chart_avail = {}; chart_cssr = {}; chart_ccsr = {}; chart_hosr = {}
-    chart_tchblk = {}; chart_sdcchblk = {}; chart_sdsr = {}
-    chart_tbf_est = {}; chart_tbf_comp = {}; chart_tch_drop = {}
-    chart_sd2tch = {}; chart_fastreturn = {}; chart_icm = {}; chart_interference = {}
+    chart_tchblk = {}; chart_tchblk_num = {}; chart_sdcchblk = {}; chart_sdcchblk_num = {}
+    chart_sdsr = {}
+    chart_tbf_est = {}; chart_tbf_comp = {}; chart_tch_drop = {}; chart_tch_drop_num = {}
+    chart_fastreturn = {}; chart_icm = {}; chart_interference = {}
 
     # Load site list synchronously (same pattern as 5G hourly)
     try:
@@ -94,6 +96,8 @@ def kpi_2g_hourly():
                     siteid,
                     ROUND(SUM(tch_traffic)::numeric, 2) AS tch_traffic,
                     ROUND(SUM(sdcch_traffic)::numeric, 2) AS sdcch_traffic,
+                    ROUND(SUM("Offic_full_traffic")::numeric, 2) AS full_rate_traffic,
+                    ROUND(SUM("Offic_half_traffic")::numeric, 2) AS half_rate_traffic,
                     ROUND(SUM(total_payload)::numeric, 2) AS payload_mb,
                     CASE WHEN SUM(tch_avail_denum) > 0
                          THEN ROUND((SUM(tch_avail_num)::numeric / SUM(tch_avail_denum)::numeric * 100), 2)
@@ -110,9 +114,11 @@ def kpi_2g_hourly():
                     CASE WHEN SUM(tch_block_denum) > 0
                          THEN ROUND((SUM(tch_block_num)::numeric / SUM(tch_block_denum)::numeric * 100), 2)
                          ELSE NULL END AS tch_blk_pct,
+                    ROUND(SUM(tch_block_num)::numeric, 0) AS tch_block_num,
                     CASE WHEN SUM(sdcch_block_denum) > 0
                          THEN ROUND((SUM(sdcch_block_num)::numeric / SUM(sdcch_block_denum)::numeric * 100), 2)
                          ELSE NULL END AS sdcch_blk_pct,
+                    ROUND(SUM(sdcch_block_num)::numeric, 0) AS sdcch_block_num,
                     CASE WHEN SUM(sdsr_denum) > 0
                          THEN ROUND((SUM(sdsr_num)::numeric / SUM(sdsr_denum)::numeric * 100), 2)
                          ELSE NULL END AS sdsr_pct,
@@ -126,7 +132,6 @@ def kpi_2g_hourly():
                          THEN ROUND((SUM(tch_drop_num)::numeric / SUM(tch_drop_denum)::numeric * 100), 2)
                          ELSE NULL END AS tch_drop_pct,
                     ROUND(SUM(tch_drop_num)::numeric, 0) AS tch_drop_num,
-                    ROUND(AVG(sd_to_tch)::numeric, 2) AS sd2tch_pct,
                     ROUND(SUM(fastreturn_to_lte)::numeric, 0) AS fastreturn,
                     CASE WHEN SUM(icm_band35_num) > 0
                          THEN ROUND((SUM(icm_band35_num)::numeric / SUM(icm_band35_denum)::numeric * 100), 2)
@@ -146,39 +151,47 @@ def kpi_2g_hourly():
             for r in cur.fetchall():
                 dh = r[0].strftime("%Y-%m-%d %H:%M")
                 site = r[1]
-                tch    = round(float(r[2]), 2) if r[2] is not None else 0
-                sdcch  = round(float(r[3]), 2) if r[3] is not None else 0
-                pl     = round(float(r[4]), 2) if r[4] is not None else 0
-                avail  = float(r[5])  if r[5]  is not None else None
-                cssr   = float(r[6])  if r[6]  is not None else None
-                ccsr   = float(r[7])  if r[7]  is not None else None
-                hosr   = float(r[8])  if r[8]  is not None else None
-                tblk   = float(r[9])  if r[9]  is not None else None
-                sblk   = float(r[10]) if r[10] is not None else None
-                sdsr   = float(r[11]) if r[11] is not None else None
-                tbf_e  = float(r[12]) if r[12] is not None else None
-                tbf_c  = float(r[13]) if r[13] is not None else None
-                tdorp  = float(r[14]) if r[14] is not None else None
-                sd2tc  = float(r[16]) if r[16] is not None else None
-                fret   = round(float(r[17]), 0) if r[17] is not None else 0
-                icm    = float(r[18]) if r[18] is not None else None
-                intr   = float(r[19]) if r[19] is not None else None
+                tch      = round(float(r[2]), 2) if r[2] is not None else 0
+                sdcch    = round(float(r[3]), 2) if r[3] is not None else 0
+                fullrate = round(float(r[4]), 2) if r[4] is not None else 0
+                halfrate = round(float(r[5]), 2) if r[5] is not None else 0
+                pl       = round(float(r[6]), 2) if r[6] is not None else 0
+                avail    = float(r[7])  if r[7]  is not None else None
+                cssr     = float(r[8])  if r[8]  is not None else None
+                ccsr     = float(r[9])  if r[9]  is not None else None
+                hosr     = float(r[10]) if r[10] is not None else None
+                tblk     = float(r[11]) if r[11] is not None else None
+                tblk_num = round(float(r[12]), 0) if r[12] is not None else 0
+                sblk     = float(r[13]) if r[13] is not None else None
+                sblk_num = round(float(r[14]), 0) if r[14] is not None else 0
+                sdsr     = float(r[15]) if r[15] is not None else None
+                tbf_e    = float(r[16]) if r[16] is not None else None
+                tbf_c    = float(r[17]) if r[17] is not None else None
+                tdorp    = float(r[18]) if r[18] is not None else None
+                tdrop_num= round(float(r[19]), 0) if r[19] is not None else 0
+                fret     = round(float(r[20]), 0) if r[20] is not None else 0
+                icm      = float(r[21]) if r[21] is not None else None
+                intr     = float(r[22]) if r[22] is not None else None
 
                 hours_seen[dh] = True
                 chart_tch.setdefault(site, {})[dh] = tch
                 chart_sdcch.setdefault(site, {})[dh] = sdcch
+                chart_fullrate.setdefault(site, {})[dh] = fullrate
+                chart_halfrate.setdefault(site, {})[dh] = halfrate
                 chart_payload.setdefault(site, {})[dh] = pl
                 chart_avail.setdefault(site, {})[dh] = avail
                 chart_cssr.setdefault(site, {})[dh] = cssr
                 chart_ccsr.setdefault(site, {})[dh] = ccsr
                 chart_hosr.setdefault(site, {})[dh] = hosr
                 chart_tchblk.setdefault(site, {})[dh] = tblk
+                chart_tchblk_num.setdefault(site, {})[dh] = tblk_num
                 chart_sdcchblk.setdefault(site, {})[dh] = sblk
+                chart_sdcchblk_num.setdefault(site, {})[dh] = sblk_num
                 chart_sdsr.setdefault(site, {})[dh] = sdsr
                 chart_tbf_est.setdefault(site, {})[dh] = tbf_e
                 chart_tbf_comp.setdefault(site, {})[dh] = tbf_c
                 chart_tch_drop.setdefault(site, {})[dh] = tdorp
-                chart_sd2tch.setdefault(site, {})[dh] = sd2tc
+                chart_tch_drop_num.setdefault(site, {})[dh] = tdrop_num
                 chart_fastreturn.setdefault(site, {})[dh] = fret
                 chart_icm.setdefault(site, {})[dh] = icm
                 chart_interference.setdefault(site, {})[dh] = intr
@@ -187,22 +200,26 @@ def kpi_2g_hourly():
 
             # Convert to ordered lists
             for s in chart_payload:
-                chart_tch[s]           = [chart_tch[s].get(h, 0) for h in chart_labels]
-                chart_sdcch[s]         = [chart_sdcch[s].get(h, 0) for h in chart_labels]
+                chart_tch[s]            = [chart_tch[s].get(h, 0) for h in chart_labels]
+                chart_sdcch[s]          = [chart_sdcch[s].get(h, 0) for h in chart_labels]
+                chart_fullrate[s]       = [chart_fullrate[s].get(h, 0) for h in chart_labels]
+                chart_halfrate[s]       = [chart_halfrate[s].get(h, 0) for h in chart_labels]
                 chart_payload[s]        = [chart_payload[s].get(h, 0) for h in chart_labels]
-                chart_avail[s]         = [chart_avail[s].get(h) for h in chart_labels]
-                chart_cssr[s]          = [chart_cssr[s].get(h) for h in chart_labels]
-                chart_ccsr[s]          = [chart_ccsr[s].get(h) for h in chart_labels]
-                chart_hosr[s]          = [chart_hosr[s].get(h) for h in chart_labels]
-                chart_tchblk[s]        = [chart_tchblk[s].get(h) for h in chart_labels]
-                chart_sdcchblk[s]      = [chart_sdcchblk[s].get(h) for h in chart_labels]
-                chart_sdsr[s]          = [chart_sdsr[s].get(h) for h in chart_labels]
-                chart_tbf_est[s]       = [chart_tbf_est[s].get(h) for h in chart_labels]
-                chart_tbf_comp[s]      = [chart_tbf_comp[s].get(h) for h in chart_labels]
+                chart_avail[s]          = [chart_avail[s].get(h) for h in chart_labels]
+                chart_cssr[s]           = [chart_cssr[s].get(h) for h in chart_labels]
+                chart_ccsr[s]           = [chart_ccsr[s].get(h) for h in chart_labels]
+                chart_hosr[s]           = [chart_hosr[s].get(h) for h in chart_labels]
+                chart_tchblk[s]         = [chart_tchblk[s].get(h) for h in chart_labels]
+                chart_tchblk_num[s]     = [chart_tchblk_num[s].get(h, 0) for h in chart_labels]
+                chart_sdcchblk[s]       = [chart_sdcchblk[s].get(h) for h in chart_labels]
+                chart_sdcchblk_num[s]   = [chart_sdcchblk_num[s].get(h, 0) for h in chart_labels]
+                chart_sdsr[s]           = [chart_sdsr[s].get(h) for h in chart_labels]
+                chart_tbf_est[s]        = [chart_tbf_est[s].get(h) for h in chart_labels]
+                chart_tbf_comp[s]       = [chart_tbf_comp[s].get(h) for h in chart_labels]
                 chart_tch_drop[s]       = [chart_tch_drop[s].get(h) for h in chart_labels]
-                chart_sd2tch[s]        = [chart_sd2tch[s].get(h) for h in chart_labels]
+                chart_tch_drop_num[s]   = [chart_tch_drop_num[s].get(h, 0) for h in chart_labels]
                 chart_fastreturn[s]     = [chart_fastreturn[s].get(h, 0) for h in chart_labels]
-                chart_icm[s]           = [chart_icm[s].get(h) for h in chart_labels]
+                chart_icm[s]            = [chart_icm[s].get(h) for h in chart_labels]
                 chart_interference[s]   = [chart_interference[s].get(h) for h in chart_labels]
 
             cur.close()
@@ -241,18 +258,22 @@ def kpi_2g_hourly():
         chart_labels=chart_labels,
         chart_tch=chart_tch,
         chart_sdcch=chart_sdcch,
+        chart_fullrate=chart_fullrate,
+        chart_halfrate=chart_halfrate,
         chart_payload=chart_payload,
         chart_avail=chart_avail,
         chart_cssr=chart_cssr,
         chart_ccsr=chart_ccsr,
         chart_hosr=chart_hosr,
         chart_tchblk=chart_tchblk,
+        chart_tchblk_num=chart_tchblk_num,
         chart_sdcchblk=chart_sdcchblk,
+        chart_sdcchblk_num=chart_sdcchblk_num,
         chart_sdsr=chart_sdsr,
         chart_tbf_est=chart_tbf_est,
         chart_tbf_comp=chart_tbf_comp,
         chart_tch_drop=chart_tch_drop,
-        chart_sd2tch=chart_sd2tch,
+        chart_tch_drop_num=chart_tch_drop_num,
         chart_fastreturn=chart_fastreturn,
         chart_icm=chart_icm,
         chart_interference=chart_interference,
