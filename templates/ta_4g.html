@@ -99,7 +99,7 @@
         <div class="card-title">📡 TA Distribution — {{ sector_key }}</div>
         <div class="card-sub">{{ sector_data|length }} cell(s) · Sector breakdown</div>
         <div class="chart-wrap" style="height: 260px; position: relative;">
-            <canvas id="chart-{{ loop.index }}" data-sector="{{ sector_key }}"></canvas>
+            <canvas id="chart-{{ loop.index }}" data-sector="{{ sector_key }}" style="cursor:pointer" onclick="openChartModal(document.getElementById('chart-{{ loop.index }}'))"></canvas>
         </div>
     </div>
 {% endfor %}
@@ -243,6 +243,7 @@ function downloadCSV(){
 // ── Chart data ────────────────────────────────────────────────────────────────
 var chartData = {{ chart_data | tojson | safe }};
 var sectorGroups = {{ sector_groups | tojson | safe }};
+var chartInstances = {};  // Store chart instances for modal
 
 var TA_LABELS = [
     "0-0.156", "0.156-0.312", "0.312-0.468", "0.468-0.624", "0.624-0.780",
@@ -295,7 +296,7 @@ document.addEventListener("DOMContentLoaded", function(){
             idx++;
         });
 
-        new Chart(canvas, {
+        var chartInstance = new Chart(canvas, {
             type: "bar",
             data: { labels: TA_LABELS, datasets: datasets },
             options: {
@@ -331,6 +332,9 @@ document.addEventListener("DOMContentLoaded", function(){
                 }
             }
         });
+
+        // Store chart instance for modal
+        chartInstances["chart-" + chartIndex] = chartInstance;
 
         chartIndex++;
     });

@@ -1293,7 +1293,18 @@ body.mobile-view .mob-nav-item.active {
         <a href="/pl_4g" class="sub-item {% block nav_pl_4g %}{% endblock %}"><span class="sub-item-dot"></span> PL 4G</a>
       </div>
 
-      
+      <div class="menu-item {% block nav_coverage %}{% endblock %}" onclick="toggleSub('subcoverage', this)">
+        <div class="menu-dot" style="background:#00c853"></div>
+        <span class="menu-item-label">Coverage</span>
+        <i class="fas fa-chevron-right menu-arrow"></i>
+      </div>
+      <div class="sub-menu {% block subcoverage_open %}{% endblock %}" id="subcoverage">
+        <a href="/coverage_simulation" class="sub-item {% block nav_coverage_sim %}{% endblock %}"><span class="sub-item-dot"></span> Coverage Simulation</a>
+        <a href="/okumura_hata" class="sub-item {% block nav_okumura %}{% endblock %}"><span class="sub-item-dot"></span> Okumura-Hata Model</a>
+        <a href="/nettilt3d" class="sub-item {% block nav_nettilt3d %}{% endblock %}"><span class="sub-item-dot"></span> NetTilt 3D</a>
+      </div>
+
+
     </div>
   </aside>
 

@@ -46,3 +46,15 @@ ta4g = ta_4g_routes.ta4g
 # 5G KPI Hourly — /kpi_5g_hourly (per-site view)
 from . import kpi_5g_hourly_routes
 kpi5g_hourly = kpi_5g_hourly_routes.kpi5g_hourly
+
+# Coverage Simulation — /coverage_simulation
+from . import coverage_routes
+coverage = coverage_routes.coverage
+
+# Okumura-Hata Model — /okumura_hata
+from . import okumura_hata_routes
+okumura_hata = okumura_hata_routes.okumura_hata
+
+# NetTilt 3D — /nettilt3d
+from . import nettilt3d_routes
+nettilt3d = nettilt3d_routes.nettilt3d

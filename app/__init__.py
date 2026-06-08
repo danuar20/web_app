@@ -73,7 +73,7 @@ def create_app():
         kpi2g_daily, kpi2g_hourly,
         kpi4g_hourly, kpi4g_trend, kpi4g_compare, kpi4g_api,
         kpi5g_hourly,
-        pl, ta4g
+        pl, ta4g, coverage, okumura_hata, nettilt3d
     )
     app.register_blueprint(auth)
     app.register_blueprint(prod)
@@ -86,6 +86,9 @@ def create_app():
     app.register_blueprint(kpi5g_hourly)
     app.register_blueprint(pl)
     app.register_blueprint(ta4g)
+    app.register_blueprint(coverage)
+    app.register_blueprint(okumura_hata)
+    app.register_blueprint(nettilt3d)
  
 
     # ── 6. CUSTOM ERROR HANDLERS ───────────────────────────────────────────────

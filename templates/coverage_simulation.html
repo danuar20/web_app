@@ -1,0 +1,622 @@
+{% extends "base.html" %}
+
+{% block nav_coverage %}active{% endblock %}
+{% block subcoverage_open %}open{% endblock %}
+{% block nav_coverage_sim %}active{% endblock %}
+{% block page_title %}Coverage Simulation{% endblock %}
+{% block page_sub %}RF Antenna Coverage Calculator & Visualizer{% endblock %}
+
+{% block topbar_chips %}
+<div class="info-chip"><i class="fas fa-broadcast-tower" style="margin-right:4px"></i>RF Planning Tool</div>
+{% endblock %}
+
+{% block sidebar_quickstats %}{% endblock %}
+
+{% block page_content %}
+<style>
+.content-area { flex: 1; padding: 14px 16px; display: grid; grid-template-columns: 300px 1fr; gap: 14px; align-items: stretch; min-height: calc(100vh - 130px); }
+@media (max-width: 1100px) { .content-area { grid-template-columns: 1fr; } }
+
+.input-panel, .results-panel { display: flex; flex-direction: column; min-height: 100%; }
+.input-panel { background: rgba(30,30,58,0.6); border: 1px solid rgba(79,172,254,0.15); border-radius: 14px; padding: 14px; }
+[data-theme="light"] .input-panel { background: rgba(255,255,255,0.95); border-color: rgba(0,0,0,0.08); }
+.panel-title { font-size: 11px; font-weight: 600; color: #4facfe; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(79,172,254,0.15); display: flex; align-items: center; gap: 6px; }
+.input-group { margin-bottom: 10px; }
+.input-label { display: flex; justify-content: space-between; font-size: 10px; color: rgba(200,208,224,0.65); margin-bottom: 4px; }
+[data-theme="light"] .input-label { color: #555; }
+.input-label span { font-weight: 600; color: #4facfe; }
+.f-range { width: 100%; height: 4px; -webkit-appearance: none; background: rgba(79,172,254,0.2); border-radius: 2px; cursor: pointer; margin: 4px 0; }
+.f-range::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; background: #4facfe; border-radius: 50%; cursor: pointer; }
+.f-input { width: 100%; padding: 6px 10px; background: rgba(20,20,40,0.6); border: 1px solid rgba(79,172,254,0.2); border-radius: 6px; color: #c8d0e0; font-size: 11px; }
+[data-theme="light"] .f-input { background: #f8fafc; border-color: rgba(0,0,0,0.1); color: #1e293b; }
+.f-input:focus { outline: none; border-color: #4facfe; }
+.btn-calc { width: 100%; padding: 10px; background: linear-gradient(135deg, #4facfe, #00f2fe); border: none; border-radius: 8px; color: #0a0a1a; font-weight: 600; font-size: 12px; cursor: pointer; margin-top: 8px; }
+.btn-calc:hover { opacity: 0.9; }
+.results-panel { display: flex; flex-direction: column; gap: 12px; }
+.results-card { background: rgba(30,30,58,0.6); border: 1px solid rgba(79,172,254,0.15); border-radius: 14px; padding: 14px; }
+[data-theme="light"] .results-card { background: rgba(255,255,255,0.95); border-color: rgba(0,0,0,0.08); }
+.results-title { font-size: 12px; font-weight: 600; color: #4facfe; margin-bottom: 10px; }
+.results-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.result-card { flex: 1; min-width: 100px; background: rgba(10,10,30,0.5); border-radius: 10px; padding: 12px; text-align: center; }
+[data-theme="light"] .result-card { background: #f0f4f8; }
+.result-value { font-size: 16px; font-weight: 700; color: #4facfe; margin-bottom: 4px; }
+.result-label { font-size: 9px; color: rgba(200,208,224,0.6); text-transform: uppercase; letter-spacing: 0.5px; }
+[data-theme="light"] .result-label { color: #666; }
+
+.viz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1; }
+@media (max-width: 900px) { .viz-grid { grid-template-columns: 1fr; } }
+[data-theme="light"] .viz-card { background: rgba(255,255,255,0.95); border-color: rgba(0,0,0,0.08); }
+.viz-card { background: rgba(30,30,58,0.6); border: 1px solid rgba(79,172,254,0.15); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; min-height: 420px; }
+[data-theme="light"] .viz-card { background: rgba(255,255,255,0.95); border-color: rgba(0,0,0,0.08); }
+.viz-title { font-size: 11px; font-weight: 600; color: #4facfe; margin-bottom: 8px; flex-shrink: 0; }
+.chart-area { flex: 1; min-height: 0; height: 300px; background: rgba(10,10,22,0.4); border-radius: 10px; position: relative; overflow: hidden; }
+[data-theme="light"] .chart-area { background: #f0f4f8; }
+canvas { display: block; width: 100%; height: 100%; }
+.ctrl-btns { display: flex; gap: 6px; flex-shrink: 0; }
+.ctrl-btn { padding: 4px 10px; background: rgba(79,172,254,0.12); border: 1px solid rgba(79,172,254,0.25); border-radius: 5px; color: #4facfe; font-size: 10px; cursor: pointer; }
+.ctrl-btn:hover { background: rgba(79,172,254,0.2); }
+.ctrl-btn.active { background: rgba(79,172,254,0.25); color: #fff; }
+[data-theme="light"] .ctrl-btn { color: #2563eb; background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.25); }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding: 8px 0 0; flex-shrink: 0; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 9px; color: rgba(200,208,224,0.8); white-space: nowrap; }
+[data-theme="light"] .legend-item { color: #555; }
+.legend-line { width: 18px; height: 2px; border-radius: 1px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.legend-circle { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+.formula-box { background: rgba(79,172,254,0.07); border: 1px solid rgba(79,172,254,0.18); border-radius: 8px; padding: 10px; margin-top: 10px; font-size: 9px; color: rgba(200,208,224,0.7); line-height: 1.7; }
+[data-theme="light"] .formula-box { background: rgba(59,130,246,0.05); color: #555; }
+.formula-box strong { color: #4facfe; }
+</style>
+
+<div class="content-area">
+    <!-- LEFT: Inputs -->
+    <div class="input-panel">
+        <div class="panel-title"><i class="fas fa-sliders-h"></i> Antenna Parameters</div>
+        <form method="GET" action="/coverage_simulation" id="calcForm">
+
+            <div class="input-group">
+                <div class="input-label">Height (m) <span id="hValLbl">{{ antenna_height }}</span></div>
+                <input type="range" class="f-range" name="antenna_height" id="heightR" min="5" max="100" step="1" value="{{ antenna_height }}">
+                <input type="number" class="f-input" id="heightN" value="{{ antenna_height }}" min="5" max="100">
+            </div>
+
+            <div class="input-group">
+                <div class="input-label">Mech Tilt (°) <span id="mechLbl">{{ mechanical_tilt }}</span></div>
+                <input type="range" class="f-range" name="mechanical_tilt" id="mechR" min="-10" max="15" step="0.5" value="{{ mechanical_tilt }}">
+                <input type="number" class="f-input" id="mechN" value="{{ mechanical_tilt }}" min="-10" max="15" step="0.5">
+            </div>
+
+            <div class="input-group">
+                <div class="input-label">Elec Tilt (°) <span id="elecLbl">{{ electrical_tilt }}</span></div>
+                <input type="range" class="f-range" name="electrical_tilt" id="elecR" min="-10" max="15" step="0.5" value="{{ electrical_tilt }}">
+                <input type="number" class="f-input" id="elecN" value="{{ electrical_tilt }}" min="-10" max="15" step="0.5">
+            </div>
+
+            <div class="input-group">
+                <div class="input-label">V Beamwidth (°) <span id="vBWLab">{{ v_beamwidth }}</span></div>
+                <input type="range" class="f-range" name="v_beamwidth" id="vBWR" min="3" max="30" step="0.5" value="{{ v_beamwidth }}">
+                <input type="number" class="f-input" id="vBWN" value="{{ v_beamwidth }}" min="3" max="30" step="0.5">
+            </div>
+
+            <div class="input-group">
+                <div class="input-label">H Beamwidth (°) <span id="hBWLab">{{ h_beamwidth }}</span></div>
+                <input type="range" class="f-range" name="h_beamwidth" id="hBWR" min="20" max="120" step="1" value="{{ h_beamwidth }}">
+                <input type="number" class="f-input" id="hBWN" value="{{ h_beamwidth }}" min="20" max="120">
+            </div>
+
+            <button type="submit" class="btn-calc"><i class="fas fa-calculator" style="margin-right:6px"></i>Calculate Coverage</button>
+
+            <div class="formula-box">
+                <strong>Formulas:</strong><br>
+                Total Tilt = Mech + Elec<br>
+                D<sub>center</sub> = H / tan(Tilt)<br>
+                D<sub>near</sub> = H / tan(Tilt + VBW/2)<br>
+                D<sub>far</sub> = H / tan(Tilt − VBW/2)
+            </div>
+        </form>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="results-panel">
+
+        <!-- KPI Row -->
+        <div class="results-card">
+            <div class="results-title"><i class="fas fa-chart-line" style="margin-right:6px"></i>Coverage Results</div>
+            <div class="results-grid">
+                <div class="result-card">
+                    <div class="result-value">{{ results.total_tilt }}°</div>
+                    <div class="result-label">Total Tilt</div>
+                </div>
+                <div class="result-card">
+                    <div class="result-value">{{ results.near_distance }}m</div>
+                    <div class="result-label">Near Distance</div>
+                </div>
+                <div class="result-card">
+                    <div class="result-value">{{ results.center_distance }}m</div>
+                    <div class="result-label">Center Distance</div>
+                </div>
+                <div class="result-card">
+                    <div class="result-value">{{ results.far_distance }}m</div>
+                    <div class="result-label">Far Distance</div>
+                </div>
+                <div class="result-card">
+                    <div class="result-value">{{ results.coverage_width }}m</div>
+                    <div class="result-label">Coverage Width</div>
+                </div>
+                <div class="result-card">
+                    <div class="result-value">{{ results.coverage_area }} ha</div>
+                    <div class="result-label">Est. Area</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Visualizations -->
+        <div class="viz-grid">
+
+            <!-- Side View -->
+            <div class="viz-card">
+                <div class="viz-title">
+                    <i class="fas fa-chart-area" style="margin-right:6px"></i>Side View — Vertical Profile
+                    <div class="ctrl-btns" style="margin-left:auto; display:inline-flex;">
+                        <button class="ctrl-btn" id="zoomInBtn" title="Zoom In"><i class="fas fa-search-plus"></i></button>
+                        <button class="ctrl-btn" id="zoomOutBtn" title="Zoom Out"><i class="fas fa-search-minus"></i></button>
+                        <button class="ctrl-btn" id="resetBtn" title="Reset"><i class="fas fa-sync-alt"></i></button>
+                    </div>
+                </div>
+                <div class="chart-area" id="sideWrap"><canvas id="sideChart"></canvas></div>
+                <div class="chart-legend">
+                    <div class="legend-item"><div class="legend-line" style="background:#4facfe"></div><span>Center Beam</span></div>
+                    <div class="legend-item"><div class="legend-line" style="background:#22c55e"></div><span>Near Edge</span></div>
+                    <div class="legend-item"><div class="legend-line" style="background:#ef4444"></div><span>Far Edge</span></div>
+                    <div class="legend-item"><div class="legend-circle" style="background:#4facfe; opacity:0.5"></div><span>Antenna</span></div>
+                </div>
+            </div>
+
+            <!-- Top View -->
+            <div class="viz-card">
+                <div class="viz-title">
+                    <i class="fas fa-bullseye" style="margin-right:6px"></i>Top View — Horizontal Coverage
+                </div>
+                <div class="chart-area" id="topWrap"><canvas id="topChart"></canvas></div>
+                <div class="chart-legend">
+                    <div class="legend-item"><div class="legend-circle" style="background:#4facfe"></div><span>Antenna Position</span></div>
+                    <div class="legend-item"><div class="legend-line" style="background:#ff9f40"></div><span>Main Beam Direction</span></div>
+                    <div class="legend-item"><div class="legend-circle" style="background:rgba(33, 183, 48, 0.993); border-radius:50%"></div><span>Near Zone</span></div>
+                    <div class="legend-item"><div class="legend-circle" style="background:rgb(34, 184, 249); border-radius:50%"></div><span>Medium Zone</span></div>
+                    <div class="legend-item"><div class="legend-circle" style="background:rgb(236, 61, 61); border-radius:50%"></div><span>Far Zone</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+var calcResults = {{ results | tojson | safe }};
+window.calcResults = calcResults;
+var params = {
+    height: {{ antenna_height }},
+    mechTilt: {{ mechanical_tilt }},
+    elecTilt: {{ electrical_tilt }},
+    vBeam: {{ v_beamwidth }},
+    hBeam: {{ h_beamwidth }}
+};
+window.params = params;
+var _zoom = 1;
+
+function isDark() { return document.documentElement.getAttribute("data-theme") !== "light"; }
+
+window.syncR = function(type, val) {
+    var maps = {
+        height: {n:"heightN", l:"hValLbl"},
+        mech:   {n:"mechN",   l:"mechLbl"},
+        elec:   {n:"elecN",   l:"elecLbl"},
+        vBW:    {n:"vBWN",    l:"vBWLab"},
+        hBW:    {n:"hBWN",    l:"hBWLab"}
+    };
+    var m = maps[type]; if (!m) return;
+    document.getElementById(m.n).value = val;
+    var l = document.getElementById(m.l); if (l) l.textContent = val;
+}
+window.syncN = function(type, val) {
+    var maps = {
+        height:{r:"heightR", l:"hValLbl"},
+        mech:  {r:"mechR",   l:"mechLbl"},
+        elec:  {r:"elecR",   l:"elecLbl"},
+        vBW:   {r:"vBWR",    l:"vBWLab"},
+        hBW:   {r:"hBWR",    l:"hBWLab"}
+    };
+    var m = maps[type]; if (!m) return;
+    document.getElementById(m.r).value = val;
+    var l = document.getElementById(m.l); if (l) l.textContent = val;
+}
+
+window.zoomIn = function()  { _zoom = Math.min(2, _zoom * 1.2); if(typeof drawSide==='function') drawSide(); }
+window.zoomOut = function() { _zoom = Math.max(0.4, _zoom * 0.85); if(typeof drawSide==='function') drawSide(); }
+window.resetView = function() { _zoom = 1; if(typeof drawSide==='function') drawSide(); }
+
+// ─── Side View ───────────────────────────────────────────────
+// hover state for side chart
+var _sideHover = null;
+window.drawSide = function() {
+    var wrap = document.getElementById("sideWrap");
+    var cvs = document.getElementById("sideChart");
+    if (!wrap || !cvs) return;
+    var dpr = window.devicePixelRatio || 1;
+    var Wcss = wrap.clientWidth || 500;
+    var Hcss = wrap.clientHeight || 380;
+    cvs.style.width = Wcss + "px";
+    cvs.style.height = Hcss + "px";
+    cvs.width = Math.max(1, Math.floor(Wcss * dpr));
+    cvs.height = Math.max(1, Math.floor(Hcss * dpr));
+    var ctx = cvs.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var W = Wcss, H = Hcss;
+    var dark = isDark();
+    ctx.clearRect(0, 0, W, H);
+    if (!calcResults.valid) {
+        ctx.fillStyle = dark ? "#b0b8c8" : "#555";
+        ctx.font = "13px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Invalid parameters", W/2, H/2);
+        return;
+    }
+
+    var H_ant = params.height;
+    var nearD = calcResults.near_distance;
+    var centerD = calcResults.center_distance;
+    var farD = calcResults.far_distance;
+
+    // world width ensures far point visible with margin
+    var worldW = Math.max(farD * 1.12, 120);
+    var marginLeft = Math.max(48, W * 0.10);
+    var marginRight = Math.max(24, W * 0.06);
+    var availW = Math.max(80, W - marginLeft - marginRight);
+    var scaleW = availW / worldW;
+    var availH = Math.max(120, H * 0.5);
+    var scaleH = (availH) / (H_ant * 1.2);
+    var scale = Math.max(0.5, Math.min(scaleW, scaleH) * _zoom);
+
+    var groundY = H * 0.9; // ground line at 90% height
+    var bx = marginLeft;
+    var panelW = 12;
+    var panelH = Math.max(12, H_ant * scale * 3);
+    var by = groundY - panelH - 150;
+
+    var nx = bx + nearD * scale;
+    var cx = bx + centerD * scale;
+    var fx = bx + farD * scale;
+
+    // Background & ground
+    ctx.fillStyle = dark ? "rgba(10,14,20,0.6)" : "#fafcff";
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = dark ? "rgba(79,172,254,0.06)" : "rgba(59,130,246,0.04)";
+    ctx.fillRect(0, groundY, W, H - groundY);
+    ctx.strokeStyle = dark ? "#4a5a6a" : "#94a3b8";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(W, groundY); ctx.stroke();
+
+    // Tower pole
+    ctx.strokeStyle = dark ? "#7a8a9a" : "#94a3b8";
+    ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(bx, groundY); ctx.lineTo(bx, by + 4); ctx.stroke();
+
+    // Antenna body
+    ctx.fillStyle = "#4facfe";
+    ctx.fillRect(bx - panelW/2, by, panelW, panelH);
+    ctx.beginPath(); ctx.arc(bx, by + 3, panelW/2, Math.PI, 0); ctx.fill();
+
+    // Coverage fill between near and far (filled triangle)
+    ctx.fillStyle = "rgba(79,172,254,0.12)";
+    ctx.beginPath();
+    ctx.moveTo(bx, by + panelH/2);
+    ctx.lineTo(fx, groundY);
+    ctx.lineTo(nx, groundY);
+    ctx.closePath(); ctx.fill();
+
+    // Draw center/main beam (solid)
+    ctx.strokeStyle = "#4facfe"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx, by + panelH/2); ctx.lineTo(cx, groundY); ctx.stroke();
+
+    // Draw upper (near) and lower (far) 3dB boundaries
+    ctx.setLineDash([6,4]);
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = "#22c55e"; // upper/near
+    ctx.beginPath(); ctx.moveTo(bx, by + panelH/2); ctx.lineTo(nx, groundY); ctx.stroke();
+    ctx.strokeStyle = "#ef4444"; // lower/far
+    ctx.beginPath(); ctx.moveTo(bx, by + panelH/2); ctx.lineTo(fx, groundY); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Dashed guide lines from antenna to each ground point (lighter)
+    ctx.setLineDash([4,3]); ctx.lineWidth = 1; ctx.strokeStyle = dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)";
+    [ {x:cx, color: '#4facfe'}, {x:nx, color: '#22c55e'}, {x:fx, color: '#ef4444'} ].forEach(function(pt){
+        ctx.beginPath(); ctx.moveTo(bx, by + panelH/2); ctx.lineTo(pt.x, groundY); ctx.stroke();
+    });
+    ctx.setLineDash([]);
+
+    // Distance Labels — show above ground aligned with each line
+    ctx.font = "bold 11px sans-serif"; ctx.textAlign = "center";
+    ctx.fillStyle = "#22c55e"; ctx.fillText(Math.round(nearD) + " m", nx, groundY - 10);
+    ctx.fillStyle = "#4facfe"; ctx.fillText(Math.round(centerD) + " m", cx, groundY - 22);
+    ctx.fillStyle = "#ef4444"; ctx.fillText(Math.round(farD) + " m", fx, groundY - 10);
+
+    // Height and tilt annotations
+    ctx.save(); ctx.fillStyle = dark ? "#94a3b8" : "#64748b"; ctx.font = "10px sans-serif"; ctx.translate(bx - 10, groundY - Math.min(H_ant, H * 0.5) * 0.6); ctx.rotate(-Math.PI/2); ctx.textAlign = "center"; ctx.fillText("H=" + H_ant + "m", 0, 0); ctx.restore();
+    ctx.fillStyle = dark ? "#4facfe" : "#2563eb"; ctx.font = "bold 11px sans-serif"; ctx.textAlign = "left"; ctx.fillText("Tilt=" + calcResults.total_tilt.toFixed(1) + "°", bx + panelW/2 + 8, by + 12);
+
+    // Hover highlight
+    if (_sideHover && _sideHover.type) {
+        var h = _sideHover.type;
+        var hx = (h === 'near') ? nx : (h === 'center' ? cx : fx);
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.4;
+        ctx.beginPath(); ctx.moveTo(bx, by + panelH/2); ctx.lineTo(hx, groundY); ctx.stroke();
+        // pulsing dot on ground
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(hx, groundY, 6, 0, Math.PI*2); ctx.fill();
+    }
+}
+
+// hit test pointer to detect nearest line
+function _sidePointerMove(e) {
+    var wrap = document.getElementById('sideWrap'); var cvs = document.getElementById('sideChart'); if (!wrap||!cvs) return;
+    var rect = cvs.getBoundingClientRect();
+    var x = e.clientX - rect.left; var y = e.clientY - rect.top;
+    // convert to canvas CSS coords
+    var bx = Math.max(48, wrap.clientWidth * 0.10);
+    var Hcss = wrap.clientHeight; var groundY = Hcss * 0.78;
+    var nearX = bx + calcResults.near_distance * Math.max(0.25, Math.min((wrap.clientWidth - bx - 24) / Math.max(calcResults.far_distance*1.12,120), (Hcss*0.5) / (params.height*1.2)) ) * _zoom;
+    var centerX = bx + calcResults.center_distance * Math.max(0.25, Math.min((wrap.clientWidth - bx - 24) / Math.max(calcResults.far_distance*1.12,120), (Hcss*0.5) / (params.height*1.2)) ) * _zoom;
+    var farX = bx + calcResults.far_distance * Math.max(0.25, Math.min((wrap.clientWidth - bx - 24) / Math.max(calcResults.far_distance*1.12,120), (Hcss*0.5) / (params.height*1.2)) ) * _zoom;
+    function distToLine(px,py, x1,y1,x2,y2) { var A=px-x1, B=py-y1, C=x2-x1, D=y2-y1; var dot=A*C+B*D; var len2=C*C+D*D; var t = Math.max(0, Math.min(1, dot/len2)); var projx = x1 + t*C, projy = y1 + t*D; var dx=px-projx, dy=py-projy; return Math.sqrt(dx*dx+dy*dy); }
+    var by = groundY - Math.max(12, params.height * Math.max(0.25, Math.min((wrap.clientWidth - bx - 24) / Math.max(calcResults.far_distance*1.12,120), (Hcss*0.5) / (params.height*1.2))) * _zoom * 0.12) - 2;
+    var thr = 12; var nearest = null; var dmin = 1e9;
+    [['near', nearX], ['center', centerX], ['far', farX]].forEach(function(it){ var dd = distToLine(x,y, bx, by + Math.max(12, params.height*0.02), it[1], groundY); if (dd < dmin) { dmin = dd; nearest = it[0]; } });
+    if (dmin < thr) { _sideHover = { type: nearest }; wrap.style.cursor = 'pointer'; } else { _sideHover = null; wrap.style.cursor = ''; }
+    drawSide();
+}
+function _sidePointerOut() { _sideHover = null; drawSide(); }
+
+
+// ─── Top View — Semi-circle sector ────────────────────────────
+window.drawTop = function() {
+    var wrap = document.getElementById("topWrap");
+    var cvs = document.getElementById("topChart");
+    if (!wrap || !cvs) return;
+    var ctx = cvs.getContext("2d");
+    var W = cvs.width  = wrap.clientWidth  || 500;
+    var H = cvs.height = wrap.clientHeight || 380;
+    var d = isDark();
+    ctx.clearRect(0, 0, W, H);
+    if (!calcResults.valid) {
+        ctx.fillStyle = d ? "#b0b8c8" : "#555";
+        ctx.font = "13px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Invalid parameters", W/2, H/2);
+        return;
+    }
+
+    var nearD   = calcResults.near_distance;
+    var centerD = calcResults.center_distance;
+    var farD    = calcResults.far_distance;
+    var halfHBW  = params.hBeam / 2;
+    var azRad   = 0;
+
+    // Center of the semi-circle at bottom-center of canvas
+    var cx = W / 2;
+    var cy = H * 0.88;
+
+    // Scale: farD fits with margin from antenna
+    var margin = 28;
+    var maxR = Math.min(W, H) * 0.75;
+    var scale = (maxR - margin) / (farD * 1.08);
+    var nearR   = nearD   * scale;
+    var centerR = centerD * scale;
+    var farR    = farD    * scale;
+
+    // Beam sweep angles: antenna points upward (270°), sweeps ±HBW/2 from top
+    var halfBW  = (params.hBeam / 2) * Math.PI / 180;
+    var startA  = -Math.PI/2 - halfBW;   // left edge of sector
+    var endA    = -Math.PI/2 + halfBW;   // right edge
+    var span    = endA - startA;
+
+    // ── Background grid arcs (concentric, behind sector)
+    ctx.strokeStyle = d ? "rgba(79,172,254,0.08)" : "rgba(0,0,0,0.05)";
+    ctx.lineWidth = 1;
+    for (var r = nearR; r < maxR; r += nearR) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, startA, endA);
+        ctx.stroke();
+    }
+    // Grid radii lines
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(startA) * maxR, cy + Math.sin(startA) * maxR);
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(endA) * maxR, cy + Math.sin(endA) * maxR);
+    ctx.stroke();
+
+    // ── Far zone (outermost, red) — full sector
+    ctx.fillStyle = "rgba(239,68,68,0.18)";
+    ctx.strokeStyle = "#ef4444";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, farR, startA, endA);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // ── Medium zone (orange) — center sector
+    ctx.fillStyle = "rgb(139, 207, 236)";
+    ctx.strokeStyle = "#4facfe";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, centerR, startA, endA);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // ── Near zone (blue) — near sector
+    ctx.fillStyle = "rgba(159, 247, 168, 0.993)";
+    ctx.strokeStyle = "#22c55e";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, nearR, startA, endA);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // ── Sector edges
+    ctx.strokeStyle = d ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.3)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(startA) * farR, cy + Math.sin(startA) * farR);
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(endA) * farR, cy + Math.sin(endA) * farR);
+    ctx.stroke();
+
+    // ── Antenna marker at origin
+    ctx.fillStyle = "#4facfe";
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 10, 0, Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+    // Antenna icon arrow
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 5);
+    ctx.lineTo(cx - 4, cy + 3);
+    ctx.lineTo(cx + 4, cy + 3);
+    ctx.closePath();
+    ctx.fill();
+
+    // ── Boresight arrow
+    var arrowLen = nearR * 0.65;
+    ctx.strokeStyle = "#ff9f40";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx, cy - arrowLen);
+    ctx.stroke();
+    ctx.fillStyle = "#ff9f40";
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - arrowLen - 7);
+    ctx.lineTo(cx - 5, cy - arrowLen);
+    ctx.lineTo(cx + 5, cy - arrowLen);
+    ctx.closePath();
+    ctx.fill();
+
+    // ── Zone labels along center beam axis (top-center of sector)
+    var labelAngle = -Math.PI / 2;
+    ctx.font = "bold 9px sans-serif";
+    ctx.textAlign = "center";
+
+    var lx = cx + Math.cos(labelAngle) * (nearR * 0.55);
+    var ly = cy + Math.sin(labelAngle) * (nearR * 0.55);
+    ctx.fillStyle = "#22c55e";
+    ctx.fillText("Near", lx, ly);
+
+    lx = cx + Math.cos(labelAngle) * (centerR * 0.6);
+    ly = cy + Math.sin(labelAngle) * (centerR * 0.6);
+    ctx.fillStyle = "#4facfe";
+    ctx.fillText("Mid", lx, ly + 11);
+
+    lx = cx + Math.cos(labelAngle) * (farR * 0.5);
+    ly = cy + Math.sin(labelAngle) * (farR * 0.5);
+    ctx.fillStyle = "#ef4444";
+    ctx.fillText("Far", lx, ly + 11);
+
+    // ── HBW label
+    ctx.fillStyle = d ? "#4facfe" : "#2563eb";
+    ctx.font = "bold 10px sans-serif";
+    ctx.fillText("HBW " + params.hBeam + "°", cx, cy + 16);
+}
+
+function _initCoverageSim(){
+    try{
+        drawSide();
+        drawTop();
+        var cvs = document.getElementById('sideChart');
+        if (cvs) {
+            cvs.addEventListener('pointermove', _sidePointerMove);
+            cvs.addEventListener('pointerout', _sidePointerOut);
+        }
+        var zin = document.getElementById('zoomInBtn'); if (zin) zin.addEventListener('click', function(){ _zoom = Math.min(2, _zoom * 1.2); drawSide(); });
+        var zout = document.getElementById('zoomOutBtn'); if (zout) zout.addEventListener('click', function(){ _zoom = Math.max(0.4, _zoom * 0.85); drawSide(); });
+        var rbtn = document.getElementById('resetBtn'); if (rbtn) rbtn.addEventListener('click', function(){ _zoom = 1; drawSide(); });
+        var left = document.querySelector('.input-panel'); var right = document.querySelector('.results-panel');
+        if (left && right) right.style.setProperty('height', left.getBoundingClientRect().height + 'px', 'important');
+    }catch(e){ console.warn('initCoverageSim error', e); }
+}
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _initCoverageSim);
+else _initCoverageSim();
+// Keep right panel height synced to left input panel for visual balance
+function syncPanelHeights(){
+    var left = document.querySelector('.input-panel');
+    var right = document.querySelector('.results-panel');
+    if (!left || !right) return;
+    // set explicit height on right to match left (use important to override layout)
+    var h = left.getBoundingClientRect().height;
+    right.style.setProperty('height', h + 'px', 'important');
+}
+window.addEventListener('resize', function(){ syncPanelHeights(); });
+// call after draw routines to ensure layout stable
+var _oldDrawSide = drawSide;
+drawSide = function(){ _oldDrawSide(); syncPanelHeights(); };
+var _oldDrawTop = drawTop;
+drawTop = function(){ _oldDrawTop(); syncPanelHeights(); };
+// initial sync
+try{
+    var _l = document.querySelector('.input-panel'); var _r = document.querySelector('.results-panel'); if(_l && _r) _r.style.setProperty('height', _l.getBoundingClientRect().height + 'px', 'important');
+}catch(e){}
+window.addEventListener("resize", function() { drawSide(); drawTop(); });
+
+// Ensure functions are available on the global `window` object for inline handlers
+try {
+    window.zoomIn = zoomIn;
+    window.zoomOut = zoomOut;
+    window.resetView = resetView;
+    window.drawSide = drawSide;
+    window.drawTop = drawTop;
+    window.syncR = syncR;
+    window.syncN = syncN;
+} catch(e) {}
+// ensure sync after layout settles (fonts/images may change heights)
+setTimeout(function(){ try{ var L=document.querySelector('.input-panel'); var R=document.querySelector('.results-panel'); if(L&&R) R.style.setProperty('height', L.getBoundingClientRect().height + 'px', 'important'); }catch(e){} }, 450);
+</script>
+<script>
+(function wireInputs(){
+    try{
+        var form = document.getElementById('calcForm');
+        var labelMap = {height:'hValLbl', mech:'mechLbl', elec:'elecLbl', vBW:'vBWLab', hBW:'hBWLab'};
+        var numMap = {height:'heightN', mech:'mechN', elec:'elecN', vBW:'vBWN', hBW:'hBWN'};
+        var rangeMap = {height:'heightR', mech:'mechR', elec:'elecR', vBW:'vBWR', hBW:'hBWR'};
+
+        Array.from(document.querySelectorAll('.f-range')).forEach(function(r){
+            r.addEventListener('input', function(){
+                var id = this.id.replace(/R$/,'');
+                var lbl = document.getElementById(labelMap[id]); if(lbl) lbl.textContent = this.value;
+                var num = document.getElementById(numMap[id]); if(num) num.value = this.value;
+            });
+        });
+
+        Array.from(document.querySelectorAll('.f-input')).forEach(function(n){
+            n.addEventListener('change', function(){
+                var id = this.id.replace(/N$/,'');
+                var rng = document.getElementById(rangeMap[id]); if(rng) rng.value = this.value;
+                var lbl = document.getElementById(labelMap[id]); if(lbl) lbl.textContent = this.value;
+                // Do not auto-submit the form on manual number change; user must click Calculate
+            });
+        });
+
+        if(typeof drawSide === 'function') drawSide();
+        if(typeof drawTop === 'function') drawTop();
+    }catch(e){ console.warn('wireInputs error', e); }
+})();
+</script>
+{% endblock %}

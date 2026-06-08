@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+
+{% block nav_coverage %}active{% endblock %}
+{% block subcoverage_open %}open{% endblock %}
+{% block nav_okumura %}active{% endblock %}
+{% block page_title %}Okumura-Hata Model{% endblock %}
+{% block page_sub %}RF Coverage Prediction using Propagation Model{% endblock %}
+
+{% block topbar_chips %}
+<div class="info-chip"><i class="fas fa-wifi" style="margin-right:4px"></i>Propagation Model</div>
+{% endblock %}
+
+{% block sidebar_quickstats %}{% endblock %}
+
+{% block page_content %}
+<style>
+.content-area { flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.main-grid { display: grid; grid-template-columns: 380px 1fr; gap: 16px; }
+@media (max-width: 1200px) { .main-grid { grid-template-columns: 1fr; } }
+
+/* Input Panel */
+.input-panel { background: rgba(30,30,58,0.6); border: 1px solid rgba(79,172,254,0.15); border-radius: 12px; padding: 18px; }
+[data-theme="light"] .input-panel { background: rgba(255,255,255,0.9); border-color: rgba(0,0,0,0.1); }
+.panel-title { font-size: 12px; font-weight: 600; color: #4facfe; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid rgba(79,172,254,0.15); display: flex; align-items: center; gap: 6px; }
+.input-group { margin-bottom: 12px; }
+.input-label { font-size: 10px; color: rgba(200,208,224,0.6); margin-bottom: 4px; display: flex; justify-content: space-between; }
+[data-theme="light"] .input-label { color: #555; }
+.input-label span { font-weight: 500; }
+.f-input { width: 100%; padding: 7px 10px; background: rgba(20,20,40,0.6); border: 1px solid rgba(79,172,254,0.2); border-radius: 6px; color: #c8d0e0; font-size: 11px; }
+[data-theme="light"] .f-input { background: #f8fafc; border-color: rgba(0,0,0,0.1); color: #1e293b; }
+.f-input:focus { outline: none; border-color: #4facfe; }
+.f-select { width: 100%; padding: 7px 10px; background: rgba(20,20,40,0.6); border: 1px solid rgba(79,172,254,0.2); border-radius: 6px; color: #c8d0e0; font-size: 11px; cursor: pointer; }
+[data-theme="light"] .f-select { background: #f8fafc; border-color: rgba(0,0,0,0.1); color: #1e293b; }
+.f-range { width: 100%; height: 4px; -webkit-appearance: none; background: rgba(79,172,254,0.2); border-radius: 2px; cursor: pointer; margin: 4px 0; }
+.f-range::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; background: #4facfe; border-radius: 50%; cursor: pointer; }
+.btn-calc { width: 100%; padding: 10px; background: linear-gradient(135deg, #4facfe, #00f2fe); border: none; border-radius: 8px; color: #0a0a1a; font-weight: 600; font-size: 12px; cursor: pointer; margin-top: 8px; }
+.btn-calc:hover { opacity: 0.9; }
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* Results Panel */
+.results-panel { display: flex; flex-direction: column; gap: 14px; }
+.results-card { background: rgba(30,30,58,0.6); border: 1px solid rgba(79,172,254,0.15); border-radius: 12px; padding: 16px; }
+[data-theme="light"] .results-card { background: rgba(255,255,255,0.9); border-color: rgba(0,0,0,0.1); }
+.result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.result-item { background: rgba(10,10,30,0.5); border-radius: 8px; padding: 12px; text-align: center; }
+[data-theme="light"] .result-item { background: #f0f2f8; }
+.result-value { font-size: 18px; font-weight: 700; color: #4facfe; }
+.result-unit { font-size: 10px; color: rgba(200,208,224,0.5); margin-top: 2px; }
+.result-label { font-size: 9px; color: rgba(200,208,224,0.5); text-transform: uppercase; margin-top: 4px; }
+[data-theme="light"] .result-label { color: #666; }
+
+/* Confidence Meter */
+.confidence-bar { margin-top: 10px; }
+.conf-label { font-size: 10px; color: rgba(200,208,224,0.6); margin-bottom: 4px; display: flex; justify-content: space-between; }
+[data-theme="light"] .conf-label { color: #555; }
+.conf-track { height: 8px; background: rgba(79,172,254,0.15); border-radius: 4px; overflow: hidden; }
+.conf-fill { height: 100%; background: linear-gradient(90deg, #ff5555, #ff9f40, #00c853); border-radius: 4px; transition: width 0.5s; }
+
+/* Canvas Diagram */
+.diagram-card { background: rgba(30,30,58,0.6); border: 1px solid rgba(79,172,254,0.15); border-radius: 12px; padding: 16px; }
+[data-theme="light"] .diagram-card { background: rgba(255,255,255,0.9); border-color: rgba(0,0,0,0.1); }
+.diagram-title { font-size: 12px; font-weight: 600; color: #4facfe; margin-bottom: 12px; }
+.canvas-wrap { position: relative; background: rgba(10,10,30,0.3); border-radius: 8px; overflow: hidden; }
+[data-theme="light"] .canvas-wrap { background: #f0f2f8; }
+#sectorCanvas { display: block; width: 100%; height: 400px; }
+.diagram-legend { display: flex; justify-content: center; gap: 20px; margin-top: 10px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 10px; color: rgba(200,208,224,0.8); }
+[data-theme="light"] .legend-item { color: #555; }
+.legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+.legend-dot.inner { background: rgba(0,200,83,0.5); border: 2px solid #00c853; }
+.legend-dot.center { background: rgba(79,172,254,0.5); border: 2px solid #4facfe; }
+.legend-dot.outer { background: rgba(255,85,85,0.3); border: 2px solid #ff5555; }
+
+/* Info Box */
+.info-box { background: rgba(79,172,254,0.08); border: 1px solid rgba(79,172,254,0.2); border-radius: 8px; padding: 12px; margin-top: 12px; font-size: 10px; color: rgba(200,208,224,0.6); line-height: 1.5; }
+[data-theme="light"] .info-box { background: rgba(79,172,254,0.05); color: #555; }
+.info-box strong { color: #4facfe; }
+</style>
+
+<div class="content-area">
+    <div class="main-grid">
+        <!-- Left Panel - Inputs -->
+        <div class="input-panel">
+            <form method="GET" action="/okumura_hata" id="calcForm">
+                <div class="panel-title"><i class="fas fa-broadcast-tower"></i> Antenna Parameters</div>
+
+                <div class="row-2">
+                    <div class="input-group">
+                        <label class="input-label">Height (m) <span id="hbVal">{{ hb }}</span></label>
+                        <input type="range" class="f-range" name="hb" min="10" max="100" value="{{ hb }}" oninput="syncVal('hb', this.value)">
+                        <input type="number" class="f-input" name="hb_num" value="{{ hb }}" min="10" max="100">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Gain (dBi) <span id="gainVal">{{ gain }}</span></label>
+                        <input type="range" class="f-range" name="gain" min="0" max="25" value="{{ gain }}" oninput="syncVal('gain', this.value)">
+                        <input type="number" class="f-input" name="gain_num" value="{{ gain }}" min="0" max="25">
+                    </div>
+                </div>
+
+                <div class="row-2">
+                    <div class="input-group">
+                        <label class="input-label">TX Power (dBm) <span id="txVal">{{ tx_power }}</span></label>
+                        <input type="range" class="f-range" name="tx_power" min="20" max="50" value="{{ tx_power }}" oninput="syncVal('tx', this.value)">
+                        <input type="number" class="f-input" name="tx_power_num" value="{{ tx_power }}" min="20" max="50">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Frequency (MHz) <span id="freqVal">{{ frequency }}</span></label>
+                        <input type="range" class="f-range" name="frequency" min="700" max="3500" step="10" value="{{ frequency }}" oninput="syncVal('freq', this.value)">
+                        <input type="number" class="f-input" name="frequency_num" value="{{ frequency }}" min="700" max="3500">
+                    </div>
+                </div>
+
+                <div class="row-2">
+                    <div class="input-group">
+                        <label class="input-label">Elec Tilt (°) <span id="elecVal">{{ elec_tilt }}</span></label>
+                        <input type="range" class="f-range" name="elec_tilt" min="0" max="15" step="0.5" value="{{ elec_tilt }}" oninput="syncVal('elec', this.value)">
+                        <input type="number" class="f-input" name="elec_tilt_num" value="{{ elec_tilt }}" min="0" max="15">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Mech Tilt (°) <span id="mechVal">{{ mech_tilt }}</span></label>
+                        <input type="range" class="f-range" name="mech_tilt" min="0" max="15" step="0.5" value="{{ mech_tilt }}" oninput="syncVal('mech', this.value)">
+                        <input type="number" class="f-input" name="mech_tilt_num" value="{{ mech_tilt }}" min="0" max="15">
+                    </div>
+                </div>
+
+                <div class="row-2">
+                    <div class="input-group">
+                        <label class="input-label">V Beamwidth (°) <span id="vBWVal">{{ v_beamwidth }}</span></label>
+                        <input type="range" class="f-range" name="v_beamwidth" min="3" max="30" step="0.5" value="{{ v_beamwidth }}" oninput="syncVal('vBW', this.value)">
+                        <input type="number" class="f-input" name="v_beamwidth_num" value="{{ v_beamwidth }}" min="3" max="30">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">H Beamwidth (°) <span id="hBWVal">{{ h_beamwidth }}</span></label>
+                        <input type="range" class="f-range" name="h_beamwidth" min="20" max="120" value="{{ h_beamwidth }}" oninput="syncVal('hBW', this.value)">
+                        <input type="number" class="f-input" name="h_beamwidth_num" value="{{ h_beamwidth }}" min="20" max="120">
+                    </div>
+                </div>
+
+                <div class="panel-title" style="margin-top:16px;"><i class="fas fa-globe"></i> Environment & Receiver</div>
+
+                <div class="input-group">
+                    <label class="input-label">Environment Type</label>
+                    <select class="f-select" name="env_type">
+                        <option value="urban" {% if env_type=='urban' %}selected{% endif %}>Urban</option>
+                        <option value="suburban" {% if env_type=='suburban' %}selected{% endif %}>Suburban</option>
+                        <option value="rural" {% if env_type=='rural' %}selected{% endif %}>Rural</option>
+                    </select>
+                </div>
+
+                <div class="row-2">
+                    <div class="input-group">
+                        <label class="input-label">RX Height (m)</label>
+                        <input type="number" class="f-input" name="hm" value="{{ hm }}" min="1" max="10" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">RX Sensitivity (dBm)</label>
+                        <input type="number" class="f-input" name="rx_sensitivity" value="{{ rx_sensitivity }}" min="-120" max="-60">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">Cable & Connector Loss (dB)</label>
+                    <input type="number" class="f-input" name="cable_loss" value="{{ cable_loss }}" min="0" max="10" step="0.5">
+                </div>
+
+                <button type="submit" class="btn-calc">
+                    <i class="fas fa-calculator" style="margin-right:6px"></i> Calculate Coverage
+                </button>
+
+                <div class="info-box">
+                    <strong>Okumura-Hata Model:</strong><br>
+                    Path loss at 1km based on frequency, antenna heights, and environment type. Coverage radius derived from max allowable path loss.
+                </div>
+            </form>
+        </div>
+
+        <!-- Right Panel - Results -->
+        <div class="results-panel">
+            <!-- Key Metrics -->
+            <div class="results-card">
+                <div class="panel-title"><i class="fas fa-chart-line"></i> Coverage Results</div>
+                <div class="result-grid">
+                    <div class="result-item">
+                        <div class="result-value">{{ results.eirp }}</div>
+                        <div class="result-unit">dBm</div>
+                        <div class="result-label">EIRP</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-value">{{ results.max_pl }}</div>
+                        <div class="result-unit">dB</div>
+                        <div class="result-label">Max Path Loss</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-value">{{ results.coverage_radius_km }}</div>
+                        <div class="result-unit">km</div>
+                        <div class="result-label">Coverage Radius</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-value">{{ results.sector_area_km2 }}</div>
+                        <div class="result-unit">km²</div>
+                        <div class="result-label">Sector Area</div>
+                    </div>
+                </div>
+
+                <div class="confidence-bar">
+                    <div class="conf-label">
+                        <span>Model Confidence ({{ results.env_label }})</span>
+                        <span>{{ (results.confidence * 100) | int }}%</span>
+                    </div>
+                    <div class="conf-track">
+                        <div class="conf-fill" style="width: {{ (results.confidence * 100) | int }}%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Distance Metrics -->
+            <div class="results-card">
+                <div class="panel-title"><i class="fas fa-ruler"></i> Beam Distances</div>
+                <div class="result-grid">
+                    <div class="result-item">
+                        <div class="result-value">{{ results.total_tilt }}</div>
+                        <div class="result-unit">°</div>
+                        <div class="result-label">Total Tilt</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-value">{{ results.boresight_distance_m }}</div>
+                        <div class="result-unit">m</div>
+                        <div class="result-label">Boresight Dist</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-value">{{ results.near_distance_m }}</div>
+                        <div class="result-unit">m</div>
+                        <div class="result-label">Near Edge</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-value">{{ results.far_distance_m }}</div>
+                        <div class="result-unit">m</div>
+                        <div class="result-label">Far Edge</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sector Diagram -->
+            <div class="diagram-card">
+                <div class="diagram-title"><i class="fas fa-drafting-compass" style="margin-right:6px"></i>2D Top-Down Sector Coverage</div>
+                <div class="canvas-wrap">
+                    <canvas id="sectorCanvas"></canvas>
+                </div>
+                <div class="diagram-legend">
+                    <div class="legend-item">
+                        <div class="legend-dot inner"></div>
+                        <span>Inner Zone (Upper Beam Edge)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot center"></div>
+                        <span>Center Zone (Boresight)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-dot outer"></div>
+                        <span>Outer Zone (Lower Beam Edge)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+// Results data from server
+var results = {{ results | tojson | safe }};
+
+// Sync range slider with label
+function syncVal(type, value) {
+    var valMap = {
+        'hb': 'hbVal',
+        'gain': 'gainVal',
+        'tx': 'txVal',
+        'freq': 'freqVal',
+        'elec': 'elecVal',
+        'mech': 'mechVal',
+        'vBW': 'vBWVal',
+        'hBW': 'hBWVal'
+    };
+    if (valMap[type]) {
+        document.getElementById(valMap[type]).textContent = value;
+    }
+}
+
+// Draw sector diagram
+function drawSectorDiagram() {
+    var canvas = document.getElementById('sectorCanvas');
+    if (!canvas) return;
+
+    var ctx = canvas.getContext('2d');
+    var w = canvas.width = canvas.parentElement.clientWidth;
+    var h = canvas.height = 400;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, w, h);
+
+    // Get theme colors
+    var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    var textColor = isDark ? '#b0b8c8' : '#555';
+    var gridColor = isDark ? 'rgba(79,172,254,0.1)' : 'rgba(0,0,0,0.05)';
+
+    // Center point
+    var cx = w / 2;
+    var cy = h - 60;
+
+    // Scale: fit max radius in canvas
+    var maxRadius = Math.max(results.boresight_radius_m, results.near_radius_m, results.far_radius_m, 100);
+    var scale = (Math.min(w, h) * 0.75) / maxRadius;
+
+    var nearR = results.near_radius_m * scale;
+    var boreR = results.boresight_radius_m * scale;
+    var farR = results.far_radius_m * scale;
+
+    // Half beamwidth in radians
+    var halfHBW = {{ h_beamwidth }} / 2;
+    var hbwRad = (halfHBW * Math.PI) / 180;
+    var startAngle = -Math.PI / 2 - hbwRad;
+    var endAngle = -Math.PI / 2 + hbwRad;
+
+    // Draw grid circles
+    ctx.strokeStyle = gridColor;
+    ctx.lineWidth = 1;
+    for (var r = 50; r < Math.min(w, h) * 0.7; r += 50) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
+    // Draw outer zone (red - upper beam edge)
+    ctx.fillStyle = 'rgba(255,85,85,0.2)';
+    ctx.strokeStyle = '#ff5555';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, farR, startAngle, endAngle);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw center zone (blue - boresight)
+    ctx.fillStyle = 'rgba(79,172,254,0.4)';
+    ctx.strokeStyle = '#4facfe';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, boreR, startAngle, endAngle);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw inner zone (green - lower beam edge)
+    ctx.fillStyle = 'rgba(0,200,83,0.5)';
+    ctx.strokeStyle = '#00c853';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, nearR, startAngle, endAngle);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw site marker
+    ctx.fillStyle = '#4facfe';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw direction arrow
+    ctx.strokeStyle = '#ff9f40';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx, cy - 30);
+    ctx.stroke();
+    ctx.fillStyle = '#ff9f40';
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 40);
+    ctx.lineTo(cx - 6, cy - 30);
+    ctx.lineTo(cx + 6, cy - 30);
+    ctx.closePath();
+    ctx.fill();
+
+    // Draw distance labels
+    ctx.fillStyle = textColor;
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+
+    // Radius labels
+    if (nearR > 20) {
+        ctx.fillStyle = '#00c853';
+        ctx.fillText('Near: ' + results.near_distance_m.toFixed(0) + 'm', cx + 10, cy - nearR + 10);
+    }
+    if (boreR > 20) {
+        ctx.fillStyle = '#4facfe';
+        ctx.fillText('Boresight: ' + results.boresight_distance_m.toFixed(0) + 'm', cx + 10, cy - boreR + 10);
+    }
+    if (farR > 20) {
+        ctx.fillStyle = '#ff5555';
+        ctx.fillText('Far: ' + results.far_distance_m.toFixed(0) + 'm', cx + 10, cy - farR + 10);
+    }
+
+    // Draw scale bar
+    ctx.fillStyle = textColor;
+    ctx.font = '10px sans-serif';
+    var scaleMeters = maxRadius;
+    var scalePixels = scale * scaleMeters;
+    var barX = w - 120;
+    var barY = h - 30;
+    ctx.strokeStyle = textColor;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(barX, barY);
+    ctx.lineTo(barX + scalePixels, barY);
+    ctx.stroke();
+    ctx.fillText(Math.round(scaleMeters) + 'm', barX, barY - 5);
+
+    // Draw beamwidth label
+    ctx.fillStyle = textColor;
+    ctx.textAlign = 'center';
+    ctx.fillText('HBW: ' + halfHBW * 2 + '°', cx, cy + 40);
+}
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(drawSectorDiagram, 100);
+});
+
+// Redraw on resize
+window.addEventListener('resize', drawSectorDiagram);
+</script>
+{% endblock %}
