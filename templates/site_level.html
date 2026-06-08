@@ -18,8 +18,19 @@
 {% block page_content %}
 <style>
 .content-area { flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
-.chart-grid   { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.chart-grid   { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media(max-width:900px){ .chart-grid{grid-template-columns:1fr;} }
+
+/* Tabs */
+.tabs-container { display: flex; gap: 8px; margin-bottom: 4px; border-bottom: 1px solid rgba(79,172,254,0.2); }
+.tab-btn { background: transparent; border: none; padding: 10px 16px; color: inherit; font-size: 14px; font-weight: 600; cursor: pointer; position: relative; transition: color 0.3s; opacity: 0.7; }
+[data-theme="dark"] .tab-btn { color: #c8d0e0; }
+.tab-btn:hover { opacity: 1; color: #4facfe; }
+.tab-btn.active { opacity: 1; color: #4facfe; }
+.tab-btn.active::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; background: #4facfe; border-radius: 2px 2px 0 0; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
 .dropdown-container { position: relative; }
 .dropdown-toggle { width: 100%; padding: 8px 12px; border: 1px solid rgba(79,172,254,0.15); border-radius: 6px; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center; font-size: 12px; transition: border-color 0.18s, background 0.3s ease; }
 [data-theme="dark"] .dropdown-toggle { background: rgba(30,30,58,0.8); color: #c8d0e0; }
@@ -45,8 +56,23 @@
     letter-spacing: 0.3px;
 }
 .compare-row td { font-size: 12px; }
-.delta-pos { color: #00c853; font-weight: 600; }
-.delta-neg { color: #f87171; font-weight: 600; }
+.delta-pos { background: rgba(0,200,83,0.15); color: #00e676; padding: 3px 6px; border-radius: 4px; font-weight: 600; display: inline-block; min-width: 45px; text-align: center; }
+.delta-neg { background: rgba(248,113,113,0.15); color: #fca5a5; padding: 3px 6px; border-radius: 4px; font-weight: 600; display: inline-block; min-width: 45px; text-align: center; }
+
+/* Layout & Theming Fixes */
+.chart-wrap { position: relative; width: 100%; height: 260px; }
+.chart-wrap canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+.compare-form-card { margin-top: 14px; padding: 14px 20px; display: flex; gap: 16px; align-items: flex-end; border: 1px solid rgba(79,172,254,0.2); border-radius: 12px; }
+[data-theme="dark"] .compare-form-card { background: rgba(30,30,58,0.4); }
+[data-theme="light"] .compare-form-card { background: rgba(255,255,255,0.8); }
+.city-filter-select { background: rgba(30,30,58,0.8); }
+[data-theme="light"] .city-filter-select { background: rgba(255,255,255,0.9); }
+
+/* Sticky freeze pane for KABUPATEN column */
+.data-table th:first-child, .data-table td:first-child { position: sticky; left: 0; z-index: 2; }
+.data-table th:first-child { z-index: 3; }
+[data-theme="dark"] .data-table th:first-child, [data-theme="dark"] .data-table td:first-child { background-color: #1a1a2e; box-shadow: inset -1px 0 0 rgba(79,172,254,0.2); }
+[data-theme="light"] .data-table th:first-child, [data-theme="light"] .data-table td:first-child { background-color: #ffffff; box-shadow: inset -1px 0 0 rgba(0,0,0,0.1); }
 </style>
 
 <!-- FILTER BAR -->
@@ -137,35 +163,17 @@
         <i class="fas fa-play" style="font-size:10px;margin-right:4px"></i> Show
     </button>
 
-    <div class="filter-group">
-        <div class="filter-label">Compare Week Before</div>
-        <select name="yw_before" class="f-input" style="width:140px;cursor:pointer">
-            <option value="">— Select —</option>
-            {% for w in yw_list %}
-            <option value="{{ w }}" {% if w==yw_before %}selected{% endif %}>{{ w }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="filter-group">
-        <div class="filter-label">Compare Week After</div>
-        <select name="yw_after" class="f-input" style="width:140px;cursor:pointer">
-            <option value="">— Select —</option>
-            {% for w in yw_list %}
-            <option value="{{ w }}" {% if w==yw_after %}selected{% endif %}>{{ w }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="filter-group" style="align-self:flex-end">
-        <div class="filter-label">&nbsp;</div>
-        <button type="submit" class="btn-apply">
-            <i class="fas fa-balance-scale" style="font-size:10px;margin-right:4px"></i> Compare
-        </button>
-    </div>
 </div>
 </form>
 
 <div class="content-area">
 
+<div class="tabs-container">
+    <button class="tab-btn {% if not yw_before or not yw_after %}active{% endif %}" onclick="switchTab('trend', this)">Site Trend</button>
+    <button class="tab-btn {% if yw_before and yw_after %}active{% endif %}" onclick="switchTab('compare', this)">Site Compare</button>
+</div>
+
+<div id="tab-trend" class="tab-content {% if not yw_before or not yw_after %}active{% endif %}">
 {# ══════════════════════════════════════════════════════════════
    CHART VIEW — shown when a date range + site filter is applied.
 ══════════════════════════════════════════════════════════════ #}
@@ -193,38 +201,101 @@
     </div>
 </div>
 
-<div class="chart-grid">
+<div class="chart-grid" style="margin-top: 24px;">
     <div class="card">
         <div class="card-title">📦 Payload (GB)</div>
         <div class="card-sub">{{ sel_sites|length }} site · {{ from_date }} - {{ to_date }}</div>
-        <div class="chart-wrap" style="width:100%"><canvas id="payloadChart"></canvas></div>
+        <div class="chart-wrap"><canvas id="payloadChart"></canvas></div>
     </div>
     <div class="card">
         <div class="card-title">📶 Traffic (KErl)</div>
         <div class="card-sub">{{ sel_sites|length }} site · {{ from_date }} - {{ to_date }}</div>
-        <div class="chart-wrap" style="width:100%"><canvas id="trafficChart"></canvas></div>
+        <div class="chart-wrap"><canvas id="trafficChart"></canvas></div>
     </div>
     <div class="card">
         <div class="card-title">📡 Availability (%)</div>
         <div class="card-sub">{{ sel_sites|length }} site · {{ from_date }} - {{ to_date }}</div>
-        <div class="chart-wrap" style="width:100%"><canvas id="availabilityChart"></canvas></div>
+        <div class="chart-wrap"><canvas id="availabilityChart"></canvas></div>
     </div>
     <div class="card">
         <div class="card-title">👥 RRC User</div>
         <div class="card-sub">{{ sel_sites|length }} site · {{ from_date }} - {{ to_date }}</div>
-        <div class="chart-wrap" style="width:100%"><canvas id="rrcChart"></canvas></div>
+        <div class="chart-wrap"><canvas id="rrcChart"></canvas></div>
     </div>
 </div>
 
 {% endif %}
 
+</div> <!-- end tab-trend -->
+
+<div id="tab-compare" class="tab-content {% if yw_before and yw_after %}active{% endif %}">
+
 {# ══════════════════════════════════════════════════════════════
-   COMPARISON TABLE — always shown when Y_W Before/After + Compare is active.
-   Lives OUTSIDE the chart block so it shows independently.
+   WEEK COMPARISON SELECTOR — shown when there is data
+══════════════════════════════════════════════════════════════ #}
+<div class="compare-form-card">
+    <div style="flex: 1;">
+        <div style="font-size: 14px; font-weight: 600; color: #4facfe; margin-bottom: 4px;">
+            <i class="fas fa-balance-scale" style="margin-right:6px"></i> Weekly Comparison
+        </div>
+        <div style="font-size: 11px; color: rgba(200,208,224,0.6);">
+            Select two weeks to compare KPI performance for the filtered sites.
+        </div>
+    </div>
+    <div class="filter-group">
+        <div class="filter-label">Week Before</div>
+        <select name="yw_before" form="filterForm" class="f-input" style="width:140px;cursor:pointer">
+            <option value="">— Select —</option>
+            {% for w in yw_list %}
+            <option value="{{ w }}" {% if w==yw_before %}selected{% endif %}>{{ w }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-group">
+        <div class="filter-label">Week After</div>
+        <select name="yw_after" form="filterForm" class="f-input" style="width:140px;cursor:pointer">
+            <option value="">— Select —</option>
+            {% for w in yw_list %}
+            <option value="{{ w }}" {% if w==yw_after %}selected{% endif %}>{{ w }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-group">
+        <button type="submit" form="filterForm" class="btn-apply" style="padding: 8px 16px;">
+            Compare <i class="fas fa-arrow-right" style="font-size:10px;margin-left:4px"></i>
+        </button>
+    </div>
+</div>
+
+{# ══════════════════════════════════════════════════════════════
+   COMPARISON TABLE AND CHART
 ══════════════════════════════════════════════════════════════ #}
 {% set compare_has_data = compare_table and compare_table[0].rows %}
+
 {% if compare_table and compare_has_data %}
-<div class="table-card" style="margin-top:4px">
+{# TOP 10 / BOTTOM 10 CHART #}
+<div class="card" style="margin-top: 14px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+        <div>
+            <div class="card-title">📊 Top 10 & Bottom 10 Payload Comparison (GB)</div>
+            <div class="card-sub">Ranked by Payload Growth (Δ%) • {{ yw_before }} vs {{ yw_after }}</div>
+        </div>
+        <div>
+            <select id="cityChartFilter" class="f-input city-filter-select" style="width:200px;cursor:pointer" onchange="renderCompareChart()">
+                <option value="ALL">All Selected Cities</option>
+                {% for city_group in compare_table %}
+                <option value="{{ city_group.city }}">{{ city_group.city }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div class="chart-wrap"><canvas id="topChart"></canvas></div>
+        <div class="chart-wrap"><canvas id="bottomChart"></canvas></div>
+    </div>
+</div>
+
+<div class="table-card" style="margin-top:14px">
     <div class="table-card-header">
         <div class="table-card-title">
             📊 KPI Week Comparison: {{ yw_before }} vs {{ yw_after }}
@@ -232,9 +303,11 @@
     </div>
     <div class="table-scroll">
         {% for city_group in compare_table %}
-        <div class="compare-city-header">
+        <div class="compare-city-header" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;" onclick="toggleCityGroup('{{ loop.index }}')">
             <div class="compare-city-label">{{ city_group.city }}</div>
+            <i class="fas fa-chevron-up" id="icon-city-{{ loop.index }}" style="font-size:12px; color:rgba(200,208,224,0.5);"></i>
         </div>
+        <div id="body-city-{{ loop.index }}" style="display:block;">
         <table class="data-table">
             <thead>
                 <tr>
@@ -297,6 +370,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         {% endfor %}
     </div>
 </div>
@@ -306,6 +380,8 @@
     <div style="font-size:13px">Tidak ada data untuk perbandingan minggu<br><strong>{{ yw_before }}</strong> vs <strong>{{ yw_after }}</strong></div>
 </div>
 {% endif %}
+
+</div> <!-- end tab-compare -->
 
 {# ══════════════════════════════════════════════════════════════
    EMPTY STATE — shown when neither chart_labels nor compare_table exist.
@@ -380,7 +456,138 @@ function renderCharts(){
     if(c4){ if(rrcChart) rrcChart.destroy(); rrcChart=new Chart(c4,{type:'line',data:{labels:chartLabels,datasets:makeDatasets(chartRRC)},options:chartOpts('RRC User')}); chartInstances.rrcChart=rrcChart; c4.style.cursor='pointer'; c4.onclick=function(){openChartModal(c4);}; }
 }
 
-window.addEventListener("resize", function(){ Object.values(chartInstances).forEach(function(ch){ if(ch && typeof ch.resize==='function'){ ch.resize(); ch.update(); } }); });
+window.addEventListener("resize", function(){
+    Object.values(chartInstances).forEach(function(ch){ if(ch && typeof ch.resize==='function'){ ch.resize(); ch.update(); } });
+    if(topChart) topChart.resize();
+    if(bottomChart) bottomChart.resize();
+});
+
+function switchTab(tabId, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + tabId).classList.add('active');
+    
+    // Trigger resize to fix any layout issues on display change
+    setTimeout(function() {
+        window.dispatchEvent(new Event('resize'));
+    }, 10);
+}
+
+function toggleCityGroup(idx) {
+    var body = document.getElementById('body-city-' + idx);
+    var icon = document.getElementById('icon-city-' + idx);
+    if(body.style.display === 'none') {
+        body.style.display = 'block';
+        icon.className = 'fas fa-chevron-up';
+    } else {
+        body.style.display = 'none';
+        icon.className = 'fas fa-chevron-down';
+    }
+}
+
+var compareDataRaw = {{ compare_table | tojson | safe if compare_table else '[]' }};
+var topChart, bottomChart;
+
+function renderCompareChart() {
+    var filterCity = document.getElementById('cityChartFilter') ? document.getElementById('cityChartFilter').value : 'ALL';
+    var allRows = [];
+    
+    compareDataRaw.forEach(function(group) {
+        if (filterCity === 'ALL' || group.city === filterCity) {
+            allRows = allRows.concat(group.rows);
+        }
+    });
+    
+    allRows = allRows.filter(function(r) { return r.pch !== null && typeof r.pch !== 'undefined'; });
+    allRows.sort(function(a, b) { return b.pch - a.pch; });
+    
+    var positiveRows = allRows.filter(function(r) { return r.pch > 0; });
+    var top10 = positiveRows.slice(0, 10);
+    
+    var negativeRows = allRows.filter(function(r) { return r.pch < 0; });
+    var bottom10 = [];
+    if (negativeRows.length > 0) {
+        var bottomCount = Math.min(10, negativeRows.length);
+        bottom10 = negativeRows.slice(negativeRows.length - bottomCount);
+        bottom10.sort(function(a, b) { return a.pch - b.pch; }); // Worst first
+    }
+    
+    function renderDeltaChart(ctxId, chartVar, dataRows, chartTitle, isBottom) {
+        var ctx = document.getElementById(ctxId);
+        if (!ctx) return chartVar;
+        if (chartVar) chartVar.destroy();
+        
+        var labels = dataRows.map(function(r) { return r.site; });
+        var dataDelta = dataRows.map(function(r) { return r.pa - r.pb; });
+        var originalPct = dataRows.map(function(r) { return r.pch; });
+        
+        // For bottom chart, make values positive so they draw to the right
+        var chartDataPct = dataRows.map(function(r) { return isBottom ? Math.abs(r.pch) : r.pch; });
+        var bgColors = originalPct.map(function(d) { return d >= 0 ? '#438a36' : '#902121'; });
+        
+        var customLabelsPlugin = {
+            id: 'customLabels',
+            afterDatasetsDraw: function(chart) {
+                var c = chart.ctx;
+                c.save();
+                chart.getDatasetMeta(0).data.forEach(function(datapoint, index) {
+                    var val = originalPct[index];
+                    c.fillStyle = tc();
+                    c.font = 'bold 11px sans-serif';
+                    c.textAlign = 'left';
+                    var sign = val > 0 ? '+' : '';
+                    var text = sign + val.toFixed(1) + '%';
+                    c.fillText(text, datapoint.x + 6, datapoint.y + 4);
+                });
+                c.restore();
+            }
+        };
+        
+        return new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Growth %',
+                    data: chartDataPct,
+                    backgroundColor: bgColors,
+                    borderWidth: 0,
+                    borderRadius: 4,
+                    barPercentage: 0.6
+                }]
+            },
+            plugins: [customLabelsPlugin],
+            options: {
+                indexAxis: 'y',
+                layout: { padding: { right: 50 } }, // space for labels
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    title: { display: true, text: chartTitle, color: tc(), font:{size:13} },
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(10,10,30,0.88)', titleFont:{size:11}, bodyFont:{size:11}, padding:10,
+                        callbacks: {
+                            label: function(c) {
+                                var idx = c.dataIndex;
+                                var val = dataDelta[idx].toFixed(2);
+                                var pct = originalPct[idx].toFixed(1);
+                                return 'Delta: ' + (val > 0 ? '+' : '') + val + ' GB (' + (pct > 0 ? '+' : '') + pct + '%)';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { display: false },
+                    y: { ticks: { color: tc(), font:{size:10} }, grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    topChart = renderDeltaChart('topChart', topChart, top10, '🏆 Top 10 Growth', false);
+    bottomChart = renderDeltaChart('bottomChart', bottomChart, bottom10, '📉 Bottom 10 Decline', true);
+}
 
 /* ── Dropdown helpers ── */
 function toggleDropdown(id){
@@ -457,14 +664,7 @@ document.addEventListener("DOMContentLoaded", function(){
     updateCount('city', {{ filtered_cities|length }});
     updateCount('site', {{ sites_list|length }});
     if(chartLabels.length > 0) renderCharts();
-
-    // Sync visible Y_W selects into hidden inputs so values are always submitted
-    var ywBefore = document.querySelector('select[name="yw_before"]');
-    var ywAfter = document.querySelector('select[name="yw_after"]');
-    var ywBeforeHidden = document.getElementById('yw_before_hidden');
-    var ywAfterHidden = document.getElementById('yw_after_hidden');
-    if(ywBefore && ywBeforeHidden){ ywBeforeHidden.value = ywBefore.value; ywBefore.addEventListener('change', function(){ ywBeforeHidden.value = this.value; }); }
-    if(ywAfter && ywAfterHidden){ ywAfterHidden.value = ywAfter.value; ywAfter.addEventListener('change', function(){ ywAfterHidden.value = this.value; }); }
+    if(compareDataRaw.length > 0) renderCompareChart();
 });
 </script>
 {% endblock %}

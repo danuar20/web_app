@@ -286,7 +286,7 @@ def city_level():
                 SELECT
                     "Date"::text,
                     "KABUPATEN",
-                    SUM("Payload (MB)")/1024.0,
+                    SUM("Payload (MB)")/1024.0/1024.0,
                     SUM("Traffic (erlang)")/1000.0,
                     SUM(CASE WHEN "Avail_Num" IS NOT NULL AND "Avail_Denum" IS NOT NULL
                              AND "Avail_Denum" > 0 THEN "Avail_Num" END),
@@ -342,19 +342,26 @@ def city_level():
 
         if yw_before and yw_after and sel_cities:
             # Build query dynamically — number of placeholders always matches params
-            p = [yw_before, yw_after, sel_cities]
-            city_clause2 = ""
+            p = [
+                yw_before, yw_after, yw_before, yw_after,
+                yw_before, yw_before, yw_after, yw_after,
+                yw_before, yw_after,
+                yw_before, yw_after
+            ]
             nsa_clause2 = ""
             if sel_nsas:
                 nsa_clause2 = 'AND t."NSA"=ANY(%s)'
                 p.append(sel_nsas)
+                
+            city_clause2 = 'AND t."KABUPATEN"=ANY(%s)'
+            p.append(sel_cities)
 
             cur.execute(f"""
                 SELECT
                     t."NSA",
                     t."KABUPATEN",
-                    SUM(CASE WHEN t."Y_W"=%s THEN t."Payload (MB)" END)/1024.0 AS pb,
-                    SUM(CASE WHEN t."Y_W"=%s THEN t."Payload (MB)" END)/1024.0 AS pa,
+                    SUM(CASE WHEN t."Y_W"=%s THEN t."Payload (MB)" END)/1024.0/1024.0 AS pb,
+                    SUM(CASE WHEN t."Y_W"=%s THEN t."Payload (MB)" END)/1024.0/1024.0 AS pa,
                     SUM(CASE WHEN t."Y_W"=%s THEN t."Traffic (erlang)" END)/1000.0 AS tb,
                     SUM(CASE WHEN t."Y_W"=%s THEN t."Traffic (erlang)" END)/1000.0 AS ta,
                     SUM(CASE WHEN t."Y_W"=%s AND t."Avail_Num" IS NOT NULL
@@ -577,15 +584,21 @@ def site_level():
 
         if yw_before and yw_after and sel_sites:
             # Build query dynamically — number of placeholders always matches params
-            p = [yw_before, yw_after, sel_sites]
-            city_clause2 = ""
-            if sel_cities:
-                city_clause2 = 'AND t."KABUPATEN"=ANY(%s)'
-                p.append(sel_cities)
+            p = [
+                yw_before, yw_after, yw_before, yw_after,
+                yw_before, yw_before, yw_after, yw_after,
+                yw_before, yw_after,
+                yw_before, yw_after,
+                sel_sites
+            ]
             nsa_clause2 = ""
             if sel_nsas:
                 nsa_clause2 = 'AND t."NSA"=ANY(%s)'
                 p.append(sel_nsas)
+            city_clause2 = ""
+            if sel_cities:
+                city_clause2 = 'AND t."KABUPATEN"=ANY(%s)'
+                p.append(sel_cities)
 
             cur.execute(f"""
                 SELECT
@@ -608,7 +621,7 @@ def site_level():
                     SUM(CASE WHEN t."Y_W"=%s THEN t."Max_RRC_Conn_User" END) AS rb,
                     SUM(CASE WHEN t."Y_W"=%s THEN t."Max_RRC_Conn_User" END) AS ra
                 FROM traffic_payload t
-                WHERE t."Y_W" IN (%s,%s) {nsa_clause2} {city_clause2}
+                WHERE t."Y_W" IN (%s,%s) AND t."Site ID"=ANY(%s) {nsa_clause2} {city_clause2}
                 GROUP BY t."KABUPATEN", t."Site ID"
                 ORDER BY t."KABUPATEN", t."Site ID"
             """, p)

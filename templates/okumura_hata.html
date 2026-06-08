@@ -14,67 +14,358 @@
 
 {% block page_content %}
 <style>
-.content-area { flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
-.main-grid { display: grid; grid-template-columns: 380px 1fr; gap: 16px; }
-@media (max-width: 1200px) { .main-grid { grid-template-columns: 1fr; } }
+    .content-area {
+        flex: 1;
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+    }
 
-/* Input Panel */
-.input-panel { background: rgba(30,30,58,0.6); border: 1px solid rgba(79,172,254,0.15); border-radius: 12px; padding: 18px; }
-[data-theme="light"] .input-panel { background: rgba(255,255,255,0.9); border-color: rgba(0,0,0,0.1); }
-.panel-title { font-size: 12px; font-weight: 600; color: #4facfe; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid rgba(79,172,254,0.15); display: flex; align-items: center; gap: 6px; }
-.input-group { margin-bottom: 12px; }
-.input-label { font-size: 10px; color: rgba(200,208,224,0.6); margin-bottom: 4px; display: flex; justify-content: space-between; }
-[data-theme="light"] .input-label { color: #555; }
-.input-label span { font-weight: 500; }
-.f-input { width: 100%; padding: 7px 10px; background: rgba(20,20,40,0.6); border: 1px solid rgba(79,172,254,0.2); border-radius: 6px; color: #c8d0e0; font-size: 11px; }
-[data-theme="light"] .f-input { background: #f8fafc; border-color: rgba(0,0,0,0.1); color: #1e293b; }
-.f-input:focus { outline: none; border-color: #4facfe; }
-.f-select { width: 100%; padding: 7px 10px; background: rgba(20,20,40,0.6); border: 1px solid rgba(79,172,254,0.2); border-radius: 6px; color: #c8d0e0; font-size: 11px; cursor: pointer; }
-[data-theme="light"] .f-select { background: #f8fafc; border-color: rgba(0,0,0,0.1); color: #1e293b; }
-.f-range { width: 100%; height: 4px; -webkit-appearance: none; background: rgba(79,172,254,0.2); border-radius: 2px; cursor: pointer; margin: 4px 0; }
-.f-range::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; background: #4facfe; border-radius: 50%; cursor: pointer; }
-.btn-calc { width: 100%; padding: 10px; background: linear-gradient(135deg, #4facfe, #00f2fe); border: none; border-radius: 8px; color: #0a0a1a; font-weight: 600; font-size: 12px; cursor: pointer; margin-top: 8px; }
-.btn-calc:hover { opacity: 0.9; }
-.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .main-grid {
+        display: grid;
+        grid-template-columns: 310px 1fr;
+        gap: 10px;
+        flex: 1;
+        align-items: stretch;
+    }
 
-/* Results Panel */
-.results-panel { display: flex; flex-direction: column; gap: 14px; }
-.results-card { background: rgba(30,30,58,0.6); border: 1px solid rgba(79,172,254,0.15); border-radius: 12px; padding: 16px; }
-[data-theme="light"] .results-card { background: rgba(255,255,255,0.9); border-color: rgba(0,0,0,0.1); }
-.result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
-.result-item { background: rgba(10,10,30,0.5); border-radius: 8px; padding: 12px; text-align: center; }
-[data-theme="light"] .result-item { background: #f0f2f8; }
-.result-value { font-size: 18px; font-weight: 700; color: #4facfe; }
-.result-unit { font-size: 10px; color: rgba(200,208,224,0.5); margin-top: 2px; }
-.result-label { font-size: 9px; color: rgba(200,208,224,0.5); text-transform: uppercase; margin-top: 4px; }
-[data-theme="light"] .result-label { color: #666; }
+    @media (max-width: 1200px) {
+        .main-grid {
+            grid-template-columns: 1fr;
+        }
+    }
 
-/* Confidence Meter */
-.confidence-bar { margin-top: 10px; }
-.conf-label { font-size: 10px; color: rgba(200,208,224,0.6); margin-bottom: 4px; display: flex; justify-content: space-between; }
-[data-theme="light"] .conf-label { color: #555; }
-.conf-track { height: 8px; background: rgba(79,172,254,0.15); border-radius: 4px; overflow: hidden; }
-.conf-fill { height: 100%; background: linear-gradient(90deg, #ff5555, #ff9f40, #00c853); border-radius: 4px; transition: width 0.5s; }
+    /* Input Panel */
+    .input-panel {
+        background: rgba(30, 30, 58, 0.6);
+        border: 1px solid rgba(79, 172, 254, 0.15);
+        border-radius: 12px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
 
-/* Canvas Diagram */
-.diagram-card { background: rgba(30,30,58,0.6); border: 1px solid rgba(79,172,254,0.15); border-radius: 12px; padding: 16px; }
-[data-theme="light"] .diagram-card { background: rgba(255,255,255,0.9); border-color: rgba(0,0,0,0.1); }
-.diagram-title { font-size: 12px; font-weight: 600; color: #4facfe; margin-bottom: 12px; }
-.canvas-wrap { position: relative; background: rgba(10,10,30,0.3); border-radius: 8px; overflow: hidden; }
-[data-theme="light"] .canvas-wrap { background: #f0f2f8; }
-#sectorCanvas { display: block; width: 100%; height: 400px; }
-.diagram-legend { display: flex; justify-content: center; gap: 20px; margin-top: 10px; flex-wrap: wrap; }
-.legend-item { display: flex; align-items: center; gap: 6px; font-size: 10px; color: rgba(200,208,224,0.8); }
-[data-theme="light"] .legend-item { color: #555; }
-.legend-dot { width: 12px; height: 12px; border-radius: 3px; }
-.legend-dot.inner { background: rgba(0,200,83,0.5); border: 2px solid #00c853; }
-.legend-dot.center { background: rgba(79,172,254,0.5); border: 2px solid #4facfe; }
-.legend-dot.outer { background: rgba(255,85,85,0.3); border: 2px solid #ff5555; }
+    [data-theme="light"] .input-panel {
+        background: rgba(255, 255, 255, 0.9);
+        border-color: rgba(0, 0, 0, 0.1);
+    }
 
-/* Info Box */
-.info-box { background: rgba(79,172,254,0.08); border: 1px solid rgba(79,172,254,0.2); border-radius: 8px; padding: 12px; margin-top: 12px; font-size: 10px; color: rgba(200,208,224,0.6); line-height: 1.5; }
-[data-theme="light"] .info-box { background: rgba(79,172,254,0.05); color: #555; }
-.info-box strong { color: #4facfe; }
+    .panel-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: #4facfe;
+        margin-bottom: 4px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid rgba(79, 172, 254, 0.15);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .input-group {
+        margin-bottom: 0px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .input-label {
+        font-size: 10px;
+        color: rgba(200, 208, 224, 0.8);
+        display: flex;
+        justify-content: space-between;
+    }
+
+    [data-theme="light"] .input-label {
+        color: #555;
+    }
+
+    .input-label span {
+        font-weight: 500;
+    }
+
+    .f-input {
+        width: 100%;
+        padding: 6px 10px;
+        background: rgba(20, 20, 40, 0.6);
+        border: 1px solid rgba(79, 172, 254, 0.2);
+        border-radius: 6px;
+        color: #c8d0e0;
+        font-size: 12px;
+    }
+
+    [data-theme="light"] .f-input {
+        background: #f8fafc;
+        border-color: rgba(0, 0, 0, 0.1);
+        color: #1e293b;
+    }
+
+    .f-input:focus {
+        outline: none;
+        border-color: #4facfe;
+    }
+
+    .f-select {
+        width: 100%;
+        padding: 6px 10px;
+        background: rgba(20, 20, 40, 0.6);
+        border: 1px solid rgba(79, 172, 254, 0.2);
+        border-radius: 6px;
+        color: #c8d0e0;
+        font-size: 12px;
+        cursor: pointer;
+    }
+
+    [data-theme="light"] .f-select {
+        background: #f8fafc;
+        border-color: rgba(0, 0, 0, 0.1);
+        color: #1e293b;
+    }
+
+    .f-range {
+        width: 100%;
+        height: 4px;
+        -webkit-appearance: none;
+        background: rgba(79, 172, 254, 0.2);
+        border-radius: 2px;
+        cursor: pointer;
+        margin: 4px 0;
+    }
+
+    .f-range::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 12px;
+        height: 12px;
+        background: #4facfe;
+        border-radius: 50%;
+        cursor: pointer;
+    }
+
+    .btn-calc {
+        width: 100%;
+        padding: 8px 12px;
+        background: linear-gradient(135deg, #4facfe, #00f2fe);
+        border: none;
+        border-radius: 8px;
+        color: #0a0a1a;
+        font-weight: 700;
+        font-size: 12px;
+        cursor: pointer;
+        margin-top: 6px;
+    }
+
+    .btn-calc:hover {
+        opacity: 0.9;
+    }
+
+    .row-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+    }
+
+    /* Results Panel */
+    .results-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    .results-card {
+        background: rgba(30, 30, 58, 0.6);
+        border: 1px solid rgba(79, 172, 254, 0.15);
+        border-radius: 12px;
+        padding: 10px;
+        flex-shrink: 0;
+    }
+
+    [data-theme="light"] .results-card {
+        background: rgba(255, 255, 255, 0.9);
+        border-color: rgba(0, 0, 0, 0.1);
+    }
+
+    .result-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 6px;
+    }
+
+    .result-item {
+        background: rgba(10, 10, 30, 0.5);
+        border-radius: 8px;
+        padding: 8px;
+        text-align: center;
+    }
+
+    [data-theme="light"] .result-item {
+        background: #f0f2f8;
+    }
+
+    .result-value {
+        font-size: 14px;
+        font-weight: 700;
+        color: #4facfe;
+    }
+
+    .result-unit {
+        font-size: 9px;
+        color: rgba(200, 208, 224, 0.5);
+        margin-top: 2px;
+    }
+
+    .result-label {
+        font-size: 8px;
+        color: rgba(200, 208, 224, 0.5);
+        text-transform: uppercase;
+        margin-top: 4px;
+    }
+
+    [data-theme="light"] .result-label {
+        color: #666;
+    }
+
+    /* Confidence Meter */
+    .confidence-bar {
+        margin-top: 8px;
+    }
+
+    .conf-label {
+        font-size: 9px;
+        color: rgba(200, 208, 224, 0.6);
+        margin-bottom: 4px;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    [data-theme="light"] .conf-label {
+        color: #555;
+    }
+
+    .conf-track {
+        height: 6px;
+        background: rgba(79, 172, 254, 0.15);
+        border-radius: 3px;
+        overflow: hidden;
+    }
+
+    .conf-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #ff5555, #ff9f40, #00c853);
+        border-radius: 3px;
+        transition: width 0.5s;
+    }
+
+    /* Canvas Diagram */
+    .diagram-card {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        background: rgba(30, 30, 58, 0.6);
+        border: 1px solid rgba(79, 172, 254, 0.15);
+        border-radius: 12px;
+        padding: 10px;
+    }
+
+    [data-theme="light"] .diagram-card {
+        background: rgba(255, 255, 255, 0.9);
+        border-color: rgba(0, 0, 0, 0.1);
+    }
+
+    .diagram-title {
+        font-size: 11px;
+        font-weight: 700;
+        color: #4facfe;
+        margin-bottom: 6px;
+        flex-shrink: 0;
+    }
+
+    .canvas-wrap {
+        flex: 1;
+        display: flex;
+        position: relative;
+        background: rgba(10, 10, 30, 0.3);
+        border-radius: 8px;
+        overflow: hidden;
+        min-height: 0;
+    }
+
+    [data-theme="light"] .canvas-wrap {
+        background: #f0f2f8;
+    }
+
+    #sectorCanvas {
+        flex: 1;
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+
+    .diagram-legend {
+        display: flex;
+        justify-content: center;
+        gap: 14px;
+        margin-top: 6px;
+        flex-wrap: wrap;
+        flex-shrink: 0;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 9px;
+        color: rgba(200, 208, 224, 0.8);
+    }
+
+    [data-theme="light"] .legend-item {
+        color: #555;
+    }
+
+    .legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+    }
+
+    .legend-dot.inner {
+        background: rgba(0, 200, 83, 0.5);
+        border: 2px solid #00c853;
+    }
+
+    .legend-dot.center {
+        background: rgba(79, 172, 254, 0.5);
+        border: 2px solid #4facfe;
+    }
+
+    .legend-dot.outer {
+        background: rgba(255, 85, 85, 0.3);
+        border: 2px solid #ff5555;
+    }
+
+    /* Info Box */
+    .info-box {
+        background: rgba(79, 172, 254, 0.08);
+        border: 1px solid rgba(79, 172, 254, 0.2);
+        border-radius: 8px;
+        padding: 10px;
+        margin-top: 16px;
+        font-size: 9px;
+        color: rgba(200, 208, 224, 0.6);
+        line-height: 1.4;
+    }
+
+    [data-theme="light"] .info-box {
+        background: rgba(79, 172, 254, 0.05);
+        color: #555;
+    }
+
+    .info-box strong {
+        color: #4facfe;
+    }
 </style>
 
 <div class="content-area">
@@ -87,12 +378,14 @@
                 <div class="row-2">
                     <div class="input-group">
                         <label class="input-label">Height (m) <span id="hbVal">{{ hb }}</span></label>
-                        <input type="range" class="f-range" name="hb" min="10" max="100" value="{{ hb }}" oninput="syncVal('hb', this.value)">
+                        <input type="range" class="f-range" name="hb" min="10" max="100" value="{{ hb }}"
+                            oninput="syncVal('hb', this.value)">
                         <input type="number" class="f-input" name="hb_num" value="{{ hb }}" min="10" max="100">
                     </div>
                     <div class="input-group">
                         <label class="input-label">Gain (dBi) <span id="gainVal">{{ gain }}</span></label>
-                        <input type="range" class="f-range" name="gain" min="0" max="25" value="{{ gain }}" oninput="syncVal('gain', this.value)">
+                        <input type="range" class="f-range" name="gain" min="0" max="25" value="{{ gain }}"
+                            oninput="syncVal('gain', this.value)">
                         <input type="number" class="f-input" name="gain_num" value="{{ gain }}" min="0" max="25">
                     </div>
                 </div>
@@ -100,43 +393,56 @@
                 <div class="row-2">
                     <div class="input-group">
                         <label class="input-label">TX Power (dBm) <span id="txVal">{{ tx_power }}</span></label>
-                        <input type="range" class="f-range" name="tx_power" min="20" max="50" value="{{ tx_power }}" oninput="syncVal('tx', this.value)">
-                        <input type="number" class="f-input" name="tx_power_num" value="{{ tx_power }}" min="20" max="50">
+                        <input type="range" class="f-range" name="tx_power" min="20" max="50" value="{{ tx_power }}"
+                            oninput="syncVal('tx', this.value)">
+                        <input type="number" class="f-input" name="tx_power_num" value="{{ tx_power }}" min="20"
+                            max="50">
                     </div>
                     <div class="input-group">
                         <label class="input-label">Frequency (MHz) <span id="freqVal">{{ frequency }}</span></label>
-                        <input type="range" class="f-range" name="frequency" min="700" max="3500" step="10" value="{{ frequency }}" oninput="syncVal('freq', this.value)">
-                        <input type="number" class="f-input" name="frequency_num" value="{{ frequency }}" min="700" max="3500">
+                        <input type="range" class="f-range" name="frequency" min="700" max="3500" step="10"
+                            value="{{ frequency }}" oninput="syncVal('freq', this.value)">
+                        <input type="number" class="f-input" name="frequency_num" value="{{ frequency }}" min="700"
+                            max="3500">
                     </div>
                 </div>
 
                 <div class="row-2">
                     <div class="input-group">
                         <label class="input-label">Elec Tilt (°) <span id="elecVal">{{ elec_tilt }}</span></label>
-                        <input type="range" class="f-range" name="elec_tilt" min="0" max="15" step="0.5" value="{{ elec_tilt }}" oninput="syncVal('elec', this.value)">
-                        <input type="number" class="f-input" name="elec_tilt_num" value="{{ elec_tilt }}" min="0" max="15">
+                        <input type="range" class="f-range" name="elec_tilt" min="0" max="15" step="0.5"
+                            value="{{ elec_tilt }}" oninput="syncVal('elec', this.value)">
+                        <input type="number" class="f-input" name="elec_tilt_num" value="{{ elec_tilt }}" min="0"
+                            max="15">
                     </div>
                     <div class="input-group">
                         <label class="input-label">Mech Tilt (°) <span id="mechVal">{{ mech_tilt }}</span></label>
-                        <input type="range" class="f-range" name="mech_tilt" min="0" max="15" step="0.5" value="{{ mech_tilt }}" oninput="syncVal('mech', this.value)">
-                        <input type="number" class="f-input" name="mech_tilt_num" value="{{ mech_tilt }}" min="0" max="15">
+                        <input type="range" class="f-range" name="mech_tilt" min="0" max="15" step="0.5"
+                            value="{{ mech_tilt }}" oninput="syncVal('mech', this.value)">
+                        <input type="number" class="f-input" name="mech_tilt_num" value="{{ mech_tilt }}" min="0"
+                            max="15">
                     </div>
                 </div>
 
                 <div class="row-2">
                     <div class="input-group">
                         <label class="input-label">V Beamwidth (°) <span id="vBWVal">{{ v_beamwidth }}</span></label>
-                        <input type="range" class="f-range" name="v_beamwidth" min="3" max="30" step="0.5" value="{{ v_beamwidth }}" oninput="syncVal('vBW', this.value)">
-                        <input type="number" class="f-input" name="v_beamwidth_num" value="{{ v_beamwidth }}" min="3" max="30">
+                        <input type="range" class="f-range" name="v_beamwidth" min="3" max="30" step="0.5"
+                            value="{{ v_beamwidth }}" oninput="syncVal('vBW', this.value)">
+                        <input type="number" class="f-input" name="v_beamwidth_num" value="{{ v_beamwidth }}" min="3"
+                            max="30">
                     </div>
                     <div class="input-group">
                         <label class="input-label">H Beamwidth (°) <span id="hBWVal">{{ h_beamwidth }}</span></label>
-                        <input type="range" class="f-range" name="h_beamwidth" min="20" max="120" value="{{ h_beamwidth }}" oninput="syncVal('hBW', this.value)">
-                        <input type="number" class="f-input" name="h_beamwidth_num" value="{{ h_beamwidth }}" min="20" max="120">
+                        <input type="range" class="f-range" name="h_beamwidth" min="20" max="120"
+                            value="{{ h_beamwidth }}" oninput="syncVal('hBW', this.value)">
+                        <input type="number" class="f-input" name="h_beamwidth_num" value="{{ h_beamwidth }}" min="20"
+                            max="120">
                     </div>
                 </div>
 
-                <div class="panel-title" style="margin-top:16px;"><i class="fas fa-globe"></i> Environment & Receiver</div>
+                <div class="panel-title" style="margin-top:16px;"><i class="fas fa-globe"></i> Environment & Receiver
+                </div>
 
                 <div class="input-group">
                     <label class="input-label">Environment Type</label>
@@ -154,13 +460,15 @@
                     </div>
                     <div class="input-group">
                         <label class="input-label">RX Sensitivity (dBm)</label>
-                        <input type="number" class="f-input" name="rx_sensitivity" value="{{ rx_sensitivity }}" min="-120" max="-60">
+                        <input type="number" class="f-input" name="rx_sensitivity" value="{{ rx_sensitivity }}"
+                            min="-120" max="-60">
                     </div>
                 </div>
 
                 <div class="input-group">
                     <label class="input-label">Cable & Connector Loss (dB)</label>
-                    <input type="number" class="f-input" name="cable_loss" value="{{ cable_loss }}" min="0" max="10" step="0.5">
+                    <input type="number" class="f-input" name="cable_loss" value="{{ cable_loss }}" min="0" max="10"
+                        step="0.5">
                 </div>
 
                 <button type="submit" class="btn-calc">
@@ -169,95 +477,99 @@
 
                 <div class="info-box">
                     <strong>Okumura-Hata Model:</strong><br>
-                    Path loss at 1km based on frequency, antenna heights, and environment type. Coverage radius derived from max allowable path loss.
+                    Path loss at 1km based on frequency, antenna heights, and environment type. Coverage radius derived
+                    from max allowable path loss.
                 </div>
             </form>
         </div>
 
         <!-- Right Panel - Results -->
-        <div class="results-panel">
-            <!-- Key Metrics -->
-            <div class="results-card">
-                <div class="panel-title"><i class="fas fa-chart-line"></i> Coverage Results</div>
-                <div class="result-grid">
-                    <div class="result-item">
-                        <div class="result-value">{{ results.eirp }}</div>
-                        <div class="result-unit">dBm</div>
-                        <div class="result-label">EIRP</div>
+        <div style="position: relative; height: 100%;">
+            <div class="results-panel" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+                <!-- Key Metrics -->
+                <div class="results-card">
+                    <div class="panel-title"><i class="fas fa-chart-line"></i> Coverage Results</div>
+                    <div class="result-grid">
+                        <div class="result-item">
+                            <div class="result-value">{{ results.eirp }}</div>
+                            <div class="result-unit">dBm</div>
+                            <div class="result-label">EIRP</div>
+                        </div>
+                        <div class="result-item">
+                            <div class="result-value">{{ results.max_pl }}</div>
+                            <div class="result-unit">dB</div>
+                            <div class="result-label">Max Path Loss</div>
+                        </div>
+                        <div class="result-item">
+                            <div class="result-value">{{ results.coverage_radius_km }}</div>
+                            <div class="result-unit">km</div>
+                            <div class="result-label">Coverage Radius</div>
+                        </div>
+                        <div class="result-item">
+                            <div class="result-value">{{ results.sector_area_km2 }}</div>
+                            <div class="result-unit">km²</div>
+                            <div class="result-label">Sector Area</div>
+                        </div>
                     </div>
-                    <div class="result-item">
-                        <div class="result-value">{{ results.max_pl }}</div>
-                        <div class="result-unit">dB</div>
-                        <div class="result-label">Max Path Loss</div>
-                    </div>
-                    <div class="result-item">
-                        <div class="result-value">{{ results.coverage_radius_km }}</div>
-                        <div class="result-unit">km</div>
-                        <div class="result-label">Coverage Radius</div>
-                    </div>
-                    <div class="result-item">
-                        <div class="result-value">{{ results.sector_area_km2 }}</div>
-                        <div class="result-unit">km²</div>
-                        <div class="result-label">Sector Area</div>
+
+                    <div class="confidence-bar">
+                        <div class="conf-label">
+                            <span>Model Confidence ({{ results.env_label }})</span>
+                            <span>{{ (results.confidence * 100) | int }}%</span>
+                        </div>
+                        <div class="conf-track">
+                            <div class="conf-fill" style="width: {{ (results.confidence * 100) | int }}%"></div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="confidence-bar">
-                    <div class="conf-label">
-                        <span>Model Confidence ({{ results.env_label }})</span>
-                        <span>{{ (results.confidence * 100) | int }}%</span>
-                    </div>
-                    <div class="conf-track">
-                        <div class="conf-fill" style="width: {{ (results.confidence * 100) | int }}%"></div>
+                <!-- Distance Metrics -->
+                <div class="results-card">
+                    <div class="panel-title"><i class="fas fa-ruler"></i> Beam Distances</div>
+                    <div class="result-grid">
+                        <div class="result-item">
+                            <div class="result-value">{{ results.total_tilt }}</div>
+                            <div class="result-unit">°</div>
+                            <div class="result-label">Total Tilt</div>
+                        </div>
+                        <div class="result-item">
+                            <div class="result-value">{{ results.boresight_distance_m }}</div>
+                            <div class="result-unit">m</div>
+                            <div class="result-label">Boresight Dist</div>
+                        </div>
+                        <div class="result-item">
+                            <div class="result-value">{{ results.near_distance_m }}</div>
+                            <div class="result-unit">m</div>
+                            <div class="result-label">Near Edge</div>
+                        </div>
+                        <div class="result-item">
+                            <div class="result-value">{{ results.far_distance_m }}</div>
+                            <div class="result-unit">m</div>
+                            <div class="result-label">Far Edge</div>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Distance Metrics -->
-            <div class="results-card">
-                <div class="panel-title"><i class="fas fa-ruler"></i> Beam Distances</div>
-                <div class="result-grid">
-                    <div class="result-item">
-                        <div class="result-value">{{ results.total_tilt }}</div>
-                        <div class="result-unit">°</div>
-                        <div class="result-label">Total Tilt</div>
+                <!-- Sector Diagram -->
+                <div class="diagram-card">
+                    <div class="diagram-title"><i class="fas fa-drafting-compass" style="margin-right:6px"></i>2D
+                        Top-Down Sector Coverage</div>
+                    <div class="canvas-wrap">
+                        <canvas id="sectorCanvas"></canvas>
                     </div>
-                    <div class="result-item">
-                        <div class="result-value">{{ results.boresight_distance_m }}</div>
-                        <div class="result-unit">m</div>
-                        <div class="result-label">Boresight Dist</div>
-                    </div>
-                    <div class="result-item">
-                        <div class="result-value">{{ results.near_distance_m }}</div>
-                        <div class="result-unit">m</div>
-                        <div class="result-label">Near Edge</div>
-                    </div>
-                    <div class="result-item">
-                        <div class="result-value">{{ results.far_distance_m }}</div>
-                        <div class="result-unit">m</div>
-                        <div class="result-label">Far Edge</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Sector Diagram -->
-            <div class="diagram-card">
-                <div class="diagram-title"><i class="fas fa-drafting-compass" style="margin-right:6px"></i>2D Top-Down Sector Coverage</div>
-                <div class="canvas-wrap">
-                    <canvas id="sectorCanvas"></canvas>
-                </div>
-                <div class="diagram-legend">
-                    <div class="legend-item">
-                        <div class="legend-dot inner"></div>
-                        <span>Inner Zone (Upper Beam Edge)</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-dot center"></div>
-                        <span>Center Zone (Boresight)</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-dot outer"></div>
-                        <span>Outer Zone (Lower Beam Edge)</span>
+                    <div class="diagram-legend">
+                        <div class="legend-item">
+                            <div class="legend-dot inner"></div>
+                            <span>Inner Zone (Upper Beam Edge)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot center"></div>
+                            <span>Center Zone (Boresight)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot outer"></div>
+                            <span>Outer Zone (Lower Beam Edge)</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -268,57 +580,58 @@
 
 {% block page_scripts %}
 <script>
-// Results data from server
-var results = {{ results | tojson | safe }};
+    // Results data from server
+    var results = {{ results | tojson | safe }};
 
-// Sync range slider with label
-function syncVal(type, value) {
-    var valMap = {
-        'hb': 'hbVal',
-        'gain': 'gainVal',
-        'tx': 'txVal',
-        'freq': 'freqVal',
-        'elec': 'elecVal',
-        'mech': 'mechVal',
-        'vBW': 'vBWVal',
-        'hBW': 'hBWVal'
-    };
-    if (valMap[type]) {
-        document.getElementById(valMap[type]).textContent = value;
+    // Sync range slider with label
+    function syncVal(type, value) {
+        var valMap = {
+            'hb': 'hbVal',
+            'gain': 'gainVal',
+            'tx': 'txVal',
+            'freq': 'freqVal',
+            'elec': 'elecVal',
+            'mech': 'mechVal',
+            'vBW': 'vBWVal',
+            'hBW': 'hBWVal'
+        };
+        if (valMap[type]) {
+            document.getElementById(valMap[type]).textContent = value;
+        }
     }
-}
 
-// Draw sector diagram
-function drawSectorDiagram() {
-    var canvas = document.getElementById('sectorCanvas');
-    if (!canvas) return;
+    // Draw sector diagram
+    function drawSectorDiagram() {
+        var canvas = document.getElementById('sectorCanvas');
+        if (!canvas) return;
 
-    var ctx = canvas.getContext('2d');
-    var w = canvas.width = canvas.parentElement.clientWidth;
-    var h = canvas.height = 400;
+        var ctx = canvas.getContext('2d');
+        var w = canvas.width = canvas.parentElement.clientWidth;
+        var h = canvas.height = canvas.parentElement.clientHeight;
 
-    // Clear canvas
-    ctx.clearRect(0, 0, w, h);
+        // Clear canvas
+        ctx.clearRect(0, 0, w, h);
 
-    // Get theme colors
-    var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
-    var textColor = isDark ? '#b0b8c8' : '#555';
-    var gridColor = isDark ? 'rgba(79,172,254,0.1)' : 'rgba(0,0,0,0.05)';
+        // Get theme colors
+        var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+        var textColor = isDark ? '#b0b8c8' : '#555';
+        var gridColor = isDark ? 'rgba(79,172,254,0.1)' : 'rgba(0,0,0,0.05)';
 
-    // Center point
-    var cx = w / 2;
-    var cy = h - 60;
+        // Center point
+        var cx = w / 2;
+        var cy = h - 60;
 
-    // Scale: fit max radius in canvas
-    var maxRadius = Math.max(results.boresight_radius_m, results.near_radius_m, results.far_radius_m, 100);
-    var scale = (Math.min(w, h) * 0.75) / maxRadius;
+        // Scale: fit max radius in canvas
+        var maxRadius = Math.max(results.boresight_radius_m, results.near_radius_m, results.far_radius_m, 100);
+        var scale = (Math.min(w, h) * 0.75) / maxRadius;
 
-    var nearR = results.near_radius_m * scale;
-    var boreR = results.boresight_radius_m * scale;
-    var farR = results.far_radius_m * scale;
+        var nearR = results.near_radius_m * scale;
+        var boreR = results.boresight_radius_m * scale;
+        var farR = results.far_radius_m * scale;
 
-    // Half beamwidth in radians
-    var halfHBW = {{ h_beamwidth }} / 2;
+        // Half beamwidth in radians
+        var hbw_val = parseFloat("{{ h_beamwidth }}");
+        var halfHBW = hbw_val / 2;
     var hbwRad = (halfHBW * Math.PI) / 180;
     var startAngle = -Math.PI / 2 - hbwRad;
     var endAngle = -Math.PI / 2 + hbwRad;
@@ -429,12 +742,12 @@ function drawSectorDiagram() {
     ctx.fillText('HBW: ' + halfHBW * 2 + '°', cx, cy + 40);
 }
 
-// Initialize on load
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(drawSectorDiagram, 100);
-});
+    // Initialize on load
+    document.addEventListener('DOMContentLoaded', function () {
+        setTimeout(drawSectorDiagram, 100);
+    });
 
-// Redraw on resize
-window.addEventListener('resize', drawSectorDiagram);
+    // Redraw on resize
+    window.addEventListener('resize', drawSectorDiagram);
 </script>
 {% endblock %}
