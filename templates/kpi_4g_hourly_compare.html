@@ -147,7 +147,7 @@
 </style>
 
 <!-- FILTER BAR -->
-<form method="GET" action="/kpi_4g_hourly/compare" id="filterForm">
+<form method="GET" action="/kpi_4g_hourly/compare" id="filterForm" onsubmit="showLoading()">
 <div class="filter-bar">
     <!-- BEFORE period -->
     <div style="display:flex;align-items:flex-end;gap:8px;flex-shrink:0">
@@ -209,7 +209,30 @@
         </div>
     </div>
 
-    <button type="submit" class="btn-apply">
+    
+    <div class="filter-group">
+        <div class="filter-label">KPIs</div>
+        <div class="dropdown-container" id="kpiDropdownContainer">
+            <button type="button" class="dropdown-toggle" onclick="toggleKpiDropdown()">
+                Select KPIs ({{ sel_kpis|length if sel_kpis else all_kpis|length }}) <i class="fas fa-chevron-down"></i>
+            </button>
+            <div class="dropdown-menu" id="kpiDropdown" style="display: none; min-width: 220px;">
+                <label class="checkbox-label" style="border-bottom:1px solid rgba(128,128,128,0.1);padding-bottom:8px;margin-bottom:8px;">
+                    <input type="checkbox" id="kpiSelectAll" onchange="toggleAllKpis(this)" {% if not sel_kpis or sel_kpis|length == all_kpis|length %}checked{% endif %}>
+                    <span><strong>Select All</strong></span>
+                </label>
+                <div id="kpiCheckboxes" style="max-height:200px;overflow-y:auto;">
+                    {% for kpi in all_kpis %}
+                    <label class="checkbox-label" data-kpi="{{ kpi[0] }}">
+                        <input type="checkbox" name="kpi" value="{{ kpi[0] }}" {% if kpi[0] in sel_kpis or not sel_kpis %}checked{% endif %}>
+                        <span>{{ kpi[1] }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+<button type="submit" class="btn-apply">
         <i class="fas fa-play" style="font-size:10px;margin-right:4px"></i> Compare
     </button>
 </div>
@@ -233,8 +256,17 @@
     Last update: <span id="lastUpdateDisplay">{{ last_update or 'N/A' }}</span>
 </div>
 
+
+<div id="loadingOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter: blur(2px); z-index:9999; align-items:center; justify-content:center; flex-direction:column; color:#fff;">
+    <div style="font-size:40px; animation:spin 1s linear infinite;"><i class="fas fa-circle-notch"></i></div>
+    <div style="margin-top:16px; font-size:16px; font-weight:600;">Calculating Comparison...</div>
+    <div style="margin-top:8px; font-size:12px; opacity:0.7;">Querying network data for <span id="loadingSiteCount">{{ sel_sites|length }}</span> sites...</div>
+</div>
+<style>
+@keyframes spin { 100% { transform:rotate(360deg); } }
+</style>
 <div class="content-area">
-{% if compare_table %}
+{% if agg_data %}
 <!-- ── COMPARISON SUMMARY TABLE ───────────────────────────────────────────── -->
 <div class="card" style="margin:0 20px 14px; padding: 10px 12px;">
     <div class="compare-group-header">
@@ -260,7 +292,7 @@
                 </tr>
             </thead>
             <tbody>
-            {% for cid, title, unit, y_label, y_min, y_max in kpi_defs %}
+            {% for cid, title, unit, y_label, y_min, y_max, group_name, is_lower_better in kpi_defs %}
             {% set data = agg_data[cid] %}
             {% set cat_class = 'cat-' ~ (kpi_group_map[cid]|lower|replace(' ', '')) %}
             <tr>
@@ -276,7 +308,7 @@
                 <td class="val-cell">
                     {% if data.delta_pct is not none %}
                         {# SDR is Retainability - lower is better, so invert logic #}
-                        {% if cid == 'sdrChart' %}
+                        {% if data.is_lower_better %}
                             {% if data.delta_pct < -5 %}<span class="remark-improve">Improve</span>
                             {% elif data.delta_pct > 5 %}<span class="remark-degraded">Degraded</span>
                             {% else %}<span class="remark-maintain">Maintain</span>{% endif %}
@@ -304,35 +336,18 @@
         <table class="site-table">
             <thead>
                 <tr>
-                    <th class="site-col">Site ID</th>
-                    <th colspan="4" class="payload-hdr" style="text-align:center;">4G Payload (GB)</th>
-                    <th colspan="4" class="volte-hdr" style="text-align:center;">VoLTE Traffic (Erl)</th>
-                    <th colspan="4" class="avail-hdr" style="text-align:center;">Availability (%)</th>
-                    <th colspan="4" class="rrc-hdr" style="text-align:center;">Max RRC User</th>
-                    <th colspan="4" class="user-hdr" style="text-align:center;">Active User</th>
+                    <th class="site-col" rowspan="2">Site ID</th>
+                    {% for k in kpi_defs %}
+                    <th colspan="4" style="text-align:center; background:rgba(79,172,254,0.06); border-left:1px solid rgba(79,172,254,0.1);">{{ k[1] }} {% if k[2] %}({{ k[2] }}){% endif %}</th>
+                    {% endfor %}
                 </tr>
                 <tr>
-                    <th class="site-col"></th>
-                    <th class="before-col">Before</th>
+                    {% for k in kpi_defs %}
+                    <th class="before-col" style="border-left:1px solid rgba(79,172,254,0.1);">Before</th>
                     <th class="after-col">After</th>
                     <th class="delta-col">Δ</th>
                     <th class="delta-col">%</th>
-                    <th class="before-col">Before</th>
-                    <th class="after-col">After</th>
-                    <th class="delta-col">Δ</th>
-                    <th class="delta-col">%</th>
-                    <th class="before-col">Before</th>
-                    <th class="after-col">After</th>
-                    <th class="delta-col">Δ</th>
-                    <th class="delta-col">%</th>
-                    <th class="before-col">Before</th>
-                    <th class="after-col">After</th>
-                    <th class="delta-col">Δ</th>
-                    <th class="delta-col">%</th>
-                    <th class="before-col">Before</th>
-                    <th class="after-col">After</th>
-                    <th class="delta-col">Δ</th>
-                    <th class="delta-col">%</th>
+                    {% endfor %}
                 </tr>
             </thead>
             <tbody id="siteTableBody">
@@ -340,16 +355,27 @@
             {% set site_data = site_compare_table.get(site_id, {}) %}
             <tr>
                 <td class="site-cell">{{ site_id }}</td>
-                {% for chart_id in ['payloadChart', 'volteChart', 'availChart', 'maxRrcChart', 'activeUserChart'] %}
+                {% for k in kpi_defs %}
+                {% set chart_id = k[0] %}
                 {% set s_kpi = site_data.get(chart_id, {}) %}
                 {% set b = s_kpi.get('before') %}
                 {% set a = s_kpi.get('after') %}
                 {% set d = s_kpi.get('delta') %}
                 {% set p = s_kpi.get('delta_pct') %}
-                <td class="val-center" style="color:#4facfe;">{% if b is not none and b is defined %}{{ "%.2f"|format(b) }}{% else %}—{% endif %}</td>
+                {% set is_lower_better = k[7] %}
+                <td class="val-center" style="color:#4facfe; border-left:1px solid rgba(79,172,254,0.05);">{% if b is not none and b is defined %}{{ "%.2f"|format(b) }}{% else %}—{% endif %}</td>
                 <td class="val-center" style="color:#00e676;">{% if a is not none and a is defined %}{{ "%.2f"|format(a) }}{% else %}—{% endif %}</td>
                 <td class="val-center">{% if d is not none and d is defined %}{{ "+%.1f"|format(d) if d > 0 else "%.1f"|format(d) }}{% else %}—{% endif %}</td>
-                <td class="val-center" style="{% if p is not none and p > 0 %}color:#00e676;{% elif p is not none and p < 0 %}color:#ff5252;{% endif %}">{% if p is not none and p is defined %}{{ "+%.1f"|format(p) if p > 0 else "%.1f"|format(p) }}{% else %}—{% endif %}</td>
+                
+                {% set color = "" %}
+                {% if p is not none %}
+                    {% if is_lower_better %}
+                        {% if p > 0 %}{% set color = "color:#ff5252;" %}{% elif p < 0 %}{% set color = "color:#00e676;" %}{% endif %}
+                    {% else %}
+                        {% if p > 0 %}{% set color = "color:#00e676;" %}{% elif p < 0 %}{% set color = "color:#ff5252;" %}{% endif %}
+                    {% endif %}
+                {% endif %}
+                <td class="val-center" style="{{ color }}">{% if p is not none and p is defined %}{{ "+%.1f"|format(p) if p > 0 else "%.1f"|format(p) }}{% else %}—{% endif %}</td>
                 {% endfor %}
             </tr>
             {% endfor %}
@@ -388,11 +414,32 @@
 
 {% block page_scripts %}
 <script>
-// ── Dropdown helpers ─────────────────────────────────────────────────────────
+function showLoading() {
+    var n = document.querySelectorAll("#siteCheckboxes input[type='checkbox']:checked").length;
+    var countSpan = document.getElementById('loadingSiteCount');
+    if (countSpan) countSpan.textContent = n;
+    document.getElementById('loadingOverlay').style.display = 'flex';
+}
+
 function toggleDropdown(){
     var menu = document.getElementById("siteDropdown");
     menu.style.display = menu.style.display === "none" ? "block" : "none";
 }
+function toggleKpiDropdown(){
+    var menu = document.getElementById("kpiDropdown");
+    menu.style.display = menu.style.display === "none" ? "block" : "none";
+}
+document.addEventListener("click", function(e){
+    if(!document.getElementById("kpiDropdownContainer").contains(e.target)) {
+        var menu = document.getElementById("kpiDropdown");
+        if(menu) menu.style.display = "none";
+    }
+    if(!document.querySelector(".dropdown-container").contains(e.target)) {
+        var menu = document.getElementById("siteDropdown");
+        if(menu) menu.style.display = "none";
+    }
+});
+
 function toggleSection(header){
     var content = header.nextElementSibling;
     var icon = header.querySelector("i:last-child");
@@ -423,6 +470,25 @@ function updateSelectedCount(){
     if(t) t.innerHTML = "Select Sites (" + n + " selected) <i class='fas fa-chevron-down'></i>";
     sortSelectedToTop();
 }
+function toggleAllKpis(cb){
+    document.querySelectorAll("#kpiCheckboxes input[type='checkbox']").forEach(function(c){ c.checked = cb.checked; });
+    updateKpiSelectedCount();
+}
+function updateKpiSelectedCount(){
+    var n = document.querySelectorAll("#kpiCheckboxes input[type='checkbox']:checked").length;
+    var t = document.querySelector("#kpiDropdownContainer .dropdown-toggle");
+    if(t) t.innerHTML = "Select KPIs (" + n + " selected) <i class='fas fa-chevron-down'></i>";
+}
+
+document.addEventListener("change", function(e){
+    if(e.target.type === "checkbox" && e.target.name === "site") updateSelectedCount();
+    if(e.target.type === "checkbox" && e.target.name === "kpi") updateKpiSelectedCount();
+});
+document.addEventListener("DOMContentLoaded", function() {
+    updateSelectedCount();
+    updateKpiSelectedCount();
+});
+
 function sortSelectedToTop(){
     var c = document.getElementById("siteCheckboxes");
     if(!c) return;
@@ -477,19 +543,11 @@ function applySiteIds(ids){
     });
     updateSelectedCount();
 }
-document.addEventListener("click", function(e){
-    if(!document.querySelector(".dropdown-container").contains(e.target))
-        document.getElementById("siteDropdown").style.display = "none";
-});
-document.addEventListener("change", function(e){
-    if(e.target.type === "checkbox" && e.target.name === "site") updateSelectedCount();
-});
-document.addEventListener("DOMContentLoaded", updateSelectedCount);
 
 // ── Download CSV ──────────────────────────────────────────────────────────────
-function getRemark(chartId, deltaPct){
+function getRemark(chartId, deltaPct, isLowerBetter){
     if(deltaPct === null || deltaPct === undefined) return "—";
-    if(chartId === "sdrChart"){ // Retainability - lower is better
+    if(isLowerBetter){
         if(deltaPct < -5) return "Improve";
         if(deltaPct > 5) return "Degraded";
         return "Maintain";
@@ -515,7 +573,7 @@ function downloadCompareTable(){
             d.after !== null && d.after !== undefined ? d.after.toFixed(2) : "",
             d.delta !== null && d.delta !== undefined ? d.delta.toFixed(2) : "",
             d.delta_pct !== null && d.delta_pct !== undefined ? d.delta_pct.toFixed(1) : "",
-            getRemark(chartId, d.delta_pct)
+            getRemark(chartId, d.delta_pct, d.is_lower_better)
         ]);
     });
 
@@ -538,7 +596,7 @@ var COLORS = {
 function tc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "#b0b8c8" : "#555"; }
 function gc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "rgba(79,172,254,0.08)" : "rgba(0,0,0,0.06)"; }
 
-var CHART_INSTANCES = {};
+var chartInstances = {};
 
 function makeCompareOpts(yLabel, yMin, yMax){
     var opts = {
@@ -572,54 +630,15 @@ function makeCompareOpts(yLabel, yMin, yMax){
     return opts;
 }
 
-var KPI_BOUNDS = {
-    payloadChart:   [null, null],
-    volteChart:     [null, null],
-    availChart:     [null, null],
-    maxRrcChart:    [null, null],
-    activeUserChart:[null, null],
-    cssrChart:      [null, null],
-    rrcSrChart:     [null, null],
-    erabSrChart:    [null, null],
-    sdrChart:       [null, null],
-    csfbChart:      [null, null],
-    dlPrbChart:     [0, 100],
-    ulPrbChart:     [0, 100],
-    dlThpChart:     [null, null],
-    ulThpChart:     [null, null],
-    ifhoChart:      [null, null],
-    seChart:        [null, null],
-    cqiChart:       [0, 15],
-    s1SrChart:      [null, null],
-};
-
-var KPI_LABELS = {
-    payloadChart:   "Payload (MB)",
-    volteChart:     "VoLTE (Erl)",
-    availChart:     "Availability (%)",
-    maxRrcChart:    "Max RRC Users",
-    activeUserChart:"Active Users",
-    cssrChart:      "CSSR (%)",
-    rrcSrChart:     "RRC SR (%)",
-    erabSrChart:    "ERAB SR (%)",
-    sdrChart:       "SDR (%)",
-    csfbChart:      "CSFB (%)",
-    dlPrbChart:     "DL PRB (%)",
-    ulPrbChart:     "UL PRB (%)",
-    dlThpChart:     "DL Thp (Mbps)",
-    ulThpChart:     "UL Thp (Mbps)",
-    ifhoChart:      "IFHO (%)",
-    seChart:        "Spectral Efficiency",
-    cqiChart:       "CQI",
-    s1SrChart:      "S1 SR (%)",
-};
-
 /* Apply KPI breach highlighting to compare table "After" columns */
 function applyKPIPreCheck(){
     if(!window.KPI_ALERT_ENABLED) return;
     var tbody = document.getElementById("siteTableBody");
     if(!tbody) return;
-    var kpiKeys = ["payloadChart","volteChart","availChart","maxRrcChart","activeUserChart"];
+    
+    // We get kpi keys from kpi_defs directly
+    var kpiKeys = kpiDefs.map(function(k){ return k[0]; });
+    
     tbody.querySelectorAll("tr").forEach(function(tr){
         var cells = tr.querySelectorAll("td");
         var ci = 1;
@@ -640,7 +659,7 @@ function applyKPIPreCheck(){
 
 document.addEventListener("DOMContentLoaded", function(){
     applyKPIPreCheck();
-    /* Fetch last update asynchronously (only on initial page load without data) */
+    
     if(!chartLabels || chartLabels.length === 0){
         fetch("/api/kpi_4g_hourly/compare/last_update")
             .then(function(r){ return r.json(); })
@@ -653,9 +672,6 @@ document.addEventListener("DOMContentLoaded", function(){
     }
     if(!chartLabels || chartLabels.length === 0) return;
 
-    var sites = Object.keys(compareData);
-    if(sites.length === 0) return;
-
     var chartGrid = document.getElementById("chartGrid");
     if(!chartGrid) return;
 
@@ -664,64 +680,31 @@ document.addEventListener("DOMContentLoaded", function(){
         var title = kpi[1];
         var unit = kpi[2];
         var yLabel = kpi[3];
-        var bounds = [kpi[4], kpi[5]];
+        var yMin = kpi[4];
+        var yMax = kpi[5];
 
         var card = document.createElement("div");
         card.className = "card chart-card";
-        card.innerHTML = '<div class="chart-title">' + title + '</div><div class="chart-subtitle">(' + unit + ')</div><canvas id="' + chartId + '"></canvas>';
+        card.innerHTML = '<div class="card-title" style="margin-bottom:0">' + title + '</div><div class="card-sub" style="margin-bottom:8px">(' + unit + ')</div><canvas id="' + chartId + '" style="cursor:pointer" onclick="openChartModal(this)"></canvas>';
         chartGrid.appendChild(card);
-    });
-
-    Object.keys(KPI_LABELS).forEach(function(chartId){
+        
         var cvs = document.getElementById(chartId);
         if(!cvs) return;
 
-        var bounds = KPI_BOUNDS[chartId] || [null, null];
-        var yLabel = KPI_LABELS[chartId];
-
         var datasets = [];
-        var beforeVals = new Array(chartLabels.length).fill(null);
-        var beforeCount = new Array(chartLabels.length).fill(0);
-        sites.forEach(function(site){
-            var siteData = compareData[site] && compareData[site][chartId];
-            if(!siteData || !siteData.before) return;
-            siteData.before.forEach(function(v, i){
-                if(v !== null && v !== undefined){
-                    beforeVals[i] = (beforeVals[i] || 0) + v;
-                    beforeCount[i]++;
-                }
-            });
-        });
-        beforeVals = beforeVals.map(function(v, i){
-            return beforeCount[i] > 0 ? (v / beforeCount[i]) : null;
-        });
-
-        var afterVals = new Array(chartLabels.length).fill(null);
-        var afterCount = new Array(chartLabels.length).fill(0);
-        sites.forEach(function(site){
-            var siteData = compareData[site] && compareData[site][chartId];
-            if(!siteData || !siteData.after) return;
-            siteData.after.forEach(function(v, i){
-                if(v !== null && v !== undefined){
-                    afterVals[i] = (afterVals[i] || 0) + v;
-                    afterCount[i]++;
-                }
-            });
-        });
-        afterVals = afterVals.map(function(v, i){
-            return afterCount[i] > 0 ? (v / afterCount[i]) : null;
-        });
+        var bData = compareData[chartId] ? compareData[chartId].before : [];
+        var aData = compareData[chartId] ? compareData[chartId].after : [];
 
         datasets.push({
             label: "Before",
-            data: beforeVals,
+            data: bData,
             borderColor: COLORS.before,
             backgroundColor: "transparent",
             tension: 0.2, pointRadius: 2, pointHoverRadius: 5, borderWidth: 2
         });
         datasets.push({
             label: "After",
-            data: afterVals,
+            data: aData,
             borderColor: COLORS.after,
             backgroundColor: "transparent",
             tension: 0.2, pointRadius: 2, pointHoverRadius: 5, borderWidth: 2,
@@ -731,9 +714,9 @@ document.addEventListener("DOMContentLoaded", function(){
         var ch = new Chart(cvs, {
             type: "line",
             data: { labels: chartLabels, datasets: datasets },
-            options: makeCompareOpts(yLabel, bounds[0], bounds[1])
+            options: makeCompareOpts(yLabel || title, yMin, yMax)
         });
-        CHART_INSTANCES[chartId] = ch;
+        chartInstances[chartId] = ch;
     });
 });
 </script>

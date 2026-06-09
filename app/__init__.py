@@ -71,8 +71,8 @@ def create_app():
     from .routes import (
         auth, prod,
         kpi2g_daily, kpi2g_hourly,
-        kpi4g_hourly, kpi4g_trend, kpi4g_compare, kpi4g_api,
-        kpi5g_hourly,
+        kpi4g_hourly, kpi4g_trend, kpi4g_compare, kpi4g_api, kpi4g_hourly_sector,
+        kpi5g_daily, kpi5g_hourly,
         pl, ta4g, coverage, okumura_hata, nettilt3d
     )
     app.register_blueprint(auth)
@@ -80,9 +80,11 @@ def create_app():
     app.register_blueprint(kpi2g_daily)
     app.register_blueprint(kpi2g_hourly)
     app.register_blueprint(kpi4g_hourly)
+    app.register_blueprint(kpi4g_hourly_sector)
     app.register_blueprint(kpi4g_trend)
     app.register_blueprint(kpi4g_compare)
     app.register_blueprint(kpi4g_api)
+    app.register_blueprint(kpi5g_daily)
     app.register_blueprint(kpi5g_hourly)
     app.register_blueprint(pl)
     app.register_blueprint(ta4g)

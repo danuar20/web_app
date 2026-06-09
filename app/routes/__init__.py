@@ -23,6 +23,10 @@ kpi2g_hourly = kpi_2g_hourly_routes.kpi2g_hourly
 from . import kpi_4g_hourly_routes
 kpi4g_hourly = kpi_4g_hourly_routes.kpi4g_hourly
 
+# 4G KPI Hourly Sector — /kpi_4g_hourly_sector
+from . import kpi_4g_hourly_sector_routes
+kpi4g_hourly_sector = kpi_4g_hourly_sector_routes.kpi4g_hourly_sector
+
 # 4G KPI Hourly Trend — /kpi_4g_hourly/trend (cluster aggregation)
 from . import kpi_4g_trend_routes
 kpi4g_trend = kpi_4g_trend_routes.kpi4g_trend
@@ -42,6 +46,10 @@ pl = packet_loss_routes.pl
 # TA 4G — /ta_4g
 from . import ta_4g_routes
 ta4g = ta_4g_routes.ta4g
+
+# 5G KPI Daily — /kpi_5g_daily (per-site view)
+from . import kpi_5g_daily_routes
+kpi5g_daily = kpi_5g_daily_routes.kpi5g_daily
 
 # 5G KPI Hourly — /kpi_5g_hourly (per-site view)
 from . import kpi_5g_hourly_routes

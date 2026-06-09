@@ -44,79 +44,72 @@ def kpi_4g_hourly_compare():
             if s not in sel_sites:
                 sel_sites.append(s)
 
-    KPI_DEFS = [
+    ALL_KPI_DEFS = [
+        # chart_id, title, unit, y_label, y_min, y_max, sql_expr, group_name, is_lower_better
         ("payloadChart",   "4G Payload",             "GB",             None,  None, None,
-         'SUM("4g_payload_mb")/1024.0',             'SUM("4g_payload_mb")/1024.0',             "Productivity"),
+         'SUM("4g_payload_mb")/1024.0',             "Productivity", False),
         ("volteChart",     "VoLTE Traffic",         "Erl",            None,  None, None,
-         "SUM(volte_traffic)",                "SUM(volte_traffic)",                "Productivity"),
+         "SUM(volte_traffic)",                "Productivity", False),
         ("availChart",     "Availability",          "Avail (%)",      None, 95, 100,
-         'CASE WHEN SUM(avail_denum)>0 THEN ROUND((SUM(avail_num)/SUM(avail_denum)*100)::numeric,2) ELSE NULL END',
-         'CASE WHEN SUM(avail_denum)>0 THEN ROUND((SUM(avail_num)/SUM(avail_denum)*100)::numeric,2) ELSE NULL END',    "Availability"),
+         'CASE WHEN SUM(avail_denum)>0 THEN ROUND((SUM(avail_num)/SUM(avail_denum)*100)::numeric,2) ELSE NULL END',    "Availability", False),
         ("maxRrcChart",    "Max RRC User",          "Users",          None,  None, None,
-         "SUM(max_rrc_conn_user)",            "SUM(max_rrc_conn_user)",            "User"),
+         "SUM(max_rrc_conn_user)",            "User", False),
         ("activeUserChart","Active User",           "Users",          None,  None, None,
-         "SUM(new_active_users)",             "SUM(new_active_users)",            "User"),
+         "SUM(new_active_users)",            "User", False),
         ("cssrChart",      "CSSR",                  "CSSR (%)",       None, 85, 100,
-         'CASE WHEN SUM(cssr_denum)>0 THEN ROUND((SUM(cssr_num)/SUM(cssr_denum)*100)::numeric,2) ELSE NULL END',
-         'CASE WHEN SUM(cssr_denum)>0 THEN ROUND((SUM(cssr_num)/SUM(cssr_denum)*100)::numeric,2) ELSE NULL END', "Accessibility"),
+         'CASE WHEN SUM(cssr_denum)>0 THEN ROUND((SUM(cssr_num)/SUM(cssr_denum)*100)::numeric,2) ELSE NULL END', "Accessibility", False),
         ("rrcSrChart",     "RRC SR",                "RRC SR (%)",     None, 85, 100,
-         'CASE WHEN SUM(rrc_setup_denum)>0 THEN ROUND((SUM(rrc_setup_num)/SUM(rrc_setup_denum)*100)::numeric,2) ELSE NULL END',
-         'CASE WHEN SUM(rrc_setup_denum)>0 THEN ROUND((SUM(rrc_setup_num)/SUM(rrc_setup_denum)*100)::numeric,2) ELSE NULL END', "Accessibility"),
+         'CASE WHEN SUM(rrc_setup_denum)>0 THEN ROUND((SUM(rrc_setup_num)/SUM(rrc_setup_denum)*100)::numeric,2) ELSE NULL END', "Accessibility", False),
         ("erabSrChart",    "ERAB SR",                "ERAB SR (%)",    None, 85, 100,
-         'CASE WHEN SUM(erab_setup_denum)>0 THEN ROUND((SUM(erab_setup_num)/SUM(erab_setup_denum)*100)::numeric,2) ELSE NULL END',
-         'CASE WHEN SUM(erab_setup_denum)>0 THEN ROUND((SUM(erab_setup_num)/SUM(erab_setup_denum)*100)::numeric,2) ELSE NULL END', "Accessibility"),
+         'CASE WHEN SUM(erab_setup_denum)>0 THEN ROUND((SUM(erab_setup_num)/SUM(erab_setup_denum)*100)::numeric,2) ELSE NULL END', "Accessibility", False),
         ("sdrChart",       "SDR",                   "SDR (%)",        None,  None, None,
-         'CASE WHEN SUM(sdr_denum)>0 THEN ROUND((SUM(sdr_num)/SUM(sdr_denum)*100)::numeric,2) ELSE NULL END',
-         'CASE WHEN SUM(sdr_denum)>0 THEN ROUND((SUM(sdr_num)/SUM(sdr_denum)*100)::numeric,2) ELSE NULL END', "Retainability"),
+         'CASE WHEN SUM(sdr_denum)>0 THEN ROUND((SUM(sdr_num)/SUM(sdr_denum)*100)::numeric,2) ELSE NULL END', "Retainability", True),
         ("dlPrbChart",     "DL PRB",                "DL PRB (%)",     None, 0, 100,
-         'CASE WHEN SUM(dl_prb_util_denum)>0 THEN ROUND((SUM(dl_prb_util_num)/SUM(dl_prb_util_denum)*100)::numeric,2) ELSE NULL END',
-         'CASE WHEN SUM(dl_prb_util_denum)>0 THEN ROUND((SUM(dl_prb_util_num)/SUM(dl_prb_util_denum)*100)::numeric,2) ELSE NULL END', "Capacity"),
+         'CASE WHEN SUM(dl_prb_util_denum)>0 THEN ROUND((SUM(dl_prb_util_num)/SUM(dl_prb_util_denum)*100)::numeric,2) ELSE NULL END', "Capacity", True),
         ("ulPrbChart",     "UL PRB",                "UL PRB (%)",     None, 0, 100,
-         'CASE WHEN SUM(ul_prb_util_denum)>0 THEN ROUND((SUM(ul_prb_util_num)/SUM(ul_prb_util_denum)*100)::numeric,2) ELSE NULL END',
-         'CASE WHEN SUM(ul_prb_util_denum)>0 THEN ROUND((SUM(ul_prb_util_num)/SUM(ul_prb_util_denum)*100)::numeric,2) ELSE NULL END', "Capacity"),
+         'CASE WHEN SUM(ul_prb_util_denum)>0 THEN ROUND((SUM(ul_prb_util_num)/SUM(ul_prb_util_denum)*100)::numeric,2) ELSE NULL END', "Capacity", True),
         ("dlThpChart",     "User DL Throughput",    "DL Thp (Mbps)",  None,  None, None,
-         'CASE WHEN SUM(user_dl_thp_denum)>0 THEN ROUND((SUM(user_dl_thp_num)/SUM(user_dl_thp_denum)/1000)::numeric,2) ELSE NULL END',
-         'CASE WHEN SUM(user_dl_thp_denum)>0 THEN ROUND((SUM(user_dl_thp_num)/SUM(user_dl_thp_denum)/1000)::numeric,2) ELSE NULL END', "Integrity"),
+         'CASE WHEN SUM(user_dl_thp_denum)>0 THEN ROUND((SUM(user_dl_thp_num)/SUM(user_dl_thp_denum)/1000)::numeric,2) ELSE NULL END', "Integrity", False),
         ("ulThpChart",     "User UL Throughput",    "UL Thp (Mbps)",  None,  None, None,
-         'CASE WHEN SUM(user_ul_thp_denum)>0 THEN ROUND((SUM(user_ul_thp_num)/SUM(user_ul_thp_denum)/1000)::numeric,2) ELSE NULL END',
-         'CASE WHEN SUM(user_ul_thp_denum)>0 THEN ROUND((SUM(user_ul_thp_num)/SUM(user_ul_thp_denum)/1000)::numeric,2) ELSE NULL END', "Integrity"),
+         'CASE WHEN SUM(user_ul_thp_denum)>0 THEN ROUND((SUM(user_ul_thp_num)/SUM(user_ul_thp_denum)/1000)::numeric,2) ELSE NULL END', "Integrity", False),
         ("ifhoChart",      "IFHO",                  "IFHO (%)",       None, 90, 100,
-         'CASE WHEN SUM(ifho_denum)>0 THEN ROUND((SUM(ifho_num)/SUM(ifho_denum)*100)::numeric,2) ELSE NULL END',
-         'CASE WHEN SUM(ifho_denum)>0 THEN ROUND((SUM(ifho_num)/SUM(ifho_denum)*100)::numeric,2) ELSE NULL END', "Mobility"),
+         'CASE WHEN SUM(ifho_denum)>0 THEN ROUND((SUM(ifho_num)/SUM(ifho_denum)*100)::numeric,2) ELSE NULL END', "Mobility", False),
         ("seChart",        "Spectral Efficiency",    "SE",             None,  None, None,
-         'CASE WHEN SUM(se_v3_denum)>0 THEN ROUND((SUM(se_v3_num)/SUM(se_v3_denum))::numeric,2) ELSE NULL END',
-         'CASE WHEN SUM(se_v3_denum)>0 THEN ROUND((SUM(se_v3_num)/SUM(se_v3_denum))::numeric,2) ELSE NULL END', "Quality"),
+         'CASE WHEN SUM(se_v3_denum)>0 THEN ROUND((SUM(se_v3_num)/SUM(se_v3_denum))::numeric,2) ELSE NULL END', "Quality", False),
         ("cqiChart",       "CQI",                  "CQI",            None, 0, 15,
-         'CASE WHEN SUM(denum_average_cqi)>0 THEN ROUND((SUM(num_average_cqi)/SUM(denum_average_cqi))::numeric,2) ELSE NULL END',
-         'CASE WHEN SUM(denum_average_cqi)>0 THEN ROUND((SUM(num_average_cqi)/SUM(denum_average_cqi))::numeric,2) ELSE NULL END', "Quality"),
+         'CASE WHEN SUM(denum_average_cqi)>0 THEN ROUND((SUM(num_average_cqi)/SUM(denum_average_cqi))::numeric,2) ELSE NULL END', "Quality", False),
         ("csfbChart",       "CSFB",                  "CSFB (%)",       None, 85, 100,
-         'CASE WHEN SUM(csfb_denum)>0 THEN ROUND((SUM(csfb_num)/SUM(csfb_denum)*100)::numeric,2) ELSE NULL END',
-         'CASE WHEN SUM(csfb_denum)>0 THEN ROUND((SUM(csfb_num)/SUM(csfb_denum)*100)::numeric,2) ELSE NULL END', "Others"),
+         'CASE WHEN SUM(csfb_denum)>0 THEN ROUND((SUM(csfb_num)/SUM(csfb_denum)*100)::numeric,2) ELSE NULL END', "Others", False),
         ("s1SrChart",      "S1 SR",                  "S1 SR (%)",      None, 95, 100,
-         'CASE WHEN SUM(s1_signaling_sr_denum)>0 THEN ROUND((SUM(s1_signaling_sr_num)/SUM(s1_signaling_sr_denum)*100)::numeric,2) ELSE NULL END',
-         'CASE WHEN SUM(s1_signaling_sr_denum)>0 THEN ROUND((SUM(s1_signaling_sr_num)/SUM(s1_signaling_sr_denum)*100)::numeric,2) ELSE NULL END', "Others"),
+         'CASE WHEN SUM(s1_signaling_sr_denum)>0 THEN ROUND((SUM(s1_signaling_sr_num)/SUM(s1_signaling_sr_denum)*100)::numeric,2) ELSE NULL END', "Others", False),
     ]
 
     KPI_GROUPS = ["Productivity","Availability","User","Accessibility","Retainability","Capacity","Integrity","Mobility","Quality","Others"]
 
+    sel_kpis = request.args.getlist("kpi")
+    if not sel_kpis:
+        # Default to all if none selected to maintain backwards compatibility
+        sel_kpis = [k[0] for k in ALL_KPI_DEFS]
+        
+    # Filter active definitions
+    KPI_DEFS = [k for k in ALL_KPI_DEFS if k[0] in sel_kpis]
+
     # Initialize data structures
     chart_labels  = []
     compare_data  = {}
-    compare_table = {}
-    agg_data      = {}
     site_compare_table = {}
+    agg_data      = {}
     sites_list    = []
     last_update   = None
 
     # Load site list from siteID_4g reference table (fast, no KPI table scan)
-    # This runs outside the main try block to ensure it happens even if DB fails
     try:
         sites_list, _ = get_site_list_4g()
     except Exception:
         sites_list = []
 
     # Only query KPI data when user has selected all required filters
-    if from_date_b and to_date_b and from_date_a and to_date_a and sel_sites:
+    if from_date_b and to_date_b and from_date_a and to_date_a and sel_sites and KPI_DEFS:
         conn = None
         cur  = None
         try:
@@ -133,101 +126,115 @@ def kpi_4g_hourly_compare():
 
             HR_FMT = "'HH24:00'"
 
-            # Get distinct hours for chart labels
+            # Construct dynamic select fields
+            kpi_selects = ", ".join([f"{k[6]} AS {k[0]}" for k in KPI_DEFS])
+            
+            # --- 1. Get Cluster Hourly Trends ---
             cur.execute(f"""
-                SELECT DISTINCT hr FROM (
-                    SELECT TO_CHAR(datehour, {HR_FMT}) AS hr
-                    FROM "4g_kpi_zte"
-                    WHERE date BETWEEN %s AND %s AND siteid = ANY(%s)
-                    UNION
-                    SELECT TO_CHAR(datehour, {HR_FMT}) AS hr
-                    FROM "4g_kpi_zte"
-                    WHERE date BETWEEN %s AND %s AND siteid = ANY(%s)
-                ) t
-                ORDER BY hr
-            """, [from_date_b, to_date_b, sel_sites, from_date_a, to_date_a, sel_sites])
-            chart_labels = [r[0] for r in cur.fetchall()]
+                SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {kpi_selects}
+                FROM "4g_kpi_zte"
+                WHERE date BETWEEN %s AND %s AND siteid = ANY(%s)
+                GROUP BY hr ORDER BY hr
+            """, [from_date_b, to_date_b, sel_sites])
+            before_hourly = cur.fetchall()
 
-            # Build compare data for each site and KPI
+            cur.execute(f"""
+                SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {kpi_selects}
+                FROM "4g_kpi_zte"
+                WHERE date BETWEEN %s AND %s AND siteid = ANY(%s)
+                GROUP BY hr ORDER BY hr
+            """, [from_date_a, to_date_a, sel_sites])
+            after_hourly = cur.fetchall()
+
+            # Extract labels and map hourly data
+            chart_labels = sorted(list(set([r[0] for r in before_hourly] + [r[0] for r in after_hourly])))
+            
+            before_hourly_map = {r[0]: r[1:] for r in before_hourly}
+            after_hourly_map = {r[0]: r[1:] for r in after_hourly}
+
+            for idx, kpi in enumerate(KPI_DEFS):
+                chart_id = kpi[0]
+                compare_data[chart_id] = {"before": [], "after": []}
+                for hr in chart_labels:
+                    b_val = before_hourly_map.get(hr)
+                    a_val = after_hourly_map.get(hr)
+                    
+                    b = round(float(b_val[idx]), 2) if b_val and b_val[idx] is not None else None
+                    a = round(float(a_val[idx]), 2) if a_val and a_val[idx] is not None else None
+                    
+                    compare_data[chart_id]["before"].append(b)
+                    compare_data[chart_id]["after"].append(a)
+
+            # --- 2. Get Site Level Aggregates ---
+            cur.execute(f"""
+                SELECT siteid, {kpi_selects}
+                FROM "4g_kpi_zte"
+                WHERE date BETWEEN %s AND %s AND siteid = ANY(%s)
+                GROUP BY siteid
+            """, [from_date_b, to_date_b, sel_sites])
+            before_sites = {r[0]: r[1:] for r in cur.fetchall()}
+
+            cur.execute(f"""
+                SELECT siteid, {kpi_selects}
+                FROM "4g_kpi_zte"
+                WHERE date BETWEEN %s AND %s AND siteid = ANY(%s)
+                GROUP BY siteid
+            """, [from_date_a, to_date_a, sel_sites])
+            after_sites = {r[0]: r[1:] for r in cur.fetchall()}
+
             for site in sel_sites:
-                for kpi in KPI_DEFS:
-                    chart_id, title, unit, y_label, y_min, y_max, sql_expr, sql_agg, group_name = kpi
-                    compare_data.setdefault(site, {}).setdefault(chart_id, {"before": [], "after": []})
-
-                    # Query before period
-                    cur.execute(f"""
-                        SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {sql_expr}
-                        FROM "4g_kpi_zte"
-                        WHERE date BETWEEN %s AND %s AND siteid = %s
-                        GROUP BY hr ORDER BY hr
-                    """, [from_date_b, to_date_b, site])
-                    before_map = {str(r[0]): round(float(r[1]), 2) if r[1] is not None else None for r in cur.fetchall()}
-
-                    # Query after period
-                    cur.execute(f"""
-                        SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {sql_expr}
-                        FROM "4g_kpi_zte"
-                        WHERE date BETWEEN %s AND %s AND siteid = %s
-                        GROUP BY hr ORDER BY hr
-                    """, [from_date_a, to_date_a, site])
-                    after_map = {str(r[0]): round(float(r[1]), 2) if r[1] is not None else None for r in cur.fetchall()}
-
-                    compare_data[site][chart_id]["before"] = [before_map.get(h) for h in chart_labels]
-                    compare_data[site][chart_id]["after"]  = [after_map.get(h)  for h in chart_labels]
-
-            # Build site-level compare_table (per site, per KPI)
-            site_compare_table = {}
-            agg_data = {}  # aggregated across all sites (for main summary table)
-
-            for kpi in KPI_DEFS:
-                chart_id, title, unit, y_label, y_min, y_max, sql_expr, sql_agg, group_name = kpi
-                agg_before_vals = []
-                agg_after_vals = []
-
-                for site in sel_sites:
-                    # Query before period aggregate
-                    cur.execute(f"SELECT {sql_agg} FROM \"4g_kpi_zte\" WHERE date BETWEEN %s AND %s AND siteid = %s",
-                                [from_date_b, to_date_b, site])
-                    r_b = cur.fetchone()
-                    before_val = round(float(r_b[0]), 2) if r_b and r_b[0] is not None else None
-
-                    # Query after period aggregate
-                    cur.execute(f"SELECT {sql_agg} FROM \"4g_kpi_zte\" WHERE date BETWEEN %s AND %s AND siteid = %s",
-                                [from_date_a, to_date_a, site])
-                    r_a = cur.fetchone()
-                    after_val = round(float(r_a[0]), 2) if r_a and r_a[0] is not None else None
-
-                    if before_val is not None and after_val is not None and before_val != 0:
-                        delta = round(after_val - before_val, 2)
-                        delta_pct = round((delta / abs(before_val)) * 100, 1)
+                site_compare_table[site] = {}
+                b_row = before_sites.get(site)
+                a_row = after_sites.get(site)
+                
+                for idx, kpi in enumerate(KPI_DEFS):
+                    chart_id, title, unit, y_label, y_min, y_max, sql_expr, group_name, is_lower_better = kpi
+                    
+                    b_val = round(float(b_row[idx]), 2) if b_row and b_row[idx] is not None else None
+                    a_val = round(float(a_row[idx]), 2) if a_row and a_row[idx] is not None else None
+                    
+                    if b_val is not None and a_val is not None and b_val != 0:
+                        delta = round(a_val - b_val, 2)
+                        delta_pct = round((delta / abs(b_val)) * 100, 1)
                     else:
                         delta = delta_pct = None
 
-                    site_compare_table.setdefault(site, {})[chart_id] = {
-                        "before": before_val, "after": after_val,
-                        "delta": delta, "delta_pct": delta_pct,
-                        "title": title, "unit": unit, "group": group_name,
+                    site_compare_table[site][chart_id] = {
+                        "before": b_val, "after": a_val,
+                        "delta": delta, "delta_pct": delta_pct
                     }
 
-                    # Collect for aggregation
-                    if before_val is not None:
-                        agg_before_vals.append(before_val)
-                    if after_val is not None:
-                        agg_after_vals.append(after_val)
+            # --- 3. Get Cluster Network Aggregates ---
+            cur.execute(f"""
+                SELECT {kpi_selects}
+                FROM "4g_kpi_zte"
+                WHERE date BETWEEN %s AND %s AND siteid = ANY(%s)
+            """, [from_date_b, to_date_b, sel_sites])
+            agg_before_row = cur.fetchone()
 
-                # Compute aggregated values across all sites
-                agg_before = round(sum(agg_before_vals) / len(agg_before_vals), 2) if agg_before_vals else None
-                agg_after = round(sum(agg_after_vals) / len(agg_after_vals), 2) if agg_after_vals else None
-                if agg_before is not None and agg_after is not None and agg_before != 0:
-                    agg_delta = round(agg_after - agg_before, 2)
-                    agg_delta_pct = round((agg_delta / abs(agg_before)) * 100, 1)
+            cur.execute(f"""
+                SELECT {kpi_selects}
+                FROM "4g_kpi_zte"
+                WHERE date BETWEEN %s AND %s AND siteid = ANY(%s)
+            """, [from_date_a, to_date_a, sel_sites])
+            agg_after_row = cur.fetchone()
+
+            for idx, kpi in enumerate(KPI_DEFS):
+                chart_id, title, unit, y_label, y_min, y_max, sql_expr, group_name, is_lower_better = kpi
+                
+                b_val = round(float(agg_before_row[idx]), 2) if agg_before_row and agg_before_row[idx] is not None else None
+                a_val = round(float(agg_after_row[idx]), 2) if agg_after_row and agg_after_row[idx] is not None else None
+
+                if b_val is not None and a_val is not None and b_val != 0:
+                    delta = round(a_val - b_val, 2)
+                    delta_pct = round((delta / abs(b_val)) * 100, 1)
                 else:
-                    agg_delta = agg_delta_pct = None
+                    delta = delta_pct = None
 
                 agg_data[chart_id] = {
-                    "before": agg_before, "after": agg_after,
-                    "delta": agg_delta, "delta_pct": agg_delta_pct,
-                    "title": title, "unit": unit, "group": group_name,
+                    "before": b_val, "after": a_val,
+                    "delta": delta, "delta_pct": delta_pct,
+                    "title": title, "unit": unit, "group": group_name, "is_lower_better": is_lower_better
                 }
 
             cur.close()
@@ -258,15 +265,15 @@ def kpi_4g_hourly_compare():
         username=session["username"],
         active_sites=len(sel_sites),
         sites_list=sites_list, sel_sites=sel_sites,
+        sel_kpis=sel_kpis, all_kpis=ALL_KPI_DEFS,
         from_date_before=from_date_b, to_date_before=to_date_b,
         from_date_after=from_date_a, to_date_after=to_date_a,
         last_update=last_update,
         chart_labels=chart_labels,
         compare_data=compare_data,
-        compare_table=site_compare_table,
         agg_data=agg_data,
         site_compare_table=site_compare_table,
-        kpi_defs=[(k[0],k[1],k[2],k[3],k[4],k[5]) for k in KPI_DEFS],
+        kpi_defs=[(k[0],k[1],k[2],k[3],k[4],k[5],k[7],k[8]) for k in KPI_DEFS],
         kpi_groups=KPI_GROUPS,
-        kpi_group_map={k[0]:k[8] for k in KPI_DEFS},
+        kpi_group_map={k[0]:k[7] for k in ALL_KPI_DEFS},
     )))
