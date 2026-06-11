@@ -1216,6 +1216,19 @@ body.mobile-view .mob-nav-item.active {
           <span class="sub-item-dot"></span> Site Level
         </a>
       </div>
+      <div class="menu-item {% block nav_database %}{% endblock %}" onclick="toggleSub('subDB', this)">
+        <div class="menu-dot" style="background:#ff5252"></div>
+        <span class="menu-item-label">Database</span>
+        <i class="fas fa-chevron-right menu-arrow"></i>
+      </div>
+      <div class="sub-menu {% block subDB_open %}{% endblock %}" id="subDB">
+        <a href="/database/pumaz" class="sub-item {% block nav_db_pumaz %}{% endblock %}">
+          <span class="sub-item-dot"></span> Pumaz DB
+        </a>
+        <a href="/database/postgres" class="sub-item {% block nav_db_postgres %}{% endblock %}">
+          <span class="sub-item-dot"></span> Postgres DB
+        </a>
+      </div>
     </div>
 
     <div class="menu-section">
@@ -1232,6 +1245,15 @@ body.mobile-view .mob-nav-item.active {
         </a>
         <a href="/kpi_2g_hourly" class="sub-item {% block nav_2g_hourly %}{% endblock %}">
           <span class="sub-item-dot"></span> 2G Hourly
+        </a>
+        <a href="/kpi_2g_hourly_sector" class="sub-item {% block nav_2g_hourly_sector %}{% endblock %}">
+          <span class="sub-item-dot"></span> 2G Hourly Sector
+        </a>
+        <a href="/kpi_2g_hourly/compare" class="sub-item {% block nav_2g_compare %}{% endblock %}">
+          <span class="sub-item-dot"></span> 2G Hourly Compare
+        </a>
+        <a href="/kpi_2g_hourly/trend" class="sub-item {% block nav_2g_trend %}{% endblock %}">
+          <span class="sub-item-dot"></span> 2G Hourly Cluster
         </a>
       </div>
 
@@ -1269,6 +1291,12 @@ body.mobile-view .mob-nav-item.active {
         </a>
         <a href="/kpi_5g_hourly" class="sub-item {% block nav_5g_hourly %}{% endblock %}">
           <span class="sub-item-dot"></span> 5G Hourly
+        </a>
+        <a href="/kpi_5g_hourly_sector" class="sub-item {% block nav_5g_hourly_sector %}{% endblock %}">
+          <span class="sub-item-dot"></span> 5G Hourly Sector
+        </a>
+        <a href="/kpi_5g_hourly/compare" class="sub-item {% block nav_5g_hourly_compare %}{% endblock %}">
+          <span class="sub-item-dot"></span> 5G Hourly Compare
         </a>
       </div>
     </div>

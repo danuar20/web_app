@@ -131,6 +131,27 @@ def api_dashboard():
             cur = conn.cursor()
             cur.execute("SET statement_timeout = '30s'")
 
+            # Determine date range explicitly (last 14 days)
+            cur.execute("""
+                SELECT DISTINCT "Date"::date AS d
+                FROM traffic_payload
+                WHERE "Date" >= CURRENT_DATE - INTERVAL '14 days'
+                ORDER BY d
+            """)
+            all_dates_rows = cur.fetchall()
+            dates = [r[0].strftime("%d %b") for r in all_dates_rows]
+            date_objs = [r[0] for r in all_dates_rows]
+
+            # Initialize dicts
+            payload_by_tech = {}
+            traffic_by_tech = {}
+            
+            # Helper function to initialize tech lists
+            def get_tech_list(tech_dict, tech):
+                if tech not in tech_dict:
+                    tech_dict[tech] = [0.0] * len(dates)
+                return tech_dict[tech]
+
             # Payload per Tech
             cur.execute("""
                 SELECT "Date"::date AS d, "Tech", SUM("Payload (MB)")/1024.0/1024.0 AS val
@@ -138,17 +159,13 @@ def api_dashboard():
                 WHERE "Date" >= CURRENT_DATE - INTERVAL '14 days' AND "Tech" IS NOT NULL
                 GROUP BY "Date"::date, "Tech" ORDER BY d, "Tech"
             """)
-            rows = cur.fetchall()
-            dates = []
-            payload_by_tech = {}
-            for r in rows:
-                d_str = r[0].strftime("%d %b")
-                if d_str not in dates:
-                    dates.append(d_str)
+            for r in cur.fetchall():
+                d_obj = r[0]
                 tech = r[1]
-                if tech not in payload_by_tech:
-                    payload_by_tech[tech] = []
-                payload_by_tech[tech].append(round(float(r[2] or 0), 2))
+                val = round(float(r[2] or 0), 2)
+                if d_obj in date_objs:
+                    idx = date_objs.index(d_obj)
+                    get_tech_list(payload_by_tech, tech)[idx] = val
 
             # Traffic per Tech
             cur.execute("""
@@ -157,20 +174,20 @@ def api_dashboard():
                 WHERE "Date" >= CURRENT_DATE - INTERVAL '14 days' AND "Tech" IS NOT NULL
                 GROUP BY "Date"::date, "Tech" ORDER BY d, "Tech"
             """)
-            rows = cur.fetchall()
-            traffic_by_tech = {}
-            for r in rows:
+            for r in cur.fetchall():
+                d_obj = r[0]
                 tech = r[1]
-                if tech not in traffic_by_tech:
-                    traffic_by_tech[tech] = []
-                traffic_by_tech[tech].append(round(float(r[2] or 0), 2))
+                val = round(float(r[2] or 0), 2)
+                if d_obj in date_objs:
+                    idx = date_objs.index(d_obj)
+                    get_tech_list(traffic_by_tech, tech)[idx] = val
 
             summary["trend_labels"] = dates
             summary["trend_payload"] = payload_by_tech
             summary["trend_traffic"] = traffic_by_tech
 
             cur.close(); conn.close()
-        except Exception:
+        except Exception as e:
             pass
 
     # ── Webapp DB ──
@@ -186,6 +203,132 @@ def api_dashboard():
     _dash_cache["ts"] = now
     _dash_cache["data"] = summary
     return json_response(summary)
+
+# ── Database Status Page ──────────────────────────────────────────────────────
+@auth.route("/database/<db_type>")
+@login_required
+def database_page(db_type):
+    from ._utils import _no_cache
+    if db_type not in ["pumaz", "postgres"]:
+        return redirect(url_for("auth.dashboard"))
+        
+    response = make_response(render_template("database.html",
+        username=session["username"],
+        db_type=db_type
+    ))
+    return _no_cache(response)
+
+_db_cache = {"ts": 0, "data": None}
+
+@auth.route("/api/database_status")
+@login_required
+def api_database_status():
+    from app.db.db_webapp import get_postgres_connection
+    from app.db.db_pumaz import get_pumaz_connection
+    from ._utils import json_response
+    import datetime, time
+    
+    now = time.time()
+    if _db_cache["data"] and (now - _db_cache["ts"]) < 3600:
+        return json_response(_db_cache["data"])
+    
+    today = datetime.date.today()
+    date_list = [(today - datetime.timedelta(days=i)) for i in range(13, -1, -1)]
+    date_strs = [d.strftime("%Y-%m-%d") for d in date_list]
+    date_labels = [d.strftime("%d %b") for d in date_list]
+    
+    result = {
+        "labels": date_labels,
+        "pumaz": [],
+        "postgres": []
+    }
+    
+    # ── PUMAZ DB ──
+    pumaz_tables = [
+        ("traffic_payload", "Date"),
+        ("measKpiDy2G", "Date"),
+        ("measKpiDy4G", "Date"),
+        ("measKpiBdbh2G", "Date"),
+        ("measKpiBdbh4G", "Date"),
+        ("measTA4G", "Date"),
+        ("2G_pl_hy", "Date"),
+        ("4G_pl_hy", "date"),
+    ]
+    try:
+        conn = get_pumaz_connection()
+        cur = conn.cursor()
+        cur.execute("SET statement_timeout = '60s'")
+        for tbl, d_col in pumaz_tables:
+            try:
+                cur.execute(f'SELECT MIN("{d_col}"), MAX("{d_col}") FROM "{tbl}"')
+                row = cur.fetchone()
+                min_str = row[0].strftime("%Y-%m-%d") if row and row[0] else "No Data"
+                max_str = row[1].strftime("%Y-%m-%d") if row and row[1] else "No Data"
+                
+                cur.execute(f'''
+                    SELECT "{d_col}"::date, COUNT(*) 
+                    FROM "{tbl}" 
+                    WHERE "{d_col}" >= CURRENT_DATE - INTERVAL '13 days' 
+                    GROUP BY "{d_col}"::date
+                ''')
+                counts = {r[0].strftime("%Y-%m-%d"): r[1] for r in cur.fetchall()}
+                history = [counts.get(d, 0) for d in date_strs]
+                
+                result["pumaz"].append({
+                    "table": tbl,
+                    "min_date": min_str,
+                    "max_date": max_str,
+                    "history": history
+                })
+            except Exception as e:
+                conn.rollback()
+                result["pumaz"].append({"table": tbl, "min_date": "Error", "max_date": "Error", "history": [0]*14})
+        cur.close(); conn.close()
+    except Exception:
+        pass
+
+    # ── POSTGRES DB ──
+    pg_tables = [
+        ("2g_kpi_zte", "date"),
+        ("4g_kpi_zte", "date"),
+        ("5g_kpi_zte", "date"),
+    ]
+    try:
+        conn = get_postgres_connection()
+        cur = conn.cursor()
+        cur.execute("SET statement_timeout = '60s'")
+        for tbl, d_col in pg_tables:
+            try:
+                cur.execute(f'SELECT MIN("{d_col}"), MAX("{d_col}") FROM "{tbl}"')
+                row = cur.fetchone()
+                min_str = row[0].strftime("%Y-%m-%d") if row and row[0] else "No Data"
+                max_str = row[1].strftime("%Y-%m-%d") if row and row[1] else "No Data"
+                
+                cur.execute(f'''
+                    SELECT "{d_col}"::date, COUNT(*) 
+                    FROM "{tbl}" 
+                    WHERE "{d_col}" >= CURRENT_DATE - INTERVAL '13 days' 
+                    GROUP BY "{d_col}"::date
+                ''')
+                counts = {r[0].strftime("%Y-%m-%d"): r[1] for r in cur.fetchall()}
+                history = [counts.get(d, 0) for d in date_strs]
+                
+                result["postgres"].append({
+                    "table": tbl,
+                    "min_date": min_str,
+                    "max_date": max_str,
+                    "history": history
+                })
+            except Exception as e:
+                conn.rollback()
+                result["postgres"].append({"table": tbl, "min_date": "Error", "max_date": "Error", "history": [0]*14})
+        cur.close(); conn.close()
+    except Exception:
+        pass
+
+    _db_cache["ts"] = now
+    _db_cache["data"] = result
+    return json_response(result)
 
 # ── Health check ───────────────────────────────────────────────────────────────
 @auth.route("/health")

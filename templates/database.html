@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block nav_database %}active sub-open{% endblock %}
+{% block subDB_open %}open{% endblock %}
+{% block nav_db_pumaz %}{{ 'active' if db_type == 'pumaz' else '' }}{% endblock %}
+{% block nav_db_postgres %}{{ 'active' if db_type == 'postgres' else '' }}{% endblock %}
+
+{% block page_title %}{{ "Pumaz DB" if db_type == "pumaz" else "Postgres DB" }} Status{% endblock %}
+{% block page_sub %}Data completeness and health check for 14 days{% endblock %}
+
+{% block page_content %}
+<style>
+/* ── Layout & Animations ── */
+.db-wrap { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; overflow-x: hidden; }
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.db-grid {
+    display: grid; gap: 16px;
+    animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+    width: 100%;
+}
+.db-grid.pumaz { grid-template-columns: repeat(3, 1fr); }
+.db-grid.postgres { grid-template-columns: repeat(3, 1fr); }
+
+@media(max-width: 1400px) { .db-grid.pumaz { grid-template-columns: repeat(3, 1fr); } }
+@media(max-width: 1100px) { .db-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+@media(max-width: 700px) { .db-grid { grid-template-columns: 1fr !important; } }
+
+.db-item-group { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.db-card {
+    border-radius: 16px; padding: 18px; position: relative;
+    transition: all 0.3s ease;
+    min-width: 0;
+}
+[data-theme="dark"]  .db-card { background: rgba(30,30,58,0.5); border: 1px solid rgba(79,172,254,0.08); backdrop-filter: blur(10px); }
+[data-theme="light"] .db-card { background: rgba(255,255,255,0.8); border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 4px 20px rgba(0,0,0,0.03); backdrop-filter: blur(10px); }
+.db-card:hover { transform: translateY(-3px); }
+[data-theme="dark"]  .db-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.3); border-color: rgba(79,172,254,0.2); }
+[data-theme="light"] .db-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.08); border-color: rgba(79,172,254,0.2); }
+
+.card-header { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px; }
+[data-theme="dark"] .card-header { color: #fff; }
+
+.card-info { display: flex; flex-wrap: wrap; gap: 8px; }
+.info-badge {
+    font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 600;
+}
+[data-theme="dark"]  .info-badge { background: rgba(79,172,254,0.1); color: #4facfe; border: 1px solid rgba(79,172,254,0.15); }
+[data-theme="light"] .info-badge { background: #f0f7ff; color: #1a72c7; border: 1px solid rgba(79,172,254,0.2); }
+
+.info-badge.error {
+    background: rgba(255,82,82,0.1); color: #ff5252; border-color: rgba(255,82,82,0.2);
+}
+
+.summary-card { display: flex; flex-direction: column; gap: 14px; }
+.chart-card { display: flex; flex-direction: column; height: 260px; padding: 16px; }
+.chart-container { flex: 1; position: relative; width: 100%; min-height: 0; }
+
+/* ── Skeleton ── */
+.skeleton-box {
+    background: linear-gradient(90deg, var(--skel-bg) 25%, var(--skel-hl) 50%, var(--skel-bg) 75%);
+    background-size: 400% 100%;
+    animation: skeleton-loading 1.5s infinite ease-in-out;
+    border-radius: 16px;
+}
+[data-theme="dark"]  { --skel-bg: rgba(255,255,255,0.03); --skel-hl: rgba(255,255,255,0.06); }
+[data-theme="light"] { --skel-bg: rgba(0,0,0,0.04); --skel-hl: rgba(0,0,0,0.08); }
+@keyframes skeleton-loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+</style>
+
+<div class="db-wrap">
+    <div id="loadingSkel">
+        <div class="db-grid {{ db_type }}" style="margin-bottom:20px;">
+            {% for i in range(8) %}
+            <div class="skeleton-box" style="height:90px;"></div>
+            {% endfor %}
+        </div>
+        <div class="db-grid {{ db_type }}">
+            {% for i in range(8) %}
+            <div class="skeleton-box" style="height:260px;"></div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div id="summaryGrid" class="db-grid {{ db_type }}" style="display:none; margin-bottom: 24px;"></div>
+    <div id="chartGrid" class="db-grid {{ db_type }}" style="display:none;"></div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+const DB_TYPE = "{{ db_type }}";
+var chartInstances = {};
+
+function fmtNum(n) { return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+
+function tc() { return document.documentElement.getAttribute("data-theme") === "dark" ? "#b0b8c8" : "#666"; }
+function gc() { return document.documentElement.getAttribute("data-theme") === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"; }
+
+document.addEventListener("DOMContentLoaded", () => {
+    fetch('/api/database_status')
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('loadingSkel').style.display = 'none';
+            const sumGrid = document.getElementById('summaryGrid');
+            const chartGrid = document.getElementById('chartGrid');
+            sumGrid.style.display = '';
+            chartGrid.style.display = '';
+            
+            const tables = data[DB_TYPE];
+            const labels = data.labels;
+            
+            if (!tables || tables.length === 0) {
+                sumGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;opacity:0.5;">No data available</div>';
+                return;
+            }
+            
+            tables.forEach((item, index) => {
+                const cardId = `chart-${index}`;
+                const minClass = item.min_date === "Error" ? "error" : "";
+                const maxClass = item.max_date === "Error" ? "error" : "";
+                
+                // Summary Card
+                const sumCard = document.createElement('div');
+                sumCard.className = 'db-card summary-card';
+                sumCard.innerHTML = `
+                    <div class="card-header">
+                        <i class="fas ${DB_TYPE === 'pumaz' ? 'fa-table' : 'fa-database'}" style="color:#4facfe; opacity:0.8"></i>
+                        ${item.table}
+                    </div>
+                    <div class="card-info">
+                        <div class="info-badge ${minClass}">Min: ${item.min_date}</div>
+                        <div class="info-badge ${maxClass}">Max: ${item.max_date}</div>
+                    </div>
+                `;
+                sumGrid.appendChild(sumCard);
+
+                // Chart Card
+                const chartCard = document.createElement('div');
+                chartCard.className = 'db-card chart-card';
+                chartCard.innerHTML = `
+                    <div class="card-header" style="justify-content: center; margin-bottom: 10px; opacity: 0.9;">
+                        ${item.table} Trend
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="${cardId}"></canvas>
+                    </div>
+                `;
+                chartGrid.appendChild(chartCard);
+                
+                // Render chart
+                const ctx = document.getElementById(cardId).getContext('2d');
+                
+                // Use a dynamic gradient for the bars (horizontal)
+                let gradient = ctx.createLinearGradient(0, 0, 300, 0);
+                gradient.addColorStop(0, 'rgba(0,242,254,0.3)');
+                gradient.addColorStop(1, 'rgba(79,172,254,0.8)');
+                
+                const chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Rows',
+                            data: item.history,
+                            backgroundColor: gradient,
+                            borderColor: '#4facfe',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            hoverBackgroundColor: '#00e676',
+                            hoverBorderColor: '#00c853'
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y', // Horizontal bar chart
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: false, // Instant load
+                        layout: { padding: { right: 35 } }, // Give room for datalabels
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                mode: 'index', intersect: true,
+                                backgroundColor: 'rgba(15,15,30,0.85)',
+                                titleFont: {size:11, weight:600}, bodyFont: {size:11}, padding: 8,
+                                cornerRadius: 6, borderColor: 'rgba(79,172,254,0.3)', borderWidth: 1,
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.raw === "Error" ? "Error" : fmtNum(context.raw) + " rows";
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: { 
+                                ticks: { color: tc(), font: {size: 9} }, 
+                                grid: { display: false } 
+                            },
+                            x: { 
+                                ticks: { display: false }, 
+                                grid: { color: gc(), drawBorder: false } 
+                            }
+                        }
+                    },
+                    plugins: [{
+                        id: 'drawLabels',
+                        afterDatasetsDraw(chart) {
+                            const { ctx } = chart;
+                            chart.data.datasets.forEach((dataset, i) => {
+                                const meta = chart.getDatasetMeta(i);
+                                meta.data.forEach((bar, index) => {
+                                    const data = dataset.data[index];
+                                    if (!data || data === "Error") return;
+                                    ctx.save();
+                                    ctx.fillStyle = tc();
+                                    ctx.font = 'bold 9px sans-serif';
+                                    ctx.textAlign = 'left';
+                                    ctx.textBaseline = 'middle';
+                                    let formatted = data >= 1000000 ? (data / 1000000).toFixed(1) + 'M' : 
+                                                  data >= 1000 ? (data / 1000).toFixed(1) + 'k' : data;
+                                    ctx.fillText(formatted, bar.x + 4, bar.y);
+                                    ctx.restore();
+                                });
+                            });
+                        }
+                    }]
+                });
+                
+                chartInstances[cardId] = chart;
+            });
+            
+            const ro = new ResizeObserver(() => {
+                Object.values(chartInstances).forEach(ch => {
+                    if (ch && typeof ch.resize === 'function') {
+                        ch.resize();
+                    }
+                });
+            });
+            ro.observe(document.querySelector('.db-wrap'));
+        })
+        .catch(err => {
+            console.error(err);
+            document.getElementById('loadingSkel').innerHTML = '<div style="grid-column:1/-1;color:#ff5252;padding:20px;text-align:center;">Failed to load database status.</div>';
+        });
+});
+</script>
+{% endblock %}

@@ -466,27 +466,27 @@ function createChart(canvasId, dataObj, options) {
 document.addEventListener("DOMContentLoaded", function(){
     if(!chartLabels || chartLabels.length === 0) return;
 
-    createChart("tchChart", chartTch, makeOpts("TCH Traffic (Erl)"));
-    createChart("sdcchChart", chartSdcch, makeOpts("SDCCH Traffic (Erl)"));
-    createChart("fullrateChart", chartFullrate, makeOpts("Full Rate Traffic (Erl)"));
-    createChart("halfrateChart", chartHalfrate, makeOpts("Half Rate Traffic (Erl)"));
-    createChart("payloadChart", chartPayload, makeOpts("Payload (MB)"));
-    createChart("availChart", chartAvail, makeOpts("Availability (%)"));
-    createChart("cssrChart", chartCssr, makeOpts("CSSR (%)"));
-    createChart("ccsrChart", chartCcsr, makeOpts("CCSR (%)"));
-    createChart("hosrChart", chartHosr, makeOpts("HOSR (%)"));
-    createChart("tchblkChart", chartTchblk, makeOpts("TCH Blocking (%)"));
-    createChart("tchblkNumChart", chartTchblkNum, makeOpts("TCH Block Num"));
-    createChart("sdcchblkChart", chartSdcchblk, makeOpts("SDCCH Blocking (%)"));
-    createChart("sdcchblkNumChart", chartSdcchblkNum, makeOpts("SDCCH Block Num"));
-    createChart("sdsrChart", chartSdsr, makeOpts("SDSR (%)"));
-    createChart("tbfEstChart", chartTbfEst, makeOpts("TBF Est (%)"));
-    createChart("tbfCompChart", chartTbfComp, makeOpts("TBF Comp (%)"));
-    createChart("tchDropChart", chartTchDrop, makeOpts("TCH Drop (%)"));
-    createChart("tchDropNumChart", chartTchDropNum, makeOpts("TCH Drop Num"));
-    createChart("fastreturnChart", chartFastreturn, makeOpts("FastReturn"));
-    createChart("icmChart", chartIcm, makeOpts("ICM (%)"));
-    createChart("interferenceChart", chartInterference, makeOpts("Interference (%)"));
+    createChart("tchChart", chartTch, makeOpts("TCH Traffic (Erl)",0,null));
+    createChart("sdcchChart", chartSdcch, makeOpts("SDCCH Traffic (Erl)",0,null));
+    createChart("fullrateChart", chartFullrate, makeOpts("Full Rate Traffic (Erl)",0,null));
+    createChart("halfrateChart", chartHalfrate, makeOpts("Half Rate Traffic (Erl)",0,null));
+    createChart("payloadChart", chartPayload, makeOpts("Payload (MB)",0,null));
+    createChart("availChart", chartAvail, makeOpts("Availability (%)", null, 100));
+    createChart("cssrChart", chartCssr, makeOpts("CSSR (%)",null,100));
+    createChart("ccsrChart", chartCcsr, makeOpts("CCSR (%)",null,100));
+    createChart("hosrChart", chartHosr, makeOpts("HOSR (%)",null,100));
+    createChart("tchblkChart", chartTchblk, makeOpts("TCH Blocking (%)",0,null));
+    createChart("tchblkNumChart", chartTchblkNum, makeOpts("TCH Block Num",0,null));
+    createChart("sdcchblkChart", chartSdcchblk, makeOpts("SDCCH Blocking (%)",0,null));
+    createChart("sdcchblkNumChart", chartSdcchblkNum, makeOpts("SDCCH Block Num",0,null));
+    createChart("sdsrChart", chartSdsr, makeOpts("SDSR (%)",null,100));
+    createChart("tbfEstChart", chartTbfEst, makeOpts("TBF Est (%)",null,100));
+    createChart("tbfCompChart", chartTbfComp, makeOpts("TBF Comp (%)",null,100));
+    createChart("tchDropChart", chartTchDrop, makeOpts("TCH Drop (%)",0,null));
+    createChart("tchDropNumChart", chartTchDropNum, makeOpts("TCH Drop Num",0,null));
+    createChart("fastreturnChart", chartFastreturn, makeOpts("FastReturn",0,null));
+    createChart("icmChart", chartIcm, makeOpts("ICM (%)",0,null));
+    createChart("interferenceChart", chartInterference, makeOpts("Interference (%)",null,100));
 });
 </script>
 {% endblock %}

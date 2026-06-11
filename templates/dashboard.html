@@ -6,107 +6,200 @@
 
 {% block page_content %}
 <style>
+/* ── Animations ── */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulseGlow {
+    0% { box-shadow: 0 0 0 0 rgba(var(--pulse-color), 0.7); }
+    70% { box-shadow: 0 0 0 6px rgba(var(--pulse-color), 0); }
+    100% { box-shadow: 0 0 0 0 rgba(var(--pulse-color), 0); }
+}
+
+/* ── Skeleton Loader ── */
+[data-theme="dark"] {
+    --skel-bg: rgba(255,255,255,0.03);
+    --skel-hl: rgba(255,255,255,0.08);
+}
+[data-theme="light"] {
+    --skel-bg: rgba(0,0,0,0.04);
+    --skel-hl: rgba(0,0,0,0.08);
+}
+.skeleton-box {
+    background: linear-gradient(90deg, var(--skel-bg) 25%, var(--skel-hl) 50%, var(--skel-bg) 75%);
+    background-size: 400% 100%;
+    animation: skeleton-loading 1.5s infinite ease-in-out;
+    border-radius: 6px;
+}
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
 /* ── Layout ── */
-.dash-wrap { flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
-.dash-section-title { font-size: 13px; font-weight: 600; letter-spacing: 0.3px; display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-[data-theme="dark"]  .dash-section-title { color: rgba(200,208,224,0.7); }
-[data-theme="light"] .dash-section-title { color: #555; }
+.dash-wrap { 
+    flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; 
+}
+/* Staggered animation classes */
+.dash-wrap > div {
+    animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.dash-wrap > div:nth-child(1) { animation-delay: 0.05s; }
+.dash-wrap > div:nth-child(2) { animation-delay: 0.15s; }
+.dash-wrap > div:nth-child(3) { animation-delay: 0.25s; }
+.dash-wrap > div:nth-child(4) { animation-delay: 0.35s; }
+.dash-wrap > div:nth-child(5) { animation-delay: 0.45s; }
+
+.dash-section-title { 
+    font-size: 14px; font-weight: 600; letter-spacing: 0.4px; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; 
+}
+[data-theme="dark"]  .dash-section-title { color: rgba(200,208,224,0.8); }
+[data-theme="light"] .dash-section-title { color: #444; }
+
+/* ── Welcome Banner ── */
+.welcome-banner {
+    display: flex; align-items: center; gap: 16px; padding: 20px 24px; border-radius: 16px; 
+    position: relative; overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+[data-theme="dark"] .welcome-banner {
+    background: linear-gradient(135deg, rgba(30,30,58,0.8) 0%, rgba(13,13,26,0.9) 100%);
+    border: 1px solid rgba(79,172,254,0.15);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    backdrop-filter: blur(10px);
+}
+[data-theme="light"] .welcome-banner {
+    background: linear-gradient(135deg, #ffffff 0%, #f0f4f8 100%);
+    border: 1px solid rgba(0,0,0,0.06);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+}
+.welcome-banner:hover { transform: translateY(-2px); }
+[data-theme="dark"] .welcome-banner:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(79,172,254,0.2); }
+[data-theme="light"] .welcome-banner:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.1); }
+.wb-icon { font-size: 38px; animation: wave 2s infinite; transform-origin: 70% 70%; }
+@keyframes wave { 0% { transform: rotate( 0.0deg) } 10% { transform: rotate(14.0deg) } 20% { transform: rotate(-8.0deg) } 30% { transform: rotate(14.0deg) } 40% { transform: rotate(-4.0deg) } 50% { transform: rotate(10.0deg) } 60% { transform: rotate( 0.0deg) } 100% { transform: rotate( 0.0deg) } }
+.wb-content { z-index: 1; }
+.wb-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.wb-sub { font-size: 13px; opacity: 0.6; font-weight: 500; }
+[data-theme="dark"] .wb-title { color: #fff; }
+[data-theme="light"] .wb-title { color: #1e293b; }
 
 /* ── DB Status Cards ── */
-.db-status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.db-status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 @media(max-width:700px){ .db-status-grid { grid-template-columns: 1fr; } }
 
 .db-status-card {
-    border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; gap: 14px;
-    transition: background 0.3s ease, border-color 0.3s ease;
+    border-radius: 14px; padding: 16px 18px; display: flex; align-items: center; gap: 14px;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative; overflow: hidden;
 }
-[data-theme="dark"]  .db-status-card { background: rgba(30,30,58,0.5); border: 1px solid rgba(79,172,254,0.08); }
-[data-theme="light"] .db-status-card { background: #fff; border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+[data-theme="dark"]  .db-status-card { background: rgba(30,30,58,0.5); border: 1px solid rgba(79,172,254,0.08); backdrop-filter: blur(8px); }
+[data-theme="light"] .db-status-card { background: rgba(255,255,255,0.8); border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 2px 10px rgba(0,0,0,0.03); backdrop-filter: blur(8px); }
+.db-status-card:hover { transform: translateY(-3px); }
+[data-theme="dark"] .db-status-card:hover { border-color: rgba(79,172,254,0.3); box-shadow: 0 8px 24px rgba(0,0,0,0.25); background: rgba(30,30,58,0.7); }
+[data-theme="light"] .db-status-card:hover { border-color: rgba(79,172,254,0.3); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
 
 .db-status-icon {
-    width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
-    font-size: 18px; flex-shrink: 0;
+    width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0; transition: transform 0.3s ease;
 }
-.db-status-icon.pg { background: rgba(79,172,254,0.12); }
-.db-status-icon.pz { background: rgba(0,200,83,0.12); }
-.db-status-icon.wa { background: rgba(255,193,7,0.12); }
+.db-status-card:hover .db-status-icon { transform: scale(1.1); }
+.db-status-icon.pg { background: linear-gradient(135deg, rgba(79,172,254,0.2), rgba(0,242,254,0.1)); color: #4facfe; }
+.db-status-icon.pz { background: linear-gradient(135deg, rgba(0,200,83,0.2), rgba(105,240,174,0.1)); color: #00e676; }
+.db-status-icon.wa { background: linear-gradient(135deg, rgba(255,193,7,0.2), rgba(255,213,79,0.1)); color: #ffc107; }
 
 .db-status-info { flex: 1; min-width: 0; }
-.db-status-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
-.db-status-sub  { font-size: 11px; opacity: 0.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-status-name { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+.db-status-sub  { font-size: 11px; opacity: 0.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
 
 .db-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.db-dot.ok      { background: #00e676; box-shadow: 0 0 8px rgba(0,230,118,0.4); }
-.db-dot.error   { background: #ff5252; box-shadow: 0 0 8px rgba(255,82,82,0.4); }
+.db-dot.ok      { background: #00e676; --pulse-color: 0, 230, 118; animation: pulseGlow 2s infinite; }
+.db-dot.error   { background: #ff5252; --pulse-color: 255, 82, 82; animation: pulseGlow 2s infinite; }
 .db-dot.loading { background: #ffd166; animation: dotPulse 1s infinite; }
 @keyframes dotPulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
 /* ── Quick Links ── */
-.dash-quick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-@media(max-width:900px){ .dash-quick-grid { grid-template-columns: repeat(2, 1fr); } }
+.dash-quick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media(max-width:1000px){ .dash-quick-grid { grid-template-columns: repeat(3, 1fr); } }
+@media(max-width:700px){ .dash-quick-grid { grid-template-columns: repeat(2, 1fr); } }
 
 .dash-quick-link {
-    display: flex; align-items: center; gap: 12px; padding: 14px 16px;
-    border-radius: 12px; text-decoration: none; transition: all 0.18s; cursor: pointer;
+    display: flex; align-items: center; gap: 14px; padding: 16px 18px;
+    border-radius: 14px; text-decoration: none; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer;
+    position: relative; overflow: hidden;
 }
-[data-theme="dark"]  .dash-quick-link { background: rgba(30,30,58,0.4); border: 1px solid rgba(79,172,254,0.08); color: rgba(200,208,224,0.8); }
-[data-theme="light"] .dash-quick-link { background: #fff; border: 1px solid rgba(0,0,0,0.06); color: #333; }
-.dash-quick-link:hover { border-color: #4facfe; color: #4facfe; transform: translateY(-1px); }
-[data-theme="dark"] .dash-quick-link:hover { background: rgba(79,172,254,0.1); }
-[data-theme="light"] .dash-quick-link:hover { background: rgba(79,172,254,0.06); box-shadow: 0 4px 12px rgba(79,172,254,0.1); }
-.dash-quick-icon { font-size: 20px; flex-shrink: 0; }
-.dash-quick-label { font-size: 13px; font-weight: 600; }
-.dash-quick-desc { font-size: 11px; opacity: 0.45; }
+[data-theme="dark"]  .dash-quick-link { background: rgba(30,30,58,0.4); border: 1px solid rgba(79,172,254,0.08); color: rgba(200,208,224,0.85); backdrop-filter: blur(5px); }
+[data-theme="light"] .dash-quick-link { background: rgba(255,255,255,0.7); border: 1px solid rgba(0,0,0,0.05); color: #333; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
+
+.dash-quick-link::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(135deg, rgba(79,172,254,0.1) 0%, transparent 100%);
+    opacity: 0; transition: opacity 0.3s ease;
+}
+.dash-quick-link:hover::before { opacity: 1; }
+.dash-quick-link:hover { border-color: #4facfe; color: #4facfe; transform: translateY(-3px); }
+[data-theme="dark"] .dash-quick-link:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.25); background: rgba(30,30,58,0.6); }
+[data-theme="light"] .dash-quick-link:hover { box-shadow: 0 8px 24px rgba(79,172,254,0.15); background: #fff; }
+
+.dash-quick-icon { font-size: 22px; flex-shrink: 0; z-index: 1; transition: transform 0.3s ease; }
+.dash-quick-link:hover .dash-quick-icon { transform: scale(1.15) rotate(5deg); }
+.dash-quick-text { z-index: 1; }
+.dash-quick-label { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+.dash-quick-desc { font-size: 11px; opacity: 0.5; font-weight: 500; transition: color 0.3s; }
+.dash-quick-link:hover .dash-quick-desc { color: inherit; opacity: 0.7; }
 
 /* ── KPI Cards ── */
-.dash-kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.dash-kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 @media(max-width:700px){ .dash-kpi-grid { grid-template-columns: 1fr; } }
 
 .dash-kpi-card {
-    border-radius: 14px; padding: 18px 20px; position: relative;
-    display: flex; flex-direction: column; gap: 4px;
-    transition: background 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+    border-radius: 16px; padding: 20px 22px; position: relative; overflow: hidden;
+    display: flex; flex-direction: column; gap: 6px;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
-[data-theme="dark"]  .dash-kpi-card { background: rgba(30,30,58,0.55); border: 1px solid rgba(79,172,254,0.1); }
-[data-theme="light"] .dash-kpi-card { background: #fff; border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-.dash-kpi-card:hover { transform: translateY(-2px); }
-.dash-kpi-icon { font-size: 24px; margin-bottom: 6px; }
-.dash-kpi-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.5; }
-.dash-kpi-value { font-size: 28px; font-weight: 700; line-height: 1.1; }
-.dash-kpi-unit { font-size: 14px; font-weight: 400; opacity: 0.55; }
-.dash-kpi-sub { font-size: 11px; opacity: 0.45; margin-top: 4px; }
+[data-theme="dark"]  .dash-kpi-card { background: rgba(30,30,58,0.55); border: 1px solid rgba(79,172,254,0.1); backdrop-filter: blur(8px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+[data-theme="light"] .dash-kpi-card { background: rgba(255,255,255,0.9); border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 4px 16px rgba(0,0,0,0.04); backdrop-filter: blur(8px); }
+.dash-kpi-card:hover { transform: translateY(-4px); }
+[data-theme="dark"] .dash-kpi-card:hover { border-color: rgba(79,172,254,0.3); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+[data-theme="light"] .dash-kpi-card:hover { border-color: rgba(79,172,254,0.3); box-shadow: 0 10px 30px rgba(79,172,254,0.1); }
+
+.dash-kpi-icon { position: absolute; right: 20px; top: 20px; font-size: 32px; opacity: 0.15; transition: all 0.3s ease; }
+.dash-kpi-card:hover .dash-kpi-icon { opacity: 0.3; transform: scale(1.1) rotate(5deg); }
+.dash-kpi-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.6; }
+.dash-kpi-value { font-size: 32px; font-weight: 700; line-height: 1.1; margin-top: 4px; }
+.dash-kpi-unit { font-size: 14px; font-weight: 500; opacity: 0.6; margin-left: 4px; }
+.dash-kpi-sub { font-size: 12px; opacity: 0.5; margin-top: 6px; font-weight: 500; }
 
 /* ── Chart Cards ── */
-.dash-chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.dash-chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
 @media(max-width:900px){ .dash-chart-grid { grid-template-columns: 1fr; } }
 
 .dash-chart-card {
-    border-radius: 14px; padding: 16px 18px; cursor: pointer;
-    transition: background 0.3s ease, border-color 0.3s ease, box-shadow: 0.3s ease;
-    position: relative;
+    border-radius: 16px; padding: 20px; cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative; overflow: hidden;
 }
+[data-theme="dark"]  .dash-chart-card { background: rgba(30,30,58,0.55); border: 1px solid rgba(79,172,254,0.08); backdrop-filter: blur(8px); }
+[data-theme="light"] .dash-chart-card { background: rgba(255,255,255,0.9); border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 4px 16px rgba(0,0,0,0.03); backdrop-filter: blur(8px); }
 .dash-chart-card:hover {
+    transform: translateY(-4px);
     border-color: #4facfe;
-    box-shadow: 0 6px 20px rgba(79,172,254,0.15);
 }
-[data-theme="dark"]  .dash-chart-card { background: rgba(30,30,58,0.55); border: 1px solid rgba(79,172,254,0.08); }
-[data-theme="light"] .dash-chart-card { background: #fff; border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-.dash-chart-card:hover {
-    border-color: #4facfe;
-    box-shadow: 0 6px 20px rgba(79,172,254,0.15);
-}
-.dash-chart-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
-.dash-chart-sub  { font-size: 11px; opacity: 0.4; margin-bottom: 12px; }
+[data-theme="dark"] .dash-chart-card:hover { box-shadow: 0 10px 30px rgba(79,172,254,0.15); }
+[data-theme="light"] .dash-chart-card:hover { box-shadow: 0 10px 30px rgba(79,172,254,0.12); }
+.dash-chart-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+.dash-chart-sub  { font-size: 12px; opacity: 0.5; font-weight: 500; margin-bottom: 16px; }
 </style>
 
 <div class="dash-wrap" id="dashWrap">
 
     <!-- ═══ WELCOME BANNER ═══ -->
-    <div style="display:flex; align-items:center; gap:14px; padding:16px 18px; border-radius:14px; transition:background 0.3s ease, border-color 0.3s ease;">
-        <div style="font-size:32px;">👋</div>
-        <div>
-            <div style="font-size:18px; font-weight:700; margin-bottom:2px;">Selamat datang, {{ username }}!</div>
-            <div style="font-size:12px; opacity:0.5;">Network KPI Monitor v2.0 — {{ now }}</div>
+    <div class="welcome-banner">
+        <div class="wb-icon">👋</div>
+        <div class="wb-content">
+            <div class="wb-title">Selamat datang, {{ username }}!</div>
+            <div class="wb-sub">Network KPI Monitor v2.0 — {{ now }}</div>
         </div>
     </div>
 
@@ -114,6 +207,10 @@
     <div>
         <div class="dash-section-title">🗄️ Database Status</div>
         <div class="db-status-grid" id="dashDbGrid">
+            <!-- Skeleton -->
+            <div class="db-status-card"><div class="skeleton-box" style="width:46px;height:46px;border-radius:12px;flex-shrink:0;"></div><div class="db-status-info" style="width:100%;"><div class="skeleton-box" style="height:14px;width:60%;margin-bottom:6px"></div><div class="skeleton-box" style="height:10px;width:80%"></div></div></div>
+            <div class="db-status-card"><div class="skeleton-box" style="width:46px;height:46px;border-radius:12px;flex-shrink:0;"></div><div class="db-status-info" style="width:100%;"><div class="skeleton-box" style="height:14px;width:60%;margin-bottom:6px"></div><div class="skeleton-box" style="height:10px;width:80%"></div></div></div>
+            <div class="db-status-card"><div class="skeleton-box" style="width:46px;height:46px;border-radius:12px;flex-shrink:0;"></div><div class="db-status-info" style="width:100%;"><div class="skeleton-box" style="height:14px;width:60%;margin-bottom:6px"></div><div class="skeleton-box" style="height:10px;width:80%"></div></div></div>
         </div>
     </div>
 
@@ -121,15 +218,15 @@
     <div>
         <div class="dash-section-title">⚡ Quick Access</div>
         <div class="dash-quick-grid">
-            <a href="/productivity" class="dash-quick-link"><div class="dash-quick-icon">📈</div><div><div class="dash-quick-label">Productivity</div><div class="dash-quick-desc">Trend YoY</div></div></a>
-            <a href="/kpi_2g_hourly" class="dash-quick-link"><div class="dash-quick-icon">📻</div><div><div class="dash-quick-label">2G Hourly</div><div class="dash-quick-desc">Per site</div></div></a>
-            <a href="/kpi_4g_hourly" class="dash-quick-link"><div class="dash-quick-icon">📶</div><div><div class="dash-quick-label">4G Hourly</div><div class="dash-quick-desc">Per site</div></div></a>
-            <a href="/kpi_5g_daily" class="dash-quick-link"><div class="dash-quick-icon">🚀</div><div><div class="dash-quick-label">5G Daily</div><div class="dash-quick-desc">Per site</div></div></a>
-            <a href="/kpi_5g_hourly" class="dash-quick-link"><div class="dash-quick-icon">🚀</div><div><div class="dash-quick-label">5G Hourly</div><div class="dash-quick-desc">Per site</div></div></a>
-            <a href="/kpi_2g_daily" class="dash-quick-link"><div class="dash-quick-icon">📊</div><div><div class="dash-quick-label">2G Daily</div><div class="dash-quick-desc">BSC Level</div></div></a>
-            <a href="/ta_4g" class="dash-quick-link"><div class="dash-quick-icon">📐</div><div><div class="dash-quick-label">TA 4G</div><div class="dash-quick-desc">Timing Advance</div></div></a>
-            <a href="/pl_2g" class="dash-quick-link"><div class="dash-quick-icon">📡</div><div><div class="dash-quick-label">PL 2G</div><div class="dash-quick-desc">Packet Loss</div></div></a>
-            <a href="/pl_4g" class="dash-quick-link"><div class="dash-quick-icon">📡</div><div><div class="dash-quick-label">PL 4G</div><div class="dash-quick-desc">Packet Loss</div></div></a>
+            <a href="/productivity" class="dash-quick-link"><div class="dash-quick-icon">📈</div><div class="dash-quick-text"><div class="dash-quick-label">Productivity</div><div class="dash-quick-desc">Trend YoY</div></div></a>
+            <a href="/kpi_2g_hourly" class="dash-quick-link"><div class="dash-quick-icon">📻</div><div class="dash-quick-text"><div class="dash-quick-label">2G Hourly</div><div class="dash-quick-desc">Per site</div></div></a>
+            <a href="/kpi_4g_hourly" class="dash-quick-link"><div class="dash-quick-icon">📶</div><div class="dash-quick-text"><div class="dash-quick-label">4G Hourly</div><div class="dash-quick-desc">Per site</div></div></a>
+            <a href="/kpi_5g_daily" class="dash-quick-link"><div class="dash-quick-icon">🚀</div><div class="dash-quick-text"><div class="dash-quick-label">5G Daily</div><div class="dash-quick-desc">Per site</div></div></a>
+            <a href="/kpi_5g_hourly" class="dash-quick-link"><div class="dash-quick-icon">🚀</div><div class="dash-quick-text"><div class="dash-quick-label">5G Hourly</div><div class="dash-quick-desc">Per site</div></div></a>
+            <a href="/kpi_2g_daily" class="dash-quick-link"><div class="dash-quick-icon">📊</div><div class="dash-quick-text"><div class="dash-quick-label">2G Daily</div><div class="dash-quick-desc">BSC Level</div></div></a>
+            <a href="/ta_4g" class="dash-quick-link"><div class="dash-quick-icon">📐</div><div class="dash-quick-text"><div class="dash-quick-label">TA 4G</div><div class="dash-quick-desc">Timing Advance</div></div></a>
+            <a href="/pl_2g" class="dash-quick-link"><div class="dash-quick-icon">📡</div><div class="dash-quick-text"><div class="dash-quick-label">PL 2G</div><div class="dash-quick-desc">Packet Loss</div></div></a>
+            <a href="/pl_4g" class="dash-quick-link"><div class="dash-quick-icon">📡</div><div class="dash-quick-text"><div class="dash-quick-label">PL 4G</div><div class="dash-quick-desc">Packet Loss</div></div></a>
         </div>
     </div>
 
@@ -137,6 +234,10 @@
     <div>
         <div class="dash-section-title">📊 Network Overview</div>
         <div class="dash-kpi-grid" id="dashKpiGrid">
+            <!-- Skeleton -->
+            <div class="dash-kpi-card"><div class="skeleton-box" style="height:12px;width:40%;margin-bottom:8px"></div><div class="skeleton-box" style="height:36px;width:70%;margin-bottom:8px"></div><div class="skeleton-box" style="height:12px;width:50%"></div></div>
+            <div class="dash-kpi-card"><div class="skeleton-box" style="height:12px;width:40%;margin-bottom:8px"></div><div class="skeleton-box" style="height:36px;width:70%;margin-bottom:8px"></div><div class="skeleton-box" style="height:12px;width:50%"></div></div>
+            <div class="dash-kpi-card"><div class="skeleton-box" style="height:12px;width:40%;margin-bottom:8px"></div><div class="skeleton-box" style="height:36px;width:70%;margin-bottom:8px"></div><div class="skeleton-box" style="height:12px;width:50%"></div></div>
         </div>
     </div>
 
@@ -144,6 +245,17 @@
     <div>
         <div class="dash-section-title">📈 14-Day Productivity Trend</div>
         <div class="dash-chart-grid" id="dashChartGrid">
+            <!-- Skeleton -->
+            <div class="dash-chart-card">
+                <div class="skeleton-box" style="height:18px;width:40%;margin-bottom:8px"></div>
+                <div class="skeleton-box" style="height:12px;width:70%;margin-bottom:24px"></div>
+                <div class="skeleton-box" style="height:190px;width:100%;border-radius:4px"></div>
+            </div>
+            <div class="dash-chart-card">
+                <div class="skeleton-box" style="height:18px;width:40%;margin-bottom:8px"></div>
+                <div class="skeleton-box" style="height:12px;width:70%;margin-bottom:24px"></div>
+                <div class="skeleton-box" style="height:190px;width:100%;border-radius:4px"></div>
+            </div>
         </div>
     </div>
 
@@ -152,61 +264,49 @@
 
 {% block page_scripts %}
 <script>
-function tc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "#b0b8c8" : "#555"; }
-function gc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "rgba(79,172,254,0.06)" : "rgba(0,0,0,0.05)"; }
+function tc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "#b0b8c8" : "#444"; }
+function gc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "rgba(79,172,254,0.06)" : "rgba(0,0,0,0.04)"; }
 function fmtNum(n){ return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
 
 /* ── Chart colors per Tech ── */
 var TECH_COLORS = {
-    "2G": { border: "#f6c90e", bg: "rgba(246,201,14,0.5)" },
-    "4G": { border: "#4facfe", bg: "rgba(79,172,254,0.5)" },
-    "5G": { border: "#a78bfa", bg: "rgba(167,139,250,0.5)" },
+    "2G": { border: "#f6c90e", bg: "rgba(246,201,14,0.7)" },
+    "4G": { border: "#4facfe", bg: "rgba(79,172,254,0.7)" },
+    "5G": { border: "#a78bfa", bg: "rgba(167,139,250,0.7)" },
 };
 
-function chartOpts(yLabel){
-    return {
-        responsive:true, maintainAspectRatio:false, animation:false,
-        plugins:{
-            legend:{ position:'top', labels:{ color:tc(), font:{size:11}, boxWidth:14, padding:12, usePointStyle:true } },
-            tooltip:{ mode:'index', intersect:false, backgroundColor:'rgba(10,10,30,0.92)', titleFont:{size:12}, bodyFont:{size:11}, padding:10 },
-        },
-        scales:{
-            x:{ ticks:{ color:tc(), font:{size:10}, maxRotation:45 }, grid:{ color:gc() } },
-            y:{ position:'left', title:{ display:true, text:yLabel, color:tc(), font:{size:11} }, ticks:{ color:tc(), font:{size:10} }, grid:{ color:gc() }, stacked:true },
-        }
-    };
-}
-
-/* ── Build datasets: stacked bar per Tech ── */
 function buildDatasets(techData){
     var datasets = [];
     var techs = Object.keys(techData).sort();
     for(var i=0; i<techs.length; i++){
         var tech = techs[i];
-        var c = TECH_COLORS[tech] || {border:'#888',bg:'rgba(136,136,136,0.5)'};
+        var c = TECH_COLORS[tech] || {border:'#888',bg:'rgba(136,136,136,0.6)'};
         datasets.push({
             label: tech,
             data: techData[tech],
             borderColor: c.border,
             backgroundColor: c.bg,
-            borderWidth: 1,
-            borderRadius: 2,
-            borderSkipped: false,
+            borderWidth: 0,
+            borderRadius: 0, // Removed border radius to ensure flush rectangular stacking
+            hoverBackgroundColor: c.border, // Highlight on hover
         });
     }
     return datasets;
 }
 
-function round(n,v){ var p=Math.pow(10,v); return Math.round(n*p)/p; }
-
 /* ── DB Status render ── */
 function dbStatusCards(d){
-    function dot(s){ return '<span class="db-dot '+s+'"></span>'; }
+    function dot(s){ return `<span class="db-dot ${s}"></span>`; }
     function card(icon, cls, name, sub, status){
-        return '<div class="db-status-card">'
-            +'<div class="db-status-icon '+cls+'">'+icon+'</div>'
-            +'<div class="db-status-info"><div class="db-status-name">'+name+'</div><div class="db-status-sub">'+sub+'</div></div>'
-            +dot(status||'loading')+'</div>';
+        return `
+        <div class="db-status-card">
+            <div class="db-status-icon ${cls}">${icon}</div>
+            <div class="db-status-info">
+                <div class="db-status-name">${name}</div>
+                <div class="db-status-sub">${sub}</div>
+            </div>
+            ${dot(status||'loading')}
+        </div>`;
     };
     var pg = d.postgres_db, pz = d.pumaz_db, wa = d.webapp_db;
     var pgSub = [];
@@ -221,10 +321,13 @@ function dbStatusCards(d){
 
 /* ── KPI cards ── */
 function kpiCard(icon, label, value, unit, sub){
-    return '<div class="dash-kpi-card"><div class="dash-kpi-icon">'+icon+'</div>'
-        +'<div class="dash-kpi-label">'+label+'</div>'
-        +'<div class="dash-kpi-value">'+value+'<span class="dash-kpi-unit">'+unit+'</span></div>'
-        +(sub?'<div class="dash-kpi-sub">'+sub+'</div>':'')+'</div>';
+    return `
+    <div class="dash-kpi-card">
+        <div class="dash-kpi-icon">${icon}</div>
+        <div class="dash-kpi-label">${label}</div>
+        <div class="dash-kpi-value">${value}<span class="dash-kpi-unit">${unit}</span></div>
+        ${sub ? `<div class="dash-kpi-sub">${sub}</div>` : ''}
+    </div>`;
 }
 
 /* ── Main load ── */
@@ -254,17 +357,25 @@ function dashLoad(){
                 var payloadDatasets = buildDatasets(payloadData);
                 var trafficDatasets = buildDatasets(trafficData);
 
-                cgrid.innerHTML =
-                    '<div class="dash-chart-card" onclick="openChartModal(this.querySelector(\'canvas\'))">'
-                    +'<div class="dash-chart-title">📦 Payload Trend (TB/day)</div>'
-                    +'<div class="dash-chart-sub">Stacked per Technology — last 14 days</div>'
-                    +'<div style="height:220px;position:relative;"><canvas id="cPayload" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas></div></div>'
-                    +'<div class="dash-chart-card" onclick="openChartModal(this.querySelector(\'canvas\'))">'
-                    +'<div class="dash-chart-title">🚀 Traffic Trend (KErl)</div>'
-                    +'<div class="dash-chart-sub">Stacked per Technology — last 14 days</div>'
-                    +'<div style="height:220px;position:relative;"><canvas id="cTraffic" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas></div></div>';
+                cgrid.innerHTML = `
+                    <div class="dash-chart-card" onclick="openChartModal(this.querySelector('canvas'))">
+                        <div class="dash-chart-title">📦 Payload Trend</div>
+                        <div class="dash-chart-sub">Stacked per Technology (TB/day) — last 14 days</div>
+                        <div style="height:240px;position:relative;"><canvas id="cPayload" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas></div>
+                    </div>
+                    <div class="dash-chart-card" onclick="openChartModal(this.querySelector('canvas'))">
+                        <div class="dash-chart-title">🚀 Traffic Trend</div>
+                        <div class="dash-chart-sub">Stacked per Technology (KErl) — last 14 days</div>
+                        <div style="height:240px;position:relative;"><canvas id="cTraffic" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas></div>
+                    </div>`;
 
                 setTimeout(function(){
+                    var tooltipCfg = {
+                        mode:'index', intersect:false, backgroundColor:'rgba(15,15,30,0.85)', 
+                        titleFont:{size:13, weight:600}, bodyFont:{size:12}, padding:12,
+                        cornerRadius: 8, borderColor: 'rgba(79,172,254,0.3)', borderWidth: 1
+                    };
+                    
                     var cp = document.getElementById('cPayload');
                     if(cp && hasData && payloadDatasets.length > 0){
                         if(dashPayloadChart) dashPayloadChart.destroy();
@@ -272,19 +383,19 @@ function dashLoad(){
                             type: 'bar',
                             data: { labels: labels, datasets: payloadDatasets },
                             options: {
-                                responsive:true, maintainAspectRatio:false, animation:false,
+                                responsive:true, maintainAspectRatio:false, animation:{ duration: 1000, easing: 'easeOutQuart' },
                                 plugins: {
-                                    legend: { position:'top', labels:{ color:tc(), font:{size:10}, boxWidth:12, padding:10, usePointStyle:true } },
-                                    tooltip: { mode:'index', intersect:false, backgroundColor:'rgba(10,10,30,0.92)', titleFont:{size:11}, bodyFont:{size:10}, padding:8 },
+                                    legend: { position:'top', labels:{ color:tc(), font:{size:11, weight:500}, boxWidth:12, padding:14, usePointStyle:true } },
+                                    tooltip: tooltipCfg,
                                 },
                                 scales: {
-                                    x: { ticks:{ color:tc(), font:{size:9}, maxRotation:45 }, grid:{ color:gc() }, stacked:true },
-                                    y: { position:'left', title:{ display:true, text:'TB/day', color:tc(), font:{size:10} }, ticks:{ color:tc(), font:{size:9} }, grid:{ color:gc() }, stacked:true },
+                                    x: { ticks:{ color:tc(), font:{size:10}, maxRotation:45 }, grid:{ color:gc(), drawBorder:false }, stacked:true },
+                                    y: { position:'left', title:{ display:true, text:'TB/day', color:tc(), font:{size:11, weight:600} }, ticks:{ color:tc(), font:{size:10} }, grid:{ color:gc(), drawBorder:false }, stacked:true },
                                 }
                             }
                         });
                         chartInstances['cPayload'] = dashPayloadChart;
-                    } else if(cp){ cp.parentElement.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;opacity:0.4;font-size:12px;">No data</div>'; }
+                    } else if(cp){ cp.parentElement.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;opacity:0.4;font-size:13px;font-weight:500;">No data available</div>'; }
 
                     var ct = document.getElementById('cTraffic');
                     if(ct && hasData && trafficDatasets.length > 0){
@@ -293,29 +404,28 @@ function dashLoad(){
                             type: 'bar',
                             data: { labels: labels, datasets: trafficDatasets },
                             options: {
-                                responsive:true, maintainAspectRatio:false, animation:false,
+                                responsive:true, maintainAspectRatio:false, animation:{ duration: 1000, easing: 'easeOutQuart' },
                                 plugins: {
-                                    legend: { position:'top', labels:{ color:tc(), font:{size:10}, boxWidth:12, padding:10, usePointStyle:true } },
-                                    tooltip: { mode:'index', intersect:false, backgroundColor:'rgba(10,10,30,0.92)', titleFont:{size:11}, bodyFont:{size:10}, padding:8 },
+                                    legend: { position:'top', labels:{ color:tc(), font:{size:11, weight:500}, boxWidth:12, padding:14, usePointStyle:true } },
+                                    tooltip: tooltipCfg,
                                 },
                                 scales: {
-                                    x: { ticks:{ color:tc(), font:{size:9}, maxRotation:45 }, grid:{ color:gc() }, stacked:true },
-                                    y: { position:'left', title:{ display:true, text:'KErl', color:tc(), font:{size:10} }, ticks:{ color:tc(), font:{size:9} }, grid:{ color:gc() }, stacked:true },
+                                    x: { ticks:{ color:tc(), font:{size:10}, maxRotation:45 }, grid:{ color:gc(), drawBorder:false }, stacked:true },
+                                    y: { position:'left', title:{ display:true, text:'KErl', color:tc(), font:{size:11, weight:600} }, ticks:{ color:tc(), font:{size:10} }, grid:{ color:gc(), drawBorder:false }, stacked:true },
                                 }
                             }
                         });
                         chartInstances['cTraffic'] = dashTrafficChart;
-                    } else if(ct){ ct.parentElement.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;opacity:0.4;font-size:12px;">No data</div>'; }
+                    } else if(ct){ ct.parentElement.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;opacity:0.4;font-size:13px;font-weight:500;">No data available</div>'; }
                 }, 50);
             }
         })
         .catch(function(err){
             console.error('Dashboard error:', err);
-            document.getElementById('dashDbGrid').innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;opacity:0.5;">⚠️ Failed to load. <a href="#" onclick="dashLoad();return false;" style="color:#4facfe;">Retry</a></div>';
+            document.getElementById('dashDbGrid').innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;background:rgba(255,82,82,0.1);border-radius:12px;color:#ff5252;">⚠️ Failed to load data. <a href="#" onclick="dashLoad();return false;" style="color:inherit;text-decoration:underline;font-weight:bold;">Retry</a></div>';
         });
 }
 
-/* ── Resize charts on sidebar toggle (same pattern as productivity) ── */
 window.addEventListener("resize", function(){
     if(dashPayloadChart && typeof dashPayloadChart.resize === 'function'){ dashPayloadChart.resize(); dashPayloadChart.update(); }
     if(dashTrafficChart && typeof dashTrafficChart.resize === 'function'){ dashTrafficChart.resize(); dashTrafficChart.update(); }

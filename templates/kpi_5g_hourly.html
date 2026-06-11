@@ -480,37 +480,37 @@ document.addEventListener("DOMContentLoaded", function(){
     // UL Payload in GB
     createChart("ulPayloadChart", chartUlPayload, makeOpts("UL Payload (GB)"));
     // Availability
-    createChart("availChart", chartAvail, makeOpts("Availability (%)", 0, 100));
+    createChart("availChart", chartAvail, makeOpts("Availability (%)", null, 100));
     // RRC User
     createChart("rrcUserChart", chartRrcUser, makeOpts("RRC Users"));
     // NR Active User
     createChart("nrActiveUserChart", chartNrActiveUser, makeOpts("NR Active Users"));
     // NR Accessibility
-    createChart("nrAccessibilityChart", chartNrAccessibility, makeOpts("NR Access (%)", 0, 100));
+    createChart("nrAccessibilityChart", chartNrAccessibility, makeOpts("NR Access (%)", null, 100));
     // NR Retainability
-    createChart("nrRetainabilityChart", chartNrRetainability, makeOpts("NR Retain (%)", 0, 100));
+    createChart("nrRetainabilityChart", chartNrRetainability, makeOpts("NR Retain (%)", null, 100));
     // NR Mobility
-    createChart("nrMobilityChart", chartNrMobility, makeOpts("NR Mobility (%)"));
+    createChart("nrMobilityChart", chartNrMobility, makeOpts("NR Mobility (%)", null, 100));
     // DL PRB
     createChart("dlPrbChart", chartDlPrb, makeOpts("DL PRB (%)", 0, 100));
     // UL PRB
     createChart("ulPrbChart", chartUlPrb, makeOpts("UL PRB (%)", 0, 100));
     // Cell DL Throughput
-    createChart("cellDlThpChart", chartCellDlThp, makeOpts("Cell DL Thp (Mbps)"));
+    createChart("cellDlThpChart", chartCellDlThp, makeOpts("Cell DL Thp (Mbps)", 0,null));
     // Cell UL Throughput
-    createChart("cellUlThpChart", chartCellUlThp, makeOpts("Cell UL Thp (Mbps)"));
+    createChart("cellUlThpChart", chartCellUlThp, makeOpts("Cell UL Thp (Mbps)", 0, null));
     // User DL Throughput
     createChart("dlThpChart", chartDlThp, makeOpts("User DL Thp (Mbps)"));
     // User UL Throughput
     createChart("ulThpChart", chartUlThp, makeOpts("User UL Thp (Mbps)"));
     // Spectrum Efficiency
-    createChart("seChart", chartSe, makeOpts("SE"));
+    createChart("seChart", chartSe, makeOpts("SE", 0, null));
     // CQI
-    createChart("cqiChart", chartCqi, makeOpts("CQI", 0, 15));
+    createChart("cqiChart", chartCqi, makeOpts("CQI", 0, null));
     // UL Interference
     createChart("ulInterferenceChart", chartUlInterference, makeOpts("UL Interference (dBm)"));
     // Packet Loss
-    createChart("packetLossChart", chartPacketLoss, makeOpts("Packet Loss (%)"));
+    createChart("packetLossChart", chartPacketLoss, makeOpts("Packet Loss (%)", 0, null));
     // Latency DL
     createChart("latencyDlChart", chartLatencyDl, makeOpts("Latency DL (ms)"));
     // Latency UL

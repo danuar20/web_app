@@ -1,0 +1,512 @@
+{% extends "base.html" %}
+
+{% block nav_2g %}active{% endblock %}
+{% block sub2g_open %}open{% endblock %}
+{% block nav_2g_hourly_sector %}active{% endblock %}
+{% block page_title %}2G KPI — Hourly Sector{% endblock %}
+{% block page_sub %}2G Network KPI per hour broken down by sector{% endblock %}
+
+{% block topbar_chips %}
+<div class="info-chip"><i class="fas fa-satellite-dish" style="margin-right:4px"></i>{{ active_sites or (sites_list|length) or 0 }} sites</div>
+{% endblock %}
+
+{% block sidebar_quickstats %}{% endblock %}
+
+{% block page_content %}
+<style>
+.content-area { flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 14px; }
+.dropdown-container { position: relative; }
+.dropdown-toggle { width: 100%; padding: 8px 12px; border: 1px solid rgba(79,172,254,0.15); border-radius: 6px; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center; transition: border-color 0.18s, background 0.3s ease; }
+[data-theme="dark"] .dropdown-toggle { background: rgba(30,30,58,0.8); color: #c8d0e0; }
+[data-theme="light"] .dropdown-toggle { background: rgba(255,255,255,0.95); color: inherit; }
+.dropdown-menu { position: absolute; top: 100%; left: 0; right: 0; border: 1px solid rgba(79,172,254,0.12); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 1000; max-height: 300px; overflow-y: auto; display: none; flex-direction: column; }
+[data-theme="dark"] .dropdown-menu { background: #1a1a2e; }
+[data-theme="light"] .dropdown-menu { background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+[data-theme="dark"] .checkbox-label { color: rgba(200,208,224,0.8); }
+.dropdown-menu input[type=text] { font-size: 11px; }
+
+/* KPI Group categories */
+.kpi-cat-header { padding: 6px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; margin-top: 6px; border-bottom: 1px solid rgba(128,128,128,0.1); }
+
+/* Sticky Table Headers */
+.data-table th { position: sticky; top: 0; z-index: 2; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+[data-theme="dark"] .data-table th { background: #1a1a2e; }
+[data-theme="light"] .data-table th { background: #f8fafc; }
+</style>
+
+<form method="GET" action="/kpi_2g_hourly_sector" id="filterForm" onsubmit="showLoading()">
+<div class="filter-bar">
+    <div class="filter-group">
+        <div class="filter-label">Date From</div>
+        <input type="date" name="from_date" class="f-input" value="{{ from_date }}" id="fFrom">
+    </div>
+    <div class="filter-group">
+        <div class="filter-label">Date To</div>
+        <input type="date" name="to_date" class="f-input" value="{{ to_date }}" id="fTo">
+    </div>
+
+    <!-- SITE SELECTION -->
+    <div class="filter-group">
+        <div class="filter-label">Site ID</div>
+        <div class="dropdown-container" id="siteDropdownContainer">
+            <button type="button" class="dropdown-toggle" onclick="toggleSiteDropdown(event)">
+                Select Sites ({{ sel_sites|length if sel_sites else 0 }}) <i class="fas fa-chevron-down"></i>
+            </button>
+            <div class="dropdown-menu" id="siteDropdown" style="display: none;">
+                <input type="text" id="siteSearch" placeholder="Search sites..." onkeyup="filterSites()" style="width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid rgba(128,128,128,0.2); border-radius: 4px;">
+                <label class="checkbox-label" style="border-bottom: 1px solid rgba(128,128,128,0.1); padding-bottom: 8px; margin-bottom: 8px;">
+                    <input type="checkbox" id="siteSelectAll" onchange="toggleAllSites(this)">
+                    <span><strong>Select All</strong></span>
+                </label>
+                <div id="siteCheckboxes" style="max-height: 200px; overflow-y: auto;">
+                    {% for site in sites_list %}
+                    <label class="checkbox-label" data-site="{{ site }}">
+                        <input type="checkbox" name="site" value="{{ site }}" {% if site in sel_sites %}checked{% endif %} onchange="updateSiteCount()">
+                        <span>{{ site }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI SELECTION -->
+    <div class="filter-group" style="min-width: 240px;">
+        <div class="filter-label">Select KPIs</div>
+        <div class="dropdown-container" id="kpiDropdownContainer">
+            <button type="button" class="dropdown-toggle" onclick="toggleKpiDropdown(event)">
+                <span id="kpiBtnText">{{ sel_kpis|length if sel_kpis else kpi_defs|length }} KPI(s) Selected</span>
+                <i class="fas fa-chevron-down"></i>
+            </button>
+            <div class="dropdown-menu" id="kpiDropdown" style="display: none; min-width: 220px; max-height: 350px;">
+                <label class="checkbox-label" style="border-bottom: 1px solid rgba(128,128,128,0.1); padding: 8px 12px; margin: 0; background: rgba(79,172,254,0.05);">
+                    <input type="checkbox" id="kpiSelectAll" onchange="toggleAllKPIs(this)">
+                    <span style="color:#4facfe; font-weight:600">Select All KPIs</span>
+                </label>
+                <div id="kpiCheckboxes">
+                    {% for k in kpi_defs %}
+                    <label class="checkbox-label" style="padding: 6px 12px; margin: 0;">
+                        <input type="checkbox" name="kpi" value="{{ k[0] }}" {% if k[0] in sel_kpis %}checked{% endif %} onchange="updateKpiCount()">
+                        <span>{{ k[1] }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn-apply">
+        <i class="fas fa-play" style="font-size:10px;margin-right:4px"></i> Show
+    </button>
+
+    <div class="view-toggle">
+        <button type="button" class="view-toggle-btn active" id="viewChart" onclick="setView('chart', this)">
+            <i class="fas fa-chart-line"></i> Chart
+        </button>
+        <button type="button" class="view-toggle-btn" id="viewTable" onclick="setView('table', this)">
+            <i class="fas fa-table"></i> Table
+        </button>
+    </div>
+</div>
+<!-- CSV upload + paste -->
+<div class="filter-bar" style="margin-top:-6px;">
+    <div class="filter-group" style="flex-direction:row; align-items:center; gap:10px; width:100%">
+        <div class="filter-label" style="flex-shrink:0">Or import sites from CSV</div>
+        <label class="f-input" style="display:flex; align-items:center; gap:6px; cursor:pointer; flex:0 0 auto; padding:6px 12px;">
+            <i class="fas fa-file-import"></i>
+            <input type="file" id="siteFileInput" accept=".csv,.txt" style="display:none;" onchange="handleSiteFileImport(this)">
+            <span id="siteFileLabel">Choose CSV file...</span>
+        </label>
+        <textarea id="sitePasteArea" name="site_paste" class="f-input"
+                 placeholder="Paste site IDs here (one per line or comma-separated)"
+                 rows="1" style="flex:1; resize:none; font-size:11px;"
+                 oninput="handleInlinePaste(this.value)"></textarea>
+        <span style="font-size:10px;opacity:0.4" id="sitePasteCount"></span>
+    </div>
+</div>
+</form>
+
+<div style="font-size:12px; color:#888; margin: 0 20px 10px;">
+    Last update: <span id="lastUpdateDisplay">{{ last_update or 'N/A' }}</span>
+</div>
+
+<div id="loadingOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter: blur(2px); z-index:9999; align-items:center; justify-content:center; flex-direction:column; color:#fff;">
+    <div style="font-size:40px; animation:spin 1s linear infinite;"><i class="fas fa-circle-notch"></i></div>
+    <div style="margin-top:16px; font-size:16px; font-weight:600;">Loading Sector Data...</div>
+    <div style="margin-top:8px; font-size:12px; opacity:0.7;">Querying network data for <span id="loadingSiteCount">{{ sel_sites|length }}</span> sites...</div>
+</div>
+<style>
+@keyframes spin { 100% { transform:rotate(360deg); } }
+</style>
+<div class="content-area">
+{% if chart_labels %}
+<div id="chartView">
+    <div class="chart-grid" id="chartGrid"></div>
+</div>
+
+<!-- TABLE VIEW -->
+<div id="tableView" style="display:none;">
+<div class="card" style="margin-top:20px; padding: 10px 12px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="card-title" style="margin:0">📊 Sector Data View</div>
+        <button class="btn-apply" onclick="downloadTableData()" style="display:flex;align-items:center;gap:5px;">
+            <i class="fas fa-download" style="font-size:10px;margin-right:4px"></i> Download CSV
+        </button>
+    </div>
+    <div style="max-height:500px;overflow-y:auto;border:1px solid rgba(128,128,128,0.15);border-radius:6px;">
+        <table class="data-table" id="dataTable" style="min-width:800px">
+            <thead id="tableHead">
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Sector Legend</th>
+                    {% for k in kpi_defs %}
+                        {% if k[0] in sel_kpis %}
+                            <th>{{ k[1] }} {% if k[2] %}({{ k[2] }}){% endif %}</th>
+                        {% endif %}
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+            {% set active_kpis = [] %}
+            {% for k in kpi_defs %}{% if k[0] in sel_kpis %}{% set _ = active_kpis.append(k) %}{% endif %}{% endfor %}
+            
+            {% set legend_keys = [] %}
+            {% if chart_data %}
+                {% set first_kpi = active_kpis[0][0] %}
+                {% for l_key in chart_data[first_kpi].keys() %}
+                    {% set _ = legend_keys.append(l_key) %}
+                {% endfor %}
+            {% endif %}
+            
+            {% for i in range(chart_labels|length) %}
+                {% set t_label = chart_labels[i] %}
+                {% for l_key in legend_keys %}
+                    <tr>
+                        <td>{{ t_label }}</td>
+                        <td>{{ l_key }}</td>
+                        {% for k in active_kpis %}
+                            {% set val = chart_data[k[0]][l_key][i] %}
+                            <td class="val-center">{% if val is not none %}{{ "%.2f"|format(val) }}{% else %}—{% endif %}</td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+{% else %}
+<div class="empty-state">
+    <div style="font-size:40px;margin-bottom:12px">📡</div>
+    <div style="font-size:14px">Select date range, Site ID, and KPIs, then click <strong>Show</strong></div>
+</div>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+var kpiDefs = {{ kpi_defs | tojson | safe }};
+var selKpis = {{ sel_kpis | tojson | safe }};
+var chartLabels = {{ chart_labels | tojson | safe }};
+var chartData = {{ chart_data | tojson | safe }};
+var chartInstances = {};
+
+function toggleSiteDropdown(event) {
+    if(event) event.stopPropagation();
+    var sm = document.getElementById("siteDropdown");
+    var km = document.getElementById("kpiDropdown");
+    km.style.display = "none";
+    var isHidden = sm.style.display === "none" || sm.style.display === "";
+    sm.style.display = isHidden ? "flex" : "none";
+    if (isHidden) sortSelectedToTop();
+}
+
+function toggleKpiDropdown(event) {
+    if(event) event.stopPropagation();
+    var sm = document.getElementById("siteDropdown");
+    var km = document.getElementById("kpiDropdown");
+    sm.style.display = "none";
+    km.style.display = km.style.display === "none" || km.style.display === "" ? "flex" : "none";
+}
+
+document.addEventListener("click", function(event){
+    var sc = document.getElementById("siteDropdownContainer");
+    var kc = document.getElementById("kpiDropdownContainer");
+    if(sc && !sc.contains(event.target)) document.getElementById("siteDropdown").style.display = "none";
+    if(kc && !kc.contains(event.target)) document.getElementById("kpiDropdown").style.display = "none";
+});
+
+function updateKpiCount(){
+    var checked = document.querySelectorAll("#kpiCheckboxes input[type='checkbox']:checked").length;
+    var btn = document.getElementById("kpiBtnText");
+    if(btn) btn.textContent = checked + " KPI(s) Selected";
+    
+    var allChecked = (checked === document.querySelectorAll("#kpiCheckboxes input[type='checkbox']").length);
+    document.getElementById("kpiSelectAll").checked = allChecked;
+}
+
+function toggleAllKPIs(cb){
+    document.querySelectorAll("#kpiCheckboxes input[type='checkbox']").forEach(function(c){
+        c.checked = cb.checked;
+    });
+    updateKpiCount();
+}
+
+function filterSites(){
+    var input = document.getElementById("siteSearch");
+    var filter = input.value.toUpperCase();
+    var labels = document.getElementById("siteCheckboxes").getElementsByTagName("label");
+    for(var i=0; i<labels.length; i++){
+        var span = labels[i].getElementsByTagName("span")[0];
+        if(span && span.textContent.toUpperCase().indexOf(filter) > -1){
+            labels[i].style.display = "";
+        } else {
+            labels[i].style.display = "none";
+        }
+    }
+}
+
+function toggleAllSites(cb){
+    document.querySelectorAll("#siteCheckboxes input[type='checkbox']").forEach(function(c){ c.checked = cb.checked; });
+    updateSiteCount();
+}
+
+function updateSiteCount(){
+    var sel = document.querySelectorAll("#siteCheckboxes input[type='checkbox']:checked").length;
+    document.querySelector("#siteDropdownContainer .dropdown-toggle").innerHTML = "Select Sites (" + sel + ") <i class='fas fa-chevron-down'></i>";
+    sortSelectedToTop();
+}
+
+function sortSelectedToTop(){
+    var container = document.getElementById("siteCheckboxes");
+    if(!container) return;
+    var labels = Array.from(container.querySelectorAll("label[data-site]"));
+    var sel=[], unsel=[];
+    labels.forEach(function(l){
+        var cb = l.querySelector("input[type='checkbox']");
+        if(cb && cb.checked) sel.push(l); else unsel.push(l);
+    });
+    sel.forEach(function(l){ container.removeChild(l); });
+    unsel.forEach(function(l){ container.removeChild(l); });
+    sel.forEach(function(l){ container.appendChild(l); });
+    unsel.forEach(function(l){ container.appendChild(l); });
+}
+
+function handleInlinePaste(val){
+    var arr = val.split(/[,\n\t]/).map(function(s){return s.trim().replace(/^["']|["']$/g,"");}).filter(function(s){return s.length>0;});
+    document.querySelectorAll("#siteCheckboxes input[type='checkbox']").forEach(function(cb){
+        cb.checked = arr.indexOf(cb.value) >= 0;
+    });
+    updateSiteCount();
+    document.getElementById("sitePasteCount").textContent = arr.length ? arr.length + " typed" : "";
+}
+
+function handleSiteFileImport(input){
+    var file = input.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e){
+        var text = e.target.result;
+        var arr = text.split(/[\r\n,\t]/).map(function(s){return s.trim().replace(/^["']|["']$/g,"");}).filter(function(s){return s.length>0;});
+        document.querySelectorAll("#siteCheckboxes input[type='checkbox']").forEach(function(cb){
+            cb.checked = arr.indexOf(cb.value) >= 0;
+        });
+        updateSiteCount();
+        document.getElementById("siteFileLabel").textContent = arr.length + " loaded";
+    };
+    reader.readAsText(file);
+}
+
+function showLoading() {
+    var n = document.querySelectorAll("#siteCheckboxes input[type='checkbox']:checked").length;
+    var countSpan = document.getElementById('loadingSiteCount');
+    if (countSpan) countSpan.textContent = n;
+    document.getElementById('loadingOverlay').style.display = 'flex';
+}
+
+function downloadTableData(){
+    var thead = document.getElementById("tableHead");
+    var tbody = document.getElementById("tableBody");
+    if(!thead || !tbody) return;
+    var rows = [];
+    var headers = [];
+    thead.querySelectorAll("th").forEach(function(th){ headers.push(th.textContent || ""); });
+    tbody.querySelectorAll("tr").forEach(function(tr){
+        var row = [];
+        tr.querySelectorAll("td").forEach(function(td){ row.push(td.textContent || ""); });
+        if(row.length) rows.push(row);
+    });
+    var csv = ['"' + headers.join('","') + '"'];
+    rows.forEach(function(r){
+        var cleanRow = r.map(function(item){
+            return '"' + item.replace(/"/g, '""') + '"';
+        });
+        csv.push(cleanRow.join(","));
+    });
+    var blob = new Blob([csv.join("\n")], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a"); a.href = url;
+    a.download = "kpi_2g_hourly_sector.csv"; a.click();
+    URL.revokeObjectURL(url);
+}
+
+var COLORS = ["#4facfe","#f093fb","#00c853","#ff9f40","#a78bfa","#ff5555","#00f2fe","#f6c90e","#8884d8","#ff6b6b", "#3b82f6", "#10b981", "#ef4444", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
+function tc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "#b0b8c8" : "#555"; }
+function gc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "rgba(79,172,254,0.08)" : "rgba(0,0,0,0.06)"; }
+var MON_SHORT = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"];
+
+function hourlyTickCallback(value, idx){
+    var tickLabel = value;
+    if(typeof value === 'number' && Array.isArray(chartLabels)){
+      tickLabel = chartLabels[value] || value;
+    }
+    if(typeof tickLabel === 'string' && tickLabel.indexOf(' ') > -1){
+      var parts = tickLabel.split(' ');
+      var dateParts = parts[0].split('-');
+      if(dateParts.length === 3){
+        var day = dateParts[2];
+        var month = parseInt(dateParts[1], 10) - 1;
+        return day + ' ' + MON_SHORT[month];
+      }
+    }
+    return tickLabel;
+}
+
+function makeOpts(leftLabel, yMin, yMax){
+    var opts = {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        plugins: {
+            legend: { display: true, position: "top", align: "center",
+                      labels: { color: tc(), font: { size: 10 }, boxWidth: 12, padding: 8 } },
+            tooltip: {
+                mode: "index", intersect: false,
+                backgroundColor: "rgba(10,10,30,0.88)",
+                titleFont: { size: 10 }, bodyFont: { size: 11 }, padding: 8,
+                callbacks: {
+                    title: function(items){ return items[0] ? items[0].label : ""; }
+                }
+            }
+        },
+        scales: {
+            x: {
+                ticks: { color: tc(), font: { size: 9 }, maxRotation: 0, autoSkip: true, autoSkipPadding: 20, callback: hourlyTickCallback },
+                grid: { color: gc() }
+            },
+            y: {
+                ticks: { color: tc(), font: { size: 10 } },
+                grid: { color: gc() },
+                title: { display: true, text: leftLabel, color: tc(), font: { size: 10 } }
+            }
+        },
+        interaction: { mode: 'index', intersect: false },
+        elements: { line: { tension: 0.2 }, point: { radius: 0, hoverRadius: 5 } }
+    };
+    if (yMin !== null) opts.scales.y.min = yMin;
+    if (yMax !== null) opts.scales.y.max = yMax;
+    return opts;
+}
+
+document.addEventListener("DOMContentLoaded", function(){
+    updateSiteCount();
+    updateKpiCount();
+
+    if(!chartLabels || chartLabels.length === 0){
+        fetch("/api/kpi_2g_hourly/last_update")
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                if(data.last_update){
+                    document.getElementById("lastUpdateDisplay").textContent = data.last_update;
+                }
+            })
+            .catch(function(){});
+        return;
+    }
+
+    var chartGrid = document.getElementById("chartGrid");
+    if(!chartGrid) return;
+    chartGrid.innerHTML = "";
+
+    var activeKpis = kpiDefs.filter(function(k){ return selKpis.indexOf(k[0]) > -1; });
+
+    activeKpis.forEach(function(kpi, kpiIdx){
+        var chartIdPrefix = kpi[0];
+        var title = kpi[1];
+        var unit = kpi[2];
+        var yLabel = kpi[3];
+        var yMin = kpi[4];
+        var yMax = kpi[5];
+
+        var kData = chartData[chartIdPrefix] || {};
+        
+        var sectorGroups = {};
+        for (var legendName in kData) {
+            var parts = legendName.split("-");
+            var sectorKey = parts[0]; 
+            if (!sectorGroups[sectorKey]) {
+                sectorGroups[sectorKey] = [];
+            }
+            sectorGroups[sectorKey].push({
+                legend: legendName,
+                data: kData[legendName]
+            });
+        }
+
+        var kpiSection = document.createElement("div");
+        kpiSection.style.gridColumn = "1 / -1";
+        kpiSection.style.marginBottom = "10px";
+        if (kpiIdx > 0) kpiSection.style.marginTop = "20px";
+        kpiSection.innerHTML = '<h3 style="margin:0; color:#4facfe; border-bottom:1px solid rgba(79,172,254,0.3); padding-bottom:6px;">' + title + ' (' + unit + ')</h3>';
+        chartGrid.appendChild(kpiSection);
+
+        var sIdx = 0;
+        for (var sectorKey in sectorGroups) {
+            var datasets = [];
+            var lines = sectorGroups[sectorKey];
+            lines.forEach(function(line, lineIdx){
+                datasets.push({
+                    label: line.legend,
+                    data: line.data,
+                    borderColor: COLORS[lineIdx % COLORS.length],
+                    tension: 0.2,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    borderWidth: 1.5
+                });
+            });
+
+            var chartId = chartIdPrefix + "_" + sIdx;
+            var card = document.createElement("div");
+            card.className = "card chart-card";
+            card.innerHTML = '<div class="card-title" style="margin-bottom:0">' + sectorKey + '</div><div class="card-sub" style="margin-bottom:8px">' + lines.length + ' cell(s)</div><div style="position: relative; height: 260px; width: 100%;"><canvas id="' + chartId + '" style="cursor:pointer" onclick="openChartModal(this)"></canvas></div>';
+            chartGrid.appendChild(card);
+            
+            var cvs = document.getElementById(chartId);
+            if(cvs) {
+                var ch = new Chart(cvs, {
+                    type: "line",
+                    data: { labels: chartLabels, datasets: datasets },
+                    options: makeOpts(yLabel || (title + " (" + unit + ")"), yMin, yMax)
+                });
+                chartInstances[chartId] = ch;
+            }
+            sIdx++;
+        }
+    });
+});
+
+function setView(view, btn) {
+    document.querySelectorAll('.view-toggle-btn').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    if (view === 'chart') {
+        document.getElementById('chartView').style.display = 'block';
+        document.getElementById('tableView').style.display = 'none';
+    } else {
+        document.getElementById('chartView').style.display = 'none';
+        document.getElementById('tableView').style.display = 'block';
+    }
+}
+</script>
+{% endblock %}
