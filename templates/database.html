@@ -103,7 +103,7 @@ function tc() { return document.documentElement.getAttribute("data-theme") === "
 function gc() { return document.documentElement.getAttribute("data-theme") === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"; }
 
 document.addEventListener("DOMContentLoaded", () => {
-    fetch('/api/database_status')
+    fetch('/api/database_status/' + DB_TYPE)
         .then(r => r.json())
         .then(data => {
             document.getElementById('loadingSkel').style.display = 'none';

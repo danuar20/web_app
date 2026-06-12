@@ -218,19 +218,26 @@ def database_page(db_type):
     ))
     return _no_cache(response)
 
-_db_cache = {"ts": 0, "data": None}
+_db_cache = {
+    "pumaz": {"ts": 0, "data": None},
+    "postgres": {"ts": 0, "data": None}
+}
 
-@auth.route("/api/database_status")
+@auth.route("/api/database_status/<db_type>")
 @login_required
-def api_database_status():
+def api_database_status(db_type):
     from app.db.db_webapp import get_postgres_connection
     from app.db.db_pumaz import get_pumaz_connection
     from ._utils import json_response
     import datetime, time
     
+    if db_type not in ["pumaz", "postgres"]:
+        return json_response({"error": "Invalid db type"})
+        
     now = time.time()
-    if _db_cache["data"] and (now - _db_cache["ts"]) < 3600:
-        return json_response(_db_cache["data"])
+    cache_entry = _db_cache.get(db_type, {"ts": 0, "data": None})
+    if cache_entry["data"] and (now - cache_entry["ts"]) < 3600:
+        return json_response(cache_entry["data"])
     
     today = datetime.date.today()
     date_list = [(today - datetime.timedelta(days=i)) for i in range(13, -1, -1)]
@@ -239,95 +246,96 @@ def api_database_status():
     
     result = {
         "labels": date_labels,
-        "pumaz": [],
-        "postgres": []
+        db_type: []
     }
     
-    # ── PUMAZ DB ──
-    pumaz_tables = [
-        ("traffic_payload", "Date"),
-        ("measKpiDy2G", "Date"),
-        ("measKpiDy4G", "Date"),
-        ("measKpiBdbh2G", "Date"),
-        ("measKpiBdbh4G", "Date"),
-        ("measTA4G", "Date"),
-        ("2G_pl_hy", "Date"),
-        ("4G_pl_hy", "date"),
-    ]
-    try:
-        conn = get_pumaz_connection()
-        cur = conn.cursor()
-        cur.execute("SET statement_timeout = '60s'")
-        for tbl, d_col in pumaz_tables:
-            try:
-                cur.execute(f'SELECT MIN("{d_col}"), MAX("{d_col}") FROM "{tbl}"')
-                row = cur.fetchone()
-                min_str = row[0].strftime("%Y-%m-%d") if row and row[0] else "No Data"
-                max_str = row[1].strftime("%Y-%m-%d") if row and row[1] else "No Data"
-                
-                cur.execute(f'''
-                    SELECT "{d_col}"::date, COUNT(*) 
-                    FROM "{tbl}" 
-                    WHERE "{d_col}" >= CURRENT_DATE - INTERVAL '13 days' 
-                    GROUP BY "{d_col}"::date
-                ''')
-                counts = {r[0].strftime("%Y-%m-%d"): r[1] for r in cur.fetchall()}
-                history = [counts.get(d, 0) for d in date_strs]
-                
-                result["pumaz"].append({
-                    "table": tbl,
-                    "min_date": min_str,
-                    "max_date": max_str,
-                    "history": history
-                })
-            except Exception as e:
-                conn.rollback()
-                result["pumaz"].append({"table": tbl, "min_date": "Error", "max_date": "Error", "history": [0]*14})
-        cur.close(); conn.close()
-    except Exception:
-        pass
+    if db_type == "pumaz":
+        # ── PUMAZ DB ──
+        pumaz_tables = [
+            ("traffic_payload", "Date"),
+            ("measKpiDy2G", "Date"),
+            ("measKpiDy4G", "Date"),
+            ("measKpiBdbh2G", "Date"),
+            ("measKpiBdbh4G", "Date"),
+            ("measTA4G", "Date"),
+            ("2G_pl_hy", "Date"),
+            ("4G_pl_hy", "date"),
+        ]
+        try:
+            conn = get_pumaz_connection()
+            cur = conn.cursor()
+            cur.execute("SET statement_timeout = '60s'")
+            for tbl, d_col in pumaz_tables:
+                try:
+                    cur.execute(f'SELECT MIN("{d_col}"), MAX("{d_col}") FROM "{tbl}"')
+                    row = cur.fetchone()
+                    min_str = row[0].strftime("%Y-%m-%d") if row and row[0] else "No Data"
+                    max_str = row[1].strftime("%Y-%m-%d") if row and row[1] else "No Data"
+                    
+                    cur.execute(f'''
+                        SELECT "{d_col}"::date, COUNT(*) 
+                        FROM "{tbl}" 
+                        WHERE "{d_col}" >= CURRENT_DATE - INTERVAL '13 days' 
+                        GROUP BY "{d_col}"::date
+                    ''')
+                    counts = {r[0].strftime("%Y-%m-%d"): r[1] for r in cur.fetchall()}
+                    history = [counts.get(d, 0) for d in date_strs]
+                    
+                    result["pumaz"].append({
+                        "table": tbl,
+                        "min_date": min_str,
+                        "max_date": max_str,
+                        "history": history
+                    })
+                except Exception as e:
+                    conn.rollback()
+                    result["pumaz"].append({"table": tbl, "min_date": "Error", "max_date": "Error", "history": [0]*14})
+            cur.close(); conn.close()
+        except Exception:
+            pass
 
-    # ── POSTGRES DB ──
-    pg_tables = [
-        ("2g_kpi_zte", "date"),
-        ("4g_kpi_zte", "date"),
-        ("5g_kpi_zte", "date"),
-    ]
-    try:
-        conn = get_postgres_connection()
-        cur = conn.cursor()
-        cur.execute("SET statement_timeout = '60s'")
-        for tbl, d_col in pg_tables:
-            try:
-                cur.execute(f'SELECT MIN("{d_col}"), MAX("{d_col}") FROM "{tbl}"')
-                row = cur.fetchone()
-                min_str = row[0].strftime("%Y-%m-%d") if row and row[0] else "No Data"
-                max_str = row[1].strftime("%Y-%m-%d") if row and row[1] else "No Data"
-                
-                cur.execute(f'''
-                    SELECT "{d_col}"::date, COUNT(*) 
-                    FROM "{tbl}" 
-                    WHERE "{d_col}" >= CURRENT_DATE - INTERVAL '13 days' 
-                    GROUP BY "{d_col}"::date
-                ''')
-                counts = {r[0].strftime("%Y-%m-%d"): r[1] for r in cur.fetchall()}
-                history = [counts.get(d, 0) for d in date_strs]
-                
-                result["postgres"].append({
-                    "table": tbl,
-                    "min_date": min_str,
-                    "max_date": max_str,
-                    "history": history
-                })
-            except Exception as e:
-                conn.rollback()
-                result["postgres"].append({"table": tbl, "min_date": "Error", "max_date": "Error", "history": [0]*14})
-        cur.close(); conn.close()
-    except Exception:
-        pass
+    elif db_type == "postgres":
+        # ── POSTGRES DB ──
+        pg_tables = [
+            ("2g_kpi_zte", "date"),
+            ("4g_kpi_zte", "date"),
+            ("5g_kpi_zte", "date"),
+        ]
+        try:
+            conn = get_postgres_connection()
+            cur = conn.cursor()
+            cur.execute("SET statement_timeout = '60s'")
+            for tbl, d_col in pg_tables:
+                try:
+                    cur.execute(f'SELECT MIN("{d_col}"), MAX("{d_col}") FROM "{tbl}"')
+                    row = cur.fetchone()
+                    min_str = row[0].strftime("%Y-%m-%d") if row and row[0] else "No Data"
+                    max_str = row[1].strftime("%Y-%m-%d") if row and row[1] else "No Data"
+                    
+                    cur.execute(f'''
+                        SELECT "{d_col}"::date, COUNT(*) 
+                        FROM "{tbl}" 
+                        WHERE "{d_col}" >= CURRENT_DATE - INTERVAL '13 days' 
+                        GROUP BY "{d_col}"::date
+                    ''')
+                    counts = {r[0].strftime("%Y-%m-%d"): r[1] for r in cur.fetchall()}
+                    history = [counts.get(d, 0) for d in date_strs]
+                    
+                    result["postgres"].append({
+                        "table": tbl,
+                        "min_date": min_str,
+                        "max_date": max_str,
+                        "history": history
+                    })
+                except Exception as e:
+                    conn.rollback()
+                    result["postgres"].append({"table": tbl, "min_date": "Error", "max_date": "Error", "history": [0]*14})
+            cur.close(); conn.close()
+        except Exception:
+            pass
 
-    _db_cache["ts"] = now
-    _db_cache["data"] = result
+    _db_cache[db_type]["ts"] = now
+    _db_cache[db_type]["data"] = result
     return json_response(result)
 
 # ── Health check ───────────────────────────────────────────────────────────────
