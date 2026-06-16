@@ -1,5 +1,5 @@
 from flask import Blueprint, make_response, redirect, render_template, request, session, flash, url_for
-from app.db.db_pumaz import get_pumaz_connection
+from app.db.db_webapp import get_postgres_connection
 from ._utils import login_required, _no_cache, ytd_pct
 from datetime import datetime, timedelta
 from collections import OrderedDict
@@ -7,6 +7,28 @@ import psycopg2
 import psycopg2.errors
 
 prod = Blueprint("prod", __name__)
+
+_prod_cache = {"ts": 0, "years": [], "nsas": []}
+
+def _get_prod_dropdowns():
+    import time
+    now = time.time()
+    if now - _prod_cache["ts"] < 3600 and _prod_cache["years"] and _prod_cache["nsas"]:
+        return _prod_cache["years"], _prod_cache["nsas"]
+    try:
+        conn = get_postgres_connection()
+        cur = conn.cursor()
+        cur.execute('SELECT DISTINCT "Year by Date" FROM traffic_payload WHERE "Year by Date" IS NOT NULL ORDER BY "Year by Date"')
+        years = [r[0] for r in cur.fetchall()]
+        cur.execute('SELECT DISTINCT "NSA" FROM traffic_payload WHERE "NSA" IS NOT NULL ORDER BY "NSA"')
+        nsas = [r[0] for r in cur.fetchall()]
+        cur.close(); conn.close()
+        _prod_cache["years"] = years
+        _prod_cache["nsas"] = nsas
+        _prod_cache["ts"] = now
+        return years, nsas
+    except Exception:
+        return [], []
 
 # ── Productivity ───────────────────────────────────────────────────────────────
 @prod.route("/productivity")
@@ -19,18 +41,13 @@ def productivity():
     # Auto-select most-recent and previous year when page first loads (no args)
     # Then redirect so the URL carries the params and data loads on this same request
     if not year_before and not year_after:
-        try:
-            conn_default = get_pumaz_connection()
-            cur_default = conn_default.cursor()
-            cur_default.execute('SELECT DISTINCT "Year by Date" FROM traffic_payload WHERE "Year by Date" IS NOT NULL ORDER BY "Year by Date" DESC LIMIT 2')
-            rows = [r[0] for r in cur_default.fetchall()]
-            cur_default.close(); conn_default.close()
-            if len(rows) >= 2:
-                return redirect(url_for("prod.productivity", year_before=str(rows[1]), year_after=str(rows[0])))
-            elif len(rows) == 1:
-                return redirect(url_for("prod.productivity", year_after=str(rows[0])))
-        except Exception:
-            pass
+        years, _ = _get_prod_dropdowns()
+        years_sorted = sorted([str(y) for y in years], reverse=True)
+        if len(years_sorted) >= 2:
+            return redirect(url_for("prod.productivity", year_before=years_sorted[1], year_after=years_sorted[0]))
+        elif len(years_sorted) == 1:
+            return redirect(url_for("prod.productivity", year_after=years_sorted[0]))
+
 
     chart_labels   = []
     payload_before = []; payload_after = []; payload_ytd = []
@@ -45,14 +62,11 @@ def productivity():
     filter_error = None
 
     try:
-        conn = get_pumaz_connection()
+        conn = get_postgres_connection()
         cur  = conn.cursor()
 
-        cur.execute('SELECT DISTINCT "Year by Date" FROM traffic_payload WHERE "Year by Date" IS NOT NULL ORDER BY "Year by Date"')
-        years_list = [r[0] for r in cur.fetchall()]
+        years_list, nsas_list = _get_prod_dropdowns()
 
-        cur.execute('SELECT DISTINCT "NSA" FROM traffic_payload WHERE "NSA" IS NOT NULL ORDER BY "NSA"')
-        nsas_list = [r[0] for r in cur.fetchall()]
 
         if year_before and year_after:
             if year_before >= year_after:
@@ -82,6 +96,20 @@ def productivity():
                         max_date_after = max_date_after.date()
                     last_date_after_str = max_date_after.strftime("%d %b %Y")
 
+                    start_before = f"{year_before}-01-01"
+                    end_before = f"{year_before}-12-31"
+                    start_after = f"{year_after}-01-01"
+                    end_after = f"{year_after}-12-31"
+
+                    def get_leap_day(year):
+                        try:
+                            return datetime(int(year), 2, 29).strftime('%Y-%m-%d')
+                        except ValueError:
+                            return '1900-01-01'
+
+                    exc_before = get_leap_day(year_before)
+                    exc_after = get_leap_day(year_after)
+
                     cur.execute(f"""
                         SELECT
                             EXTRACT(DOY FROM "Date")::INT AS day_of_year,
@@ -89,11 +117,15 @@ def productivity():
                             SUM("Payload (MB)")/1024.0/1024.0,
                             SUM("Traffic (erlang)")/1000.0
                         FROM traffic_payload
-                        WHERE ("Year by Date"=%s OR "Year by Date"=%s) {nsa_clause}
-                        AND NOT (EXTRACT(MONTH FROM "Date") = 2 AND EXTRACT(DAY FROM "Date") = 29)
+                        WHERE (
+                            ("Date" BETWEEN %s AND %s AND "Date" != %s::date)
+                            OR
+                            ("Date" BETWEEN %s AND %s AND "Date" != %s::date)
+                        ) {nsa_clause}
                         GROUP BY EXTRACT(DOY FROM "Date")::INT, "Year by Date"
                         ORDER BY EXTRACT(DOY FROM "Date")::INT, "Year by Date"
-                    """, [year_before, year_after] + ([sel_nsas] if sel_nsas else []))
+                    """, [start_before, end_before, exc_before, start_after, end_after, exc_after] + ([sel_nsas] if sel_nsas else []))
+
 
                     day_map = {}
                     for r in cur.fetchall():
@@ -147,6 +179,11 @@ def productivity():
                     ytd_payload_final = ytd_p_list[-1] if ytd_p_list else None
                     ytd_traffic_final = ytd_t_list[-1] if ytd_t_list else None
 
+                    doy_after = max_date_after.timetuple().tm_yday
+                    cutoff_before_date = datetime(int(year_before), 1, 1) + timedelta(days=doy_after - 1)
+                    end_before_cutoff = cutoff_before_date.strftime('%Y-%m-%d')
+                    end_after_cutoff = max_date_after.strftime('%Y-%m-%d')
+
                     cur.execute(f"""
                         SELECT "Regional","NSA","TO",
                             SUM(CASE WHEN "Year by Date"=%s THEN "Payload (MB)" END)/1024.0/1024.0,
@@ -155,17 +192,18 @@ def productivity():
                             SUM(CASE WHEN "Year by Date"=%s THEN "Traffic (erlang)" END)/1000.0
                         FROM traffic_payload
                         WHERE (
-                            ("Year by Date"=%s AND EXTRACT(DOY FROM "Date") <= EXTRACT(DOY FROM %s::date))
+                            ("Date" BETWEEN %s AND %s AND "Date" != %s::date)
                             OR
-                            ("Year by Date"=%s AND EXTRACT(DOY FROM "Date") <= EXTRACT(DOY FROM %s::date))
+                            ("Date" BETWEEN %s AND %s AND "Date" != %s::date)
                         )
                         {nsa_clause}
-                        AND NOT (EXTRACT(MONTH FROM "Date") = 2 AND EXTRACT(DAY FROM "Date") = 29)
                         GROUP BY "Regional","NSA","TO"
                         ORDER BY "Regional","NSA","TO"
                     """,
                     [year_before, year_after, year_before, year_after,
-                     year_before, max_date_after, year_after, max_date_after] + base_params)
+                     start_before, end_before_cutoff, exc_before, 
+                     start_after, end_after_cutoff, exc_after] + base_params)
+
 
                     regional_data = OrderedDict()
                     for r in cur.fetchall():
@@ -262,7 +300,7 @@ def city_level():
     kpi_availability = None; kpi_rrc = 0.0
 
     try:
-        conn = get_pumaz_connection(); cur = conn.cursor()
+        conn = get_postgres_connection(); cur = conn.cursor()
 
         cur.execute('SELECT DISTINCT "NSA" FROM traffic_payload WHERE "NSA" IS NOT NULL ORDER BY "NSA"')
         nsas_list = [r[0] for r in cur.fetchall()]
@@ -426,7 +464,7 @@ def city_level():
 
     last_update = None
     try:
-        conn2 = get_pumaz_connection()
+        conn2 = get_postgres_connection()
         cur2 = conn2.cursor()
         cur2.execute('SELECT MAX("Date") FROM traffic_payload')
         row = cur2.fetchone()
@@ -478,7 +516,7 @@ def site_level():
     kpi_availability = None; kpi_rrc = 0.0
 
     try:
-        conn = get_pumaz_connection(); cur = conn.cursor()
+        conn = get_postgres_connection(); cur = conn.cursor()
 
         cur.execute('SELECT DISTINCT "NSA" FROM traffic_payload WHERE "NSA" IS NOT NULL ORDER BY "NSA"')
         nsas_list = [r[0] for r in cur.fetchall()]
@@ -670,7 +708,7 @@ def site_level():
 
     last_update = None
     try:
-        conn2 = get_pumaz_connection()
+        conn2 = get_postgres_connection()
         cur2 = conn2.cursor()
         cur2.execute('SELECT MAX("Date") FROM traffic_payload')
         row = cur2.fetchone()

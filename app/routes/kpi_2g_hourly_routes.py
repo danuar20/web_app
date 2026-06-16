@@ -1,6 +1,6 @@
 """2G KPI Hourly Routes — /kpi_2g_hourly (Site Level only)"""
 from flask import Blueprint, render_template, request, session, make_response, flash
-from app.db.db_webapp import get_postgres_connection, get_site_list_2g, clear_request_cache
+from app.db.db_webapp import get_postgres_connection, get_site_list_2g
 from ._utils import login_required, _no_cache, json_response
 import psycopg2
 import psycopg2.errors
@@ -14,7 +14,6 @@ kpi2g_hourly = Blueprint("kpi2g_hourly", __name__)
 def api_kpi_2g_hourly_sites():
     """Returns 2G site list from siteID_2g"""
     try:
-        clear_request_cache()
         sites = get_site_list_2g()
         return json_response({"sites": sites, "count": len(sites)})
     except Exception as e:

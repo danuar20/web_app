@@ -2,10 +2,10 @@
 
 {% block nav_database %}active sub-open{% endblock %}
 {% block subDB_open %}open{% endblock %}
-{% block nav_db_pumaz %}{{ 'active' if db_type == 'pumaz' else '' }}{% endblock %}
+
 {% block nav_db_postgres %}{{ 'active' if db_type == 'postgres' else '' }}{% endblock %}
 
-{% block page_title %}{{ "Pumaz DB" if db_type == "pumaz" else "Postgres DB" }} Status{% endblock %}
+{% block page_title %}Postgres DB Status{% endblock %}
 {% block page_sub %}Data completeness and health check for 14 days{% endblock %}
 
 {% block page_content %}
@@ -23,10 +23,10 @@
     animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
     width: 100%;
 }
-.db-grid.pumaz { grid-template-columns: repeat(3, 1fr); }
+
 .db-grid.postgres { grid-template-columns: repeat(3, 1fr); }
 
-@media(max-width: 1400px) { .db-grid.pumaz { grid-template-columns: repeat(3, 1fr); } }
+
 @media(max-width: 1100px) { .db-grid { grid-template-columns: repeat(2, 1fr) !important; } }
 @media(max-width: 700px) { .db-grid { grid-template-columns: 1fr !important; } }
 
@@ -130,7 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 sumCard.className = 'db-card summary-card';
                 sumCard.innerHTML = `
                     <div class="card-header">
-                        <i class="fas ${DB_TYPE === 'pumaz' ? 'fa-table' : 'fa-database'}" style="color:#4facfe; opacity:0.8"></i>
+                        <i class="fas fa-database" style="color:#4facfe; opacity:0.8"></i>
                         ${item.table}
                     </div>
                     <div class="card-info">
@@ -164,7 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const chart = new Chart(ctx, {
                     type: 'bar',
                     data: {
-                        labels: labels,
+                        labels: item.labels || labels,
                         datasets: [{
                             label: 'Rows',
                             data: item.history,
@@ -202,6 +202,8 @@ document.addEventListener("DOMContentLoaded", () => {
                                 grid: { display: false } 
                             },
                             x: { 
+                                max: Math.max(...item.history.filter(x => x !== "Error" && !isNaN(x))),
+                                beginAtZero: true,
                                 ticks: { display: false }, 
                                 grid: { color: gc(), drawBorder: false } 
                             }

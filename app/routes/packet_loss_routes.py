@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, session, flash, make_response
-from app.db.db_pumaz import get_pumaz_connection
+from app.db.db_webapp import get_postgres_connection
 from ._utils import login_required, _no_cache, json_response, csv_response, validate_date_params
 from datetime import datetime
 import psycopg2
@@ -38,7 +38,7 @@ def pl_2g():
 
     conn = None; cur = None
     try:
-        conn = get_pumaz_connection(); cur = conn.cursor()
+        conn = get_postgres_connection(); cur = conn.cursor()
 
         try:
             cur.execute('SELECT DISTINCT "Site ID" FROM "2G_pl_hy" WHERE "Site ID" IS NOT NULL ORDER BY "Site ID" LIMIT 20000')
@@ -127,7 +127,7 @@ def pl_4g():
 
     conn = None; cur = None
     try:
-        conn = get_pumaz_connection(); cur = conn.cursor()
+        conn = get_postgres_connection(); cur = conn.cursor()
 
         try:
             cur.execute('SELECT DISTINCT siteid FROM "4G_pl_hy" WHERE siteid IS NOT NULL ORDER BY siteid LIMIT 20000')
@@ -220,7 +220,7 @@ def export_pl_4g():
         return json_response({"error": "Missing required parameters"}, 400)
 
     try:
-        conn = get_pumaz_connection(); cur = conn.cursor()
+        conn = get_postgres_connection(); cur = conn.cursor()
         cur.execute("""
             SELECT
                 date, hour, siteid,
@@ -272,7 +272,7 @@ def export_pl_2g():
         return json_response({"error": "Missing required parameters"}, 400)
 
     try:
-        conn = get_pumaz_connection(); cur = conn.cursor()
+        conn = get_postgres_connection(); cur = conn.cursor()
         cur.execute("""
             SELECT
                 "Date", "Hour", "Site ID",

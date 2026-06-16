@@ -198,8 +198,8 @@
     <div class="welcome-banner">
         <div class="wb-icon">👋</div>
         <div class="wb-content">
-            <div class="wb-title">Selamat datang, {{ username }}!</div>
-            <div class="wb-sub">Network KPI Monitor v2.0 — {{ now }}</div>
+            <div class="wb-title">Welcome back, {{ username }}!</div>
+            <div class="wb-sub">Network KPI Monitor v3.0 — {{ now }}</div>
         </div>
     </div>
 
@@ -221,7 +221,6 @@
             <a href="/productivity" class="dash-quick-link"><div class="dash-quick-icon">📈</div><div class="dash-quick-text"><div class="dash-quick-label">Productivity</div><div class="dash-quick-desc">Trend YoY</div></div></a>
             <a href="/kpi_2g_hourly" class="dash-quick-link"><div class="dash-quick-icon">📻</div><div class="dash-quick-text"><div class="dash-quick-label">2G Hourly</div><div class="dash-quick-desc">Per site</div></div></a>
             <a href="/kpi_4g_hourly" class="dash-quick-link"><div class="dash-quick-icon">📶</div><div class="dash-quick-text"><div class="dash-quick-label">4G Hourly</div><div class="dash-quick-desc">Per site</div></div></a>
-            <a href="/kpi_5g_daily" class="dash-quick-link"><div class="dash-quick-icon">🚀</div><div class="dash-quick-text"><div class="dash-quick-label">5G Daily</div><div class="dash-quick-desc">Per site</div></div></a>
             <a href="/kpi_5g_hourly" class="dash-quick-link"><div class="dash-quick-icon">🚀</div><div class="dash-quick-text"><div class="dash-quick-label">5G Hourly</div><div class="dash-quick-desc">Per site</div></div></a>
             <a href="/kpi_2g_daily" class="dash-quick-link"><div class="dash-quick-icon">📊</div><div class="dash-quick-text"><div class="dash-quick-label">2G Daily</div><div class="dash-quick-desc">BSC Level</div></div></a>
             <a href="/ta_4g" class="dash-quick-link"><div class="dash-quick-icon">📐</div><div class="dash-quick-text"><div class="dash-quick-label">TA 4G</div><div class="dash-quick-desc">Timing Advance</div></div></a>
@@ -308,15 +307,29 @@ function dbStatusCards(d){
             ${dot(status||'loading')}
         </div>`;
     };
-    var pg = d.postgres_db, pz = d.pumaz_db, wa = d.webapp_db;
+    var pg = d.postgres_db;
+    
     var pgSub = [];
     if(pg.last_update_2g) pgSub.push('2G: '+pg.last_update_2g);
     if(pg.last_update_4g) pgSub.push('4G: '+pg.last_update_4g);
     if(pg.last_update_5g) pgSub.push('5G: '+pg.last_update_5g);
     if(!pgSub.length) pgSub.push('No data');
-    return card('🐘','pg','PostgreSQL', pgSub.join(' · '), pg.status)
-         + card('🌐','pz','Pumaz', pz.last_update || 'No data', pz.status)
-         + card('🔐','wa','Webapp DB', 'Auth & Users', wa.status);
+
+    var plSub = [];
+    if(pg.last_tp) plSub.push('TP: '+pg.last_tp);
+    if(pg.last_mk2g) plSub.push('2G: '+pg.last_mk2g);
+    if(pg.last_mk4g) plSub.push('4G: '+pg.last_mk4g);
+    if(!plSub.length) plSub.push('No data');
+
+    var taSub = [];
+    if(pg.last_2gpl) taSub.push('2G: '+pg.last_2gpl);
+    if(pg.last_4gpl) taSub.push('4G: '+pg.last_4gpl);
+    if(pg.last_ta4g) taSub.push('TA: '+pg.last_ta4g);
+    if(!taSub.length) taSub.push('No data');
+
+    return card('🐘','pg','Hourly KPI', pgSub.join(' · '), pg.status)
+         + card('📦','pz','Productivity & Daily KPI', plSub.join(' · '), pg.status)
+         + card('📡','wa','Packet Loss & TA', taSub.join(' · '), pg.status);
 }
 
 /* ── KPI cards ── */

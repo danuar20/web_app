@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, session, make_response
-from app.db.db_pumaz import get_pumaz_connection
+from app.db.db_webapp import get_postgres_connection
 from ._utils import login_required, _no_cache
 import psycopg2
 
@@ -70,7 +70,7 @@ def ta_4g():
     conn = None
     cur = None
     try:
-        conn = get_pumaz_connection()
+        conn = get_postgres_connection()
         cur = conn.cursor()
 
         # Get distinct site names

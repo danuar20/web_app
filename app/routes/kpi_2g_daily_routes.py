@@ -1,6 +1,6 @@
 """2G KPI Daily Routes — /kpi_2g_daily (BSC Level & Site Level)"""
 from flask import Blueprint, render_template, request, session, make_response, flash
-from app.db.db_pumaz import get_pumaz_connection
+from app.db.db_webapp import get_postgres_connection
 from ._utils import login_required, _no_cache
 import psycopg2
 import psycopg2.errors
@@ -51,7 +51,7 @@ def kpi_2g_daily():
     conn = None
     cur  = None
     try:
-        conn = get_pumaz_connection()
+        conn = get_postgres_connection()
         cur  = conn.cursor()
 
         # Last data update
@@ -419,7 +419,7 @@ def kpi_2g_daily():
         if conn: conn.rollback()
         if cur: cur.close()
         if conn: conn.close()
-        flash("PUMAZ database connection failed. Please try again.", "warning")
+        flash("Postgres database connection failed. Please try again.", "warning")
     except psycopg2.errors.QueryCanceled:
         if conn: conn.rollback()
         if cur: cur.close()

@@ -1,7 +1,6 @@
 from flask import Blueprint, make_response, render_template, request, redirect, url_for, session, flash, jsonify
 from werkzeug.security import check_password_hash
 from app.db.db_webapp import get_connection
-from app.db.db_pumaz import get_pumaz_connection
 from ._utils import login_required, json_response
 import psycopg2
 
@@ -64,7 +63,6 @@ _DASH_CACHE_SECS = 300  # 5 minutes
 @login_required
 def api_dashboard():
     from app.db.db_webapp import get_postgres_connection, get_connection
-    from app.db.db_pumaz import get_pumaz_connection
     from ._utils import json_response
     import time as _time
 
@@ -73,13 +71,14 @@ def api_dashboard():
         return json_response(_dash_cache["data"])
 
     summary = {
-        "postgres_db": {"status": "unknown", "last_update_2g": None, "last_update_4g": None, "last_update_5g": None, "site_count_2g": 0, "site_count_4g": 0, "site_count_5g": 0},
-        "pumaz_db": {"status": "unknown", "last_update": None},
+        "postgres_db": {"status": "unknown", "last_update_2g": None, "last_update_4g": None, "last_update_5g": None, "site_count_2g": 0, "site_count_4g": 0, "site_count_5g": 0, "last_tp": None, "last_mk2g": None, "last_mk4g": None, "last_2gpl": None, "last_4gpl": None, "last_ta4g": None},
         "webapp_db": {"status": "unknown"},
         "trend_labels": [],
         "trend_payload": {},
         "trend_traffic": {},
     }
+
+    postgres_ok = False
 
     # ── PostgreSQL DB ──
     try:
@@ -103,31 +102,35 @@ def api_dashboard():
             except Exception:
                 pass
 
+        for tbl, col, key in [
+            ("traffic_payload", "Date", "last_tp"),
+            ("measKpiDy2G", "Date", "last_mk2g"),
+            ("measKpiDy4G", "Date", "last_mk4g"),
+            ("2G_pl_hy", "Date", "last_2gpl"),
+            ("4G_pl_hy", "date", "last_4gpl"),
+            ("measTA4G", "Date", "last_ta4g")
+        ]:
+            try:
+                cur.execute(f'SELECT MAX("{col}") FROM "{tbl}"')
+                row = cur.fetchone()
+                if row and row[0]:
+                    import datetime
+                    dt = row[0].date() if isinstance(row[0], datetime.datetime) else row[0]
+                    summary["postgres_db"][key] = dt.strftime("%d %b %Y")
+            except Exception:
+                pass
+
         summary["postgres_db"]["status"] = "ok"
+        postgres_ok = True
         cur.close(); conn.close()
     except Exception:
         summary["postgres_db"]["status"] = "error"
 
-    # ── Pumaz DB ──
-    pumaz_ok = False
-    try:
-        conn = get_pumaz_connection()
-        cur = conn.cursor()
-        cur.execute("SET statement_timeout = '30s'")
-
-        cur.execute('SELECT MAX("Date") FROM traffic_payload')
-        row = cur.fetchone()
-        summary["pumaz_db"]["last_update"] = row[0].strftime("%d %b %Y") if row and row[0] else None
-        summary["pumaz_db"]["status"] = "ok"
-        pumaz_ok = True
-        cur.close(); conn.close()
-    except Exception:
-        summary["pumaz_db"]["status"] = "error"
 
     # ── Productivity trend 14 hari (Traffic + Payload per Tech) ──
-    if pumaz_ok:
+    if postgres_ok:
         try:
-            conn = get_pumaz_connection()
+            conn = get_postgres_connection()
             cur = conn.cursor()
             cur.execute("SET statement_timeout = '30s'")
 
@@ -209,7 +212,7 @@ def api_dashboard():
 @login_required
 def database_page(db_type):
     from ._utils import _no_cache
-    if db_type not in ["pumaz", "postgres"]:
+    if db_type != "postgres":
         return redirect(url_for("auth.dashboard"))
         
     response = make_response(render_template("database.html",
@@ -219,7 +222,6 @@ def database_page(db_type):
     return _no_cache(response)
 
 _db_cache = {
-    "pumaz": {"ts": 0, "data": None},
     "postgres": {"ts": 0, "data": None}
 }
 
@@ -227,11 +229,10 @@ _db_cache = {
 @login_required
 def api_database_status(db_type):
     from app.db.db_webapp import get_postgres_connection
-    from app.db.db_pumaz import get_pumaz_connection
     from ._utils import json_response
     import datetime, time
     
-    if db_type not in ["pumaz", "postgres"]:
+    if db_type != "postgres":
         return json_response({"error": "Invalid db type"})
         
     now = time.time()
@@ -249,9 +250,13 @@ def api_database_status(db_type):
         db_type: []
     }
     
-    if db_type == "pumaz":
-        # ── PUMAZ DB ──
-        pumaz_tables = [
+    if db_type == "postgres":
+        # ── POSTGRES DB ──
+        pg_tables = [
+            ("2g_kpi_zte", "datehour"),
+            ("4g_kpi_zte", "datehour"),
+            ("5g_kpi_zte", "datehour"),
+            # Formerly Pumaz tables:
             ("traffic_payload", "Date"),
             ("measKpiDy2G", "Date"),
             ("measKpiDy4G", "Date"),
@@ -261,78 +266,56 @@ def api_database_status(db_type):
             ("2G_pl_hy", "Date"),
             ("4G_pl_hy", "date"),
         ]
-        try:
-            conn = get_pumaz_connection()
-            cur = conn.cursor()
-            cur.execute("SET statement_timeout = '60s'")
-            for tbl, d_col in pumaz_tables:
-                try:
-                    cur.execute(f'SELECT MIN("{d_col}"), MAX("{d_col}") FROM "{tbl}"')
-                    row = cur.fetchone()
-                    min_str = row[0].strftime("%Y-%m-%d") if row and row[0] else "No Data"
-                    max_str = row[1].strftime("%Y-%m-%d") if row and row[1] else "No Data"
-                    
-                    cur.execute(f'''
-                        SELECT "{d_col}"::date, COUNT(*) 
-                        FROM "{tbl}" 
-                        WHERE "{d_col}" >= CURRENT_DATE - INTERVAL '13 days' 
-                        GROUP BY "{d_col}"::date
-                    ''')
-                    counts = {r[0].strftime("%Y-%m-%d"): r[1] for r in cur.fetchall()}
-                    history = [counts.get(d, 0) for d in date_strs]
-                    
-                    result["pumaz"].append({
-                        "table": tbl,
-                        "min_date": min_str,
-                        "max_date": max_str,
-                        "history": history
-                    })
-                except Exception as e:
-                    conn.rollback()
-                    result["pumaz"].append({"table": tbl, "min_date": "Error", "max_date": "Error", "history": [0]*14})
-            cur.close(); conn.close()
-        except Exception:
-            pass
+        
+        import concurrent.futures
+        
+        def fetch_pg_tbl(tbl_info):
+            tbl, d_col = tbl_info
+            try:
+                conn = get_postgres_connection()
+                cur = conn.cursor()
+                cur.execute("SET statement_timeout = '60s'")
+                
+                cur.execute(f'SELECT MIN("{d_col}"), MAX("{d_col}") FROM "{tbl}"')
+                row = cur.fetchone()
+                min_date = row[0] if row else None
+                max_date = row[1] if row else None
+                
+                min_str = min_date.strftime("%Y-%m-%d") if min_date else "No Data"
+                max_str = max_date.strftime("%Y-%m-%d") if max_date else "No Data"
+                
+                # Calculate the 14-day window relative to today
+                ref_date = datetime.date.today()
+                
+                tbl_date_list = [(ref_date - datetime.timedelta(days=i)) for i in range(13, -1, -1)]
+                tbl_date_strs = [d.strftime("%Y-%m-%d") for d in tbl_date_list]
+                tbl_labels = [d.strftime("%d %b") for d in tbl_date_list]
+                
+                cur.execute(f'''
+                    SELECT "{d_col}"::date, COUNT(*) 
+                    FROM "{tbl}" 
+                    WHERE "{d_col}" >= %s 
+                    GROUP BY "{d_col}"::date
+                ''', [tbl_date_list[0]])
+                counts = {r[0].strftime("%Y-%m-%d"): r[1] for r in cur.fetchall()}
+                history = [counts.get(d, 0) for d in tbl_date_strs]
+                
+                cur.close()
+                conn.close()
+                return {
+                    "table": tbl,
+                    "min_date": min_str,
+                    "max_date": max_str,
+                    "labels": tbl_labels,
+                    "history": history
+                }
+            except Exception as e:
+                return {"table": tbl, "min_date": "Error", "max_date": "Error", "labels": [], "history": [0]*14}
 
-    elif db_type == "postgres":
-        # ── POSTGRES DB ──
-        pg_tables = [
-            ("2g_kpi_zte", "date"),
-            ("4g_kpi_zte", "date"),
-            ("5g_kpi_zte", "date"),
-        ]
-        try:
-            conn = get_postgres_connection()
-            cur = conn.cursor()
-            cur.execute("SET statement_timeout = '60s'")
-            for tbl, d_col in pg_tables:
-                try:
-                    cur.execute(f'SELECT MIN("{d_col}"), MAX("{d_col}") FROM "{tbl}"')
-                    row = cur.fetchone()
-                    min_str = row[0].strftime("%Y-%m-%d") if row and row[0] else "No Data"
-                    max_str = row[1].strftime("%Y-%m-%d") if row and row[1] else "No Data"
-                    
-                    cur.execute(f'''
-                        SELECT "{d_col}"::date, COUNT(*) 
-                        FROM "{tbl}" 
-                        WHERE "{d_col}" >= CURRENT_DATE - INTERVAL '13 days' 
-                        GROUP BY "{d_col}"::date
-                    ''')
-                    counts = {r[0].strftime("%Y-%m-%d"): r[1] for r in cur.fetchall()}
-                    history = [counts.get(d, 0) for d in date_strs]
-                    
-                    result["postgres"].append({
-                        "table": tbl,
-                        "min_date": min_str,
-                        "max_date": max_str,
-                        "history": history
-                    })
-                except Exception as e:
-                    conn.rollback()
-                    result["postgres"].append({"table": tbl, "min_date": "Error", "max_date": "Error", "history": [0]*14})
-            cur.close(); conn.close()
-        except Exception:
-            pass
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            results = list(executor.map(fetch_pg_tbl, pg_tables))
+            
+        result["postgres"] = results
 
     _db_cache[db_type]["ts"] = now
     _db_cache[db_type]["data"] = result
@@ -347,7 +330,6 @@ def health_check():
     status = {
         "app": "ok",
         "postgres_db": None,
-        "pumaz_db": None,
         "webapp_db": None
     }
     code = 200
@@ -361,17 +343,6 @@ def health_check():
         status["postgres_db"] = "ok"
     except Exception as e:
         status["postgres_db"] = str(e)[:80]
-        code = 503
-
-    # Check pumaz
-    try:
-        conn = get_pumaz_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT 1")
-        cur.close(); conn.close()
-        status["pumaz_db"] = "ok"
-    except Exception as e:
-        status["pumaz_db"] = str(e)[:80]
         code = 503
 
     # Check webapp db
@@ -391,9 +362,10 @@ def health_check():
 @auth.route("/api/cities")
 @login_required
 def api_cities():
+    from app.db.db_webapp import get_postgres_connection
     nsas = request.args.getlist("nsa")
     try:
-        conn = get_pumaz_connection()
+        conn = get_postgres_connection()
         cur  = conn.cursor()
         if nsas:
             cur.execute("""
@@ -412,10 +384,11 @@ def api_cities():
 @auth.route("/api/sites")
 @login_required
 def api_sites():
+    from app.db.db_webapp import get_postgres_connection
     cities = request.args.getlist("city")
     nsas   = request.args.getlist("nsa")
     try:
-        conn = get_pumaz_connection()
+        conn = get_postgres_connection()
         cur  = conn.cursor()
         conditions = ['"Site ID" IS NOT NULL']
         params     = []

@@ -1173,17 +1173,24 @@ body.mobile-view .mob-nav-item.active {
   <aside class="sidebar" id="sidebar">
 
     <div class="sidebar-logo">
-      <div class="logo-icon">
-        <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
-          <path d="M9 2L16 6V12L9 16L2 12V6L9 2Z" stroke="white" stroke-width="1.5" fill="none"/>
-          <circle cx="9" cy="9" r="2.5" fill="white"/>
+      <div class="logo-icon" style="background: transparent; box-shadow: none;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="url(#brandGrad)"/>
+          <path d="M2 17L12 22L22 17" stroke="url(#brandGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M2 12L12 17L22 12" stroke="url(#brandGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs>
+            <linearGradient id="brandGrad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#4facfe"/>
+              <stop offset="1" stop-color="#00f2fe"/>
+            </linearGradient>
+          </defs>
         </svg>
       </div>
 
       
       <div class="sidebar-brand-wrap">
         <div class="sidebar-brand">NetKPI</div>
-        <div class="sidebar-brand-sub">Monitor v2.0</div>
+        <div class="sidebar-brand-sub">Monitor v3.0</div>
       </div>
     </div>
 
@@ -1222,9 +1229,7 @@ body.mobile-view .mob-nav-item.active {
         <i class="fas fa-chevron-right menu-arrow"></i>
       </div>
       <div class="sub-menu {% block subDB_open %}{% endblock %}" id="subDB">
-        <a href="/database/pumaz" class="sub-item {% block nav_db_pumaz %}{% endblock %}">
-          <span class="sub-item-dot"></span> Pumaz DB
-        </a>
+
         <a href="/database/postgres" class="sub-item {% block nav_db_postgres %}{% endblock %}">
           <span class="sub-item-dot"></span> Postgres DB
         </a>
