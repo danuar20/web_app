@@ -302,16 +302,16 @@ def city_level():
     try:
         conn = get_postgres_connection(); cur = conn.cursor()
 
-        cur.execute('SELECT DISTINCT "NSA" FROM traffic_payload WHERE "NSA" IS NOT NULL ORDER BY "NSA"')
+        cur.execute('SELECT DISTINCT "NSA" FROM traffic_payload WHERE "NSA" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "NSA"')
         nsas_list = [r[0] for r in cur.fetchall()]
 
         cur.execute('SELECT DISTINCT "Y_W" FROM traffic_payload WHERE "Y_W" IS NOT NULL ORDER BY "Y_W" DESC LIMIT 104')
         yw_list = [r[0] for r in cur.fetchall()]
 
         if sel_nsas:
-            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "NSA"=ANY(%s) AND "KABUPATEN" IS NOT NULL ORDER BY "KABUPATEN"', (sel_nsas,))
+            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "NSA"=ANY(%s) AND "KABUPATEN" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "KABUPATEN"', (sel_nsas,))
         else:
-            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "KABUPATEN" IS NOT NULL ORDER BY "KABUPATEN"')
+            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "KABUPATEN" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "KABUPATEN"')
         cities_list = [r[0] for r in cur.fetchall()]
         filtered_cities = cities_list
 
@@ -518,37 +518,37 @@ def site_level():
     try:
         conn = get_postgres_connection(); cur = conn.cursor()
 
-        cur.execute('SELECT DISTINCT "NSA" FROM traffic_payload WHERE "NSA" IS NOT NULL ORDER BY "NSA"')
+        cur.execute('SELECT DISTINCT "NSA" FROM traffic_payload WHERE "NSA" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "NSA"')
         nsas_list = [r[0] for r in cur.fetchall()]
 
         cur.execute('SELECT DISTINCT "Y_W" FROM traffic_payload WHERE "Y_W" IS NOT NULL ORDER BY "Y_W" DESC LIMIT 104')
         yw_list = [r[0] for r in cur.fetchall()]
 
         if sel_nsas:
-            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "NSA"=ANY(%s) AND "KABUPATEN" IS NOT NULL ORDER BY "KABUPATEN"', (sel_nsas,))
+            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "NSA"=ANY(%s) AND "KABUPATEN" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "KABUPATEN"', (sel_nsas,))
         else:
-            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "KABUPATEN" IS NOT NULL ORDER BY "KABUPATEN"')
+            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "KABUPATEN" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "KABUPATEN"')
         cities_list = [r[0] for r in cur.fetchall()]
 
         if sel_cities:
-            cur.execute('SELECT DISTINCT "Site ID" FROM traffic_payload WHERE "KABUPATEN"=ANY(%s) AND "Site ID" IS NOT NULL ORDER BY "Site ID" LIMIT 2000', (sel_cities,))
+            cur.execute('SELECT DISTINCT "Site ID" FROM traffic_payload WHERE "KABUPATEN"=ANY(%s) AND "Site ID" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'60 days\' ORDER BY "Site ID" LIMIT 2000', (sel_cities,))
         else:
-            cur.execute('SELECT DISTINCT "Site ID" FROM traffic_payload WHERE "Site ID" IS NOT NULL ORDER BY "Site ID" LIMIT 2000')
+            cur.execute('SELECT DISTINCT "Site ID" FROM traffic_payload WHERE "Site ID" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'60 days\' ORDER BY "Site ID" LIMIT 2000')
         sites_list = [r[0] for r in cur.fetchall()]
 
         # Cascading: cities filtered by NSA, sites filtered by NSA+city
         if sel_nsas:
-            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "NSA"=ANY(%s) AND "KABUPATEN" IS NOT NULL ORDER BY "KABUPATEN"', (sel_nsas,))
+            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "NSA"=ANY(%s) AND "KABUPATEN" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "KABUPATEN"', (sel_nsas,))
         else:
-            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "KABUPATEN" IS NOT NULL ORDER BY "KABUPATEN"')
+            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "KABUPATEN" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "KABUPATEN"')
         filtered_cities = [r[0] for r in cur.fetchall()]
 
         if sel_cities and sel_nsas:
-            cur.execute('SELECT DISTINCT "Site ID" FROM traffic_payload WHERE "NSA"=ANY(%s) AND "KABUPATEN"=ANY(%s) AND "Site ID" IS NOT NULL ORDER BY "Site ID" LIMIT 2000', (sel_nsas, sel_cities))
+            cur.execute('SELECT DISTINCT "Site ID" FROM traffic_payload WHERE "NSA"=ANY(%s) AND "KABUPATEN"=ANY(%s) AND "Site ID" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'60 days\' ORDER BY "Site ID" LIMIT 2000', (sel_nsas, sel_cities))
         elif sel_cities:
-            cur.execute('SELECT DISTINCT "Site ID" FROM traffic_payload WHERE "KABUPATEN"=ANY(%s) AND "Site ID" IS NOT NULL ORDER BY "Site ID" LIMIT 2000', (sel_cities,))
+            cur.execute('SELECT DISTINCT "Site ID" FROM traffic_payload WHERE "KABUPATEN"=ANY(%s) AND "Site ID" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'60 days\' ORDER BY "Site ID" LIMIT 2000', (sel_cities,))
         elif sel_nsas:
-            cur.execute('SELECT DISTINCT "Site ID" FROM traffic_payload WHERE "NSA"=ANY(%s) AND "Site ID" IS NOT NULL ORDER BY "Site ID" LIMIT 2000', (sel_nsas,))
+            cur.execute('SELECT DISTINCT "Site ID" FROM traffic_payload WHERE "NSA"=ANY(%s) AND "Site ID" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'60 days\' ORDER BY "Site ID" LIMIT 2000', (sel_nsas,))
         sites_list = [r[0] for r in cur.fetchall()]
 
         # ── Chart data (daily) ────────────────────────────────────────────────

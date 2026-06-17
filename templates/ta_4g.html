@@ -125,7 +125,7 @@
                     <th class="col-product">Product</th>
                     <th class="col-ta90">TA 90%</th>
                     <th class="col-samples90">Sample TA 90%</th>
-                    <th class="col-total90">Total Sample TA 90%</th>
+                    <th class="col-total90">Total Sample TA < 90%</th>
                     <th class="col-total">Total Samples</th>
                 </tr>
             </thead>
@@ -214,7 +214,7 @@ document.addEventListener("DOMContentLoaded", function(){
 // ── CSV Download ──────────────────────────────────────────────────────────────
 function downloadCSV(){
     if(!chartData || Object.keys(chartData).length === 0) return;
-    var headers = ["Site ID", "Sector", "Cell ID", "Product (MHz)", "TA 90%", "Sample TA 90%", "Total Sample TA 90%", "Total Samples"];
+    var headers = ["Site ID", "Sector", "Cell ID", "Product (MHz)", "TA 90%", "Sample TA 90%", "Total Sample TA <90%", "Total Samples"];
     var rows = [headers.join(",")];
     Object.keys(chartData).forEach(function(key){
         var d = chartData[key];

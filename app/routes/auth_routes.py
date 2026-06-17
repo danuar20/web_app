@@ -127,18 +127,18 @@ def api_dashboard():
         summary["postgres_db"]["status"] = "error"
 
 
-    # ── Productivity trend 14 hari (Traffic + Payload per Tech) ──
+    # ── Productivity trend 30 hari (Traffic + Payload per Tech) ──
     if postgres_ok:
         try:
             conn = get_postgres_connection()
             cur = conn.cursor()
             cur.execute("SET statement_timeout = '30s'")
 
-            # Determine date range explicitly (last 14 days)
+            # Determine date range explicitly (last 30 days)
             cur.execute("""
                 SELECT DISTINCT "Date"::date AS d
                 FROM traffic_payload
-                WHERE "Date" >= CURRENT_DATE - INTERVAL '14 days'
+                WHERE "Date" >= CURRENT_DATE - INTERVAL '30 days'
                 ORDER BY d
             """)
             all_dates_rows = cur.fetchall()
@@ -159,7 +159,7 @@ def api_dashboard():
             cur.execute("""
                 SELECT "Date"::date AS d, "Tech", SUM("Payload (MB)")/1024.0/1024.0 AS val
                 FROM traffic_payload
-                WHERE "Date" >= CURRENT_DATE - INTERVAL '14 days' AND "Tech" IS NOT NULL
+                WHERE "Date" >= CURRENT_DATE - INTERVAL '30 days' AND "Tech" IS NOT NULL
                 GROUP BY "Date"::date, "Tech" ORDER BY d, "Tech"
             """)
             for r in cur.fetchall():
@@ -174,7 +174,7 @@ def api_dashboard():
             cur.execute("""
                 SELECT "Date"::date AS d, "Tech", SUM("Traffic (erlang)")/1000.0 AS val
                 FROM traffic_payload
-                WHERE "Date" >= CURRENT_DATE - INTERVAL '14 days' AND "Tech" IS NOT NULL
+                WHERE "Date" >= CURRENT_DATE - INTERVAL '30 days' AND "Tech" IS NOT NULL
                 GROUP BY "Date"::date, "Tech" ORDER BY d, "Tech"
             """)
             for r in cur.fetchall():

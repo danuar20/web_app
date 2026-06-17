@@ -76,7 +76,7 @@ def ta_4g():
         # Get distinct site names
         cur.execute("""
             SELECT DISTINCT "ME Name" FROM "measTA4G"
-            WHERE "ME Name" IS NOT NULL
+            WHERE "ME Name" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL '60 days'
             ORDER BY "ME Name"
         """)
         raw_sites = [r[0] for r in cur.fetchall()]

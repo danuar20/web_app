@@ -31,6 +31,10 @@ kpi2g_compare = kpi_2g_compare_routes.kpi2g_compare
 from . import kpi_2g_trend_routes
 kpi2g_trend = kpi_2g_trend_routes.kpi2g_trend
 
+# 4G KPI Daily — /kpi_4g_daily
+from . import kpi_4g_daily_routes
+kpi4g_daily = kpi_4g_daily_routes.kpi4g_daily
+
 # 4G KPI Hourly — /kpi_4g_hourly (per-site view)
 from . import kpi_4g_hourly_routes
 kpi4g_hourly = kpi_4g_hourly_routes.kpi4g_hourly

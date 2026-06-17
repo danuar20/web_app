@@ -64,7 +64,7 @@ def kpi_2g_daily():
 
         # Load BSC list
         try:
-            cur.execute('SELECT DISTINCT "BSC Name" FROM "measKpiDy2G" WHERE "BSC Name" IS NOT NULL ORDER BY "BSC Name"')
+            cur.execute('SELECT DISTINCT "BSC Name" FROM "measKpiDy2G" WHERE "BSC Name" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'60 days\' ORDER BY "BSC Name"')
             bsc_list = [r[0] for r in cur.fetchall()]
         except Exception:
             bsc_list = []
@@ -77,7 +77,7 @@ def kpi_2g_daily():
                 return name[2:8].strip() if len(name) >= 8 else name.strip()
             return name[:6].strip() if name else ""
         try:
-            cur.execute('SELECT DISTINCT "Site Name" FROM "measKpiDy2G" WHERE "Site Name" IS NOT NULL ORDER BY "Site Name"')
+            cur.execute('SELECT DISTINCT "Site Name" FROM "measKpiDy2G" WHERE "Site Name" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'60 days\' ORDER BY "Site Name"')
             all_names = [r[0] for r in cur.fetchall()]
             site_list = []
             seen = set()

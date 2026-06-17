@@ -41,7 +41,7 @@ def pl_2g():
         conn = get_postgres_connection(); cur = conn.cursor()
 
         try:
-            cur.execute('SELECT DISTINCT "Site ID" FROM "2G_pl_hy" WHERE "Site ID" IS NOT NULL ORDER BY "Site ID" LIMIT 20000')
+            cur.execute('SELECT DISTINCT "Site ID" FROM "2G_pl_hy" WHERE "Site ID" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'60 days\' ORDER BY "Site ID" LIMIT 20000')
             sites_list = [r[0] for r in cur.fetchall()]
         except psycopg2.OperationalError: raise
         except Exception:
@@ -130,7 +130,7 @@ def pl_4g():
         conn = get_postgres_connection(); cur = conn.cursor()
 
         try:
-            cur.execute('SELECT DISTINCT siteid FROM "4G_pl_hy" WHERE siteid IS NOT NULL ORDER BY siteid LIMIT 20000')
+            cur.execute('SELECT DISTINCT siteid FROM "4G_pl_hy" WHERE siteid IS NOT NULL AND date >= CURRENT_DATE - INTERVAL \'60 days\' ORDER BY siteid LIMIT 20000')
             sites_list = [r[0] for r in cur.fetchall()]
         except psycopg2.OperationalError: raise
         except Exception:
