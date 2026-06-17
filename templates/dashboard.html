@@ -190,7 +190,49 @@
 [data-theme="light"] .dash-chart-card:hover { box-shadow: 0 10px 30px rgba(79,172,254,0.12); }
 .dash-chart-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
 .dash-chart-sub  { font-size: 12px; opacity: 0.5; font-weight: 500; margin-bottom: 16px; }
+
+/* ── Dashboard Responsive Breakpoints ── */
+@media (max-width: 1024px) {
+    .dash-wrap { padding: 14px 14px; gap: 16px; }
+}
+@media (max-width: 768px) {
+    .dash-wrap { padding: 10px 10px; gap: 12px; }
+    .wb-title { font-size: 16px; }
+    .wb-sub { font-size: 11px; }
+    .welcome-banner { padding: 14px 16px; gap: 12px; }
+    .wb-icon { font-size: 28px; }
+}
+
+/* DB Status Grid: 2-col at medium */
+@media (max-width: 1000px) and (min-width: 701px) {
+    .db-status-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Quick Access: smoother breakpoints */
+@media (max-width: 1200px) and (min-width: 1001px) {
+    .dash-quick-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 600px) {
+    .dash-quick-grid { grid-template-columns: 1fr; }
+    .dash-quick-link { padding: 12px 14px; gap: 10px; }
+}
+
+/* KPI cards intermediate */
+@media (max-width: 900px) and (min-width: 701px) {
+    .dash-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+    .dash-kpi-value { font-size: 24px; }
+    .dash-kpi-icon { font-size: 24px; }
+    .dash-kpi-card { padding: 14px 16px; }
+}
+
+/* Chart grid responsive */
+@media (max-width: 768px) {
+    .dash-chart-grid { grid-template-columns: 1fr; }
+}
 </style>
+
 
 <div class="dash-wrap" id="dashWrap">
 

@@ -703,7 +703,6 @@ a { text-decoration: none; }
 /* Mobile view mode: sidebar hidden → main takes full width */
 @media(max-width: 768px) {
     .sidebar.mobile-hidden { display: none; }
-    .app-shell { flex-direction: column; }
 }
 
 /* chart legend */
@@ -1163,8 +1162,75 @@ body.mobile-view .mob-nav-item.active {
   box-shadow: 0 4px 12px rgba(0,230,118,0.3);
 }
 @keyframes toastFade { 0%{opacity:0;transform:translateY(8px)} 20%{opacity:1;transform:translateY(0)} 80%{opacity:1} 100%{opacity:0;transform:translateY(-8px)} }
+
+/* ═══════════════════════════════════════════════════════
+   RESPONSIVE BREAKPOINTS — intermediate viewport widths
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Auto-collapse sidebar at medium widths ── */
+@media (max-width: 1024px) {
+    .sidebar:not(.mobile-hidden):not(.collapsed) {
+        width: 58px;
+    }
+    .sidebar:not(.mobile-hidden):not(.collapsed) .sidebar-brand-wrap { opacity: 0; width: 0; }
+    .sidebar:not(.mobile-hidden):not(.collapsed) .menu-section-label { opacity: 0; }
+    .sidebar:not(.mobile-hidden):not(.collapsed) .menu-item-label { opacity: 0; width: 0; }
+    .sidebar:not(.mobile-hidden):not(.collapsed) .menu-arrow { display: none; }
+    .sidebar:not(.mobile-hidden):not(.collapsed) .sub-menu { display: none; }
+    .sidebar:not(.mobile-hidden):not(.collapsed) .sidebar-quickstats { display: none; }
+}
+
+/* ── Responsive topbar at narrow widths ── */
+@media (max-width: 768px) {
+    .topbar { padding: 0 12px; gap: 8px; }
+    .topbar-title { font-size: 13px; }
+    .topbar-sub { display: none; }
+    .info-chip { font-size: 10px; padding: 3px 7px; }
+    .account-chip span#accountName { display: none; }
+}
+
+/* ── Responsive filter bar ── */
+@media (max-width: 900px) {
+    .filter-bar { padding: 10px 12px; gap: 8px; }
+    .filter-group { min-width: 0; }
+    .f-select, .f-input { font-size: 11px; padding: 5px 8px; }
+}
+
+/* ── Responsive KPI grid improvements ── */
+@media (max-width: 900px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+}
+@media (max-width: 480px) {
+    .kpi-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Responsive chart grid (global for all pages) ── */
+@media (max-width: 1100px) {
+    .chart-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important; }
+}
+@media (max-width: 600px) {
+    .chart-grid { grid-template-columns: 1fr !important; }
+}
+
+/* ── Responsive table handling ── */
+@media (max-width: 768px) {
+    .table-scroll { max-height: 50vh; }
+    .data-table th, .data-table td { padding: 6px 10px; font-size: 12px; }
+}
+
+/* ── Responsive card padding ── */
+@media (max-width: 768px) {
+    .card { padding: 12px 14px; border-radius: 12px; }
+}
+
+/* ── Responsive content-area padding (used by KPI pages) ── */
+@media (max-width: 768px) {
+    .content-area { padding: 12px 12px !important; gap: 10px !important; }
+}
+
 </style>
 </head>
+
 
 <body>
 <div class="app-shell">
@@ -2341,7 +2407,39 @@ document.addEventListener("DOMContentLoaded", function(){
         if(ic) ic.className = "fas fa-chevron-right";
     }
 })();
+
+/* ── Auto-collapse sidebar on medium screens ── */
+(function(){
+    var mq = window.matchMedia("(max-width: 1024px)");
+    function handleMediaChange(e){
+        var sb = document.getElementById("sidebar");
+        if(!sb || sb.classList.contains("mobile-hidden")) return;
+        if(e.matches){
+            sb.classList.add("collapsed");
+            var ic = document.getElementById("toggleIcon");
+            if(ic) ic.className = "fas fa-bars";
+        } else {
+            if(localStorage.getItem("sidebarCollapsed") !== "1"){
+                sb.classList.remove("collapsed");
+                var ic = document.getElementById("toggleIcon");
+                if(ic) ic.className = "fas fa-chevron-left";
+            }
+        }
+        /* Re-render charts after layout change */
+        setTimeout(function(){
+            Object.values(chartInstances).forEach(function(ch){
+                if(ch && typeof ch.resize === 'function'){ ch.resize(); ch.update(); }
+            });
+        }, 350);
+    }
+    if(mq.addEventListener){
+        mq.addEventListener("change", handleMediaChange);
+    }
+    /* Apply on initial load */
+    handleMediaChange(mq);
+})();
 </script>
+
 
 {% block page_scripts %}{% endblock %}
 </body>
