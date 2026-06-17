@@ -32,8 +32,14 @@
     @media (max-width: 1200px) {
         .main-grid {
             grid-template-columns: 1fr;
+            align-items: start;
         }
+        .results-panel { position: relative !important; height: auto !important; overflow: visible !important; }
+        .diagram-card { min-height: 400px; }
     }
+    body.mobile-view .main-grid { grid-template-columns: 1fr !important; align-items: start !important; }
+    body.mobile-view .results-panel { position: relative !important; height: auto !important; overflow: visible !important; }
+    body.mobile-view .diagram-card { min-height: 400px !important; }
 
     /* Input Panel */
     .input-panel {

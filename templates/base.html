@@ -19,6 +19,8 @@
             toggleBtn.innerHTML = '<svg class="view-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="3" width="15" height="12" rx="2" ry="2"/><path d="M5 21h14M8 21v-2M16 21v-2"/><rect x="18" y="7" width="5" height="9" rx="1.5" ry="1.5"/></svg>';
             toggleBtn.title = "Switch to Desktop";
         }
+
+
         // Mark active nav item based on current path
         var path = window.location.pathname;
         document.querySelectorAll(".mob-nav-item").forEach(function(item){
@@ -823,14 +825,12 @@ body.mobile-view .kpi-value {
 body.mobile-view .kpi-unit { font-size: 10px !important; opacity: 0.55 !important; }
 body.mobile-view .kpi-delta { font-size: 10px !important; }
 body.mobile-view .kpi-icon { font-size: 16px !important; right: 8px !important; top: 8px !important; opacity: 0.12 !important; }
-/* ── Filter bar: single row, scrollable ── */
+/* ── Filter bar: wrap items to prevent dropdown clipping ── */
 body.mobile-view .filter-bar {
     padding: 10px 12px !important;
-    gap: 6px !important;
-    flex-wrap: nowrap !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x mandatory;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+    overflow: visible !important;
 }
 /* Hide filter labels on mobile to save space — use placeholder */
 body.mobile-view .filter-group { gap: 2px !important; flex: 0 0 auto !important; scroll-snap-align: start; }
@@ -1026,7 +1026,7 @@ body.mobile-view .mob-nav-item.active {
   body.mobile-view .content-area { padding: 14px 16px !important; gap: 10px !important; }
   body.mobile-view .kpi-grid { grid-template-columns: repeat(3, 1fr) !important; }
   body.mobile-view .kpi-value { font-size: 26px !important; }
-  body.mobile-view .filter-bar { flex-wrap: nowrap !important; overflow-x: auto !important; }
+  body.mobile-view .filter-bar { flex-wrap: wrap !important; overflow: visible !important; }
   body.mobile-view .card { padding: 14px !important; }
   body.mobile-view .card-title { font-size: 14px !important; }
   body.mobile-view .chart-wrap { height: 220px !important; }
@@ -1228,6 +1228,55 @@ body.mobile-view .mob-nav-item.active {
     .content-area { padding: 12px 12px !important; gap: 10px !important; }
 }
 
+/* ── Mobile Bottom Sheets ── */
+.bs-overlay {
+    display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.5); z-index: 990; backdrop-filter: blur(2px);
+    opacity: 0; transition: opacity 0.3s;
+}
+body.bs-open .bs-overlay { display: block; opacity: 1; }
+
+.bottom-sheet {
+    position: fixed; bottom: 0; left: 0; width: 100%;
+    background: #fff; z-index: 1000;
+    border-top-left-radius: 16px; border-top-right-radius: 16px;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
+    transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    display: flex; flex-direction: column; max-height: 80vh;
+}
+[data-theme="dark"] .bottom-sheet { background: #1e1e3a; border-top: 1px solid rgba(79,172,254,0.15); }
+.bottom-sheet.open { transform: translateY(0); }
+
+.bs-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+[data-theme="dark"] .bs-header { border-bottom-color: rgba(79,172,254,0.1); }
+.bs-title { font-size: 16px; font-weight: 600; color: inherit; }
+.bs-close { background: none; border: none; font-size: 18px; color: inherit; opacity: 0.5; cursor: pointer; padding: 4px; }
+.bs-content { padding: 10px 0; overflow-y: auto; }
+.bs-group { padding: 8px 20px 4px; font-size: 11px; font-weight: 600; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.5px; }
+.bs-item { 
+    display: flex; align-items: center; padding: 12px 20px; gap: 12px;
+    font-size: 14px; font-weight: 500; color: inherit; transition: background 0.2s;
+    text-decoration: none;
+}
+.bs-item:hover { background: rgba(79,172,254,0.1); }
+[data-theme="dark"] .bs-item { color: rgba(200,208,224,0.9); }
+[data-theme="light"] .bs-item { color: #333; }
+
+.bs-accordion { border-bottom: 1px solid rgba(128,128,128,0.1); }
+.bs-accordion-title {
+    padding: 14px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center; list-style: none;
+    color: inherit;
+}
+.bs-accordion-title::-webkit-details-marker { display: none; }
+.bs-accordion-content { padding-bottom: 10px; background: rgba(0,0,0,0.02); }
+[data-theme="dark"] .bs-accordion-content { background: rgba(0,0,0,0.15); }
+.bs-accordion[open] .acc-arrow { transform: rotate(180deg); }
+.acc-arrow { transition: transform 0.2s; font-size: 12px; opacity: 0.5; }
+
 </style>
 </head>
 
@@ -1271,7 +1320,7 @@ body.mobile-view .mob-nav-item.active {
       <div class="menu-section-label">Overview</div>
       <a href="/dashboard" class="menu-item {% block nav_dashboard %}{% endblock %}">
         <div class="menu-dot" style="background:#4facfe"></div>
-        <span class="menu-item-label">Dashboard</span>
+        <span class="menu-item-label">Home</span>
       </a>
       <div class="menu-item {% block nav_productivity %}{% endblock %}" onclick="toggleSub('subProd', this)">
         <div class="menu-dot" style="background:#00c853"></div>
@@ -1410,27 +1459,143 @@ body.mobile-view .mob-nav-item.active {
     </div>
   </aside>
 
-  <!-- ═══════ MOBILE BOTTOM NAV (shows only in mobile-view) ═══════ -->
+  <!-- ═══════ MOBILE BOTTOM NAV & SHEETS (shows only in mobile-view) ═══════ -->
+  <div class="bs-overlay" id="bsOverlay" onclick="closeAllSheets()"></div>
+
+  <div class="bottom-sheet" id="sheet-prod">
+    <div class="bs-header">
+      <div class="bs-title">Productivity</div>
+      <button class="bs-close" onclick="closeAllSheets()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="bs-content">
+      <a href="/productivity" class="bs-item"><i class="fas fa-chart-line" style="color:#00c853"></i> Trend YoY</a>
+      <a href="/city_level" class="bs-item"><i class="fas fa-city" style="color:#00c853"></i> City Level</a>
+      <a href="/site_level" class="bs-item"><i class="fas fa-broadcast-tower" style="color:#00c853"></i> Site Level</a>
+    </div>
+  </div>
+
+  <div class="bottom-sheet" id="sheet-kpi">
+    <div class="bs-header">
+      <div class="bs-title">Network KPI</div>
+      <button class="bs-close" onclick="closeAllSheets()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="bs-content">
+      <details class="bs-accordion">
+        <summary class="bs-accordion-title">
+          <span><i class="fas fa-signal" style="color:#f6c90e; width:20px;"></i> 2G KPI</span>
+          <i class="fas fa-chevron-down acc-arrow"></i>
+        </summary>
+        <div class="bs-accordion-content">
+          <a href="/kpi_2g_daily" class="bs-item">2G Daily</a>
+          <a href="/kpi_2g_hourly" class="bs-item">2G Hourly</a>
+          <a href="/kpi_2g_hourly_sector" class="bs-item">2G Hourly Sector</a>
+          <a href="/kpi_2g_hourly/compare" class="bs-item">2G Hourly Compare</a>
+          <a href="/kpi_2g_hourly/trend" class="bs-item">2G Hourly Cluster</a>
+        </div>
+      </details>
+      
+      <details class="bs-accordion">
+        <summary class="bs-accordion-title">
+          <span><i class="fas fa-signal" style="color:#4facfe; width:20px;"></i> 4G KPI</span>
+          <i class="fas fa-chevron-down acc-arrow"></i>
+        </summary>
+        <div class="bs-accordion-content">
+          <a href="/kpi_4g_daily" class="bs-item">4G Daily</a>
+          <a href="/kpi_4g_hourly" class="bs-item">4G Hourly</a>
+          <a href="/kpi_4g_hourly_sector" class="bs-item">4G Hourly Sector</a>
+          <a href="/kpi_4g_hourly/compare" class="bs-item">4G Hourly Compare</a>
+          <a href="/kpi_4g_hourly/trend" class="bs-item">4G Hourly Cluster</a>
+        </div>
+      </details>
+
+      <details class="bs-accordion">
+        <summary class="bs-accordion-title">
+          <span><i class="fas fa-signal" style="color:#a78bfa; width:20px;"></i> 5G KPI</span>
+          <i class="fas fa-chevron-down acc-arrow"></i>
+        </summary>
+        <div class="bs-accordion-content">
+          <a href="/kpi_5g_daily" class="bs-item">5G Daily</a>
+          <a href="/kpi_5g_hourly" class="bs-item">5G Hourly</a>
+          <a href="/kpi_5g_hourly_sector" class="bs-item">5G Hourly Sector</a>
+          <a href="/kpi_5g_hourly/compare" class="bs-item">5G Hourly Compare</a>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <div class="bottom-sheet" id="sheet-other">
+    <div class="bs-header">
+      <div class="bs-title">Others</div>
+      <button class="bs-close" onclick="closeAllSheets()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="bs-content">
+      <details class="bs-accordion">
+        <summary class="bs-accordion-title">
+          <span><i class="fas fa-clock" style="color:#f093fb; width:20px;"></i> Timing Advance</span>
+          <i class="fas fa-chevron-down acc-arrow"></i>
+        </summary>
+        <div class="bs-accordion-content">
+          <a href="#" class="bs-item">TA 2G</a>
+          <a href="/ta_4g" class="bs-item">TA 4G</a>
+        </div>
+      </details>
+
+      <details class="bs-accordion">
+        <summary class="bs-accordion-title">
+          <span><i class="fas fa-exclamation-triangle" style="color:#ff9f40; width:20px;"></i> Packet Loss</span>
+          <i class="fas fa-chevron-down acc-arrow"></i>
+        </summary>
+        <div class="bs-accordion-content">
+          <a href="/pl_2g" class="bs-item">PL 2G</a>
+          <a href="/pl_4g" class="bs-item">PL 4G</a>
+        </div>
+      </details>
+
+      <details class="bs-accordion">
+        <summary class="bs-accordion-title">
+          <span><i class="fas fa-broadcast-tower" style="color:#00c853; width:20px;"></i> Coverage</span>
+          <i class="fas fa-chevron-down acc-arrow"></i>
+        </summary>
+        <div class="bs-accordion-content">
+          <a href="/coverage_simulation" class="bs-item">Coverage Simulation</a>
+          <a href="/okumura_hata" class="bs-item">Okumura-Hata Model</a>
+          <a href="/nettilt3d" class="bs-item">NetTilt 3D</a>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <div class="bottom-sheet" id="sheet-more">
+    <div class="bs-header">
+      <div class="bs-title">More</div>
+      <button class="bs-close" onclick="closeAllSheets()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="bs-content">
+      <a href="/database/postgres" class="bs-item"><i class="fas fa-database" style="color:#ff5252; width:20px;"></i> Postgres DB</a>
+      <a href="#" class="bs-item" onclick="closeAllSheets(); openSettingsPopup(); return false;"><i class="fas fa-sliders-h" style="color:#888; width:20px;"></i> Settings</a>
+    </div>
+  </div>
+
   <nav class="mobile-bottom-nav" id="mobileBottomNav">
     <a href="/dashboard" class="mob-nav-item" data-page="dashboard">
       <i class="fas fa-th-large"></i>
       <span>Home</span>
     </a>
-    <a href="/kpi_4g_hourly" class="mob-nav-item" data-page="kpi">
+    <a href="#" class="mob-nav-item" onclick="openSheet('sheet-prod'); return false;" data-page="productivity">
+      <i class="fas fa-chart-pie"></i>
+      <span>Productivity</span>
+    </a>
+    <a href="#" class="mob-nav-item" onclick="openSheet('sheet-kpi'); return false;" data-page="kpi">
       <i class="fas fa-chart-bar"></i>
       <span>KPI</span>
     </a>
-    <a href="/ta_4g" class="mob-nav-item" data-page="ta">
-      <i class="fas fa-broadcast-tower"></i>
-      <span>TA 4G</span>
+    <a href="#" class="mob-nav-item" onclick="openSheet('sheet-other'); return false;" data-page="other">
+      <i class="fas fa-folder-open"></i>
+      <span>Others</span>
     </a>
-    <a href="/productivity" class="mob-nav-item" data-page="productivity">
-      <i class="fas fa-tachometer-alt"></i>
-      <span>Report</span>
-    </a>
-    <a href="#" class="mob-nav-item" onclick="openSettingsPopup(); return false;" data-page="settings">
-      <i class="fas fa-sliders-h"></i>
-      <span>Settings</span>
+    <a href="#" class="mob-nav-item" onclick="openSheet('sheet-more'); return false;" data-page="more">
+      <i class="fas fa-ellipsis-h"></i>
+      <span>More</span>
     </a>
   </nav>
 
@@ -2396,7 +2561,37 @@ function toggleAllCheckboxes(containerId, selectAllCheckbox){
 /* ── Initialize on page load ── */
 document.addEventListener("DOMContentLoaded", function(){
     updateThemeIcon();
+    var settings = JSON.parse(localStorage.getItem("appSettings") || "{}");
+    if (settings.viewMode) {
+        applyViewMode(settings.viewMode);
+    }
+    
+    // Auto-collapse bottom sheet accordions
+    document.querySelectorAll('.bottom-sheet').forEach(function(sheet) {
+        var accordions = sheet.querySelectorAll('details.bs-accordion');
+        accordions.forEach(function(acc) {
+            acc.addEventListener('toggle', function() {
+                if (this.open) {
+                    accordions.forEach(function(otherAcc) {
+                        if (otherAcc !== acc) {
+                            otherAcc.removeAttribute('open');
+                        }
+                    });
+                }
+            });
+        });
+    });
 });
+
+/* ── Mobile Bottom Sheets ── */
+function openSheet(id){
+    document.body.classList.add("bs-open");
+    document.getElementById(id).classList.add("open");
+}
+function closeAllSheets(){
+    document.body.classList.remove("bs-open");
+    document.querySelectorAll(".bottom-sheet").forEach(function(s){ s.classList.remove("open"); });
+}
 
 /* ── Restore sidebar state ── */
 (function(){
