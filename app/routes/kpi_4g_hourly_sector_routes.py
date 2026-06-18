@@ -134,9 +134,10 @@ def kpi_4g_hourly_sector_view():
                 sector = row[3]
                 band = row[4]
                 
-                # legend format: {siteid} S{sector}-{cell} {band}
-                band_str = f" {band}" if band else ""
-                legend_name = f"{siteid} S{sector}-{cell}{band_str}"
+                # legend format: {siteid} S{sector}|{band}-{cell}
+                band_str = band if band else "Unknown"
+                legend_name = f"{siteid} S{sector}|{band_str}-{cell}"
+                                
                 
                 hours_seen.add(dh)
                 

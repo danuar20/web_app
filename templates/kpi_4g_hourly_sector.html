@@ -15,7 +15,9 @@
 {% block page_content %}
 <style>
 .content-area { flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
-.chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.chart-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 1200px) { .chart-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 768px) { .chart-grid { grid-template-columns: 1fr; } }
 .dropdown-container { position: relative; }
 .dropdown-toggle { width: 100%; padding: 8px 12px; border: 1px solid rgba(79,172,254,0.15); border-radius: 6px; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center; transition: border-color 0.18s, background 0.3s ease; }
 [data-theme="dark"] .dropdown-toggle { background: rgba(30,30,58,0.8); color: #c8d0e0; }
@@ -184,7 +186,7 @@
                 {% for l_key in legend_keys %}
                     <tr>
                         <td>{{ t_label }}</td>
-                        <td>{{ l_key }}</td>
+                        <td>{{ l_key.replace('|', ' ') }}</td>
                         {% for k in active_kpis %}
                             {% set val = chart_data[k[0]][l_key][i] %}
                             <td class="val-center">{% if val is not none %}{{ "%.2f"|format(val) }}{% else %}—{% endif %}</td>
@@ -354,6 +356,15 @@ function downloadTableData(){
 }
 
 var COLORS = ["#4facfe","#f093fb","#00c853","#ff9f40","#a78bfa","#ff5555","#00f2fe","#f6c90e","#8884d8","#ff6b6b", "#3b82f6", "#10b981", "#ef4444", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
+var BAND_COLORS = {
+    "L700": "#f093fb",
+    "L900": "#ff5555",
+    "L1800": "#4facfe",
+    "L2100": "#00c853",
+    "L2300_1": "#a78bfa",
+    "L2300_2": "#ff9f40",
+    "L2300_3": "#f6c90e"
+};
 function tc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "#b0b8c8" : "#555"; }
 function gc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "rgba(79,172,254,0.08)" : "rgba(0,0,0,0.06)"; }
 var MON_SHORT = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"];
@@ -379,8 +390,8 @@ function makeOpts(leftLabel, yMin, yMax){
     var opts = {
         responsive: true, maintainAspectRatio: false, animation: false,
         plugins: {
-            legend: { display: true, position: "top", align: "center",
-                      labels: { color: tc(), font: { size: 10 }, boxWidth: 12, padding: 8 } },
+            legend: { display: true, position: "bottom", align: "center",
+                      labels: { color: tc(), font: { size: 8 }, boxWidth: 10, padding: 10 } },
             tooltip: {
                 mode: "index", intersect: false,
                 backgroundColor: "rgba(10,10,30,0.88)",
@@ -442,15 +453,16 @@ document.addEventListener("DOMContentLoaded", function(){
         var kData = chartData[chartIdPrefix] || {};
         
         var sectorGroups = {};
-        for (var legendName in kData) {
-            var parts = legendName.split("-");
-            var sectorKey = parts[0]; 
+        for (var rawLegend in kData) {
+            var splitPipe = rawLegend.split("|");
+            var sectorKey = splitPipe[0]; 
+            var legendName = splitPipe.length > 1 ? splitPipe[1] : rawLegend;
             if (!sectorGroups[sectorKey]) {
                 sectorGroups[sectorKey] = [];
             }
             sectorGroups[sectorKey].push({
                 legend: legendName,
-                data: kData[legendName]
+                data: kData[rawLegend]
             });
         }
 
@@ -466,10 +478,12 @@ document.addEventListener("DOMContentLoaded", function(){
             var datasets = [];
             var lines = sectorGroups[sectorKey];
             lines.forEach(function(line, lineIdx){
+                var lineBand = line.legend.split("-")[0];
+                var color = BAND_COLORS[lineBand] || COLORS[lineIdx % COLORS.length];
                 datasets.push({
                     label: line.legend,
                     data: line.data,
-                    borderColor: COLORS[lineIdx % COLORS.length],
+                    borderColor: color,
                     tension: 0.2,
                     pointRadius: 0,
                     pointHoverRadius: 5,
