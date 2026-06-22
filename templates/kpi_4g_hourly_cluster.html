@@ -405,6 +405,23 @@ var chartCqi     = {{ chart_cqi     | tojson | safe }};
 var COLORS = ["#4facfe","#f093fb","#00c853","#ff9f40","#a78bfa","#ff5555","#00f2fe","#f6c90e","#8884d8","#ff6b6b"];
 function tc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "#b0b8c8" : "#555"; }
 function gc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "rgba(79,172,254,0.08)" : "rgba(0,0,0,0.06)"; }
+var MON_SHORT = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"];
+function hourlyTickCallback(value, idx){
+    var tickLabel = value;
+    if(typeof value === 'number' && Array.isArray(chartLabels)){
+        tickLabel = chartLabels[value] || value;
+    }
+    if(typeof tickLabel === 'string' && tickLabel.indexOf(' ') > -1){
+        var parts = tickLabel.split(' ');
+        var dateParts = parts[0].split('-');
+        if(dateParts.length === 3){
+            var day = dateParts[2];
+            var month = parseInt(dateParts[1], 10) - 1;
+            return day + ' ' + MON_SHORT[month];
+        }
+    }
+    return tickLabel;
+}
 function makeOpts(leftLabel, yMin, yMax){
     var opts = {
         responsive: true, maintainAspectRatio: false, animation: false,
@@ -422,7 +439,7 @@ function makeOpts(leftLabel, yMin, yMax){
         interaction: { mode: "index", intersect: false },
         scales: {
             x: { ticks: { color: tc(), font: { size: 9 }, maxRotation: 0,
-                          autoSkip: true, autoSkipPadding: 20 }, grid: { color: gc() } },
+                          autoSkip: true, autoSkipPadding: 20, callback: hourlyTickCallback }, grid: { color: gc() } },
             y: { ticks: { color: tc(), font: { size: 10 } }, grid: { color: gc() },
                  title: { display: true, text: leftLabel, color: tc(), font: { size: 10 } } }
         }

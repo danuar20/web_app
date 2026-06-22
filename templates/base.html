@@ -116,6 +116,12 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-decimation@4"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2"></script>
+<script>
+    // Globally disable animations to prevent severe lag during layout shifts and resizes across all dashboard pages
+    if (typeof Chart !== 'undefined') {
+        Chart.defaults.animation = false;
+    }
+</script>
 
 <style>
 /* ── RESET & BASE ── */
@@ -1318,7 +1324,7 @@ body.bs-open .bs-overlay { display: block; opacity: 1; }
 
     <div class="menu-section">
       <div class="menu-section-label">Overview</div>
-      <a href="/dashboard" class="menu-item {% block nav_dashboard %}{% endblock %}">
+      <a href="/home" class="menu-item {% block nav_home %}{% endblock %}">
         <div class="menu-dot" style="background:#4facfe"></div>
         <span class="menu-item-label">Home</span>
       </a>
@@ -1417,6 +1423,17 @@ body.bs-open .bs-overlay { display: block; opacity: 1; }
         </a>
         <a href="/kpi_5g_hourly/compare" class="sub-item {% block nav_5g_hourly_compare %}{% endblock %}">
           <span class="sub-item-dot"></span> 5G Hourly Compare
+        </a>
+      </div>
+      
+      <div class="menu-item {% block nav_dashboard %}{% endblock %}" onclick="toggleSub('subDashboard', this)">
+        <div class="menu-dot" style="background:#00bcd4"></div>
+        <span class="menu-item-label">Dashboard</span>
+        <i class="fas fa-chevron-right menu-arrow"></i>
+      </div>
+      <div class="sub-menu {% block subDashboard_open %}{% endblock %}" id="subDashboard">
+        <a href="/dashboard_4g" class="sub-item {% block nav_dashboard_4g %}{% endblock %}">
+          <span class="sub-item-dot"></span> Dashboard 4G
         </a>
       </div>
     </div>
@@ -1577,7 +1594,7 @@ body.bs-open .bs-overlay { display: block; opacity: 1; }
   </div>
 
   <nav class="mobile-bottom-nav" id="mobileBottomNav">
-    <a href="/dashboard" class="mob-nav-item" data-page="dashboard">
+    <a href="/home" class="mob-nav-item" data-page="home">
       <i class="fas fa-th-large"></i>
       <span>Home</span>
     </a>
@@ -1804,6 +1821,12 @@ body.bs-open .bs-overlay { display: block; opacity: 1; }
       <div class="chart-modal-header">
         <div class="chart-modal-title" id="modalTitle">Chart Preview</div>
         <div class="chart-modal-controls">
+          <button class="chart-modal-btn" id="exportPngBtn" title="Download Image" onclick="downloadModalImage()">
+            <i class="fas fa-camera"></i> PNG
+          </button>
+          <button class="chart-modal-btn" id="exportCsvBtn" title="Download CSV" onclick="downloadModalCSV()">
+            <i class="fas fa-file-csv"></i> CSV
+          </button>
           <button class="chart-modal-btn" id="resetZoomBtn" title="Reset Zoom">
             <i class="fas fa-expand"></i> Reset
           </button>
@@ -2240,30 +2263,20 @@ function toggleSidebar(){
     ic.className = collapsed ? "fas fa-bars" : "fas fa-chevron-left";
     ic.style.transform = collapsed ? "rotate(0deg)" : "rotate(180deg)";
     localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0");
-    /* Directly resize + re-render every chart — more reliable than synthetic window event */
+    /* Directly resize every chart after transition */
     setTimeout(function(){
         Object.values(chartInstances).forEach(function(ch){
-            if(ch && typeof ch.resize === 'function'){ ch.resize(); ch.update(); }
+            if(ch && typeof ch.resize === 'function'){ ch.resize(); }
         });
     }, 380);
 }
 
 /* ── Chart Modal Popup Functions ── */
-var chartInstances = {};
+var chartInstances = window.chartInstances || {};
 var modalChart = null;
 
-/* ResizeObserver: watches the #main element (flex main content area). When sidebar
-   collapses, #main flex-grows and this observer fires, updating all charts. */
-(function(){
-    var mainEl = document.getElementById("mainArea");
-    if(typeof ResizeObserver !== 'undefined' && mainEl){
-        new ResizeObserver(function(){
-            Object.values(chartInstances).forEach(function(ch){
-                if(ch && typeof ch.resize === 'function'){ ch.resize(); ch.update(); }
-            });
-        }).observe(mainEl);
-    }
-})();
+/* ResizeObserver removed: Chart.js built-in responsiveness handles resizing efficiently. 
+   The manual observer caused extreme lag by forcefully updating all charts simultaneously. */
 
 function popupTickCallback(value, index){
     var label = value;
@@ -2305,8 +2318,8 @@ function buildModalConfig(sourceChart, titleText){
       display: true,
       position: 'bottom',
       labels: Object.assign({
-        usePointStyle: true,
-        boxWidth: 8,
+        usePointStyle: false,
+        boxWidth: 12,
         padding: 6,
         font: { size: 10 }
       }, (baseOptions.plugins.legend && baseOptions.plugins.legend.labels) || {})
@@ -2401,10 +2414,11 @@ function closeYBar(){
 }
 
 function openChartModal(chartEl){
-    var card = chartEl.closest('.card') || chartEl.closest('.dash-chart-card');
+    var card = chartEl.closest('.card') || chartEl.closest('.dash-chart-card') || chartEl.closest('.chart-box');
     if(!card) return;
     var title = card.querySelector('.card-title') || card.querySelector('.dash-chart-title');
-    var titleText = title ? title.textContent.trim() : 'Chart Preview';
+    var titleInput = card.querySelector('.chart-title-input');
+    var titleText = title ? title.textContent.trim() : (titleInput ? titleInput.value.trim() : 'Chart Preview');
     var chartId = chartEl.id;
     if(!chartId || !chartInstances[chartId]) return;
     var sourceChart = chartInstances[chartId];
@@ -2440,8 +2454,9 @@ function openChartModal(chartEl){
     modalChart = new Chart(ctx, config);
     document.getElementById('modalTitle').textContent = titleText;
     document.getElementById('chartModalOverlay').classList.add('open');
+    var scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+    document.body.style.paddingRight = scrollBarWidth + 'px';
     document.body.style.overflow = 'hidden';
-
     // ── Custom draw animation: progressive reveal left-to-right using CSS clip-path ──
     // Start with 0% visible, ramp to 100% over 2s with easeOutQuart
     var drawStart = null;
@@ -2478,6 +2493,7 @@ function closeChartModal(){
     var overlay = document.getElementById('chartModalOverlay');
     if(!overlay) return;
     overlay.classList.remove('open');
+    document.body.style.paddingRight = '';
     document.body.style.overflow = '';
     if(modalChart && typeof modalChart.resetZoom === 'function'){
         modalChart.resetZoom();
@@ -2495,10 +2511,55 @@ function attachChartModalHandlers(){
         }
     };
 
+    var exportPngBtn = document.getElementById('exportPngBtn');
+    if(exportPngBtn) exportPngBtn.onclick = downloadModalImage;
+
+    var exportCsvBtn = document.getElementById('exportCsvBtn');
+    if(exportCsvBtn) exportCsvBtn.onclick = downloadModalCSV;
+
     var overlay = document.getElementById('chartModalOverlay');
     if(overlay) overlay.onclick = function(e){
         if(e.target === overlay) closeChartModal();
     };
+}
+
+function downloadModalImage() {
+    if(!modalChart) return;
+    var tempCanvas = document.createElement('canvas');
+    tempCanvas.width = modalChart.canvas.width;
+    tempCanvas.height = modalChart.canvas.height;
+    var ctx = tempCanvas.getContext('2d');
+    var isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    ctx.fillStyle = isDark ? '#1a1a2e' : '#ffffff';
+    ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+    ctx.drawImage(modalChart.canvas, 0, 0);
+    var a = document.createElement('a');
+    a.href = tempCanvas.toDataURL('image/png');
+    var title = document.getElementById('modalTitle').textContent || 'Chart';
+    a.download = title + '.png';
+    a.click();
+}
+
+function downloadModalCSV() {
+    if(!modalChart) return;
+    var labels = modalChart.data.labels;
+    var datasets = modalChart.data.datasets;
+    var csvContent = "data:text/csv;charset=utf-8,Label";
+    datasets.forEach(function(ds) { csvContent += "," + '"' + ds.label.replace(/"/g, '""') + '"'; });
+    csvContent += "\r\n";
+    for (var i = 0; i < labels.length; i++) {
+        var row = ['"' + String(labels[i]).replace(/"/g, '""') + '"'];
+        datasets.forEach(function(ds) {
+            var val = ds.data[i];
+            row.push((val !== null && val !== undefined) ? val : "");
+        });
+        csvContent += row.join(",") + "\r\n";
+    }
+    var a = document.createElement('a');
+    a.href = encodeURI(csvContent);
+    var title = document.getElementById('modalTitle').textContent || 'Chart';
+    a.download = title + '.csv';
+    a.click();
 }
 
 document.addEventListener('DOMContentLoaded', attachChartModalHandlers);

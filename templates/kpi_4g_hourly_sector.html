@@ -477,8 +477,14 @@ document.addEventListener("DOMContentLoaded", function(){
         for (var sectorKey in sectorGroups) {
             var datasets = [];
             var lines = sectorGroups[sectorKey];
+            lines.sort(function(a, b) {
+                var bandA = a.legend.split("|").length > 1 ? a.legend.split("|")[1].split("-")[0] : a.legend.split("-")[0];
+                var bandB = b.legend.split("|").length > 1 ? b.legend.split("|")[1].split("-")[0] : b.legend.split("-")[0];
+                if (bandA.length !== bandB.length) return bandA.length - bandB.length;
+                return bandA.localeCompare(bandB);
+            });
             lines.forEach(function(line, lineIdx){
-                var lineBand = line.legend.split("-")[0];
+                var lineBand = line.legend.split("|").length > 1 ? line.legend.split("|")[1].split("-")[0] : line.legend.split("-")[0];
                 var color = BAND_COLORS[lineBand] || COLORS[lineIdx % COLORS.length];
                 datasets.push({
                     label: line.legend,

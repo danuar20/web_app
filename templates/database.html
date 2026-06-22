@@ -236,14 +236,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 chartInstances[cardId] = chart;
             });
             
-            const ro = new ResizeObserver(() => {
-                Object.values(chartInstances).forEach(ch => {
-                    if (ch && typeof ch.resize === 'function') {
-                        ch.resize();
-                    }
-                });
-            });
-            ro.observe(document.querySelector('.db-wrap'));
+            /* Removed redundant ResizeObserver */
         })
         .catch(err => {
             console.error(err);

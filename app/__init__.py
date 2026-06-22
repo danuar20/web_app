@@ -73,7 +73,7 @@ def create_app():
         kpi2g_daily, kpi2g_hourly, kpi2g_hourly_sector, kpi2g_compare, kpi2g_trend,
         kpi4g_daily, kpi4g_hourly, kpi4g_trend, kpi4g_compare, kpi4g_api, kpi4g_hourly_sector,
         kpi5g_daily, kpi5g_hourly, kpi5g_hourly_sector, kpi5g_compare,
-        pl, ta4g, coverage, okumura_hata, nettilt3d
+        pl, ta4g, dashboard_4g, coverage, okumura_hata, nettilt3d
     )
     app.register_blueprint(auth)
     app.register_blueprint(prod)
@@ -94,6 +94,7 @@ def create_app():
     app.register_blueprint(kpi5g_compare)
     app.register_blueprint(pl)
     app.register_blueprint(ta4g)
+    app.register_blueprint(dashboard_4g)
     app.register_blueprint(coverage)
     app.register_blueprint(okumura_hata)
     app.register_blueprint(nettilt3d)

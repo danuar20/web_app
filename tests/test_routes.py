@@ -5,7 +5,7 @@ Route map under the 'main' Blueprint:
   GET  /               → redirect to /login
   GET  /login          → login form
   POST /login          → authenticate
-  GET  /dashboard      → protected dashboard
+  GET  /home      → protected dashboard
   GET  /logout         → clear session + redirect
   GET  /api/cities     → protected JSON (nsa filter)
   GET  /api/sites      → protected JSON (nsa/city filter)
@@ -49,7 +49,7 @@ class TestRouteProtection:
     """
 
     @pytest.mark.parametrize("path", [
-        "/dashboard",
+        "/home",
         "/productivity",
         "/city_level",
         "/site_level",
@@ -65,7 +65,7 @@ class TestRouteProtection:
         assert "/login" in resp.location
 
     @pytest.mark.parametrize("path", [
-        "/dashboard",
+        "/home",
         "/productivity",
         "/city_level",
         "/site_level",
@@ -104,7 +104,7 @@ class TestLoginDashboardLogoutFlow:
         assert client.get("/login").status_code == 200
 
     def test_dashboard_requires_auth(self, client):
-        assert client.get("/dashboard").status_code == 302
+        assert client.get("/home").status_code == 302
 
     def test_logout_page_loads(self, authenticated_client):
         resp = authenticated_client.get("/logout")
@@ -141,7 +141,7 @@ class TestKpiRoutesRenderTemplates:
     """
 
     @pytest.mark.parametrize("path,template_hint", [
-        ("/dashboard",       b"dashboard"),
+        ("/home",       b"Home"),
         ("/productivity",    b"productivity"),
         ("/city_level",       b"city_level"),
         ("/site_level",       b"site_level"),
@@ -398,7 +398,7 @@ class TestHttpMethodRestrictions:
 
     def test_protected_routes_reject_post(self, authenticated_client):
         """Sending POST to a GET-only route returns 405 Method Not Allowed."""
-        resp = authenticated_client.post("/dashboard")
+        resp = authenticated_client.post("/home")
         assert resp.status_code == 405
 
     def test_api_routes_reject_post(self, authenticated_client):

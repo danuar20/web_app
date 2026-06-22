@@ -63,6 +63,10 @@ pl = packet_loss_routes.pl
 from . import ta_4g_routes
 ta4g = ta_4g_routes.ta4g
 
+# Dashboard 4G — /dashboard_4g
+from . import dashboard_4g_routes
+dashboard_4g = dashboard_4g_routes.dashboard_4g
+
 # 5G KPI Daily — /kpi_5g_daily (per-site view)
 from . import kpi_5g_daily_routes
 kpi5g_daily = kpi_5g_daily_routes.kpi5g_daily

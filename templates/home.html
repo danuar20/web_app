@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block nav_dashboard %}active{% endblock %}
+{% block nav_home %}active{% endblock %}
 {% block page_title %}Home{% endblock %}
 {% block page_sub %}Network KPI Monitor — Real-time Overview{% endblock %}
 
@@ -389,7 +389,7 @@ function kpiCard(icon, label, value, unit, sub){
 var dashPayloadChart = null, dashTrafficChart = null;
 
 function dashLoad(){
-    fetch('/api/dashboard')
+    fetch('/api/home')
         .then(function(r){ return r.json(); })
         .then(function(d){
             document.getElementById('dashDbGrid').innerHTML = dbStatusCards(d);
@@ -481,10 +481,7 @@ function dashLoad(){
         });
 }
 
-window.addEventListener("resize", function(){
-    if(dashPayloadChart && typeof dashPayloadChart.resize === 'function'){ dashPayloadChart.resize(); dashPayloadChart.update(); }
-    if(dashTrafficChart && typeof dashTrafficChart.resize === 'function'){ dashTrafficChart.resize(); dashTrafficChart.update(); }
-});
+/* Removed redundant window resize listener */
 
 document.addEventListener("DOMContentLoaded", dashLoad);
 </script>

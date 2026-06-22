@@ -33,7 +33,7 @@ def login():
             if user and check_password_hash(user[2], password):
                 session["username"] = username
                 session.permanent = True  # remember me
-                return redirect(url_for("auth.dashboard"))
+                return redirect(url_for("auth.home_page"))
             else:
                 flash("Wrong username or password!", "danger")
         except psycopg2.OperationalError:
@@ -43,25 +43,25 @@ def login():
 
     return render_template("login.html", error=error)
 
-# ── Dashboard ──────────────────────────────────────────────────────────────────
-@auth.route("/dashboard")
+# ── Home ───────────────────────────────────────────────────────────────────────
+@auth.route("/home")
 @login_required
-def dashboard():
+def home_page():
     from ._utils import _no_cache
     from datetime import datetime
-    response = make_response(render_template("dashboard.html",
+    response = make_response(render_template("home.html",
         username=session["username"],
         now=datetime.now().strftime("%d %b %Y %H:%M"),
     ))
     return _no_cache(response)
 
-# ── Dashboard API (async data) ────────────────────────────────────────────────
+# ── Home API (async data) ─────────────────────────────────────────────────────
 _dash_cache = {"ts": 0, "data": None}
 _DASH_CACHE_SECS = 300  # 5 minutes
 
-@auth.route("/api/dashboard")
+@auth.route("/api/home")
 @login_required
-def api_dashboard():
+def api_home():
     from app.db.db_webapp import get_postgres_connection, get_connection
     from ._utils import json_response
     import time as _time
@@ -213,7 +213,7 @@ def api_dashboard():
 def database_page(db_type):
     from ._utils import _no_cache
     if db_type != "postgres":
-        return redirect(url_for("auth.dashboard"))
+        return redirect(url_for("auth.home_page"))
         
     response = make_response(render_template("database.html",
         username=session["username"],

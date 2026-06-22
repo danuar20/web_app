@@ -431,7 +431,7 @@ function renderCharts(){
     if(c4){ if(rrcChart) rrcChart.destroy(); rrcChart=new Chart(c4,{type:'line',data:{labels:chartLabels,datasets:makeDatasets(chartRRC)},options:chartOpts('RRC User')}); chartInstances.rrcChart=rrcChart; c4.style.cursor='pointer'; c4.onclick=function(){openChartModal(c4);}; }
 }
 
-window.addEventListener("resize", function(){ Object.values(chartInstances).forEach(function(ch){ if(ch && typeof ch.resize==='function'){ ch.resize(); ch.update(); } }); if(topChart) topChart.resize(); if(bottomChart) bottomChart.resize(); });
+/* Removed redundant window resize listener */
 
 function switchTab(tabId, btnElem) {
     document.querySelectorAll('.tab-content').forEach(function(c){ c.classList.remove('active'); });
@@ -439,9 +439,7 @@ function switchTab(tabId, btnElem) {
     document.getElementById('tab-' + tabId).classList.add('active');
     btnElem.classList.add('active');
     
-    Object.values(chartInstances).forEach(function(ch){ if(ch && typeof ch.resize==='function'){ ch.resize(); ch.update(); } });
-    if(topChart) { topChart.resize(); topChart.update(); }
-    if(bottomChart) { bottomChart.resize(); bottomChart.update(); }
+    // Chart.js handles visibility resize natively
 }
 
 function toggleNsaGroup(idx) {

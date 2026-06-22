@@ -6,8 +6,8 @@ Covers:
   • Login with wrong password       →  'password salah' flashed
   • Login with unknown username     →  'user tidak ditemukan' flashed
   • Unauthenticated GET to /login   →  200 (shows form)
-  • Unauthenticated GET to /dashboard → redirect to /login
-  • Authenticated GET to /dashboard  →  200 with username in response
+  • Unauthenticated GET to /home → redirect to /login
+  • Authenticated GET to /home  →  200 with username in response
   • Session set on correct login
   • Session cleared on logout
 """
@@ -52,13 +52,13 @@ class TestLoginSuccess:
 
     def test_redirect_to_dashboard_on_valid_login(self, authenticated_client):
         """Authenticated request to /dashboard returns 200 (not a redirect)."""
-        resp = authenticated_client.get("/dashboard", follow_redirects=False)
+        resp = authenticated_client.get("/home", follow_redirects=False)
         assert resp.status_code == 302
-        assert resp.location.endswith("/dashboard")
+        assert resp.location.endswith("/home")
 
     def test_authenticated_dashboard_contains_username(self, authenticated_client):
         """A logged-in user sees their own username on the dashboard."""
-        resp = authenticated_client.get("/dashboard")
+        resp = authenticated_client.get("/home")
         assert resp.status_code == 200
         # The dashboard template renders:  Halo {session['username']}! 🎉
         assert b"testuser" in resp.data
@@ -82,18 +82,18 @@ class TestLoginSuccess:
         with post_login.client.session_transaction() as sess:
             sess["username"] = "testuser"
 
-        resp = post_login.client.get("/dashboard")
+        resp = post_login.client.get("/home")
         assert resp.status_code == 200
 
     def test_dashboard_accessible_only_with_session(self, client):
         """Direct access to /dashboard without logging in redirects to /login."""
-        resp = client.get("/dashboard", follow_redirects=False)
+        resp = client.get("/home", follow_redirects=False)
         assert resp.status_code == 302
         assert "/login" in resp.location
 
     def test_dashboard_returns_302_for_unauthenticated(self, client):
         """Unauthenticated /dashboard always redirects, regardless of query string."""
-        resp = client.get("/dashboard?foo=bar")
+        resp = client.get("/home?foo=bar")
         assert resp.status_code == 302
 
 
@@ -147,7 +147,7 @@ class TestLogout:
     def test_logout_clears_session(self, authenticated_client):
         """After calling /logout the session must no longer contain 'username'."""
         # Verify session is set
-        resp = authenticated_client.get("/dashboard")
+        resp = authenticated_client.get("/home")
         assert resp.status_code == 200
 
         # Perform logout
@@ -162,7 +162,7 @@ class TestLogout:
     def test_logout_then_try_dashboard_redirects(self, authenticated_client):
         """Logging out then accessing /dashboard redirects to /login."""
         authenticated_client.get("/logout")           # logout
-        resp = authenticated_client.get("/dashboard", follow_redirects=False)
+        resp = authenticated_client.get("/home", follow_redirects=False)
         assert resp.status_code == 302
         assert "/login" in resp.location
 
@@ -182,7 +182,7 @@ class TestSessionPersistence:
     def test_session_persists_across_multiple_requests(self, authenticated_client):
         """After login, session data is available in subsequent GET requests."""
         for _ in range(3):
-            resp = authenticated_client.get("/dashboard")
+            resp = authenticated_client.get("/home")
             assert resp.status_code == 200
             assert b"testuser" in resp.data
 

@@ -456,11 +456,7 @@ function renderCharts(){
     if(c4){ if(rrcChart) rrcChart.destroy(); rrcChart=new Chart(c4,{type:'line',data:{labels:chartLabels,datasets:makeDatasets(chartRRC)},options:chartOpts('RRC User')}); chartInstances.rrcChart=rrcChart; c4.style.cursor='pointer'; c4.onclick=function(){openChartModal(c4);}; }
 }
 
-window.addEventListener("resize", function(){
-    Object.values(chartInstances).forEach(function(ch){ if(ch && typeof ch.resize==='function'){ ch.resize(); ch.update(); } });
-    if(topChart) topChart.resize();
-    if(bottomChart) bottomChart.resize();
-});
+/* Removed redundant window resize listener */
 
 function switchTab(tabId, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -468,10 +464,7 @@ function switchTab(tabId, btn) {
     btn.classList.add('active');
     document.getElementById('tab-' + tabId).classList.add('active');
     
-    // Trigger resize to fix any layout issues on display change
-    setTimeout(function() {
-        window.dispatchEvent(new Event('resize'));
-    }, 10);
+    // Chart.js natively handles layout issues on display change
 }
 
 function toggleCityGroup(idx) {

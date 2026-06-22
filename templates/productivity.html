@@ -350,12 +350,7 @@ function renderChart(){
     }
 }
 
-/* Resize charts on browser window resize — uses chartInstances (no global vars needed) */
-window.addEventListener("resize", function(){
-    Object.values(chartInstances).forEach(function(ch){
-        if(ch && typeof ch.resize === 'function'){ ch.resize(); ch.update(); }
-    });
-});
+/* Removed redundant window resize listener */
 
 /* ── NSA multi-select all toggle ── */
 function toggleAllNSA(){
