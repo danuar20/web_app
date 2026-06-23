@@ -589,16 +589,22 @@
                     style="flex: 1 1 auto; max-width: 350px; display: flex; flex-direction: column; gap: 16px;">
                     <div class="filter-group" style="width: 100%;">
                         <div class="filter-label"
-                            style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px;">SITES</div>
+                            style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+                            <span id="filterTitleLabel">SITES</span>
+                            <div style="display: flex; gap: 8px; font-weight: 600; font-size: 10px; text-transform: none;">
+                                <label style="cursor:pointer;"><input type="radio" name="filter_type" value="siteid" {% if filter_type != 'site_cell' %}checked{% endif %} onchange="onFilterTypeChange(this.value)"> Site ID</label>
+                                <label style="cursor:pointer;"><input type="radio" name="filter_type" value="site_cell" {% if filter_type == 'site_cell' %}checked{% endif %} onchange="onFilterTypeChange(this.value)"> Site-Cell</label>
+                            </div>
+                        </div>
                         <div class="dropdown-container" id="siteDropdownContainer" style="position: relative;">
                             <button type="button" class="dropdown-toggle" onclick="toggleSiteDropdown(event)"
                                 style="width: 100%; height: 36px; justify-content: space-between; padding: 0 12px; border-radius: 8px; font-size: 12px;">
-                                <span id="siteBtnText" style="font-weight: 600;">Select Sites ({{ sel_sites|length if
+                                <span id="siteBtnText" style="font-weight: 600;">Select {% if filter_type == 'site_cell' %}Cells{% else %}Sites{% endif %} ({{ sel_sites|length if
                                     sel_sites else 0 }})</span> <i class="fas fa-chevron-down"></i>
                             </button>
                             <div class="dropdown-menu" id="siteDropdown"
                                 style="display: none; z-index: 1000; position: absolute; width: 100%; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
-                                <input type="text" id="siteSearch" placeholder="Search sites..." onkeyup="filterSites()"
+                                <input type="text" id="siteSearch" placeholder="Search {% if filter_type == 'site_cell' %}cells{% else %}sites{% endif %}..." onkeyup="filterSites()"
                                     style="width: calc(100% - 16px); padding: 6px; margin: 8px; border: 1px solid rgba(128,128,128,0.2); border-radius: 4px; font-size: 12px;">
                                 <label class="checkbox-label"
                                     style="border-bottom: 1px solid rgba(128,128,128,0.1); padding: 6px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;">
@@ -621,9 +627,9 @@
                     </div>
 
                     <div class="filter-group" style="width: 100%;">
-                        <div class="filter-label"
+                        <div class="filter-label" id="importLabel"
                             style="font-size: 10px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">
-                            Or import sites from CSV</div>
+                            Or import {% if filter_type == 'site_cell' %}cells{% else %}sites{% endif %} from CSV</div>
                         <label class="f-input"
                             style="display:flex; align-items:center; gap:6px; cursor:pointer; width: max-content; padding:4px 10px; height: 32px; border-radius: 6px; background: rgba(128,128,128,0.05) !important;">
                             <i class="fas fa-file-import" style="color: #4facfe; font-size: 12px;"></i>
@@ -632,7 +638,7 @@
                             <span id="siteFileLabel" style="font-weight: 600; font-size: 11px;">Choose CSV
                                 file...</span>
                         </label>
-                        <textarea id="sitePasteArea" class="f-input" placeholder="Paste site IDs here
+                        <textarea id="sitePasteArea" class="f-input" placeholder="Paste {% if filter_type == 'site_cell' %}cell{% else %}site{% endif %} IDs here
 (one per line or comma-separated)" rows="3"
                             style="width: 100%; resize:vertical; font-size:11px; margin-top:8px; box-sizing: border-box; border-radius: 6px;"
                             oninput="handleInlinePasteAndSelect(this.value)"></textarea>
@@ -813,9 +819,10 @@
             </div>
         </div>
 
+        <!-- Site Level Comparison -->
         <div class="card" style="margin-top: 16px;">
             <div class="chart-box-header">
-                <div class="card-title">Site Level Comparison</div>
+                <div class="card-title">{% if filter_type == 'site_cell' %}Site-cell{% else %}Site{% endif %} Level Comparison</div>
                 <button class="btn-apply" onclick="downloadCSV('siteTable')"><i class="fas fa-download"></i>
                     CSV</button>
             </div>
@@ -824,7 +831,7 @@
                     <table class="site-table" id="siteTable">
                         <thead>
                             <tr>
-                                <th rowspan="2" class="entity-col">Site ID</th>
+                                <th class="entity-col" rowspan="2" style="background:#1e3a5f;">{% if filter_type == 'site_cell' %}Site-Cell{% else %}Site ID{% endif %}</th>
                                 {% for kpi in kpi_defs %}
                                 <th colspan="4" class="text-center">{{ kpi[1] }}</th>
                                 {% endfor %}
@@ -1155,14 +1162,16 @@
     function sortSitesToTop() {
         let container = document.getElementById('siteCheckboxes');
         if (!container) return;
-        let labels = Array.from(container.querySelectorAll('.checkbox-label'));
-        labels.sort((a, b) => {
-            let aChk = a.querySelector('input').checked;
-            let bChk = b.querySelector('input').checked;
-            if (aChk === bChk) return 0;
-            return aChk ? -1 : 1;
+        
+        let checkedBoxes = container.querySelectorAll('input[type="checkbox"]:checked');
+        if (checkedBoxes.length === 0) return;
+        
+        container.style.display = 'none';
+        checkedBoxes.forEach(cb => {
+            let label = cb.closest('.checkbox-label');
+            if (label) container.insertBefore(label, container.firstChild);
         });
-        labels.forEach(l => container.appendChild(l));
+        container.style.display = 'flex';
     }
 
     function resetUI() {
@@ -1327,14 +1336,17 @@
 
     function sortSitesToTop() {
         let container = document.getElementById('siteCheckboxes');
-        let labels = Array.from(container.querySelectorAll('.checkbox-label'));
-        labels.sort((a, b) => {
-            let aChk = a.querySelector('input').checked;
-            let bChk = b.querySelector('input').checked;
-            if (aChk === bChk) return 0;
-            return aChk ? -1 : 1;
+        if (!container) return;
+        
+        let checkedBoxes = container.querySelectorAll('input[type="checkbox"]:checked');
+        if (checkedBoxes.length === 0) return;
+        
+        container.style.display = 'none';
+        checkedBoxes.forEach(cb => {
+            let label = cb.closest('.checkbox-label');
+            if (label) container.insertBefore(label, container.firstChild);
         });
-        labels.forEach(l => container.appendChild(l));
+        container.style.display = 'flex';
     }
 
     function resetUI() {
@@ -1993,20 +2005,26 @@
 
     function filterSites() {
         const query = document.getElementById('siteSearch').value.toLowerCase();
+        const container = document.getElementById('siteCheckboxes');
         const labels = document.querySelectorAll('#siteCheckboxes .checkbox-label');
+        container.style.display = 'none';
         labels.forEach(label => {
             const text = label.querySelector('span').textContent.toLowerCase();
             label.style.display = text.includes(query) ? 'flex' : 'none';
         });
+        container.style.display = 'flex';
     }
 
     function toggleAllSites(source) {
+        const container = document.getElementById('siteCheckboxes');
         const checkboxes = document.querySelectorAll('#siteCheckboxes input[type="checkbox"]');
+        container.style.display = 'none';
         checkboxes.forEach(cb => {
             if (cb.closest('.checkbox-label').style.display !== 'none') {
                 cb.checked = source.checked;
             }
         });
+        container.style.display = 'flex';
         updateSiteCount();
     }
 
@@ -2018,7 +2036,10 @@
 
     function updateSiteCount() {
         const count = document.querySelectorAll('#siteCheckboxes input[type="checkbox"]:checked').length;
-        document.getElementById('siteBtnText').textContent = count > 0 ? `Select Sites (${count})` : 'Select Sites (0)';
+        const filterTypeNode = document.querySelector('input[name="filter_type"]:checked');
+        const isCell = filterTypeNode && filterTypeNode.value === 'site_cell';
+        const typeStr = isCell ? 'Cells' : 'Sites';
+        document.getElementById('siteBtnText').textContent = count > 0 ? `Select ${typeStr} (${count})` : `Select ${typeStr} (0)`;
         sortSitesToTop();
     }
 
@@ -2048,6 +2069,8 @@
         if (!text) return;
         const rawItems = text.split(/[\n,;\t]+/).map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
         let count = 0;
+        const container = document.getElementById('siteCheckboxes');
+        container.style.display = 'none';
         const checkboxes = document.querySelectorAll('#siteCheckboxes input[type="checkbox"]');
         checkboxes.forEach(cb => {
             if (rawItems.includes(cb.value.toUpperCase())) {
@@ -2055,6 +2078,7 @@
                 count++;
             }
         });
+        container.style.display = 'flex';
         updateSiteCount();
         const cSpan = document.getElementById('sitePasteCount');
         if (cSpan) {
@@ -2212,6 +2236,35 @@
         let dbName = document.getElementById("dashboardNameInput").value.trim() || "Custom_Dashboard";
         a.download = dbName + '_Data.csv';
         a.click();
+    }
+
+    function onFilterTypeChange(type) {
+        // Update placeholders
+        let isCell = (type === "site_cell");
+        document.getElementById("filterTitleLabel").innerText = isCell ? "SITE-CELLS" : "SITES";
+        document.getElementById("siteBtnText").textContent = `Select ${isCell ? 'Cells' : 'Sites'} (0)`;
+        document.getElementById("siteSearch").placeholder = `Search ${isCell ? 'cells' : 'sites'}...`;
+        document.getElementById("importLabel").innerText = `OR IMPORT ${isCell ? 'CELLS' : 'SITES'} FROM CSV`;
+        document.getElementById("sitePasteArea").placeholder = `Paste ${isCell ? 'cell' : 'site'} IDs here\n(one per line or comma-separated)`;
+        
+        // Fetch new items
+        fetch(`/api/filter_list_4g?filter_type=${type}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.items) {
+                    let container = document.getElementById("siteCheckboxes");
+                    let html = [];
+                    data.items.forEach(item => {
+                        html.push(`<label class="checkbox-label" data-site="${item}" style="cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                            <input type="checkbox" name="site" value="${item}" onchange="updateSiteCount()">
+                            <span>${item}</span>
+                        </label>`);
+                    });
+                    container.innerHTML = html.join('');
+                    updateSiteCount();
+                }
+            })
+            .catch(err => console.error("Error fetching filter list:", err));
     }
 
 </script>

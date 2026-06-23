@@ -167,6 +167,36 @@ def _get_site_list_4g_impl():
     except Exception as e:
         return [], str(e)
 
+def get_site_cell_list_4g():
+    """Get the list of 4G site cells from the mv_site_cell_4g reference table."""
+    return _get_cached("4g_site_cells", lambda: _get_site_cell_list_4g_impl())
+
+def _get_site_cell_list_4g_impl():
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute('SELECT site_cell FROM "mv_site_cell_4g" WHERE site_cell IS NOT NULL ORDER BY site_cell')
+                cells = [r[0] for r in cur.fetchall()]
+                if cells:
+                    return cells, "reference"
+    except Exception:
+        pass
+
+    # Fallback: extract from 4g_kpi_zte using cell column
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute("""
+                    SELECT DISTINCT cell FROM "4g_kpi_zte"
+                    WHERE cell IS NOT NULL
+                      AND date >= CURRENT_DATE - INTERVAL '30 days'
+                    ORDER BY cell
+                    LIMIT 5000
+                """)
+                return [r[0] for r in cur.fetchall()], "kpi"
+    except Exception as e:
+        return [], str(e)
+
 
 def get_site_list_5g():
     """

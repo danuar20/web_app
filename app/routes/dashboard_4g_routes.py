@@ -1,6 +1,6 @@
 """4G Dashboard Routes — /dashboard_4g"""
 from flask import Blueprint, render_template, request, session, flash, make_response, jsonify
-from app.db.db_webapp import get_postgres_connection, get_site_list_4g
+from app.db.db_webapp import get_postgres_connection, get_site_list_4g, get_site_cell_list_4g
 from ._utils import login_required, _no_cache, json_response
 import psycopg2
 import psycopg2.extras
@@ -66,6 +66,7 @@ def dashboard_4g_view():
     execution_dates_raw = request.args.get("execution_dates", "")
     execution_dates = [d.strip() for d in execution_dates_raw.split(",") if d.strip()]
     
+    filter_type = request.args.get("filter_type", "siteid")
     sel_sites = request.args.getlist("site")
     
     # Support site IDs pasted from CSV — comma/newline separated, deduplicate
@@ -75,6 +76,29 @@ def dashboard_4g_view():
         for s in extra:
             if s not in sel_sites:
                 sel_sites.append(s)
+                
+    sel_sites_db = [s.strip() for s in sel_sites if s.strip()]
+    
+    if filter_type == "site_cell":
+        parsed = []
+        for s in sel_sites_db:
+            if '-' in s:
+                sid, c = s.rsplit('-', 1)
+                try:
+                    parsed.append((sid, float(c)))
+                except ValueError:
+                    pass
+        if not parsed:
+            parsed = [('UNKNOWN', -1)]
+        where_entity = "(siteid, cell) IN %s"
+        sel_sites_param = tuple(parsed)
+        group_entity = "siteid || '-' || cell::text"
+    else:
+        if not sel_sites_db:
+            sel_sites_db = ['UNKNOWN']
+        where_entity = "siteid IN %s"
+        sel_sites_param = tuple(sel_sites_db)
+        group_entity = "siteid"
 
     sel_kpis = request.args.getlist("kpi")
     if not sel_kpis:
@@ -85,7 +109,10 @@ def dashboard_4g_view():
 
     sites_list = []
     try:
-        sites_list, _ = get_site_list_4g()
+        if filter_type == "site_cell":
+            sites_list, _ = get_site_cell_list_4g()
+        else:
+            sites_list, _ = get_site_list_4g()
     except Exception:
         sites_list = []
 
@@ -141,10 +168,10 @@ def dashboard_4g_view():
                         datehour,
                         {kpi_selects}
                     FROM "4g_kpi_zte"
-                    WHERE date BETWEEN %s AND %s AND siteid = ANY(%s)
+                    WHERE date BETWEEN %s AND %s AND {where_entity}
                     GROUP BY datehour, dt_label ORDER BY datehour
                 """
-                cur.execute(query_trend, [trend_from_date, trend_to_date, sel_sites])
+                cur.execute(query_trend, [trend_from_date, trend_to_date, sel_sites_param])
                 rows_trend = cur.fetchall()
                 
                 # Keep original order by date
@@ -179,10 +206,10 @@ def dashboard_4g_view():
                         END AS band,
                         {kpi_selects}
                     FROM "4g_kpi_zte"
-                    WHERE date BETWEEN %s AND %s AND siteid = ANY(%s)
+                    WHERE date BETWEEN %s AND %s AND {where_entity}
                     GROUP BY datehour, dt_label, band ORDER BY datehour
                 """
-                cur.execute(query_trend_band, [trend_from_date, trend_to_date, sel_sites])
+                cur.execute(query_trend_band, [trend_from_date, trend_to_date, sel_sites_param])
                 rows_band_trend = cur.fetchall()
                 band_trend_map = defaultdict(dict)
                 for r in rows_band_trend:
@@ -205,8 +232,8 @@ def dashboard_4g_view():
                     cur.execute(f"""
                         SELECT {kpi_selects}
                         FROM "4g_kpi_zte"
-                        WHERE date BETWEEN %s AND %s AND siteid = ANY(%s)
-                    """, [from_d, to_d, sel_sites])
+                        WHERE date BETWEEN %s AND %s AND {where_entity}
+                    """, [from_d, to_d, sel_sites_param])
                     cluster_row = cur.fetchone()
                     
                     # Band
@@ -224,9 +251,9 @@ def dashboard_4g_view():
                             END AS band,
                             {kpi_selects}
                         FROM "4g_kpi_zte"
-                        WHERE date BETWEEN %s AND %s AND siteid = ANY(%s)
+                        WHERE date BETWEEN %s AND %s AND {where_entity}
                         GROUP BY band
-                    """, [from_d, to_d, sel_sites])
+                    """, [from_d, to_d, sel_sites_param])
                     band_rows = cur.fetchall()
                     
                     # Sector
@@ -240,18 +267,18 @@ def dashboard_4g_view():
                             END AS sector,
                             {kpi_selects}
                         FROM "4g_kpi_zte"
-                        WHERE date BETWEEN %s AND %s AND siteid = ANY(%s)
+                        WHERE date BETWEEN %s AND %s AND {where_entity}
                         GROUP BY siteid, sector
-                    """, [from_d, to_d, sel_sites])
+                    """, [from_d, to_d, sel_sites_param])
                     sector_rows = cur.fetchall()
                     
                     # Site
                     cur.execute(f"""
-                        SELECT siteid, {kpi_selects}
+                        SELECT {group_entity} as siteid, {kpi_selects}
                         FROM "4g_kpi_zte"
-                        WHERE date BETWEEN %s AND %s AND siteid = ANY(%s)
-                        GROUP BY siteid
-                    """, [from_d, to_d, sel_sites])
+                        WHERE date BETWEEN %s AND %s AND {where_entity}
+                        GROUP BY {group_entity}
+                    """, [from_d, to_d, sel_sites_param])
                     site_rows = cur.fetchall()
                     
                     return cluster_row, band_rows, sector_rows, site_rows
@@ -317,17 +344,17 @@ def dashboard_4g_view():
                 cur.execute(f"""
                     SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {kpi_selects}
                     FROM "4g_kpi_zte"
-                    WHERE date BETWEEN %s AND %s AND siteid = ANY(%s)
+                    WHERE date BETWEEN %s AND %s AND {where_entity}
                     GROUP BY hr ORDER BY hr
-                """, [before_from_date, before_to_date, sel_sites])
+                """, [before_from_date, before_to_date, sel_sites_param])
                 before_hourly = cur.fetchall()
 
                 cur.execute(f"""
                     SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {kpi_selects}
                     FROM "4g_kpi_zte"
-                    WHERE date BETWEEN %s AND %s AND siteid = ANY(%s)
+                    WHERE date BETWEEN %s AND %s AND {where_entity}
                     GROUP BY hr ORDER BY hr
-                """, [after_from_date, after_to_date, sel_sites])
+                """, [after_from_date, after_to_date, sel_sites_param])
                 after_hourly = cur.fetchall()
 
                 compare_hourly_labels = sorted(list(set([r[0] for r in before_hourly] + [r[0] for r in after_hourly])))
@@ -375,6 +402,7 @@ def dashboard_4g_view():
     return _no_cache(make_response(render_template(
         "dashboard_4g.html",
         username=username,
+        filter_type=filter_type,
         sites_list=sites_list,
         sel_sites=sel_sites,
         sel_kpis=sel_kpis,
@@ -456,3 +484,16 @@ def delete_custom_chart():
         return json_response({"success": True, "message": "Dashboard deleted successfully"})
     except Exception as e:
         return json_response({"error": str(e)}, 500)
+
+@dashboard_4g.route("/api/filter_list_4g", methods=["GET"])
+@login_required
+def get_filter_list_4g():
+    ftype = request.args.get("filter_type", "siteid")
+    try:
+        if ftype == "site_cell":
+            items, _ = get_site_cell_list_4g()
+        else:
+            items, _ = get_site_list_4g()
+        return jsonify({"success": True, "items": items})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
