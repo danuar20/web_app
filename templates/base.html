@@ -36,9 +36,7 @@
         }
     }
 
-    // Sync theme icon
-    var icon = theme === "dark" ? "🌙" : "☀️";
-    document.querySelectorAll(".theme-toggle-btn, #themeBtn").forEach(function(b){ b.innerHTML = icon; });
+    // Icon is now managed via pure CSS using data-theme
 
     // ── Apply ALL saved settings globally on every page load ──
     (function initAppSettings(){
@@ -365,6 +363,8 @@ a { text-decoration: none; }
     color: #555;
     box-shadow: 0 1px 4px rgba(0,0,0,0.07);
 }
+[data-theme="light"] .theme-toggle-btn::after { content: "☀️"; }
+[data-theme="dark"]  .theme-toggle-btn::after { content: "🌙"; }
 .theme-toggle-btn:hover {
     background: rgba(79,172,254,0.15);
     border-color: #4facfe;
@@ -1627,7 +1627,7 @@ body.bs-open .bs-overlay { display: block; opacity: 1; }
       </div>
       <div class="topbar-right">
         {% block topbar_chips %}{% endblock %}
-        <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeBtn" title="Toggle light/dark">🌙</button>
+        <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeBtn" title="Toggle light/dark"></button>
         <button class="sidebar-toggle-btn" onclick="toggleViewMode()" id="sidebarToggleBtn" title="Toggle sidebar">
           <svg class="view-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <!-- Monitor screen -->
@@ -1988,10 +1988,8 @@ function toggleTheme(){
     var next = document.documentElement.getAttribute("data-theme")==="dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);
     localStorage.setItem("theme", next);
-    updateThemeIcon();
     setTimeout(function(){ 
         if(typeof updateAllChartsTheme === "function") updateAllChartsTheme();
-        if(typeof renderChart === "function") renderChart(); 
     }, 80);
 }
 
@@ -2001,7 +1999,12 @@ function updateAllChartsTheme(){
     var gridColor = theme === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
     var textColor = theme === "dark" ? "rgba(200,208,224,0.6)" : "rgba(0,0,0,0.6)";
 
-    Object.values(Chart.instances).forEach(function(chart){
+    var charts = Object.values(Chart.instances);
+    var i = 0;
+    
+    function updateNext() {
+        if (i >= charts.length) return;
+        var chart = charts[i++];
         if (chart.options && chart.options.scales) {
             if (chart.options.scales.x) {
                 if (chart.options.scales.x.grid) chart.options.scales.x.grid.color = gridColor;
@@ -2012,16 +2015,17 @@ function updateAllChartsTheme(){
                 if (chart.options.scales.y.ticks) chart.options.scales.y.ticks.color = textColor;
                 if (chart.options.scales.y.title) chart.options.scales.y.title.color = textColor;
             }
+            if (chart.options.scales.y1 && chart.options.scales.y1.grid) {
+                chart.options.scales.y1.grid.color = gridColor;
+            }
         }
         if (chart.options && chart.options.plugins && chart.options.plugins.legend && chart.options.plugins.legend.labels) {
             chart.options.plugins.legend.labels.color = textColor;
         }
-        chart.update();
-    });
-}
-function updateThemeIcon(){
-    var icon = document.documentElement.getAttribute("data-theme")==="dark" ? "🌙" : "☀️";
-    document.querySelectorAll(".theme-toggle-btn, #themeBtn").forEach(function(b){ b.innerHTML = icon; });
+        chart.update('none');
+        requestAnimationFrame(updateNext);
+    }
+    updateNext();
 }
 
 /* ── View Mode (sidebar show/hide) ── */

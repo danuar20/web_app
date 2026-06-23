@@ -41,6 +41,8 @@ body { font-family: 'Inter', sans-serif; min-height: 100vh; transition: backgrou
     color: #555;
     box-shadow: 0 1px 4px rgba(0,0,0,0.07);
 }
+[data-theme="light"] .theme-toggle-btn::after { content: "☀️"; }
+[data-theme="dark"]  .theme-toggle-btn::after { content: "🌙"; }
 .theme-toggle-btn:hover { background: rgba(79,172,254,0.15); border-color: #4facfe; transform: scale(1.08); }
 [data-theme="dark"] .theme-toggle-btn:hover { box-shadow: 0 0 16px rgba(79,172,254,0.2); }
 
@@ -128,7 +130,7 @@ body { font-family: 'Inter', sans-serif; min-height: 100vh; transition: backgrou
 
 <!-- Topbar with theme toggle -->
 <div class="login-topbar">
-    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeBtn" title="Toggle theme">🌙</button>
+    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeBtn" title="Toggle theme"></button>
 </div>
 
 <div class="login-container">
@@ -182,9 +184,7 @@ function toggleTheme(){
     var next = document.documentElement.getAttribute("data-theme")==="dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);
     localStorage.setItem("theme", next);
-    document.getElementById("themeBtn").innerHTML = next==="dark" ? "🌙" : "☀️";
 }
-(function(){ var t = localStorage.getItem("theme") || "light"; document.getElementById("themeBtn").innerHTML = t==="dark" ? "🌙" : "☀️"; })();
 
 var form   = document.getElementById("loginForm");
 var btn    = document.getElementById("loginBtn");
