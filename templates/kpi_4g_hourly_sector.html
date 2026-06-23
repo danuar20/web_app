@@ -98,6 +98,8 @@
         </div>
     </div>
 
+
+
     <button type="submit" class="btn-apply">
         <i class="fas fa-play" style="font-size:10px;margin-right:4px"></i> Show
     </button>
@@ -143,8 +145,88 @@
 </style>
 <div class="content-area">
 {% if chart_labels %}
+<style>
+.modern-segmented {
+    display: flex;
+    background: rgba(128, 128, 128, 0.1);
+    border-radius: 6px;
+    padding: 2px;
+}
+.modern-row-btn {
+    border: none;
+    background: transparent;
+    width: 28px;
+    height: 24px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #888;
+    transition: all 0.2s ease;
+}
+.modern-row-btn:hover {
+    color: var(--text-color, #333);
+}
+.modern-row-btn.active {
+    background: #4facfe;
+    color: #fff;
+    box-shadow: 0 2px 4px rgba(79, 172, 254, 0.3);
+}
+</style>
+
+<div id="globalChartControls" style="display:none; justify-content:space-between; align-items:center; background:var(--card-bg, #fff); padding:10px 16px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.05); margin-bottom:20px; border:1px solid rgba(128,128,128,0.1);">
+    <div style="display:flex; gap:16px; align-items:center;">
+        <span style="font-size:13px; font-weight:600; color:#4facfe;"><i class="fas fa-sliders-h" style="margin-right:6px"></i> Global Chart Controls</span>
+        
+        <div class="dropdown-container" id="dynamicSectorDropdownContainer">
+            <button type="button" class="dropdown-toggle" onclick="toggleDynamicSectorDropdown(event)" style="height:32px; padding:0 12px; font-size:12px; font-weight:500;">
+                <span id="dynamicSectorBtnText">All Sectors Selected</span>
+                <i class="fas fa-chevron-down" style="margin-left:8px;"></i>
+            </button>
+            <div class="dropdown-menu" id="dynamicSectorDropdown" style="display:none; width:180px; padding:6px 0; border:1px solid rgba(128,128,128,0.2);">
+                <label class="checkbox-label" style="border-bottom: 1px solid rgba(128,128,128,0.1); padding: 8px 12px; margin: 0; background: rgba(79,172,254,0.05);">
+                    <input type="checkbox" id="dynamicSectorSelectAll" checked onchange="toggleAllDynamicSectors(this)">
+                    <span style="color:#4facfe; font-weight:600">Select All Sectors</span>
+                </label>
+                <div id="dynamicSectorCheckboxes">
+                </div>
+            </div>
+        </div>
+        
+        <div class="dropdown-container" id="dynamicBandDropdownContainer">
+            <button type="button" class="dropdown-toggle" onclick="toggleDynamicBandDropdown(event)" style="height:32px; padding:0 12px; font-size:12px; font-weight:500;">
+                <span id="dynamicBandBtnText">All Bands Selected</span>
+                <i class="fas fa-chevron-down" style="margin-left:8px;"></i>
+            </button>
+            <div class="dropdown-menu" id="dynamicBandDropdown" style="display:none; width:160px; padding:6px 0; border:1px solid rgba(128,128,128,0.2);">
+                <label class="checkbox-label" style="border-bottom: 1px solid rgba(128,128,128,0.1); padding: 8px 12px; margin: 0; background: rgba(79,172,254,0.05);">
+                    <input type="checkbox" id="dynamicBandSelectAll" checked onchange="toggleAllDynamicBands(this)">
+                    <span style="color:#4facfe; font-weight:600">Select All Bands</span>
+                </label>
+                <div id="dynamicBandCheckboxes">
+                    <!-- Javascript will inject bands here based on chartData -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div style="display:flex; gap:12px; align-items:center;">
+        <div style="display:flex; gap:8px; align-items:center; border-right:1px solid rgba(128,128,128,0.2); padding-right:16px;">
+            <span style="font-size:11px; font-weight:600; color:#888; text-transform:uppercase; letter-spacing:0.5px;">Charts / Row</span>
+            <div class="modern-segmented">
+                <button class="modern-row-btn" id="globalBtn1" onclick="setGlobalGridCols(1)">1</button>
+                <button class="modern-row-btn" id="globalBtn2" onclick="setGlobalGridCols(2)">2</button>
+                <button class="modern-row-btn active" id="globalBtn3" onclick="setGlobalGridCols(3)">3</button>
+            </div>
+        </div>
+        <button class="btn-apply" style="height:32px; padding:0 14px; border-radius:6px; font-size:12px;" onclick="openExportModal()">
+            <i class="fas fa-camera" style="margin-right:6px"></i> Export PNG
+        </button>
+    </div>
+</div>
+
 <div id="chartView">
-    <div class="chart-grid" id="chartGrid"></div>
+    <!-- Individual KPI Grids will be injected here -->
 </div>
 
 <!-- TABLE VIEW -->
@@ -161,7 +243,9 @@
             <thead id="tableHead">
                 <tr>
                     <th>Timestamp</th>
-                    <th>Sector Legend</th>
+                    <th>Sector</th>
+                    <th>Band</th>
+                    <th>Cell</th>
                     {% for k in kpi_defs %}
                         {% if k[0] in sel_kpis %}
                             <th>{{ k[1] }} {% if k[2] %}({{ k[2] }}){% endif %}</th>
@@ -184,9 +268,15 @@
             {% for i in range(chart_labels|length) %}
                 {% set t_label = chart_labels[i] %}
                 {% for l_key in legend_keys %}
+                    {% set pipe_parts = l_key.split('|') %}
+                    {% set sector_name = pipe_parts[0] %}
+                    {% set cell_name = pipe_parts[1] if pipe_parts|length > 1 else pipe_parts[0] %}
+                    {% set band_name = cell_name.split('-')[0] %}
                     <tr>
                         <td>{{ t_label }}</td>
-                        <td>{{ l_key.replace('|', ' ') }}</td>
+                        <td>{{ sector_name }}</td>
+                        <td>{{ band_name }}</td>
+                        <td>{{ cell_name }}</td>
                         {% for k in active_kpis %}
                             {% set val = chart_data[k[0]][l_key][i] %}
                             <td class="val-center">{% if val is not none %}{{ "%.2f"|format(val) }}{% else %}—{% endif %}</td>
@@ -206,6 +296,30 @@
 </div>
 {% endif %}
 </div>
+
+<!-- EXPORT PNG MODAL -->
+<div id="exportModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(2px); z-index:9999; align-items:center; justify-content:center;">
+    <div class="card" style="width:400px; padding:0; overflow:hidden; border:1px solid rgba(128,128,128,0.2);">
+        <div style="background:rgba(79,172,254,0.1); padding:16px 20px; border-bottom:1px solid rgba(128,128,128,0.1); display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0; font-size:16px; color:#4facfe;"><i class="fas fa-camera" style="margin-right:8px"></i> Advanced PNG Export</h3>
+            <button onclick="document.getElementById('exportModal').style.display='none'" style="background:transparent; border:none; color:#888; cursor:pointer; font-size:16px;"><i class="fas fa-times"></i></button>
+        </div>
+        <div style="padding:20px;">
+            <p style="margin-top:0; font-size:12px; color:#888;">Select which KPI charts you want to include in the exported PNG image:</p>
+            <div style="margin-bottom:12px;">
+                <label class="checkbox-label" style="font-weight:600; padding-bottom:8px; border-bottom:1px solid rgba(128,128,128,0.1);"><input type="checkbox" id="exportSelectAll" checked onchange="toggleAllExportKPIs(this)"> Select All</label>
+            </div>
+            <div id="exportKpiList" style="max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+                <!-- Filled dynamically -->
+            </div>
+        </div>
+        <div style="padding:16px 20px; background:var(--bg-color); border-top:1px solid rgba(128,128,128,0.1); display:flex; justify-content:flex-end; gap:10px;">
+            <button onclick="document.getElementById('exportModal').style.display='none'" style="padding:8px 16px; border:1px solid rgba(128,128,128,0.2); border-radius:6px; background:transparent; color:inherit; cursor:pointer; font-size:12px;">Cancel</button>
+            <button class="btn-apply" onclick="executeAdvancedExport()" style="padding:8px 16px; font-size:12px;">Download PNG</button>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block page_scripts %}
@@ -237,9 +351,22 @@ function toggleKpiDropdown(event) {
 document.addEventListener("click", function(event){
     var sc = document.getElementById("siteDropdownContainer");
     var kc = document.getElementById("kpiDropdownContainer");
+    var gc = document.getElementById("globalBandDropdownContainer");
     if(sc && !sc.contains(event.target)) document.getElementById("siteDropdown").style.display = "none";
     if(kc && !kc.contains(event.target)) document.getElementById("kpiDropdown").style.display = "none";
+    
+    var dc = document.getElementById("dynamicBandDropdownContainer");
+    if(dc && !dc.contains(event.target)) {
+        var dm = document.getElementById("dynamicBandDropdown");
+        if(dm) dm.style.display = "none";
+    }
 });
+
+function toggleDynamicBandDropdown(event) {
+    if(event) event.stopPropagation();
+    var dm = document.getElementById("dynamicBandDropdown");
+    if(dm) dm.style.display = dm.style.display === "none" || dm.style.display === "" ? "flex" : "none";
+}
 
 function updateKpiCount(){
     var checked = document.querySelectorAll("#kpiCheckboxes input[type='checkbox']:checked").length;
@@ -337,6 +464,7 @@ function downloadTableData(){
     var headers = [];
     thead.querySelectorAll("th").forEach(function(th){ headers.push(th.textContent || ""); });
     tbody.querySelectorAll("tr").forEach(function(tr){
+        if (tr.style.display === "none") return;
         var row = [];
         tr.querySelectorAll("td").forEach(function(td){ row.push(td.textContent || ""); });
         if(row.length) rows.push(row);
@@ -391,7 +519,11 @@ function makeOpts(leftLabel, yMin, yMax){
         responsive: true, maintainAspectRatio: false, animation: false,
         plugins: {
             legend: { display: true, position: "bottom", align: "center",
-                      labels: { color: tc(), font: { size: 8 }, boxWidth: 10, padding: 10 } },
+                      labels: { color: tc(), font: { size: 8 }, boxWidth: 10, padding: 10,
+                                filter: function(item, chart) {
+                                    return !chart.datasets[item.datasetIndex].hidden;
+                                }
+                      } },
             tooltip: {
                 mode: "index", intersect: false,
                 backgroundColor: "rgba(10,10,30,0.88)",
@@ -436,11 +568,45 @@ document.addEventListener("DOMContentLoaded", function(){
         return;
     }
 
-    var chartGrid = document.getElementById("chartGrid");
-    if(!chartGrid) return;
-    chartGrid.innerHTML = "";
+    var chartView = document.getElementById("chartView");
+    if(!chartView) return;
+    chartView.innerHTML = "";
 
     var activeKpis = kpiDefs.filter(function(k){ return selKpis.indexOf(k[0]) > -1; });
+    
+    // Dynamic Band Extraction
+    if(activeKpis.length > 0) {
+        var allBands = new Set();
+        var allSectors = new Set();
+        for (var cId in chartData) {
+            for (var legend in chartData[cId]) {
+                var splitPipe = legend.split("|");
+                var sector = splitPipe[0];
+                var band = splitPipe.length > 1 ? splitPipe[1].split("-")[0] : splitPipe[0].split("-")[0];
+                allBands.add(band);
+                allSectors.add(sector);
+            }
+        }
+        var bandArray = Array.from(allBands).sort(function(a, b) {
+            if (a.length !== b.length) return a.length - b.length;
+            return a.localeCompare(b);
+        });
+        var cbHtml = bandArray.map(function(b) {
+            return '<label class="checkbox-label" style="padding: 6px 12px; margin: 0;"><input type="checkbox" value="' + b + '" checked onchange="applyGlobalFilters()"> <span>' + b + '</span></label>';
+        }).join("");
+        var gContainer = document.getElementById("dynamicBandCheckboxes");
+        if(gContainer) gContainer.innerHTML = cbHtml;
+        
+        var sectorArray = Array.from(allSectors).sort();
+        var sHtml = sectorArray.map(function(s) {
+            return '<label class="checkbox-label" style="padding: 6px 12px; margin: 0;"><input type="checkbox" value="' + s + '" checked onchange="applyGlobalFilters()"> <span>' + s + '</span></label>';
+        }).join("");
+        var sContainer = document.getElementById("dynamicSectorCheckboxes");
+        if(sContainer) sContainer.innerHTML = sHtml;
+        
+        var gc = document.getElementById("globalChartControls");
+        if(gc) gc.style.display = "flex";
+    }
 
     activeKpis.forEach(function(kpi, kpiIdx){
         var chartIdPrefix = kpi[0];
@@ -471,7 +637,13 @@ document.addEventListener("DOMContentLoaded", function(){
         kpiSection.style.marginBottom = "10px";
         if (kpiIdx > 0) kpiSection.style.marginTop = "20px";
         kpiSection.innerHTML = '<h3 style="margin:0; color:#4facfe; border-bottom:1px solid rgba(79,172,254,0.3); padding-bottom:6px;">' + title + ' (' + unit + ')</h3>';
-        chartGrid.appendChild(kpiSection);
+        chartView.appendChild(kpiSection);
+
+        var chartGrid = document.createElement("div");
+        chartGrid.className = "chart-grid dynamic-grid";
+        chartGrid.id = "grid_" + chartIdPrefix;
+        chartGrid.style.gridTemplateColumns = "repeat(3, minmax(0, 1fr))";
+        chartView.appendChild(chartGrid);
 
         var sIdx = 0;
         for (var sectorKey in sectorGroups) {
@@ -527,6 +699,258 @@ function setView(view, btn) {
         document.getElementById('chartView').style.display = 'none';
         document.getElementById('tableView').style.display = 'block';
     }
+}
+
+  function applyGlobalFilters() {
+    var checkedBands = document.querySelectorAll("#dynamicBandCheckboxes input[type='checkbox']:checked");
+    var totalBands = document.querySelectorAll("#dynamicBandCheckboxes input[type='checkbox']").length;
+    var selectedBands = Array.from(checkedBands).map(function(cb){ return cb.value; });
+    
+    var checkedSectors = document.querySelectorAll("#dynamicSectorCheckboxes input[type='checkbox']:checked");
+    var totalSectors = document.querySelectorAll("#dynamicSectorCheckboxes input[type='checkbox']").length;
+    var selectedSectors = Array.from(checkedSectors).map(function(cb){ return cb.value; });
+    
+    var btnTextBand = document.getElementById("dynamicBandBtnText");
+    if(btnTextBand) {
+        if(checkedBands.length === totalBands) btnTextBand.textContent = "All Bands Selected";
+        else if(checkedBands.length === 0) btnTextBand.textContent = "No Bands Selected";
+        else btnTextBand.textContent = checkedBands.length + " Band(s) Selected";
+    }
+    
+    var btnTextSector = document.getElementById("dynamicSectorBtnText");
+    if(btnTextSector) {
+        if(checkedSectors.length === totalSectors) btnTextSector.textContent = "All Sectors Selected";
+        else if(checkedSectors.length === 0) btnTextSector.textContent = "No Sectors Selected";
+        else btnTextSector.textContent = checkedSectors.length + " Sector(s) Selected";
+    }
+    
+    var selectAllBandBox = document.getElementById("dynamicBandSelectAll");
+    if (selectAllBandBox) selectAllBandBox.checked = (checkedBands.length === totalBands);
+    
+    var selectAllSectorBox = document.getElementById("dynamicSectorSelectAll");
+    if (selectAllSectorBox) selectAllSectorBox.checked = (checkedSectors.length === totalSectors);
+    
+    // 1. Filter Charts
+    for (var chartId in chartInstances) {
+        var chart = chartInstances[chartId];
+        var chartCardNode = chart.canvas.closest(".chart-card");
+        var chartSector = chartCardNode ? chartCardNode.querySelector(".card-title").textContent.trim() : null;
+        
+        if (selectedSectors.indexOf(chartSector) === -1) {
+            chartCardNode.style.display = "none";
+            continue;
+        } else {
+            chartCardNode.style.display = "";
+        }
+        
+        chart.data.datasets.forEach(function(ds) {
+            var lineBand = ds.label.split("|").length > 1 ? ds.label.split("|")[1].split("-")[0] : ds.label.split("-")[0];
+            if (selectedBands.indexOf(lineBand) > -1) {
+                ds.hidden = false;
+            } else {
+                ds.hidden = true;
+            }
+        });
+        chart.update();
+    }
+    
+    // 2. Filter Table Rows
+    var tbody = document.getElementById("tableBody");
+    if(tbody) {
+        var rows = tbody.querySelectorAll("tr");
+        rows.forEach(function(tr) {
+            var sectorCell = tr.children[1];
+            var bandCell = tr.children[2];
+            if(sectorCell && bandCell) {
+                var band = bandCell.textContent.trim();
+                var sector = sectorCell.textContent.trim();
+                if (selectedBands.indexOf(band) > -1 && selectedSectors.indexOf(sector) > -1) {
+                    tr.style.display = "";
+                } else {
+                    tr.style.display = "none";
+                }
+            }
+        });
+    }
+}
+
+function toggleAllDynamicBands(cb) {
+    document.querySelectorAll("#dynamicBandCheckboxes input[type='checkbox']").forEach(function(c){
+        c.checked = cb.checked;
+    });
+    applyGlobalFilters();
+}
+
+function toggleAllDynamicSectors(cb) {
+    document.querySelectorAll("#dynamicSectorCheckboxes input[type='checkbox']").forEach(function(c){
+        c.checked = cb.checked;
+    });
+    applyGlobalFilters();
+}
+
+function toggleDynamicBandDropdown(e) {
+    var d = document.getElementById("dynamicBandDropdown");
+    d.style.display = (d.style.display === "none") ? "block" : "none";
+    if (e) e.stopPropagation();
+}
+
+function toggleDynamicSectorDropdown(e) {
+    var d = document.getElementById("dynamicSectorDropdown");
+    d.style.display = (d.style.display === "none") ? "block" : "none";
+    if (e) e.stopPropagation();
+}
+
+document.addEventListener("click", function(event) {
+    var bd = document.getElementById("dynamicBandDropdownContainer");
+    var bdMenu = document.getElementById("dynamicBandDropdown");
+    if(bd && !bd.contains(event.target) && bdMenu) bdMenu.style.display = "none";
+    
+    var sd = document.getElementById("dynamicSectorDropdownContainer");
+    var sdMenu = document.getElementById("dynamicSectorDropdown");
+    if(sd && !sd.contains(event.target) && sdMenu) sdMenu.style.display = "none";
+});
+
+function setGlobalGridCols(cols) {
+    document.querySelectorAll(".dynamic-grid").forEach(function(grid){
+        grid.style.gridTemplateColumns = "repeat(" + cols + ", minmax(0, 1fr))";
+    });
+    document.getElementById("globalBtn1").classList.remove("active");
+    document.getElementById("globalBtn2").classList.remove("active");
+    document.getElementById("globalBtn3").classList.remove("active");
+    document.getElementById("globalBtn" + cols).classList.add("active");
+}
+
+function openExportModal() {
+    var activeKpis = kpiDefs.filter(function(k){ return selKpis.indexOf(k[0]) > -1; });
+    if(activeKpis.length === 0) return alert("No KPIs active.");
+    
+    var html = activeKpis.map(function(kpi) {
+        return '<label class="checkbox-label" style="margin:0;"><input type="checkbox" value="' + kpi[0] + '" data-title="' + kpi[1] + '" checked onchange="checkExportAllSync()"> ' + kpi[1] + ' (' + kpi[2] + ')</label>';
+    }).join("");
+    
+    document.getElementById("exportKpiList").innerHTML = html;
+    document.getElementById("exportSelectAll").checked = true;
+    document.getElementById("exportModal").style.display = "flex";
+}
+
+function toggleAllExportKPIs(cb) {
+    document.querySelectorAll("#exportKpiList input[type='checkbox']").forEach(function(c){
+        c.checked = cb.checked;
+    });
+}
+
+function checkExportAllSync() {
+    var total = document.querySelectorAll("#exportKpiList input[type='checkbox']").length;
+    var checked = document.querySelectorAll("#exportKpiList input[type='checkbox']:checked").length;
+    document.getElementById("exportSelectAll").checked = (total === checked);
+}
+
+async function executeAdvancedExport() {
+    var checkedBoxes = document.querySelectorAll("#exportKpiList input[type='checkbox']:checked");
+    if(checkedBoxes.length === 0) return alert("Please select at least one KPI to export.");
+    
+    document.getElementById("exportModal").style.display = "none";
+    
+    var activeBtn = document.querySelector(".modern-row-btn.active");
+    var cols = parseInt(activeBtn ? activeBtn.textContent.trim() : 3);
+    
+    var dpr = window.devicePixelRatio || 1;
+    var cardPad = 8 * dpr;
+    var titleHeight = 36 * dpr;
+    var gridPad = 12 * dpr;
+    
+    // We will render sections vertically.
+    var renderItems = [];
+    var totalWidth = 0;
+    var totalHeight = gridPad; // add bottom padding to total image
+    
+    var sampleChart = null;
+    
+    checkedBoxes.forEach(function(cb) {
+        var kpiPrefix = cb.value;
+        var kpiTitle = cb.getAttribute("data-title");
+        var chartIdsToExport = [];
+        for (var cid in chartInstances) {
+            if (cid.startsWith(kpiPrefix + "_")) {
+                var chartCardNode = chartInstances[cid].canvas.closest(".chart-card");
+                if (!chartCardNode || chartCardNode.style.display !== "none") {
+                    chartIdsToExport.push(cid);
+                }
+            }
+        }
+        if(chartIdsToExport.length === 0) return;
+        
+        if(!sampleChart) sampleChart = chartInstances[chartIdsToExport[0]];
+        
+        var rows = Math.ceil(chartIdsToExport.length / cols);
+        var cWidth = sampleChart.canvas.width;
+        var cHeight = sampleChart.canvas.height;
+        var cardWidth = cWidth + (cardPad * 2);
+        var cardHeight = cHeight + titleHeight + (cardPad * 2);
+        
+        var sectionWidth = cols * cardWidth + (cols + 1) * gridPad;
+        var sectionHeight = rows * cardHeight + rows * gridPad;
+        
+        if(sectionWidth > totalWidth) totalWidth = sectionWidth;
+        
+        renderItems.push({
+            kpiTitle: kpiTitle,
+            chartIds: chartIdsToExport,
+            rows: rows,
+            cols: cols,
+            cardWidth: cardWidth,
+            cardHeight: cardHeight,
+            sectionHeight: sectionHeight
+        });
+        totalHeight += sectionHeight;
+    });
+    
+    if(!sampleChart) return alert("No valid charts found.");
+    
+    var tempCanvas = document.createElement('canvas');
+    tempCanvas.width = totalWidth;
+    tempCanvas.height = totalHeight;
+    var ctx = tempCanvas.getContext('2d');
+    
+    var isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    ctx.clearRect(0, 0, totalWidth, totalHeight);
+    
+    var currentY = 0;
+    
+    renderItems.forEach(function(item) {
+        // Draw Cards
+        item.chartIds.forEach(function(cid, idx) {
+            var chart = chartInstances[cid];
+            var col = idx % item.cols;
+            var row = Math.floor(idx / item.cols);
+            var cx = gridPad + col * (item.cardWidth + gridPad);
+            var cy = currentY + gridPad + row * (item.cardHeight + gridPad);
+            
+            ctx.fillStyle = isDark ? 'rgba(30,30,58,1)' : '#ffffff';
+            ctx.fillRect(cx, cy, item.cardWidth, item.cardHeight);
+            
+            ctx.strokeStyle = isDark ? 'rgba(79,172,254,0.2)' : 'rgba(0,0,0,0.1)';
+            ctx.lineWidth = 1 * dpr;
+            ctx.strokeRect(cx, cy, item.cardWidth, item.cardHeight);
+            
+            var cardNode = chart.canvas.closest(".chart-card");
+            var sectorName = cardNode ? cardNode.querySelector(".card-title").textContent.trim() : "Sector";
+            
+            ctx.font = "bold " + (15 * dpr) + "px Inter, sans-serif";
+            ctx.fillStyle = isDark ? '#ffffff' : '#1e293b';
+            ctx.textAlign = "left";
+            ctx.fillText(sectorName, cx + cardPad, cy + cardPad + (16 * dpr));
+            
+            ctx.drawImage(chart.canvas, cx + cardPad, cy + cardPad + titleHeight);
+        });
+        
+        currentY += item.sectionHeight;
+    });
+    
+    var a = document.createElement('a');
+    a.href = tempCanvas.toDataURL('image/png');
+    a.download = '4G_Hourly_Sector_Advanced_Export.png';
+    a.click();
 }
 </script>
 {% endblock %}

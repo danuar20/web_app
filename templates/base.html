@@ -2353,7 +2353,10 @@ function buildModalConfig(sourceChart, titleText){
         usePointStyle: false,
         boxWidth: 12,
         padding: 6,
-        font: { size: 10 }
+        font: { size: 10 },
+        filter: function(item, chart) {
+            return !chart.datasets[item.datasetIndex].hidden;
+        }
       }, (baseOptions.plugins.legend && baseOptions.plugins.legend.labels) || {})
     });
     baseOptions.scales = baseOptions.scales || {};
@@ -2469,6 +2472,7 @@ function openChartModal(chartEl){
             data: ds.data ? ds.data.slice() : [],
             borderColor: ds.borderColor,
             backgroundColor: ds.backgroundColor,
+            hidden: ds.hidden || false,
             borderWidth: 2,
             pointRadius: 0,
             pointHoverRadius: 6,
@@ -2575,13 +2579,13 @@ function downloadModalImage() {
 function downloadModalCSV() {
     if(!modalChart) return;
     var labels = modalChart.data.labels;
-    var datasets = modalChart.data.datasets;
+    var visibleDatasets = modalChart.data.datasets.filter(function(ds) { return !ds.hidden; });
     var csvContent = "data:text/csv;charset=utf-8,Label";
-    datasets.forEach(function(ds) { csvContent += "," + '"' + ds.label.replace(/"/g, '""') + '"'; });
+    visibleDatasets.forEach(function(ds) { csvContent += "," + '"' + ds.label.replace(/"/g, '""') + '"'; });
     csvContent += "\r\n";
     for (var i = 0; i < labels.length; i++) {
         var row = ['"' + String(labels[i]).replace(/"/g, '""') + '"'];
-        datasets.forEach(function(ds) {
+        visibleDatasets.forEach(function(ds) {
             var val = ds.data[i];
             row.push((val !== null && val !== undefined) ? val : "");
         });
