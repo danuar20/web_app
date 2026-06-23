@@ -3,7 +3,7 @@
 <script>
 /* Apply theme + view mode ASAP to prevent flash */
 (function(){
-    var theme = localStorage.getItem("theme") || "dark";
+    var theme = localStorage.getItem("theme") || "light";
     document.documentElement.setAttribute("data-theme", theme);
 
     var settings = JSON.parse(localStorage.getItem("appSettings") || "{}");
@@ -1989,7 +1989,35 @@ function toggleTheme(){
     document.documentElement.setAttribute("data-theme", next);
     localStorage.setItem("theme", next);
     updateThemeIcon();
-    setTimeout(function(){ if(typeof renderChart === "function") renderChart(); }, 80);
+    setTimeout(function(){ 
+        if(typeof updateAllChartsTheme === "function") updateAllChartsTheme();
+        if(typeof renderChart === "function") renderChart(); 
+    }, 80);
+}
+
+function updateAllChartsTheme(){
+    if (typeof Chart === 'undefined' || !Chart.instances) return;
+    var theme = document.documentElement.getAttribute("data-theme") || "dark";
+    var gridColor = theme === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
+    var textColor = theme === "dark" ? "rgba(200,208,224,0.6)" : "rgba(0,0,0,0.6)";
+
+    Object.values(Chart.instances).forEach(function(chart){
+        if (chart.options && chart.options.scales) {
+            if (chart.options.scales.x) {
+                if (chart.options.scales.x.grid) chart.options.scales.x.grid.color = gridColor;
+                if (chart.options.scales.x.ticks) chart.options.scales.x.ticks.color = textColor;
+            }
+            if (chart.options.scales.y) {
+                if (chart.options.scales.y.grid) chart.options.scales.y.grid.color = gridColor;
+                if (chart.options.scales.y.ticks) chart.options.scales.y.ticks.color = textColor;
+                if (chart.options.scales.y.title) chart.options.scales.y.title.color = textColor;
+            }
+        }
+        if (chart.options && chart.options.plugins && chart.options.plugins.legend && chart.options.plugins.legend.labels) {
+            chart.options.plugins.legend.labels.color = textColor;
+        }
+        chart.update();
+    });
 }
 function updateThemeIcon(){
     var icon = document.documentElement.getAttribute("data-theme")==="dark" ? "🌙" : "☀️";

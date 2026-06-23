@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="id">
 <script>
-(function(){ document.documentElement.setAttribute("data-theme", localStorage.getItem("theme") || "dark"); })();
+(function(){ document.documentElement.setAttribute("data-theme", localStorage.getItem("theme") || "light"); })();
 </script>
 <head>
 <meta charset="UTF-8">
@@ -184,7 +184,7 @@ function toggleTheme(){
     localStorage.setItem("theme", next);
     document.getElementById("themeBtn").innerHTML = next==="dark" ? "🌙" : "☀️";
 }
-(function(){ document.getElementById("themeBtn").innerHTML = localStorage.getItem("theme")==="light" ? "☀️" : "🌙"; })();
+(function(){ var t = localStorage.getItem("theme") || "light"; document.getElementById("themeBtn").innerHTML = t==="dark" ? "🌙" : "☀️"; })();
 
 var form   = document.getElementById("loginForm");
 var btn    = document.getElementById("loginBtn");

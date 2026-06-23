@@ -473,6 +473,20 @@
         color: #f8fafc !important;
         border: 1px solid #334155 !important;
     }
+
+    .filter-panel {
+        background: #ffffff;
+        border: 1px solid rgba(128, 128, 128, 0.2);
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    [data-theme="dark"] .filter-panel {
+        background: rgba(30, 30, 58, 0.6);
+        border: 1px solid rgba(79, 172, 254, 0.1);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
 </style>
 
 
@@ -497,8 +511,8 @@
                 style="padding: 0; background: transparent; border: none; display: flex; gap: 16px; align-items: stretch; flex-wrap: wrap; overflow: visible; width: 100%;">
 
                 <!-- Panel 1: Dates Section -->
-                <div
-                    style="flex: 0 0 auto; background: var(--card-bg, #ffffff); border: 1px solid rgba(128,128,128,0.2); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                <div class="filter-panel"
+                    style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 12px;">
                     <div
                         style="display: grid; grid-template-columns: 80px 130px 20px 130px 30px; align-items: center; gap: 4px;">
                         <span class="date-label" style="margin:0; font-size:11px;">Trend Range</span>
@@ -571,8 +585,8 @@
                 </div>
 
                 <!-- Panel 2: Sites Section -->
-                <div
-                    style="flex: 1 1 auto; max-width: 350px; background: var(--card-bg, #ffffff); border: 1px solid rgba(128,128,128,0.2); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                <div class="filter-panel"
+                    style="flex: 1 1 auto; max-width: 350px; display: flex; flex-direction: column; gap: 16px;">
                     <div class="filter-group" style="width: 100%;">
                         <div class="filter-label"
                             style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px;">SITES</div>
@@ -626,8 +640,8 @@
                 </div>
 
                 <!-- Panel 3: KPIs Section -->
-                <div
-                    style="flex: 1 1 auto; max-width: 350px; background: var(--card-bg, #ffffff); border: 1px solid rgba(128,128,128,0.2); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                <div class="filter-panel"
+                    style="flex: 1 1 auto; max-width: 350px; display: flex; flex-direction: column; gap: 16px;">
                     <div class="filter-group" style="width: 100%;">
                         <div class="filter-label"
                             style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px;">KPIS</div>
