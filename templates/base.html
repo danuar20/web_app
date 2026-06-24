@@ -1,27 +1,16 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="light">
+<head>
 <script>
-/* Apply theme + view mode ASAP to prevent flash */
+/* Apply theme ASAP to prevent flash */
 (function(){
-    var theme = localStorage.getItem("theme") || "light";
+    var theme = "light";
+    try { theme = localStorage.getItem("theme"); } catch(e){}
+    if(theme !== "dark" && theme !== "light") theme = "light";
     document.documentElement.setAttribute("data-theme", theme);
 
-    var settings = JSON.parse(localStorage.getItem("appSettings") || "{}");
-    var viewMode = settings.viewMode || "desktop";
-    var sb = document.getElementById("sidebar");
-    var shell = document.querySelector(".app-shell");
-    var toggleBtn = document.getElementById("sidebarToggleBtn");
-    if(viewMode === "mobile"){
-        if(sb) sb.classList.add("mobile-hidden");
-        if(shell) shell.classList.add("sidebar-hidden");
-        document.body.classList.add("mobile-view");
-        if(toggleBtn){
-            toggleBtn.innerHTML = '<svg class="view-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="3" width="15" height="12" rx="2" ry="2"/><path d="M5 21h14M8 21v-2M16 21v-2"/><rect x="18" y="7" width="5" height="9" rx="1.5" ry="1.5"/></svg>';
-            toggleBtn.title = "Switch to Desktop";
-        }
-
-
-        // Mark active nav item based on current path
+    // Mark active nav item based on current path
+    window.addEventListener('DOMContentLoaded', function() {
         var path = window.location.pathname;
         document.querySelectorAll(".mob-nav-item").forEach(function(item){
             var href = item.getAttribute("href") || "";
@@ -29,18 +18,13 @@
                 item.classList.add("active");
             }
         });
-    } else {
-        if(toggleBtn){
-            toggleBtn.innerHTML = '<svg class="view-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="3" width="15" height="12" rx="2" ry="2"/><path d="M5 21h14M8 21v-2M16 21v-2"/><rect x="18" y="7" width="5" height="9" rx="1.5" ry="1.5"/></svg>';
-            toggleBtn.title = "Switch to Mobile";
-        }
-    }
-
-    // Icon is now managed via pure CSS using data-theme
+    });
+})();
 
     // ── Apply ALL saved settings globally on every page load ──
-    (function initAppSettings(){
-        var settings = JSON.parse(localStorage.getItem("appSettings") || "{}");
+    window.addEventListener('DOMContentLoaded', function() {
+        var settings = {};
+        try { settings = JSON.parse(localStorage.getItem("appSettings") || "{}"); } catch(e){}
         if(settings.compactMode) document.body.classList.add("compact-mode");
         if(settings.showFlash === false){
             document.querySelectorAll(".alert, .flash-msg").forEach(function(el){ el.style.display = "none"; });
@@ -49,7 +33,7 @@
         window.KPI_ALERT_ENABLED = settings.kpiAlertEnabled !== false;
         window.AUTO_REFRESH_INTERVAL = parseInt(settings.autoRefresh || "0", 10) * 1000;
         window.KPI_THRESHOLDS = settings.kpiThresholds || {};
-    })();
+    });
 
     /* ── KPI Breach Sound Manager (Web Audio API) ── */
     window.KPIAlertSound = {
@@ -104,7 +88,6 @@
     };
 })();
 </script>
-<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NetKPI Monitor</title>
@@ -131,8 +114,21 @@ a { text-decoration: none; }
 ::-webkit-scrollbar-thumb { background: rgba(100,100,120,0.3); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(79,172,254,0.4); }
 
-[data-theme="dark"]  body { background: #0d0d1a; color: #c8d0e0; }
-[data-theme="light"] body { background: #f0f2f8; color: #1e293b; }
+[data-theme="dark"] {
+    --bg-main: #0d0d1a;
+    --text-main: #c8d0e0;
+    --bg-sidebar: #13132a;
+    --border-sidebar: rgba(79,172,254,0.08);
+}
+[data-theme="light"] {
+    --bg-main: #f0f2f8;
+    --text-main: #1e293b;
+    --bg-sidebar: #fff;
+    --border-sidebar: rgba(0,0,0,0.07);
+}
+
+body { background: var(--bg-main); color: var(--text-main); }
+.preload * { transition: none !important; }
 
 /* ── APP SHELL ── */
 .app-shell { display: flex; min-height: 100vh; }
@@ -150,12 +146,12 @@ a { text-decoration: none; }
     overflow-x: hidden;
     transition: width 0.28s cubic-bezier(0.4,0,0.2,1), background 0.3s ease;
     z-index: 50;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border-sidebar);
 }
 .sidebar.collapsed { width: 58px; }
 .sidebar.mobile-hidden { display: none; }
-
-[data-theme="dark"]  .sidebar { background: #13132a; border-right: 1px solid rgba(79,172,254,0.08); }
-[data-theme="light"] .sidebar { background: #fff; border-right: 1px solid rgba(0,0,0,0.07); box-shadow: 2px 0 12px rgba(0,0,0,0.05); }
+[data-theme="light"] .sidebar { box-shadow: 2px 0 12px rgba(0,0,0,0.05); }
 
 /* Logo area */
 .sidebar-logo {
@@ -261,17 +257,22 @@ a { text-decoration: none; }
 .sidebar.collapsed .menu-item-label { opacity: 0; width: 0; }
 
 .menu-arrow { margin-left: auto; font-size: 9px; transition: transform 0.22s; flex-shrink: 0; color: inherit; }
+.menu-arrow { margin-left: auto; font-size: 9px; flex-shrink: 0; color: inherit; }
 .menu-item.sub-open .menu-arrow { transform: rotate(90deg); }
 .sidebar.collapsed .menu-arrow { display: none; }
 
 /* sub-menu */
 .sub-menu {
-    overflow: hidden;
-    max-height: 0;
-    transition: max-height 0.25s ease;
-    padding-left: 25px;
+    display: none;
+    padding-left: 36px;
+    margin-top: 0;
 }
-.sub-menu.open { max-height: 160px; }
+.sub-menu.open {
+    display: block;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    margin-top: 2px;
+}
 .sidebar.collapsed .sub-menu { display: none; }
 
 .sub-item {
@@ -343,6 +344,12 @@ a { text-decoration: none; }
 .topbar-right { display: flex; align-items: center; gap: 8px; }
 
 /* theme toggle */
+.hamburger-btn {
+    display: none; background: none; border: none; font-size: 20px; color: inherit; cursor: pointer; padding: 4px; margin-right: 12px;
+}
+body.mobile-view .hamburger-btn {
+    display: block;
+}
 .theme-toggle-btn {
     width: 32px; height: 32px;
     border-radius: 8px;
@@ -844,43 +851,69 @@ body.mobile-view .filter-label { display: none !important; }
 body.mobile-view .f-select,
 body.mobile-view .f-input {
     padding: 7px 10px !important;
-    font-size: 12px !important;
+    font-size: 14px !important;
     border-radius: 8px !important;
-    min-height: 36px !important;
-    height: 36px !important;
+    min-height: 44px !important;
+    height: 44px !important;
     scroll-snap-align: start;
 }
 body.mobile-view .ms-btn {
     padding: 6px 20px 6px 8px !important;
-    font-size: 12px !important;
+    font-size: 14px !important;
     border-radius: 8px !important;
-    height: 36px !important;
+    height: 44px !important;
     min-width: 100px !important;
 }
 body.mobile-view .btn-apply {
     padding: 7px 14px !important;
-    font-size: 12px !important;
+    font-size: 14px !important;
     border-radius: 8px !important;
-    min-height: 36px !important;
-    height: 36px !important;
+    min-height: 44px !important;
+    height: 44px !important;
     white-space: nowrap !important;
 }
 body.mobile-view .btn-reset {
     padding: 7px 10px !important;
-    font-size: 12px !important;
+    font-size: 14px !important;
+    min-height: 44px !important;
 }
 body.mobile-view .dropdown-toggle {
     padding: 7px 10px !important;
-    font-size: 12px !important;
+    font-size: 14px !important;
     border-radius: 8px !important;
-    min-height: 36px !important;
-    height: 36px !important;
+    min-height: 44px !important;
+    height: 44px !important;
 }
 body.mobile-view .dropdown-menu {
-    border-radius: 8px !important;
-    min-width: 150px !important;
-    font-size: 12px !important;
+    border-radius: 16px 16px 0 0 !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    max-height: 70vh !important;
+    overflow-y: auto !important;
+    z-index: 3001 !important;
+    font-size: 14px !important;
+    box-shadow: 0 -4px 40px rgba(0,0,0,0.35) !important;
+    padding: 8px 12px 24px !important;
+    /* Solid backgrounds - no transparency! */
+    background: #fff !important;
 }
+[data-theme="dark"] body.mobile-view .dropdown-menu {
+    background: #1a1a2e !important;
+}
+/* Clickable dark backdrop div injected by JS */
+.mobile-dropdown-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 3000;
+}
+.mobile-dropdown-backdrop.active { display: block; }
 /* ── Table card: full width, scrollable ── */
 body.mobile-view .table-card {
     border-radius: 10px !important;
@@ -912,9 +945,56 @@ body.mobile-view .data-table td {
     font-size: 12px !important;
     white-space: nowrap !important;
 }
+body.mobile-view .data-table tr:last-child td { border-bottom: none; }
 body.mobile-view .site-table { min-width: 500px !important; font-size: 11px !important; }
 body.mobile-view .site-table thead th { padding: 6px 8px !important; font-size: 9px !important; }
 body.mobile-view .site-table td { padding: 6px 8px !important; font-size: 11px !important; }
+
+/* ── Card-based Compare Tables on Mobile ── */
+body.mobile-view .compare-table-wrap { overflow: visible !important; border: none !important; }
+body.mobile-view .compare-table, 
+body.mobile-view .compare-table tbody, 
+body.mobile-view .compare-table tr, 
+body.mobile-view .compare-table td {
+    display: block; width: 100%;
+}
+body.mobile-view .compare-table thead { display: none; }
+body.mobile-view .compare-table tr {
+    margin-bottom: 15px; border-radius: 12px;
+    background: rgba(30, 30, 58, 0.5) !important;
+    border: 1px solid rgba(79, 172, 254, 0.15) !important;
+    padding: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+[data-theme="light"] body.mobile-view .compare-table tr {
+    background: #fff !important; border-color: rgba(0,0,0,0.1) !important;
+}
+body.mobile-view .compare-table td {
+    padding: 6px 8px !important;
+    text-align: right !important;
+    border: none !important;
+    border-bottom: 1px solid rgba(128,128,128,0.1) !important;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+body.mobile-view .compare-table td.entity-cell {
+    background: transparent !important;
+    text-align: left !important;
+    font-size: 14px !important;
+    color: #4facfe !important;
+    justify-content: flex-start;
+    border-bottom: 2px solid rgba(79, 172, 254, 0.3) !important;
+    margin-bottom: 8px;
+}
+body.mobile-view .compare-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    font-size: 11px;
+    color: rgba(200,208,224,0.6);
+    text-transform: uppercase;
+}
+[data-theme="light"] body.mobile-view .compare-table td::before { color: rgba(0,0,0,0.5); }
 /* ── Charts: taller for readability ── */
 body.mobile-view .chart-wrap {
     height: 200px !important;
@@ -982,55 +1062,64 @@ body.mobile-view .chart-modal-box { border-radius: 12px !important; width: 96% !
 body.mobile-view .chart-modal-title { font-size: 14px !important; }
 body.mobile-view .chart-modal-btn { padding: 6px 10px !important; font-size: 11px !important; }
 body.mobile-view .chart-modal-body { padding: 12px !important; }
-/* ── Mobile Bottom Nav Bar ── */
-.mobile-bottom-nav {
-    /* visible by default; hidden in desktop mode via body:not rule below */
-    display: flex;
-    position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
-    height: 62px;
-    box-shadow: 0 -3px 20px rgba(0,0,0,0.18);
-    padding-bottom: env(safe-area-inset-bottom, 0);
+/* ── Mobile Sidebar Drawer ── */
+body.mobile-view .sidebar {
+    display: flex !important;
+    position: fixed;
+    top: 0; left: -270px;
+    height: 100vh;
+    width: 260px;
+    z-index: 1000;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.18);
+    transition: left 0.3s cubic-bezier(0.4,0,0.2,1) !important;
+    /* Always show full sidebar in mobile - never collapsed */
+    overflow-y: auto;
+    overflow-x: hidden;
 }
-body:not(.mobile-view) .mobile-bottom-nav { display: none !important; }
-[data-theme="dark"] .mobile-bottom-nav {
-    background: rgba(12,12,28,0.97);
-    border-top: 1px solid rgba(79,172,254,0.12);
-    backdrop-filter: blur(20px);
+/* Mobile: force full text visible (undo collapsed rules) */
+body.mobile-view .sidebar.collapsed { width: 260px !important; }
+body.mobile-view .sidebar .sidebar-brand-wrap { opacity: 1 !important; width: auto !important; }
+body.mobile-view .sidebar .sidebar-toggle-wrap { display: none !important; }
+body.mobile-view .sidebar .menu-item-label { opacity: 1 !important; width: auto !important; }
+body.mobile-view .sidebar .menu-arrow { display: flex !important; }
+body.mobile-view .sidebar .sidebar-quickstats { display: block !important; }
+body.mobile-view .sidebar .menu-section-label { opacity: 0.35 !important; }
+body.mobile-view .sidebar .sub-menu.open { display: block !important; }
+
+[data-theme="dark"] body.mobile-view .sidebar,
+body.mobile-view .sidebar { background: #fff !important; }
+[data-theme="dark"] body.mobile-view .sidebar { background: #13132a !important; }
+
+body.mobile-view.sidebar-drawer-open .sidebar {
+    left: 0;
 }
-[data-theme="light"] .mobile-bottom-nav {
-    background: rgba(248,249,255,0.97);
-    border-top: 1px solid rgba(0,0,0,0.08);
-    backdrop-filter: blur(20px);
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
-.mobile-bottom-nav { justify-content: space-around !important; align-items: stretch !important; }
-.mob-nav-item {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 3px; padding: 6px 4px; text-decoration: none;
-    transition: color 0.2s, transform 0.15s;
-    min-width: 56px; border-radius: 8px;
+body.mobile-view.sidebar-drawer-open .sidebar-overlay {
+    display: block;
+    opacity: 1;
 }
-[data-theme="dark"]  .mob-nav-item { color: rgba(200,208,224,0.45); }
-[data-theme="light"] .mob-nav-item { color: rgba(80,80,100,0.45); }
-.mob-nav-item i { font-size: 20px; line-height: 1; }
-.mob-nav-item span { font-size: 10px; font-weight: 600; letter-spacing: 0.2px; }
-.mob-nav-item:hover,
-body.mobile-view .mob-nav-item.active {
-    color: #4facfe !important;
-    transform: translateY(-2px);
+/* Close sidebar when a link is clicked on mobile */
+body.mobile-view .sidebar .sub-item,
+body.mobile-view .sidebar .nav-link {
+    cursor: pointer;
 }
-/* Landscape: slightly larger bottom nav icons */
-@media (orientation: landscape) {
-  body.mobile-view .mob-nav-item i { font-size: 18px !important; }
-  body.mobile-view .mob-nav-item span { font-size: 9px !important; }
-  body.mobile-view .mobile-bottom-nav { height: 50px !important; }
-}
+
 /* Responsive: larger mobile landscape (landscape OR wider than 500px) */
 @media (orientation: landscape), (min-width: 500px) {
   body.mobile-view { font-size: 13px !important; }
   body.mobile-view .topbar { padding: 0 16px !important; height: 50px !important; }
   body.mobile-view .topbar-title { font-size: 14px !important; }
   body.mobile-view .content-area { padding: 14px 16px !important; gap: 10px !important; }
-  body.mobile-view .kpi-grid { grid-template-columns: repeat(3, 1fr) !important; }
+  body.mobile-view .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
   body.mobile-view .kpi-value { font-size: 26px !important; }
   body.mobile-view .filter-bar { flex-wrap: wrap !important; overflow: visible !important; }
   body.mobile-view .card { padding: 14px !important; }
@@ -1234,60 +1323,13 @@ body.mobile-view .mob-nav-item.active {
     .content-area { padding: 12px 12px !important; gap: 10px !important; }
 }
 
-/* ── Mobile Bottom Sheets ── */
-.bs-overlay {
-    display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    background: rgba(0,0,0,0.5); z-index: 990; backdrop-filter: blur(2px);
-    opacity: 0; transition: opacity 0.3s;
-}
-body.bs-open .bs-overlay { display: block; opacity: 1; }
-
-.bottom-sheet {
-    position: fixed; bottom: 0; left: 0; width: 100%;
-    background: #fff; z-index: 1000;
-    border-top-left-radius: 16px; border-top-right-radius: 16px;
-    box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
-    transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-    display: flex; flex-direction: column; max-height: 80vh;
-}
-[data-theme="dark"] .bottom-sheet { background: #1e1e3a; border-top: 1px solid rgba(79,172,254,0.15); }
-.bottom-sheet.open { transform: translateY(0); }
-
-.bs-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 20px; border-bottom: 1px solid rgba(0,0,0,0.06);
-}
-[data-theme="dark"] .bs-header { border-bottom-color: rgba(79,172,254,0.1); }
-.bs-title { font-size: 16px; font-weight: 600; color: inherit; }
-.bs-close { background: none; border: none; font-size: 18px; color: inherit; opacity: 0.5; cursor: pointer; padding: 4px; }
-.bs-content { padding: 10px 0; overflow-y: auto; }
-.bs-group { padding: 8px 20px 4px; font-size: 11px; font-weight: 600; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.5px; }
-.bs-item { 
-    display: flex; align-items: center; padding: 12px 20px; gap: 12px;
-    font-size: 14px; font-weight: 500; color: inherit; transition: background 0.2s;
-    text-decoration: none;
-}
-.bs-item:hover { background: rgba(79,172,254,0.1); }
-[data-theme="dark"] .bs-item { color: rgba(200,208,224,0.9); }
-[data-theme="light"] .bs-item { color: #333; }
-
-.bs-accordion { border-bottom: 1px solid rgba(128,128,128,0.1); }
-.bs-accordion-title {
-    padding: 14px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
-    display: flex; justify-content: space-between; align-items: center; list-style: none;
-    color: inherit;
-}
-.bs-accordion-title::-webkit-details-marker { display: none; }
-.bs-accordion-content { padding-bottom: 10px; background: rgba(0,0,0,0.02); }
-[data-theme="dark"] .bs-accordion-content { background: rgba(0,0,0,0.15); }
-.bs-accordion[open] .acc-arrow { transform: rotate(180deg); }
-.acc-arrow { transition: transform 0.2s; font-size: 12px; opacity: 0.5; }
+/* Bottom sheet css removed */
 
 </style>
 </head>
 
 
-<body>
+<body class="preload">
 <div class="app-shell">
 
   <!-- ══════════════════ SIDEBAR ══════════════════ -->
@@ -1476,154 +1518,20 @@ body.bs-open .bs-overlay { display: block; opacity: 1; }
     </div>
   </aside>
 
-  <!-- ═══════ MOBILE BOTTOM NAV & SHEETS (shows only in mobile-view) ═══════ -->
-  <div class="bs-overlay" id="bsOverlay" onclick="closeAllSheets()"></div>
-
-  <div class="bottom-sheet" id="sheet-prod">
-    <div class="bs-header">
-      <div class="bs-title">Productivity</div>
-      <button class="bs-close" onclick="closeAllSheets()"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="bs-content">
-      <a href="/productivity" class="bs-item"><i class="fas fa-chart-line" style="color:#00c853"></i> Trend YoY</a>
-      <a href="/city_level" class="bs-item"><i class="fas fa-city" style="color:#00c853"></i> City Level</a>
-      <a href="/site_level" class="bs-item"><i class="fas fa-broadcast-tower" style="color:#00c853"></i> Site Level</a>
-    </div>
-  </div>
-
-  <div class="bottom-sheet" id="sheet-kpi">
-    <div class="bs-header">
-      <div class="bs-title">Network KPI</div>
-      <button class="bs-close" onclick="closeAllSheets()"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="bs-content">
-      <details class="bs-accordion">
-        <summary class="bs-accordion-title">
-          <span><i class="fas fa-signal" style="color:#f6c90e; width:20px;"></i> 2G KPI</span>
-          <i class="fas fa-chevron-down acc-arrow"></i>
-        </summary>
-        <div class="bs-accordion-content">
-          <a href="/kpi_2g_daily" class="bs-item">2G Daily</a>
-          <a href="/kpi_2g_hourly" class="bs-item">2G Hourly</a>
-          <a href="/kpi_2g_hourly_sector" class="bs-item">2G Hourly Sector</a>
-          <a href="/kpi_2g_hourly/compare" class="bs-item">2G Hourly Compare</a>
-          <a href="/kpi_2g_hourly/trend" class="bs-item">2G Hourly Cluster</a>
-        </div>
-      </details>
-      
-      <details class="bs-accordion">
-        <summary class="bs-accordion-title">
-          <span><i class="fas fa-signal" style="color:#4facfe; width:20px;"></i> 4G KPI</span>
-          <i class="fas fa-chevron-down acc-arrow"></i>
-        </summary>
-        <div class="bs-accordion-content">
-          <a href="/kpi_4g_daily" class="bs-item">4G Daily</a>
-          <a href="/kpi_4g_hourly" class="bs-item">4G Hourly</a>
-          <a href="/kpi_4g_hourly_sector" class="bs-item">4G Hourly Sector</a>
-          <a href="/kpi_4g_hourly/compare" class="bs-item">4G Hourly Compare</a>
-          <a href="/kpi_4g_hourly/trend" class="bs-item">4G Hourly Cluster</a>
-        </div>
-      </details>
-
-      <details class="bs-accordion">
-        <summary class="bs-accordion-title">
-          <span><i class="fas fa-signal" style="color:#a78bfa; width:20px;"></i> 5G KPI</span>
-          <i class="fas fa-chevron-down acc-arrow"></i>
-        </summary>
-        <div class="bs-accordion-content">
-          <a href="/kpi_5g_daily" class="bs-item">5G Daily</a>
-          <a href="/kpi_5g_hourly" class="bs-item">5G Hourly</a>
-          <a href="/kpi_5g_hourly_sector" class="bs-item">5G Hourly Sector</a>
-          <a href="/kpi_5g_hourly/compare" class="bs-item">5G Hourly Compare</a>
-        </div>
-      </details>
-    </div>
-  </div>
-
-  <div class="bottom-sheet" id="sheet-other">
-    <div class="bs-header">
-      <div class="bs-title">Others</div>
-      <button class="bs-close" onclick="closeAllSheets()"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="bs-content">
-      <details class="bs-accordion">
-        <summary class="bs-accordion-title">
-          <span><i class="fas fa-clock" style="color:#f093fb; width:20px;"></i> Timing Advance</span>
-          <i class="fas fa-chevron-down acc-arrow"></i>
-        </summary>
-        <div class="bs-accordion-content">
-          <a href="#" class="bs-item">TA 2G</a>
-          <a href="/ta_4g" class="bs-item">TA 4G</a>
-        </div>
-      </details>
-
-      <details class="bs-accordion">
-        <summary class="bs-accordion-title">
-          <span><i class="fas fa-exclamation-triangle" style="color:#ff9f40; width:20px;"></i> Packet Loss</span>
-          <i class="fas fa-chevron-down acc-arrow"></i>
-        </summary>
-        <div class="bs-accordion-content">
-          <a href="/pl_2g" class="bs-item">PL 2G</a>
-          <a href="/pl_4g" class="bs-item">PL 4G</a>
-        </div>
-      </details>
-
-      <details class="bs-accordion">
-        <summary class="bs-accordion-title">
-          <span><i class="fas fa-broadcast-tower" style="color:#00c853; width:20px;"></i> Coverage</span>
-          <i class="fas fa-chevron-down acc-arrow"></i>
-        </summary>
-        <div class="bs-accordion-content">
-          <a href="/coverage_simulation" class="bs-item">Coverage Simulation</a>
-          <a href="/okumura_hata" class="bs-item">Okumura-Hata Model</a>
-          <a href="/nettilt3d" class="bs-item">NetTilt 3D</a>
-        </div>
-      </details>
-    </div>
-  </div>
-
-  <div class="bottom-sheet" id="sheet-more">
-    <div class="bs-header">
-      <div class="bs-title">More</div>
-      <button class="bs-close" onclick="closeAllSheets()"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="bs-content">
-      <a href="/database/postgres" class="bs-item"><i class="fas fa-database" style="color:#ff5252; width:20px;"></i> Postgres DB</a>
-      <a href="#" class="bs-item" onclick="closeAllSheets(); openSettingsPopup(); return false;"><i class="fas fa-sliders-h" style="color:#888; width:20px;"></i> Settings</a>
-    </div>
-  </div>
-
-  <nav class="mobile-bottom-nav" id="mobileBottomNav">
-    <a href="/home" class="mob-nav-item" data-page="home">
-      <i class="fas fa-th-large"></i>
-      <span>Home</span>
-    </a>
-    <a href="#" class="mob-nav-item" onclick="openSheet('sheet-prod'); return false;" data-page="productivity">
-      <i class="fas fa-chart-pie"></i>
-      <span>Productivity</span>
-    </a>
-    <a href="#" class="mob-nav-item" onclick="openSheet('sheet-kpi'); return false;" data-page="kpi">
-      <i class="fas fa-chart-bar"></i>
-      <span>KPI</span>
-    </a>
-    <a href="#" class="mob-nav-item" onclick="openSheet('sheet-other'); return false;" data-page="other">
-      <i class="fas fa-folder-open"></i>
-      <span>Others</span>
-    </a>
-    <a href="#" class="mob-nav-item" onclick="openSheet('sheet-more'); return false;" data-page="more">
-      <i class="fas fa-ellipsis-h"></i>
-      <span>More</span>
-    </a>
-  </nav>
+  <!-- Sidebar Overlay for Mobile -->
+  <div class="sidebar-overlay" onclick="document.body.classList.remove('sidebar-drawer-open')"></div>
 
   <!-- ══════════════════ MAIN AREA ══════════════════ -->
   <div class="main-area" id="mainArea">
 
     <!-- TOPBAR -->
     <header class="topbar">
-      <div class="topbar-left">
-        <div class="topbar-title">{% block page_title %}NetKPI{% endblock %}</div>
-        <div class="topbar-sub">{% block page_sub %}{% endblock %}</div>
+      <div class="topbar-left" style="display: flex; flex-direction: row; align-items: center;">
+        <button class="hamburger-btn" onclick="document.body.classList.toggle('sidebar-drawer-open')" id="hamburgerBtn"><i class="fas fa-bars"></i></button>
+        <div style="display: flex; flex-direction: column;">
+          <div class="topbar-title">{% block page_title %}NetKPI{% endblock %}</div>
+          <div class="topbar-sub">{% block page_sub %}{% endblock %}</div>
+        </div>
       </div>
       <div class="topbar-right">
         {% block topbar_chips %}{% endblock %}
@@ -1982,12 +1890,43 @@ body.bs-open .bs-overlay { display: block; opacity: 1; }
 
 </div><!-- /app-shell -->
 
+<!-- Mobile dropdown backdrop (injected once, reused for all dropdowns) -->
+<div class="mobile-dropdown-backdrop" id="mobileDropdownBackdrop" onclick="closeMobileDropdowns()"></div>
+
 <script>
+/* ── Mobile Dropdown Backdrop Helper ── */
+function closeMobileDropdowns() {
+    document.querySelectorAll('.dropdown-menu').forEach(function(m) {
+        m.style.display = 'none';
+    });
+    var bd = document.getElementById('mobileDropdownBackdrop');
+    if (bd) bd.classList.remove('active');
+}
+
+/* Patch all dropdown toggles to also show/hide the backdrop on mobile */
+document.addEventListener('DOMContentLoaded', function() {
+    /* Watch for any dropdown-menu display changes on mobile */
+    function updateBackdrop() {
+        if (!document.body.classList.contains('mobile-view')) return;
+        var anyOpen = Array.from(document.querySelectorAll('.dropdown-menu')).some(function(m) {
+            return m.style.display && m.style.display !== 'none';
+        });
+        var bd = document.getElementById('mobileDropdownBackdrop');
+        if (bd) bd.classList.toggle('active', anyOpen);
+    }
+
+    /* Observe display changes on dropdown menus */
+    document.querySelectorAll('.dropdown-menu').forEach(function(menu) {
+        var observer = new MutationObserver(updateBackdrop);
+        observer.observe(menu, { attributes: true, attributeFilter: ['style'] });
+    });
+});
+
 /* ── Theme ── */
 function toggleTheme(){
     var next = document.documentElement.getAttribute("data-theme")==="dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);
-    localStorage.setItem("theme", next);
+    try { localStorage.setItem("theme", next); } catch(e){}
     setTimeout(function(){ 
         if(typeof updateAllChartsTheme === "function") updateAllChartsTheme();
     }, 80);
@@ -2657,11 +2596,15 @@ function toggleAllCheckboxes(containerId, selectAllCheckbox){
 
 /* ── Initialize on page load ── */
 document.addEventListener("DOMContentLoaded", function(){
-    updateThemeIcon();
-    var settings = JSON.parse(localStorage.getItem("appSettings") || "{}");
-    if (settings.viewMode) {
-        applyViewMode(settings.viewMode);
-    }
+    setTimeout(function(){
+        document.body.classList.remove("preload");
+    }, 100);
+    var settings = {};
+    try { settings = JSON.parse(localStorage.getItem("appSettings") || "{}"); } catch(e){}
+    
+    setTimeout(function(){ 
+        if(typeof updateAllChartsTheme === "function") updateAllChartsTheme();
+    }, 150);
     
     // Auto-collapse bottom sheet accordions
     document.querySelectorAll('.bottom-sheet').forEach(function(sheet) {
@@ -2702,7 +2645,7 @@ function closeAllSheets(){
 
 /* ── Auto-collapse sidebar on medium screens ── */
 (function(){
-    var mq = window.matchMedia("(max-width: 1024px)");
+    var mq = window.matchMedia("(min-width: 769px) and (max-width: 1024px)");
     function handleMediaChange(e){
         var sb = document.getElementById("sidebar");
         if(!sb || sb.classList.contains("mobile-hidden")) return;
@@ -2730,6 +2673,30 @@ function closeAllSheets(){
     /* Apply on initial load */
     handleMediaChange(mq);
 })();
+
+/* ── Auto-detect mobile view ── */
+(function(){
+    var mqMobile = window.matchMedia("(max-width: 768px)");
+    function handleMobileChange(e){
+        applyViewMode(e.matches ? "mobile" : "desktop");
+    }
+    if(mqMobile.addEventListener){
+        mqMobile.addEventListener("change", handleMobileChange);
+    }
+    // Apply immediately on load
+    handleMobileChange(mqMobile);
+})();
+
+/* ── Mobile sidebar: auto-close when a nav link is clicked ── */
+document.addEventListener("DOMContentLoaded", function(){
+    document.querySelectorAll(".sidebar a").forEach(function(link){
+        link.addEventListener("click", function(){
+            if(document.body.classList.contains("mobile-view")){
+                document.body.classList.remove("sidebar-drawer-open");
+            }
+        });
+    });
+});
 </script>
 
 

@@ -79,7 +79,8 @@
 
     .compare-table {
         width: 100%;
-        border-collapse: collapse;
+        border-collapse: separate;
+        border-spacing: 0;
         font-size: 11px;
         text-align: center;
         min-width: 800px;
@@ -88,19 +89,21 @@
     .compare-table thead th {
         position: sticky;
         top: 0;
-        background: #1e2a4a;
+        background: #1e2a4a !important;
         color: #fff;
         z-index: 10;
         padding: 8px 10px;
         text-align: center;
         border-bottom: 2px solid rgba(79, 172, 254, 0.3);
+        border-right: 1px solid rgba(79, 172, 254, 0.1);
         font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 0.4px;
     }
 
     [data-theme="light"] .compare-table thead th {
-        background: #334155;
+        background: #334155 !important;
+        color: #fff;
     }
 
     .compare-table th.before-header {
@@ -109,6 +112,34 @@
 
     .compare-table th.after-header {
         color: #00e676;
+    }
+
+    .compare-table th.entity-col {
+        position: sticky;
+        left: 0;
+        z-index: 12;
+        background: #1e1e2d !important;
+    }
+    
+    .compare-table td.entity-cell {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        background: #1e1e2d !important;
+        border-right: 2px solid rgba(79, 172, 254, 0.2);
+        font-weight: 600;
+    }
+
+    [data-theme="light"] .compare-table th.entity-col,
+    [data-theme="light"] .compare-table td.entity-cell {
+        background: #f8fafc !important;
+    }
+
+    .compare-table tbody tr:hover td.entity-cell {
+        background: #2a2a3f !important;
+    }
+    [data-theme="light"] .compare-table tbody tr:hover td.entity-cell {
+        background: #e2e8f0 !important;
     }
 
     .compare-table td {
@@ -179,7 +210,7 @@
         position: sticky;
         top: 0;
         z-index: 10;
-        background: #1e2a4a;
+        background: #1e2a4a !important;
         color: #fff;
         border-bottom: 1px solid rgba(79, 172, 254, 0.3);
         border-right: 1px solid rgba(79, 172, 254, 0.1);
@@ -199,7 +230,7 @@
         left: 0;
         z-index: 12;
         min-width: 120px;
-        background: #1a1a2e;
+        background: #1e1e2d !important;
     }
 
     .site-table td {
@@ -214,20 +245,22 @@
         left: 0;
         font-weight: 600;
         z-index: 2;
-        background: #1a1a2e;
+        background: #1e1e2d !important;
         border-right: 2px solid rgba(79, 172, 254, 0.2);
     }
 
+    [data-theme="light"] .site-table thead th,
+    [data-theme="light"] .site-table th.entity-col,
     [data-theme="light"] .site-table td.entity-cell {
-        background: #f1f5f9;
-    }
-
-    [data-theme="light"] .site-table th.entity-col {
-        background: #1e3a5f;
+        background: #f8fafc !important;
+        color: #1e293b;
     }
 
     .site-table tbody tr:hover td.entity-cell {
-        background: rgba(79, 172, 254, 0.05);
+        background: #2a2a3f !important;
+    }
+    [data-theme="light"] .site-table tbody tr:hover td.entity-cell {
+        background: #e2e8f0 !important;
     }
 
     /* Chart grid */
@@ -487,6 +520,76 @@
         border: 1px solid rgba(79, 172, 254, 0.1);
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
     }
+
+    /* Modal Styles */
+    .modal-overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(4px);
+    }
+    .modal-content {
+        background: #1e1e2d;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        width: 100%;
+        max-width: 500px;
+        padding: 24px;
+        border: 1px solid rgba(128,128,128,0.2);
+    }
+    [data-theme="light"] .modal-content {
+        background: #ffffff;
+    }
+
+    /* ── Mobile: date panel — keep all rows compact (1 row each, no overflow) ── */
+    body.mobile-view .date-panel .f-input {
+        height: 32px !important;
+        min-height: 32px !important;
+        font-size: 11px !important;
+        padding: 2px 6px !important;
+        /* Never stretch beyond what's needed */
+        width: auto !important;
+        max-width: 140px !important;
+    }
+    body.mobile-view .date-panel input[type="color"].color-sel {
+        width: 26px !important;
+        height: 26px !important;
+        padding: 0 !important;
+    }
+    body.mobile-view .date-panel .btn-xs {
+        height: 32px !important;
+        min-height: 32px !important;
+        width: 32px !important;
+        padding: 2px !important;
+        font-size: 11px !important;
+    }
+    /* These specific controls must stay fixed-width */
+    body.mobile-view #execWeight {
+        width: 25px !important;
+        max-width: 25px !important;
+    }
+    body.mobile-view #execDash {
+        width: 30px !important;
+        max-width: 30px !important;
+    }
+    body.mobile-view #execDateAdd {
+        max-width: 130px !important;
+    }
+    /* Exec row: prevent the margin-left:auto group from overflowing */
+    body.mobile-view .date-panel .exec-style-group {
+        margin-left: 0 !important;
+        flex-shrink: 0;
+    }
+    /* Exec row outer: allow wrapping so style controls move to next line if needed */
+    body.mobile-view .exec-dates-row {
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+    }
+
 </style>
 
 
@@ -511,10 +614,10 @@
                 style="padding: 0; background: transparent; border: none; display: flex; gap: 16px; align-items: stretch; flex-wrap: wrap; overflow: visible; width: 100%;">
 
                 <!-- Panel 1: Dates Section -->
-                <div class="filter-panel"
+                <div class="filter-panel date-panel"
                     style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 12px;">
                     <div
-                        style="display: grid; grid-template-columns: 80px 130px 20px 130px 30px; align-items: center; gap: 4px;">
+                        style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
                         <span class="date-label" style="margin:0; font-size:11px;">Trend Range</span>
                         <input type="date" class="f-input" name="trend_from_date" value="{{ trend_from_date }}" required
                             style="padding: 4px 8px; height: 32px; font-size: 11px;">
@@ -525,7 +628,7 @@
                             style="width: 24px; height: 24px; padding: 0; margin-left: 6px;">
                     </div>
                     <div
-                        style="display: grid; grid-template-columns: 80px 130px 20px 130px 30px; align-items: center; gap: 4px;">
+                        style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
                         <span class="date-label" style="margin:0; font-size:11px;">Date Before</span>
                         <input type="date" class="f-input" name="before_from_date" value="{{ before_from_date }}"
                             required style="padding: 4px 8px; height: 32px; font-size: 11px;">
@@ -536,7 +639,7 @@
                             title="Before Shade Color" style="width: 24px; height: 24px; padding: 0; margin-left: 6px;">
                     </div>
                     <div
-                        style="display: grid; grid-template-columns: 80px 130px 20px 130px 30px; align-items: center; gap: 4px;">
+                        style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
                         <span class="date-label" style="margin:0; font-size:11px;">Date After</span>
                         <input type="date" class="f-input" name="after_from_date" value="{{ after_from_date }}" required
                             style="padding: 4px 8px; height: 32px; font-size: 11px;">
@@ -546,8 +649,8 @@
                         <input type="color" class="color-sel" id="afterColor" value="#4facfe" title="After Shade Color"
                             style="width: 24px; height: 24px; padding: 0; margin-left: 6px;">
                     </div>
-                    <div
-                        style="display: grid; grid-template-columns: 80px 130px 32px auto; align-items: center; gap: 4px;">
+                    <div class="exec-dates-row"
+                        style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
                         <span class="date-label" style="margin:0; font-size:11px;">Exec Dates</span>
                         <input type="date" class="f-input" id="execDateAdd"
                             onchange="addExecDate(this.value); this.value='';"
@@ -555,19 +658,23 @@
                         <button type="button" class="btn-xs danger" onclick="clearExecDates()"
                             style="padding: 4px; height: 32px; width: 32px; border-radius:6px; display:flex; align-items:center; justify-content:center;"
                             title="Clear All Exec Dates"><i class="fas fa-trash"></i></button>
-                        <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
-                            <span style="font-size:12px; opacity:0.6; font-weight: 600;" title="Line Weight"><i
-                                    class="fas fa-align-justify"></i></span>
-                            <input type="number" id="execWeight" value="1" min="1" max="5" class="f-input"
-                                style="width: 36px; padding: 0; text-align: center; height: 24px; font-size: 11px;"
+                        <div class="exec-style-group" style="display: flex; align-items: center; gap: 4px; margin-left: auto;">
+                            <span style="font-size:11px; opacity:0.5;" title="Line Weight"><i class="fas fa-align-justify"></i></span>
+                            <select id="execWeight" class="f-input"
+                                style="width: 25px; padding: 0; text-align: center; height: 26px; font-size: 11px; cursor: pointer; -webkit-appearance: none; appearance: none;"
                                 title="Line Weight (1-5)">
-                            <span style="font-size:12px; opacity:0.6; font-weight: 600; margin-left: 4px;"
-                                title="Line Dashes (e.g. 5,5)"><i class="fas fa-ellipsis-h"></i></span>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                            </select>
+                            <span style="font-size:11px; opacity:0.5;" title="Dash pattern"><i class="fas fa-ellipsis-h"></i></span>
                             <input type="text" id="execDash" value="5,5" class="f-input"
-                                style="width: 40px; padding: 0; text-align: center; height: 24px; font-size: 11px;"
-                                title="Dash pattern">
+                                style="width: 30px; padding: 0; text-align: center; height: 26px; font-size: 11px;"
+                                title="Dash pattern (e.g. 5,5 or 0 for solid)">
                             <input type="color" class="color-sel" id="execColor" value="#ff5252" title="Line Color"
-                                style="width: 24px; height: 24px; padding: 0; margin-left: 4px;">
+                                style="width: 24px; height: 24px; padding: 0; margin-left: 2px; cursor: pointer;">
                         </div>
                     </div>
                     <div style="display:flex; flex-direction:column; gap:6px;">
@@ -888,7 +995,10 @@
             style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; margin-bottom: 8px;">
             <div style="font-size: 16px; font-weight: 600;">Hourly Trend Charts</div>
             <div style="display:flex; align-items: center; gap: 8px; margin-bottom: 12px; justify-content: flex-end;">
-                <span class="date-label" style="margin: 0;">Charts / Row</span>
+                <button class="btn-apply" style="height:24px; padding:0 10px; border-radius:4px; font-size:11px;" onclick="openExportModal('compareChart', 'compareChartGrid')">
+                    <i class="fas fa-camera" style="margin-right:4px"></i> Export PNG
+                </button>
+                <span class="date-label" style="margin: 0; margin-left: 8px;">Charts / Row</span>
                 <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
                     <button class="btn-xs row-btn compareChartGrid-row-btn " style="background:transparent;"
                         onclick="setGridColLocal(1, 'compareChartGrid')">1</button>
@@ -915,7 +1025,10 @@
     <!-- 2. Trend Charts Tab -->
     <div id="tab-trend" class="tab-content">
         <div style="display:flex; align-items: center; gap: 8px; margin-bottom: 12px; justify-content: flex-end;">
-            <span class="date-label" style="margin: 0;">Charts / Row</span>
+            <button class="btn-apply" style="height:24px; padding:0 10px; border-radius:4px; font-size:11px;" onclick="openExportModal('trendChart', 'trendChartGrid')">
+                <i class="fas fa-camera" style="margin-right:4px"></i> Export PNG
+            </button>
+            <span class="date-label" style="margin: 0; margin-left: 8px;">Charts / Row</span>
             <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
                 <button class="btn-xs row-btn trendChartGrid-row-btn " style="background:transparent;"
                     onclick="setGridColLocal(1, 'trendChartGrid')">1</button>
@@ -998,7 +1111,10 @@
         </div>
 
         <div style="display:flex; align-items: center; gap: 8px; margin-bottom: 12px; justify-content: flex-end;">
-            <span class="date-label" style="margin: 0;">Charts / Row</span>
+            <button class="btn-apply" style="height:24px; padding:0 10px; border-radius:4px; font-size:11px;" onclick="openExportModal('bandChart', 'bandChartGrid')">
+                <i class="fas fa-camera" style="margin-right:4px"></i> Export PNG
+            </button>
+            <span class="date-label" style="margin: 0; margin-left: 8px;">Charts / Row</span>
             <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
                 <button class="btn-xs row-btn bandChartGrid-row-btn " style="background:transparent;"
                     onclick="setGridColLocal(1, 'bandChartGrid')">1</button>
@@ -1105,7 +1221,7 @@
                 <button class="btn-apply" onclick="renderCustomCharts()"
                     style="background:linear-gradient(135deg, #00c853, #009624);"><i class="fas fa-paint-brush"></i>
                     Render Charts</button>
-                <button class="btn-apply" onclick="exportAllCustomChartsPNG()"><i class="fas fa-camera"></i> Export PNG</button>
+                <button class="btn-apply" onclick="openExportModal('customChart', 'customChartGrid')"><i class="fas fa-camera"></i> Export PNG</button>
                 <button class="btn-apply" onclick="exportAllCustomChartsCSV()"><i class="fas fa-file-csv"></i> Export CSV</button>
             </div>
 
@@ -1136,6 +1252,31 @@
             dashboard.</p>
     </div>
     {% endif %}
+</div>
+
+<!-- Advanced PNG Export Modal -->
+<div id="exportModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 500px; padding: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; font-size: 16px; color: #4facfe;">Export PNG Settings</h3>
+            <button class="btn-xs" onclick="document.getElementById('exportModal').style.display='none'" style="border:none; font-size:16px; background:transparent;"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <p style="font-size: 12px; opacity: 0.8; margin-bottom: 12px;">Select the KPIs you want to include in the exported image:</p>
+        
+        <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(128,128,128,0.2);">
+            <label class="checkbox-label" style="margin:0;"><input type="checkbox" id="exportSelectAll" checked onchange="toggleAllExportKPIs(this)"> <span style="font-weight:bold; color:#4facfe;">Select All KPIs</span></label>
+        </div>
+        
+        <div id="exportKpiList" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 300px; overflow-y: auto; font-size: 12px; margin-bottom: 20px;">
+            <!-- Javascript will inject options here -->
+        </div>
+        
+        <div style="display: flex; justify-content: flex-end; gap: 12px;">
+            <button class="btn-xs" style="padding: 8px 16px; font-size: 12px;" onclick="document.getElementById('exportModal').style.display='none'">Cancel</button>
+            <button class="btn-apply" style="padding: 8px 16px; font-size: 12px;" onclick="executeAdvancedExport()"><i class="fas fa-camera"></i> Export Now</button>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -1273,6 +1414,146 @@
         document.body.appendChild(dlLink);
         dlLink.click();
         document.body.removeChild(dlLink);
+    }
+
+    // Export PNG Logic
+    let currentExportPrefix = '';
+    let currentExportGrid = '';
+
+    function openExportModal(prefix, gridId) {
+        currentExportPrefix = prefix;
+        currentExportGrid = gridId;
+        
+        var html = "";
+        
+        if (prefix === 'customChart') {
+            if (!customChartsConfig || customChartsConfig.length === 0) return alert("No custom charts to export.");
+            html = customChartsConfig.map(function(cfg, idx) {
+                var title = cfg.title || "Custom Chart " + (idx + 1);
+                return '<label class="checkbox-label" style="margin:0;"><input type="checkbox" value="' + idx + '" data-title="' + title + '" checked onchange="checkExportAllSync()"> ' + title + '</label>';
+            }).join("");
+        } else {
+            if (!KPI_DEFS || KPI_DEFS.length === 0) return alert("No KPIs active.");
+            html = KPI_DEFS.map(function(kpi) {
+                return '<label class="checkbox-label" style="margin:0;"><input type="checkbox" value="' + kpi[0] + '" data-title="' + kpi[1] + '" checked onchange="checkExportAllSync()"> ' + kpi[1] + ' (' + kpi[2] + ')</label>';
+            }).join("");
+        }
+        
+        document.getElementById("exportKpiList").innerHTML = html;
+        document.getElementById("exportSelectAll").checked = true;
+        document.getElementById("exportModal").style.display = "flex";
+    }
+
+    function toggleAllExportKPIs(cb) {
+        document.querySelectorAll("#exportKpiList input[type='checkbox']").forEach(function(c){
+            c.checked = cb.checked;
+        });
+    }
+
+    function checkExportAllSync() {
+        var total = document.querySelectorAll("#exportKpiList input[type='checkbox']").length;
+        var checked = document.querySelectorAll("#exportKpiList input[type='checkbox']:checked").length;
+        document.getElementById("exportSelectAll").checked = (total === checked);
+    }
+
+    async function executeAdvancedExport() {
+        var checkedBoxes = document.querySelectorAll("#exportKpiList input[type='checkbox']:checked");
+        if(checkedBoxes.length === 0) return alert("Please select at least one KPI to export.");
+        
+        document.getElementById("exportModal").style.display = "none";
+        
+        var activeBtn = document.querySelector("." + currentExportGrid + "-row-btn.active");
+        var cols = parseInt(activeBtn ? activeBtn.textContent.trim() : 3);
+        
+        var dpr = window.devicePixelRatio || 1;
+        var cardPad = 8 * dpr;
+        var titleHeight = 36 * dpr;
+        var gridPad = 12 * dpr;
+        
+        var renderItems = [];
+        var totalWidth = 0;
+        var totalHeight = gridPad;
+        
+        var sampleChart = null;
+        
+        checkedBoxes.forEach(function(cb) {
+            var chartId;
+            if (currentExportPrefix === 'customChart') {
+                chartId = "customCanvas_" + cb.value;
+            } else {
+                chartId = currentExportPrefix + "_" + cb.value;
+            }
+            
+            var chart = chartInstances[chartId];
+            if(!chart) return;
+            
+            if(!sampleChart) sampleChart = chart;
+            
+            var cWidth = chart.canvas ? chart.canvas.width : 800;
+            var cHeight = chart.canvas ? chart.canvas.height : 400;
+            var cardWidth = cWidth + (cardPad * 2);
+            var cardHeight = cHeight + titleHeight + (cardPad * 2);
+            
+            renderItems.push({
+                chartId: chartId,
+                kpiTitle: cb.getAttribute("data-title"),
+                cardWidth: cardWidth,
+                cardHeight: cardHeight
+            });
+        });
+        
+        if(!sampleChart) return alert("No valid charts found.");
+        
+        // Calculate dimensions
+        var rows = Math.ceil(renderItems.length / cols);
+        totalWidth = cols * renderItems[0].cardWidth + (cols + 1) * gridPad;
+        totalHeight += rows * renderItems[0].cardHeight + rows * gridPad;
+        
+        var tempCanvas = document.createElement('canvas');
+        tempCanvas.width = totalWidth;
+        tempCanvas.height = totalHeight;
+        var ctx = tempCanvas.getContext('2d');
+        
+        var isDark = document.documentElement.getAttribute("data-theme") === "dark";
+        ctx.clearRect(0, 0, totalWidth, totalHeight);
+        
+        var currentY = 0;
+        
+        renderItems.forEach(function(item, idx) {
+            var chart = chartInstances[item.chartId];
+            var col = idx % cols;
+            var row = Math.floor(idx / cols);
+            var cx = gridPad + col * (item.cardWidth + gridPad);
+            var cy = currentY + gridPad + row * (item.cardHeight + gridPad);
+            
+            ctx.fillStyle = isDark ? 'rgba(30,30,58,1)' : '#ffffff';
+            ctx.fillRect(cx, cy, item.cardWidth, item.cardHeight);
+            
+            ctx.strokeStyle = isDark ? 'rgba(79,172,254,0.2)' : 'rgba(0,0,0,0.1)';
+            ctx.lineWidth = 1 * dpr;
+            ctx.strokeRect(cx, cy, item.cardWidth, item.cardHeight);
+            
+            ctx.font = "bold " + (15 * dpr) + "px Inter, sans-serif";
+            ctx.fillStyle = isDark ? '#ffffff' : '#1e293b';
+            ctx.textAlign = "left";
+            var headerText = item.kpiTitle;
+            if (currentExportPrefix === "bandChart") headerText += " (Band Level)";
+            ctx.fillText(headerText, cx + cardPad, cy + cardPad + (16 * dpr));
+            
+            ctx.drawImage(chart.canvas, cx + cardPad, cy + cardPad + titleHeight);
+        });
+        
+        var a = document.createElement('a');
+        a.href = tempCanvas.toDataURL('image/png');
+        
+        var dlName = 'Dashboard_4G_' + currentExportPrefix + '_Export.png';
+        if (currentExportPrefix === 'customChart') {
+            var dbName = document.getElementById("dashboardNameInput").value.trim() || "Custom_Dashboard";
+            dlName = dbName + '_Charts.png';
+        }
+        
+        a.download = dlName;
+        a.click();
     }
 
     // Chart Configuration
@@ -2139,67 +2420,6 @@
     });
 
     // ── Export All Custom Charts ──
-    async function exportAllCustomChartsPNG() {
-        if (customChartInstances.length === 0) return alert("No charts to export.");
-        let activeBtn = document.querySelector('.customChartGrid-row-btn.active');
-        let cols = parseInt(activeBtn ? activeBtn.textContent.trim() : 3);
-        let rows = Math.ceil(customChartInstances.length / cols);
-        
-        let sampleCanvas = customChartInstances[0].canvas;
-        let cWidth = sampleCanvas.width;
-        let cHeight = sampleCanvas.height;
-        
-        let dpr = window.devicePixelRatio || 1;
-        let cardPad = 8 * dpr;
-        let titleHeight = 36 * dpr;
-        let cardWidth = cWidth + (cardPad * 2);
-        let cardHeight = cHeight + titleHeight + (cardPad * 2);
-        let gridPad = 12 * dpr;
-        
-        let totalWidth = cols * cardWidth + (cols + 1) * gridPad;
-        let totalHeight = rows * cardHeight + (rows + 1) * gridPad;
-        
-        let tempCanvas = document.createElement('canvas');
-        tempCanvas.width = totalWidth;
-        tempCanvas.height = totalHeight;
-        let ctx = tempCanvas.getContext('2d');
-        
-        let isDark = document.documentElement.getAttribute("data-theme") === "dark";
-        
-        // Background Grid (Transparent for cleaner PPT pasting)
-        ctx.clearRect(0, 0, totalWidth, totalHeight);
-        
-        customChartInstances.forEach((chart, idx) => {
-            let col = idx % cols;
-            let row = Math.floor(idx / cols);
-            let cx = gridPad + col * (cardWidth + gridPad);
-            let cy = gridPad + row * (cardHeight + gridPad);
-            
-            // Draw Card Box
-            ctx.fillStyle = isDark ? 'rgba(30,30,58,1)' : '#ffffff';
-            ctx.fillRect(cx, cy, cardWidth, cardHeight);
-            
-            ctx.strokeStyle = isDark ? 'rgba(79,172,254,0.2)' : 'rgba(0,0,0,0.1)';
-            ctx.lineWidth = 1 * dpr;
-            ctx.strokeRect(cx, cy, cardWidth, cardHeight);
-            
-            // Draw Title
-            let title = customChartsConfig[idx].title || "Chart " + (idx + 1);
-            ctx.font = `bold ${15 * dpr}px Inter, sans-serif`;
-            ctx.fillStyle = isDark ? '#ffffff' : '#1e293b';
-            ctx.textAlign = "left";
-            ctx.fillText(title, cx + cardPad, cy + cardPad + (16 * dpr));
-            
-            // Draw Chart Native Resolution
-            ctx.drawImage(chart.canvas, cx + cardPad, cy + cardPad + titleHeight);
-        });
-        
-        let a = document.createElement('a');
-        a.href = tempCanvas.toDataURL('image/png');
-        let dbName = document.getElementById("dashboardNameInput").value.trim() || "Custom_Dashboard";
-        a.download = dbName + '_Charts.png';
-        a.click();
-    }
 
     function exportAllCustomChartsCSV() {
         if (customChartInstances.length === 0) return alert("No charts to export.");

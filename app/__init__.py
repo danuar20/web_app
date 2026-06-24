@@ -100,7 +100,15 @@ def create_app():
     app.register_blueprint(nettilt3d)
  
 
-    # ── 6. CUSTOM ERROR HANDLERS ───────────────────────────────────────────────
+    # ── 6. CACHE BUSTING ───────────────────────────────────────────────────────
+    @app.after_request
+    def add_header(response):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
+
+    # ── 7. CUSTOM ERROR HANDLERS ───────────────────────────────────────────────
     @app.errorhandler(404)
     def handle_404(e):
         return render_template("error.html", code=404,

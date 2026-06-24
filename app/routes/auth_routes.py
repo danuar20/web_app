@@ -9,7 +9,7 @@ auth = Blueprint("auth", __name__)
 # ── Home ───────────────────────────────────────────────────────────────────────
 @auth.route("/")
 def home():
-    return redirect(url_for("auth.login"))
+    return redirect(url_for("auth.login", v=2))
 
 # ── Login ──────────────────────────────────────────────────────────────────────
 @auth.route("/login", methods=["GET", "POST"])
@@ -33,7 +33,7 @@ def login():
             if user and check_password_hash(user[2], password):
                 session["username"] = username
                 session.permanent = True  # remember me
-                return redirect(url_for("auth.home_page"))
+                return redirect(url_for("auth.home_page", v=2))
             else:
                 flash("Wrong username or password!", "danger")
         except psycopg2.OperationalError:
