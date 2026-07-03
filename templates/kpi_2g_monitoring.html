@@ -1,0 +1,2555 @@
+{% extends "base.html" %}
+
+{% block nav_monitoring %}active{% endblock %}
+{% block sub_monitoring_open %}open{% endblock %}
+{% block nav_2g_monitoring %}active{% endblock %}
+{% block page_title %}2G Monitoring{% endblock %}
+{% block page_sub %}Daily KPI trend — Regional / NOP / City / BSC / Site{% endblock %}
+
+{% block topbar_chips %}
+<div class="info-chip"><i class="fas fa-chart-area" style="margin-right:4px"></i>Daily Aggregated</div>
+{% if last_update %}<div class="info-chip"><i class="fas fa-clock" style="margin-right:4px"></i>Last: {{ last_update }}
+</div>{% endif %}
+{% endblock %}
+
+{% block sidebar_quickstats %}{% endblock %}
+
+{% block page_content %}
+<style>
+    /* ── Layout ── */
+    .mon-content {
+        flex: 1;
+        padding: 14px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .chart-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    @media(max-width:1200px) {
+        .chart-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media(max-width:768px) {
+        .chart-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* ── Filter panel ── */
+    .filter-toggle-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 4px;
+    }
+
+    .filter-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px 12px;
+        margin-top: 10px;
+    }
+
+    @media(max-width:900px) {
+        .filter-kpi-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media(max-width:540px) {
+        .filter-kpi-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .kpi-check-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 6px;
+        transition: background .15s;
+    }
+
+    .kpi-check-label:hover {
+        background: rgba(79, 172, 254, .08);
+    }
+
+    .kpi-check-label input {
+        accent-color: #4facfe;
+        cursor: pointer;
+    }
+
+    .kpi-select-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 6px;
+    }
+
+    .btn-kpi-action {
+        font-size: 11px;
+        padding: 3px 10px;
+        border-radius: 5px;
+        border: 1px solid rgba(79, 172, 254, .25);
+        background: rgba(79, 172, 254, .08);
+        color: #4facfe;
+        cursor: pointer;
+        transition: background .15s;
+    }
+
+    .btn-kpi-action:hover {
+        background: rgba(79, 172, 254, .2);
+    }
+
+    /* ── Navigation tabs (5 tabs) ── */
+    .mon-tabs {
+        display: flex;
+        gap: 6px;
+        padding: 0 4px;
+        flex-wrap: wrap;
+    }
+
+    .mon-tab {
+        padding: 8px 20px;
+        border-radius: 8px 8px 0 0;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid transparent;
+        border-bottom: none;
+        transition: all .18s;
+    }
+
+    [data-theme="dark"] .mon-tab {
+        background: rgba(30, 30, 60, .6);
+        color: rgba(200, 208, 224, .55);
+        border-color: rgba(79, 172, 254, .1);
+    }
+
+    [data-theme="light"] .mon-tab {
+        background: rgba(0, 0, 0, .04);
+        color: rgba(30, 41, 59, .5);
+        border-color: rgba(0, 0, 0, .08);
+    }
+
+    .mon-tab:hover {
+        opacity: .85;
+    }
+
+    [data-theme="dark"] .mon-tab.active {
+        background: rgba(79, 172, 254, .15);
+        color: #4facfe;
+        border-color: rgba(79, 172, 254, .35);
+    }
+
+    [data-theme="light"] .mon-tab.active {
+        background: #fff;
+        color: #0ea5e9;
+        border-color: rgba(14, 165, 233, .3);
+    }
+
+    /* ── Tab panel content ── */
+    .mon-tab-panel {
+        display: none;
+    }
+
+    .mon-tab-panel.active {
+        display: block;
+    }
+
+    /* ── Sub-filter bar ── */
+    .sub-filter-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+        position: relative;
+    }
+
+    [data-theme="dark"] .sub-filter-bar {
+        background: rgba(79, 172, 254, .05);
+        border: 1px solid rgba(79, 172, 254, .1);
+    }
+
+    [data-theme="light"] .sub-filter-bar {
+        background: rgba(14, 165, 233, .04);
+        border: 1px solid rgba(14, 165, 233, .12);
+    }
+
+    .sub-filter-bar .filter-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        color: #4facfe;
+        flex-shrink: 0;
+    }
+
+    /* ── Multi-select Dropdown ── */
+    .ms-container {
+        position: relative;
+        width: 220px;
+    }
+
+    .ms-toggle {
+        width: 100%;
+        padding: 6px 12px;
+        border: 1px solid rgba(79, 172, 254, 0.3);
+        border-radius: 6px;
+        cursor: pointer;
+        text-align: left;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12px;
+        transition: all 0.2s;
+    }
+
+    [data-theme="dark"] .ms-toggle {
+        background: rgba(30, 30, 58, 0.8);
+        color: #c8d0e0;
+    }
+
+    [data-theme="light"] .ms-toggle {
+        background: #fff;
+        color: #1e293b;
+    }
+
+    .ms-toggle:hover {
+        border-color: #4facfe;
+    }
+
+    .ms-toggle.disabled {
+        opacity: 0.5;
+        pointer-events: none;
+        cursor: not-allowed;
+    }
+
+    .ms-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        border-radius: 6px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        z-index: 1000;
+        display: none;
+        flex-direction: column;
+        margin-top: 4px;
+        border: 1px solid rgba(79, 172, 254, 0.15);
+    }
+
+    [data-theme="dark"] .ms-menu {
+        background: #1a1a2e;
+    }
+
+    [data-theme="light"] .ms-menu {
+        background: #fff;
+    }
+
+    .ms-search {
+        padding: 8px;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+    }
+
+    .ms-search input {
+        width: 100%;
+        padding: 6px 10px;
+        border-radius: 4px;
+        border: 1px solid rgba(128, 128, 128, 0.3);
+        font-size: 11px;
+        background: transparent;
+        color: inherit;
+    }
+
+    .ms-actions {
+        padding: 6px 10px;
+        display: flex;
+        gap: 8px;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+    }
+
+    .ms-actions button {
+        font-size: 10px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        border: 1px solid rgba(79, 172, 254, 0.3);
+        background: rgba(79, 172, 254, 0.1);
+        color: #4facfe;
+        cursor: pointer;
+    }
+
+    .ms-list {
+        max-height: 220px;
+        overflow-y: auto;
+        padding: 4px;
+    }
+
+    .ms-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 8px;
+        font-size: 11px;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+
+    .ms-item:hover {
+        background: rgba(79, 172, 254, 0.1);
+    }
+
+    .ms-item input {
+        pointer-events: none;
+    }
+
+    /* ── View mode tabs ── */
+    .view-mode-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+    }
+
+    .view-btns {
+        display: flex;
+        gap: 4px;
+    }
+
+    .view-btn {
+        padding: 5px 14px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: all .15s;
+    }
+
+    [data-theme="dark"] .view-btn {
+        background: rgba(30, 30, 60, .6);
+        color: rgba(200, 208, 224, .6);
+        border-color: rgba(79, 172, 254, .15);
+    }
+
+    [data-theme="light"] .view-btn {
+        background: rgba(0, 0, 0, .04);
+        color: rgba(30, 41, 59, .55);
+        border-color: rgba(0, 0, 0, .1);
+    }
+
+    [data-theme="dark"] .view-btn.active {
+        background: rgba(79, 172, 254, .18);
+        color: #4facfe;
+        border-color: #4facfe;
+    }
+
+    [data-theme="light"] .view-btn.active {
+        background: rgba(14, 165, 233, .12);
+        color: #0ea5e9;
+        border-color: #0ea5e9;
+    }
+
+    .export-btns {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .btn-export {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 13px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        transition: all .18s;
+    }
+
+    .btn-export-png {
+        background: linear-gradient(135deg, #a78bfa, #7c3aed);
+        color: #fff;
+    }
+
+    .btn-export-png:hover {
+        opacity: .88;
+        box-shadow: 0 4px 14px rgba(124, 58, 237, .35);
+    }
+
+    .btn-export-csv {
+        background: linear-gradient(135deg, #34d399, #059669);
+        color: #fff;
+    }
+
+    .btn-export-csv:hover {
+        opacity: .88;
+        box-shadow: 0 4px 14px rgba(5, 150, 105, .35);
+    }
+
+    /* ── Grid helper classes ── */
+    .grid-1 {
+        grid-template-columns: 1fr !important;
+    }
+
+    .grid-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    .grid-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+
+    .row-btn {
+        font-size: 11px;
+        padding: 4px 10px;
+        cursor: pointer;
+        border: none;
+        font-weight: 600;
+        transition: background 0.15s;
+    }
+
+    [data-theme="dark"] .row-btn {
+        color: #c8d0e0;
+    }
+
+    [data-theme="light"] .row-btn {
+        color: #1e293b;
+    }
+
+    .row-btn:hover {
+        background: rgba(79, 172, 254, 0.1) !important;
+    }
+
+    /* ── Table view ── */
+    .table-wrap {
+        max-height: 480px;
+        overflow: auto;
+        border-radius: 8px;
+        border: 1px solid rgba(128, 128, 128, .12);
+    }
+
+    [data-theme="dark"] .mon-data-table th {
+        background: #1a1a2e;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    [data-theme="light"] .mon-data-table th {
+        background: #f0f2f8;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    /* ── Loading overlay ── */
+    #loadingOverlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: rgba(10, 10, 30, .78);
+        backdrop-filter: blur(6px);
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+    }
+
+    .loading-spinner {
+        width: 56px;
+        height: 56px;
+        border: 4px solid rgba(79, 172, 254, .15);
+        border-top-color: #4facfe;
+        border-radius: 50%;
+        animation: spin .8s linear infinite;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .loading-text {
+        font-size: 14px;
+        font-weight: 600;
+        color: #4facfe;
+        letter-spacing: .5px;
+    }
+
+    .loading-sub {
+        font-size: 11px;
+        color: rgba(200, 208, 224, .6);
+    }
+
+    /* ── Export Modal ── */
+    .export-modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 8000;
+        background: rgba(5, 5, 20, .7);
+        backdrop-filter: blur(4px);
+        align-items: center;
+        justify-content: center;
+    }
+
+    .export-modal-overlay.open {
+        display: flex;
+    }
+
+    .export-modal {
+        width: 580px;
+        max-width: 94vw;
+        max-height: 85vh;
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    [data-theme="dark"] .export-modal {
+        background: #141428;
+        border: 1px solid rgba(79, 172, 254, .2);
+    }
+
+    [data-theme="light"] .export-modal {
+        background: #fff;
+        border: 1px solid rgba(14, 165, 233, .2);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, .18);
+    }
+
+    .export-modal-header {
+        padding: 18px 22px 14px;
+        border-bottom: 1px solid rgba(128, 128, 128, .12);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .export-modal-title {
+        font-size: 16px;
+        font-weight: 700;
+    }
+
+    .export-modal-close {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+    }
+
+    [data-theme="dark"] .export-modal-close {
+        background: rgba(255, 255, 255, .06);
+        color: #c8d0e0;
+    }
+
+    [data-theme="light"] .export-modal-close {
+        background: rgba(0, 0, 0, .06);
+        color: #374151;
+    }
+
+    .export-modal-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 22px;
+    }
+
+    .export-modal-footer {
+        padding: 14px 22px;
+        border-top: 1px solid rgba(128, 128, 128, .1);
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+    }
+
+    .export-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px 10px;
+    }
+
+    @media(max-width:480px) {
+        .export-kpi-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    /* ── Empty / No data state ── */
+    .mon-empty {
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    [data-theme="dark"] .mon-empty {
+        opacity: .35;
+    }
+
+    [data-theme="light"] .mon-empty {
+        opacity: .5;
+    }
+
+    .tab-empty-state {
+        text-align: center;
+        padding: 50px 20px;
+        display: none;
+    }
+
+    .tab-empty-state i {
+        font-size: 32px;
+        color: #4facfe;
+        opacity: 0.5;
+        margin-bottom: 12px;
+    }
+
+    .tab-empty-state h3 {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 6px;
+    }
+
+    .tab-empty-state p {
+        font-size: 12px;
+        opacity: 0.7;
+    }
+
+    /* ── Filter collapsible animation ── */
+    #filterContainer {
+        overflow: hidden;
+        transition: max-height .35s ease, opacity .25s ease;
+    }
+
+    #filterContainer.collapsed {
+        max-height: 0 !important;
+        opacity: 0;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+    }
+
+    /* form-select dark mode */
+    [data-theme="dark"] .form-select {
+        background-color: #151521;
+        color: #fff;
+        border: 1px solid rgba(79, 172, 254, 0.3);
+    }
+
+    [data-theme="dark"] .form-select:focus {
+        background-color: #151521;
+        color: #fff;
+        border-color: #4facfe;
+        box-shadow: 0 0 0 0.25rem rgba(79, 172, 254, 0.25);
+    }
+</style>
+
+<!-- ═══════════════════ LOADING OVERLAY ═══════════════════ -->
+<div id="loadingOverlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Processing Query…</div>
+    <div class="loading-sub">Aggregating daily KPI data across all dimensions via GROUPING SETS</div>
+</div>
+
+<!-- ═══════════════════ EXPORT PNG MODAL ═══════════════════ -->
+<div class="export-modal-overlay" id="pngModalOverlay">
+    <div class="export-modal">
+        <div class="export-modal-header">
+            <div class="export-modal-title">🖼️ Export Charts as PNG</div>
+            <button class="export-modal-close" onclick="closePngModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="export-modal-body">
+            <p style="font-size:12px;opacity:.65;margin-bottom:12px;">Select KPIs to download charts as PNG images.</p>
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+                <button class="btn-kpi-action" onclick="pngSelectAll(true)">Select All</button>
+                <button class="btn-kpi-action" onclick="pngSelectAll(false)">Clear</button>
+            </div>
+            <div class="export-kpi-grid" id="pngKpiGrid">
+                {% for k in all_kpis %}
+                <label class="kpi-check-label">
+                    <input type="checkbox" class="png-kpi-check" value="{{ k[0] }}" data-title="{{ k[1] }}" {% if k[0]
+                        in sel_kpis %}checked{% endif %}>
+                    <span>{{ k[1] }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="export-modal-footer">
+            <button class="btn-export btn-export-csv"
+                style="background:rgba(128,128,128,.12);color:inherit;font-weight:600;"
+                onclick="closePngModal()">Cancel</button>
+            <button class="btn-export btn-export-png" onclick="doExportPng()"><i class="fas fa-download"></i> Download
+                PNG</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════ EXPORT CSV MODAL ═══════════════════ -->
+<div class="export-modal-overlay" id="csvModalOverlay">
+    <div class="export-modal">
+        <div class="export-modal-header">
+            <div class="export-modal-title">📊 Export Data as CSV</div>
+            <button class="export-modal-close" onclick="closeCsvModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="export-modal-body">
+            <p style="font-size:12px;opacity:.65;margin-bottom:12px;">Select KPIs to include in the CSV download.</p>
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+                <button class="btn-kpi-action" onclick="csvSelectAll(true)">Select All</button>
+                <button class="btn-kpi-action" onclick="csvSelectAll(false)">Clear</button>
+            </div>
+            <div class="export-kpi-grid" id="csvKpiGrid">
+                {% for k in all_kpis %}
+                <label class="kpi-check-label">
+                    <input type="checkbox" class="csv-kpi-check" value="{{ k[0] }}" {% if k[0] in sel_kpis %}checked{%
+                        endif %}>
+                    <span>{{ k[1] }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="export-modal-footer">
+            <button class="btn-export btn-export-png"
+                style="background:rgba(128,128,128,.12);color:inherit;font-weight:600;"
+                onclick="closeCsvModal()">Cancel</button>
+            <button class="btn-export btn-export-csv" onclick="doExportCsv()"><i class="fas fa-download"></i> Download
+                CSV</button>
+        </div>
+    </div>
+</div>
+
+<div class="mon-content">
+
+    <!-- ═══════════════════ FILTER PANEL ═══════════════════ -->
+    <div class="filter-toggle-bar">
+        <div style="font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;">
+            <i class="fas fa-sliders-h" style="color:#4facfe;"></i> Filters &amp; KPI Selection
+        </div>
+        <button type="button" class="btn-xs" id="filterToggleBtn" onclick="toggleFilterPanel()"
+            style="padding:4px 10px;font-size:11px;">
+            <i class="fas fa-chevron-up" id="filterToggleIcon"></i> <span id="filterToggleLabel">Hide Filters</span>
+        </button>
+    </div>
+
+    <div class="card" id="filterContainer" style="padding:16px 20px;">
+        <form method="GET" action="/kpi_2g_monitoring" id="monForm" onsubmit="showOverlay()">
+            <input type="hidden" name="submitted" value="1">
+
+            <!-- Date range + actions row -->
+            <div class="filter-bar"
+                style="padding:0;background:transparent;border:none;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+                <div class="filter-group">
+                    <div class="filter-label">Date From</div>
+                    <input type="date" name="from_date" class="f-input" value="{{ from_date }}" id="fFrom" required>
+                </div>
+                <div class="filter-group">
+                    <div class="filter-label">Date To</div>
+                    <input type="date" name="to_date" class="f-input" value="{{ to_date }}" id="fTo" required>
+                </div>
+                <!-- Quick range buttons -->
+                <div class="filter-group" style="flex-direction:row;align-items:flex-end;gap:5px;">
+                    <button type="button" class="btn-kpi-action" onclick="setRange(7)">7d</button>
+                    <button type="button" class="btn-kpi-action" onclick="setRange(14)">14d</button>
+                    <button type="button" class="btn-kpi-action" onclick="setRange(30)">30d</button>
+                    <button type="button" class="btn-kpi-action" onclick="setRange(60)">60d</button>
+                </div>
+                <button type="submit" class="btn-apply" style="margin-left:auto;">
+                    <i class="fas fa-play" style="font-size:10px;margin-right:5px;"></i> Generate
+                </button>
+            </div>
+
+            <!-- KPI selection -->
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(128,128,128,.1);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                    <div
+                        style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#4facfe;">
+                        <i class="fas fa-list-check" style="margin-right:5px;"></i>KPI Selection
+                        <span style="font-weight:400;font-size:11px;color:inherit;opacity:.7;" id="kpiSelCount">
+                            ({{ sel_kpis|length }} / {{ all_kpis|length }} selected)
+                        </span>
+                    </div>
+                    <div class="kpi-select-actions">
+                        <button type="button" class="btn-kpi-action" onclick="kpiSelectDefault()">Default</button>
+                        <button type="button" class="btn-kpi-action" onclick="kpiSelectAll(true)">All</button>
+                        <button type="button" class="btn-kpi-action" onclick="kpiSelectAll(false)">None</button>
+                    </div>
+                </div>
+                <div class="filter-kpi-grid">
+                    {% for k in all_kpis %}
+                    <label class="kpi-check-label">
+                        <input type="checkbox" name="kpi" value="{{ k[0] }}" {% if k[0] in sel_kpis %}checked{% endif %}
+                            onchange="updateKpiCount()" class="mon-kpi-cb">
+                        <span>{{ k[1] }}{% if k[2] %} <span style="opacity:.5;font-size:10px;">({{ k[2] }})</span>{%
+                            endif %}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </form>
+    </div>
+
+    {% if query_done %}
+    <!-- ═══════════════════ NAVIGATION TABS ═══════════════════ -->
+    <div class="mon-tabs" id="monTabBar">
+        <button class="mon-tab active" id="tabBtn-regional" onclick="switchTab('regional', this)">
+            <i class="fas fa-globe-asia" style="margin-right:6px;"></i>Regional
+        </button>
+        <button class="mon-tab" id="tabBtn-nop" onclick="switchTab('nop', this)">
+            <i class="fas fa-network-wired" style="margin-right:6px;"></i>NOP
+        </button>
+        <button class="mon-tab" id="tabBtn-city" onclick="switchTab('city', this)">
+            <i class="fas fa-city" style="margin-right:6px;"></i>City
+        </button>
+        <button class="mon-tab" id="tabBtn-bsc" onclick="switchTab('bsc', this)">
+            <i class="fas fa-server" style="margin-right:6px;"></i>BSC
+        </button>
+        <button class="mon-tab" id="tabBtn-site" onclick="switchTab('site', this)">
+            <i class="fas fa-broadcast-tower" style="margin-right:6px;"></i>Site
+        </button>
+        <button class="mon-tab" id="tabBtn-sector" onclick="switchTab('sector', this)">
+            <i class="fas fa-satellite-dish" style="margin-right:6px;"></i>Sector
+        </button>
+    </div>
+
+    <!-- MACRO for custom multi-select UI -->
+    {% macro render_ms(id, label, placeholder) %}
+    <div class="ms-container" id="ms-container-{{ id }}">
+        <div class="filter-label">{{ label }}</div>
+        <button type="button" class="ms-toggle" id="ms-toggle-{{ id }}" onclick="toggleMsMenu('{{ id }}')">
+            <span class="ms-label" id="ms-label-{{ id }}">{{ placeholder }}</span>
+            <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="ms-menu" id="ms-menu-{{ id }}">
+            <div class="ms-search">
+                <input type="text" placeholder="Search..." onkeyup="filterMsMenu('{{ id }}', this.value)">
+            </div>
+            <div class="ms-actions">
+                <button onclick="msSelectAll('{{ id }}', true)">All</button>
+                <button onclick="msSelectAll('{{ id }}', false)">Clear</button>
+            </div>
+            <div class="ms-list" id="ms-list-{{ id }}"></div>
+        </div>
+    </div>
+    {% endmacro %}
+
+    <!-- TAB: Regional -->
+    <div class="mon-tab-panel active card" id="tabPanel-regional"
+        style="border-radius:0 8px 8px 8px; padding:14px 16px;">
+        <div class="view-mode-bar">
+            <div class="view-btns">
+                <button class="view-btn active" onclick="setTabView('regional','chart',this)">Chart</button>
+                <button class="view-btn" onclick="setTabView('regional','table',this)">Table</button>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <div class="row-controls" style="display:flex; align-items:center; gap:6px;">
+                    <span style="font-size:11px; font-weight:600; opacity:0.7;">Charts / Row:</span>
+                    <div
+                        style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                        <button class="row-btn chartGrid-regional-row-btn" style="background:transparent;"
+                            onclick="setGridColLocal(1, 'chartGrid-regional')">1</button>
+                        <button class="row-btn chartGrid-regional-row-btn" style="background:transparent;"
+                            onclick="setGridColLocal(2, 'chartGrid-regional')">2</button>
+                        <button class="row-btn chartGrid-regional-row-btn active"
+                            style="background:rgba(79,172,254,0.3);"
+                            onclick="setGridColLocal(3, 'chartGrid-regional')">3</button>
+                    </div>
+                </div>
+                <div class="export-btns">
+                    <button class="btn-export btn-export-png" onclick="openPngModal('regional')"><i
+                            class="fas fa-camera"></i> Export PNG</button>
+                    <button class="btn-export btn-export-csv" onclick="openCsvModal('regional')"><i
+                            class="fas fa-file-csv"></i> Export CSV</button>
+                </div>
+            </div>
+        </div>
+        <div class="chart-grid" id="chartGrid-regional">
+            {% for k in kpi_defs %}
+            <div class="card">
+                <div class="card-title">{{ k[1] }}
+                    {% if k[0] in ['payloadChart', 'gprsPayloadChart', 'edgePayloadChart'] %}
+                        <span style="font-size:10px;opacity:.55;">(GB)</span>
+                    {% elif k[2] %}
+                    <span style="font-size:10px;opacity:.55;">({{ k[2] }})</span>
+                    {% endif %}
+                </div>
+                <div class="chart-wrap" style="height:200px;position:relative;">
+                    <canvas id="canvas-regional-{{ k[0] }}"></canvas>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div id="tableView-regional" style="display:none;">
+            <div class="table-wrap">
+                <table class="data-table mon-data-table" id="dataTable-regional">
+                    <thead id="tableHead-regional"></thead>
+                    <tbody id="tableBody-regional"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: NOP -->
+    <div class="mon-tab-panel card" id="tabPanel-nop" style="border-radius:0 8px 8px 8px; padding:14px 16px;">
+        <div class="sub-filter-bar">
+            {{ render_ms('nop_nsa', 'Filter NOP (NSA)', 'Select NOP...') }}
+        </div>
+        <div class="tab-empty-state" id="emptyState-nop">
+            <i class="fas fa-network-wired"></i>
+            <h3>No NOP Selected</h3>
+            <p>Please select one or more NOPs to view the data.</p>
+        </div>
+        <div id="dataContainer-nop" style="display:none;">
+            <div class="view-mode-bar">
+                <div class="view-btns">
+                    <button class="view-btn active" onclick="setTabView('nop','chart',this)">Chart</button>
+                    <button class="view-btn" onclick="setTabView('nop','table',this)">Table</button>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                    <div class="row-controls" style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:11px; font-weight:600; opacity:0.7;">Charts / Row:</span>
+                        <div
+                            style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                            <button class="row-btn chartGrid-nop-row-btn" style="background:transparent;"
+                                onclick="setGridColLocal(1, 'chartGrid-nop')">1</button>
+                            <button class="row-btn chartGrid-nop-row-btn" style="background:transparent;"
+                                onclick="setGridColLocal(2, 'chartGrid-nop')">2</button>
+                            <button class="row-btn chartGrid-nop-row-btn active"
+                                style="background:rgba(79,172,254,0.3);"
+                                onclick="setGridColLocal(3, 'chartGrid-nop')">3</button>
+                        </div>
+                    </div>
+                    <div class="export-btns">
+                        <button class="btn-export btn-export-png" onclick="openPngModal('nop')"><i
+                                class="fas fa-camera"></i> Export PNG</button>
+                        <button class="btn-export btn-export-csv" onclick="openCsvModal('nop')"><i
+                                class="fas fa-file-csv"></i> Export CSV</button>
+                    </div>
+                </div>
+            </div>
+            <div class="chart-grid" id="chartGrid-nop">
+                {% for k in kpi_defs %}
+                <div class="card">
+                    <div class="card-title">{{ k[1] }}
+                        {% if k[0] in ['payloadChart', 'gprsPayloadChart', 'edgePayloadChart'] %}
+                        <span style="font-size:10px;opacity:.55;">(GB)</span>
+                        {% elif k[2] %}
+                        <span style="font-size:10px;opacity:.55;">({{ k[2] }})</span>
+                        {% endif %}
+                    </div>
+                    <div class="chart-wrap" style="height:200px;position:relative;"><canvas
+                            id="canvas-nop-{{ k[0] }}"></canvas></div>
+                </div>
+                {% endfor %}
+            </div>
+            <div id="tableView-nop" style="display:none;">
+                <div class="table-wrap">
+                    <table class="data-table mon-data-table" id="dataTable-nop">
+                        <thead id="tableHead-nop"></thead>
+                        <tbody id="tableBody-nop"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: City -->
+    <div class="mon-tab-panel card" id="tabPanel-city" style="border-radius:0 8px 8px 8px; padding:14px 16px;">
+        <div class="sub-filter-bar">
+            {{ render_ms('city_nsa', 'Filter NSA', 'Select NSA...') }}
+            {{ render_ms('city_city', 'Filter City', 'Select City...') }}
+        </div>
+        <div class="tab-empty-state" id="emptyState-city">
+            <i class="fas fa-city"></i>
+            <h3>No City Selected</h3>
+            <p>Please select NSA, then select one or more Cities to view the data.</p>
+        </div>
+        <div id="dataContainer-city" style="display:none;">
+            <div class="view-mode-bar">
+                <div class="view-btns">
+                    <button class="view-btn active" onclick="setTabView('city','chart',this)">Chart</button>
+                    <button class="view-btn" onclick="setTabView('city','table',this)">Table</button>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                    <div class="row-controls" style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:11px; font-weight:600; opacity:0.7;">Charts / Row:</span>
+                        <div
+                            style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                            <button class="row-btn chartGrid-city-row-btn" style="background:transparent;"
+                                onclick="setGridColLocal(1, 'chartGrid-city')">1</button>
+                            <button class="row-btn chartGrid-city-row-btn" style="background:transparent;"
+                                onclick="setGridColLocal(2, 'chartGrid-city')">2</button>
+                            <button class="row-btn chartGrid-city-row-btn active"
+                                style="background:rgba(79,172,254,0.3);"
+                                onclick="setGridColLocal(3, 'chartGrid-city')">3</button>
+                        </div>
+                    </div>
+                    <div class="export-btns">
+                        <button class="btn-export btn-export-png" onclick="openPngModal('city')"><i
+                                class="fas fa-camera"></i> Export PNG</button>
+                        <button class="btn-export btn-export-csv" onclick="openCsvModal('city')"><i
+                                class="fas fa-file-csv"></i> Export CSV</button>
+                    </div>
+                </div>
+            </div>
+            <div class="chart-grid" id="chartGrid-city">
+                {% for k in kpi_defs %}
+                <div class="card">
+                    <div class="card-title">{{ k[1] }}
+                        {% if k[0] in ['payloadChart', 'gprsPayloadChart', 'edgePayloadChart'] %}
+                        <span style="font-size:10px;opacity:.55;">(GB)</span>
+                        {% elif k[2] %}
+                        <span style="font-size:10px;opacity:.55;">({{ k[2] }})</span>
+                        {% endif %}
+                    </div>
+                    <div class="chart-wrap" style="height:200px;position:relative;"><canvas
+                            id="canvas-city-{{ k[0] }}"></canvas></div>
+                </div>
+                {% endfor %}
+            </div>
+            <div id="tableView-city" style="display:none;">
+                <div class="table-wrap">
+                    <table class="data-table mon-data-table" id="dataTable-city">
+                        <thead id="tableHead-city"></thead>
+                        <tbody id="tableBody-city"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: BSC -->
+    <div class="mon-tab-panel card" id="tabPanel-bsc" style="border-radius:0 8px 8px 8px; padding:14px 16px;">
+        <div class="sub-filter-bar">
+            {{ render_ms('bsc_bsc', 'Filter BSC', 'Select BSC...') }}
+        </div>
+        <div class="tab-empty-state" id="emptyState-bsc">
+            <i class="fas fa-server"></i>
+            <h3>No BSC Selected</h3>
+            <p>Please select one or more BSCs to view the data.</p>
+        </div>
+        <div id="dataContainer-bsc" style="display:none;">
+            <div class="view-mode-bar">
+                <div class="view-btns">
+                    <button class="view-btn active" onclick="setTabView('bsc','chart',this)">Chart</button>
+                    <button class="view-btn" onclick="setTabView('bsc','table',this)">Table</button>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                    <div class="row-controls" style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:11px; font-weight:600; opacity:0.7;">Charts / Row:</span>
+                        <div
+                            style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                            <button class="row-btn chartGrid-bsc-row-btn" style="background:transparent;"
+                                onclick="setGridColLocal(1, 'chartGrid-bsc')">1</button>
+                            <button class="row-btn chartGrid-bsc-row-btn" style="background:transparent;"
+                                onclick="setGridColLocal(2, 'chartGrid-bsc')">2</button>
+                            <button class="row-btn chartGrid-bsc-row-btn active"
+                                style="background:rgba(79,172,254,0.3);"
+                                onclick="setGridColLocal(3, 'chartGrid-bsc')">3</button>
+                        </div>
+                    </div>
+                    <div class="export-btns">
+                        <button class="btn-export btn-export-png" onclick="openPngModal('bsc')"><i
+                                class="fas fa-camera"></i> Export PNG</button>
+                        <button class="btn-export btn-export-csv" onclick="openCsvModal('bsc')"><i
+                                class="fas fa-file-csv"></i> Export CSV</button>
+                    </div>
+                </div>
+            </div>
+            <div class="chart-grid" id="chartGrid-bsc">
+                {% for k in kpi_defs %}
+                <div class="card">
+                    <div class="card-title">{{ k[1] }}
+                        {% if k[0] in ['payloadChart', 'gprsPayloadChart', 'edgePayloadChart'] %}
+                        <span style="font-size:10px;opacity:.55;">(GB)</span>
+                        {% elif k[2] %}
+                        <span style="font-size:10px;opacity:.55;">({{ k[2] }})</span>
+                        {% endif %}
+                    </div>
+                    <div class="chart-wrap" style="height:200px;position:relative;"><canvas
+                            id="canvas-bsc-{{ k[0] }}"></canvas></div>
+                </div>
+                {% endfor %}
+            </div>
+            <div id="tableView-bsc" style="display:none;">
+                <div class="table-wrap">
+                    <table class="data-table mon-data-table" id="dataTable-bsc">
+                        <thead id="tableHead-bsc"></thead>
+                        <tbody id="tableBody-bsc"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: Site -->
+    <div class="mon-tab-panel card" id="tabPanel-site" style="border-radius:0 8px 8px 8px; padding:14px 16px;">
+        <div class="sub-filter-bar" style="flex-direction:column; align-items:flex-start;">
+            <div
+                style="display:flex; align-items:center; gap:16px; margin-bottom:8px; font-size:13px; font-weight:600;">
+                <label style="cursor:pointer; display:flex; align-items:center; gap:4px;">
+                    <input type="radio" name="siteFilterType" value="city" checked onchange="toggleSiteFilterMode()">
+                    Filter by City
+                </label>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:4px;">
+                    <input type="radio" name="siteFilterType" value="bsc" onchange="toggleSiteFilterMode()"> Filter by
+                    BSC
+                </label>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; width:100%;">
+                <div id="siteFilterCityWrapper" style="display:block;">
+                    {{ render_ms('site_city', 'Filter City', 'Select City...') }}
+                </div>
+                <div id="siteFilterBscWrapper" style="display:none;">
+                    {{ render_ms('site_bsc', 'Filter BSC', 'Select BSC...') }}
+                </div>
+                {{ render_ms('site_site', 'Select Sites', 'Select Sites...') }}
+            </div>
+
+        </div>
+        <div class="tab-empty-state" id="emptyState-site">
+            <i class="fas fa-broadcast-tower"></i>
+            <h3>No Site Selected</h3>
+            <p>Please select City or BSC, then select one or more Sites to view the data.</p>
+        </div>
+        <div id="dataContainer-site" style="display:none;">
+            <div class="view-mode-bar">
+                <div class="view-btns">
+                    <button class="view-btn active" onclick="setTabView('site','chart',this)">Chart</button>
+                    <button class="view-btn" onclick="setTabView('site','table',this)">Table</button>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                    <div class="granularity-controls" style="display:flex; align-items:center; gap:6px;">
+                        <div
+                            style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                            <button class="row-btn chartGrid-site-gran-btn active"
+                                style="background:rgba(79,172,254,0.3);"
+                                onclick="setGranularity('site', 'daily', this)">Daily</button>
+                            <button class="row-btn chartGrid-site-gran-btn" style="background:transparent;"
+                                onclick="setGranularity('site', 'hourly', this)">Hourly</button>
+                        </div>
+                    </div>
+                    <div class="mode-controls" style="display:flex; align-items:center; gap:6px;">
+                        <div
+                            style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                            <button class="row-btn chartGrid-site-mode-btn active"
+                                style="background:rgba(79,172,254,0.3);" onclick="setSiteMode('per_site', this)">Per
+                                Site</button>
+                            <button class="row-btn chartGrid-site-mode-btn" style="background:transparent;"
+                                onclick="setSiteMode('cluster', this)">Cluster</button>
+                        </div>
+                    </div>
+                    <div class="row-controls" style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:11px; font-weight:600; opacity:0.7;">Charts / Row:</span>
+                        <div
+                            style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                            <button class="row-btn chartGrid-site-row-btn" style="background:transparent;"
+                                onclick="setGridColLocal(1, 'chartGrid-site')">1</button>
+                            <button class="row-btn chartGrid-site-row-btn" style="background:transparent;"
+                                onclick="setGridColLocal(2, 'chartGrid-site')">2</button>
+                            <button class="row-btn chartGrid-site-row-btn active"
+                                style="background:rgba(79,172,254,0.3);"
+                                onclick="setGridColLocal(3, 'chartGrid-site')">3</button>
+                        </div>
+                    </div>
+                    <div class="export-btns">
+                        <button class="btn-export btn-export-png" onclick="openPngModal('site')"><i
+                                class="fas fa-camera"></i> Export PNG</button>
+                        <button class="btn-export btn-export-csv" onclick="openCsvModal('site')"><i
+                                class="fas fa-file-csv"></i> Export CSV</button>
+                    </div>
+                </div>
+            </div>
+            <div class="chart-grid" id="chartGrid-site">
+                {% for k in kpi_defs %}
+                <div class="card">
+                    <div class="card-title">{{ k[1] }}
+                        {% if k[0] in ['payloadChart', 'gprsPayloadChart', 'edgePayloadChart'] %}
+                        <span style="font-size:10px;opacity:.55;">(MB)</span>
+                        {% elif k[2] %}
+                        <span style="font-size:10px;opacity:.55;">({{ k[2] }})</span>
+                        {% endif %}
+                    </div>
+                    <div class="chart-wrap" style="height:200px;position:relative;"><canvas
+                            id="canvas-site-{{ k[0] }}"></canvas></div>
+                </div>
+                {% endfor %}
+            </div>
+            <div id="tableView-site" style="display:none;">
+                <div class="table-wrap">
+                    <table class="data-table mon-data-table" id="dataTable-site">
+                        <thead id="tableHead-site"></thead>
+                        <tbody id="tableBody-site"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: Sector -->
+    <div class="mon-tab-panel card" id="tabPanel-sector" style="border-radius:0 8px 8px 8px; padding:14px 16px;">
+        <div class="view-mode-bar">
+            <div class="view-btns">
+                <button class="view-btn active" onclick="setTabView('sector','chart',this)">Chart</button>
+                <button class="view-btn" onclick="setTabView('sector','table',this)">Table</button>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <div class="granularity-controls" style="display:flex; align-items:center; gap:6px;">
+                    <div
+                        style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                        <button class="row-btn chartGrid-sector-gran-btn active"
+                            style="background:rgba(79,172,254,0.3);"
+                            onclick="setGranularity('sector', 'daily', this)">Daily</button>
+                        <button class="row-btn chartGrid-sector-gran-btn" style="background:transparent;"
+                            onclick="setGranularity('sector', 'hourly', this)">Hourly</button>
+                    </div>
+                </div>
+                <div class="mode-controls" style="display:flex; align-items:center; gap:6px;">
+                    <div
+                        style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                        <button class="row-btn chartGrid-sector-mode-btn active"
+                            style="background:rgba(79,172,254,0.3);"
+                            onclick="setSectorMode('combined', this)">Combined</button>
+                        <button class="row-btn chartGrid-sector-mode-btn" style="background:transparent;"
+                            onclick="setSectorMode('split', this)">Split by Sector</button>
+                    </div>
+                </div>
+                <div class="grid-controls" style="display:flex; align-items:center; gap:6px;">
+                    <span style="font-size:11px; font-weight:600; opacity:0.7;">Charts / Row:</span>
+                    <div
+                        style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                        <button class="row-btn chartGrid-sector-row-btn" style="background:transparent;"
+                            onclick="setGridColLocal(1, 'chartGrid-sector')">1</button>
+                        <button class="row-btn chartGrid-sector-row-btn" style="background:transparent;"
+                            onclick="setGridColLocal(2, 'chartGrid-sector')">2</button>
+                        <button class="row-btn chartGrid-sector-row-btn active" style="background:rgba(79,172,254,0.3);"
+                            onclick="setGridColLocal(3, 'chartGrid-sector')">3</button>
+                    </div>
+                </div>
+                <div class="export-btns">
+                    <button class="btn-export btn-export-png" onclick="openPngModal('sector')"><i
+                            class="fas fa-camera"></i> Export PNG</button>
+                    <button class="btn-export btn-export-csv" onclick="openCsvModal('sector')"><i
+                            class="fas fa-file-csv"></i> Export CSV</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="sub-filter-bar">
+            <div style="flex:1; min-width:200px;">
+                {{ render_ms('sector_site', 'Select Sites', 'Select Sites...') }}
+            </div>
+            <div style="flex:1; min-width:150px;">
+                {{ render_ms('sector_sector', 'Filter Sector', 'Select Sectors...') }}
+            </div>
+            <div style="flex:1; min-width:150px;">
+                {{ render_ms('sector_band', 'Filter Band', 'Select Bands...') }}
+            </div>
+            <div style="flex:1; min-width:150px;">
+                {{ render_ms('sector_kpi', 'Filter KPI', 'Select KPIs...') }}
+            </div>
+        </div>
+
+        <div class="tab-empty-state" id="emptyState-sector">
+            <i class="fas fa-satellite-dish"></i>
+            <h3>No Site Selected</h3>
+            <p>Please select one or more Sites to view the sector data.</p>
+        </div>
+
+        <div id="dataContainer-sector" style="display:none;">
+            <div class="chart-grid" id="chartGrid-sector">
+                {% for k in kpi_defs %}
+                <div class="card kpi-card-sector" id="card-sector-{{ k[0] }}" data-kpi="{{ k[0] }}">
+                    <div class="card-title">{{ k[1] }}
+                        {% if k[0] in ['payloadChart', 'gprsPayloadChart', 'edgePayloadChart'] %}
+                        <span style="font-size:10px;opacity:.55;">(MB)</span>
+                        {% elif k[2] %}
+                        <span style="font-size:10px;opacity:.55;">({{ k[2] }})</span>
+                        {% endif %}
+                    </div>
+                    <div class="chart-wrap" style="height:200px;position:relative;">
+                        <canvas id="canvas-sector-{{ k[0] }}"></canvas>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div id="tableView-sector" style="display:none;">
+                <div class="table-wrap">
+                    <table class="data-table mon-data-table" id="dataTable-sector">
+                        <thead id="tableHead-sector"></thead>
+                        <tbody id="tableBody-sector"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Empty state before first query -->
+    <div class="card">
+        <div class="mon-empty">
+            <div style="font-size:48px;margin-bottom:14px;">📡</div>
+            <div style="font-size:15px;font-weight:600;margin-bottom:6px;">No data yet</div>
+            <div style="font-size:13px;opacity:.7;">Select date range and KPIs, then click <strong>Generate</strong> to
+                load the daily trend.</div>
+        </div>
+    </div>
+    {% endif %}
+
+</div><!-- /.mon-content -->
+
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+    const DEFAULT_KPIS = [
+        "payloadChart", "tchTrafficChart", "availChart", "cssrChart", "ccsrChart",
+        "hosrChart", "sdsrChart", "tbfEstChart", "tbfCompChart", "tchDropChart", "tchDropNumChart",
+        "tchBlkChart", "tchBlkNumChart", "sdcchBlkChart", "sdcchBlkNumChart",
+        "dlMosChart", "ulMosChart", "dlQualChart", "ulQualChart", "sdToTchChart", "fastRetChart"
+    ];
+
+    function kpiSelectDefault() {
+        document.querySelectorAll('.mon-kpi-cb').forEach(cb => {
+            cb.checked = DEFAULT_KPIS.includes(cb.value);
+        });
+        updateKpiCount();
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       DATA FROM SERVER
+       ═══════════════════════════════════════════════════════════════ */
+    var CHART_LABELS = {{ chart_labels | tojson | safe }};
+    var KPI_DEFS = {{ kpi_defs | tojson | safe }};
+
+
+
+
+
+    var TAB_DATA = {
+        regional: {{ regional_data | tojson | safe }},
+        nop: {{ nop_data | tojson | safe }},
+        city: {{ city_data | tojson | safe }},
+        bsc: {{ bsc_data | tojson | safe }},
+        site: {{ site_data | tojson | safe }},
+        sector: {}
+    };
+
+    var TAB_DIMS = {
+        regional: {{ regional_dims | tojson | safe }},
+        nop: {{ nop_dims | tojson | safe }},
+        city: {{ city_dims | tojson | safe }},
+        bsc: {{ bsc_dims | tojson | safe }},
+        site: {{ site_dims | tojson | safe }},
+        sector: []
+    };
+
+    var NSA_CITY_MAP = {{ nsa_city_map  | tojson | safe }};
+    var CITY_SITE_MAP = {{ city_site_map | tojson | safe }};
+    var BSC_SITE_MAP = {{ bsc_site_map  | tojson | safe }};
+
+    /* Selected dimensions per tab */
+    var activeFilterDims = { regional: ["Regional"], nop: [], city: [], bsc: [], site: [], sector: [] };
+
+    /* ═══════════════════════════════════════════════════════════════
+       MULTI-SELECT LOGIC
+       ═══════════════════════════════════════════════════════════════ */
+    /* msId -> array of selected string values */
+    var msSelections = {};
+
+    function initMsOptions(id, optionsList, defaultChecked = false) {
+        msSelections[id] = defaultChecked ? [...optionsList] : [];
+        var listEl = document.getElementById("ms-list-" + id);
+        if (!listEl) return;
+
+        var html = "";
+        optionsList.forEach(function (opt) {
+            var checkedAttr = defaultChecked ? "checked" : "";
+            html += `<div class="ms-item" onclick="toggleMsItem('${id}', '${opt}')">
+                    <input type="checkbox" id="chk-${id}-${opt}" value="${opt}" ${checkedAttr}>
+                    <span>${opt}</span>
+                 </div>`;
+        });
+        listEl.innerHTML = html;
+        updateMsLabel(id);
+    }
+
+    function toggleMsMenu(id) {
+        var menu = document.getElementById("ms-menu-" + id);
+        var toggle = document.getElementById("ms-toggle-" + id);
+        if (toggle.classList.contains("disabled")) return;
+
+        // Close other open menus
+        document.querySelectorAll(".ms-menu").forEach(function (el) {
+            if (el.id !== "ms-menu-" + id) el.style.display = "none";
+        });
+
+        menu.style.display = menu.style.display === "flex" ? "none" : "flex";
+    }
+
+    function toggleMsItem(id, value) {
+        var chk = document.getElementById(`chk-${id}-${value}`);
+        chk.checked = !chk.checked;
+
+        if (id === 'sector_site' && chk.checked) {
+            msSelections[id] = [value];
+            var allChks = document.querySelectorAll(`#ms-list-${id} input[type='checkbox']`);
+            allChks.forEach(function (c) {
+                if (c !== chk) c.checked = false;
+            });
+        } else {
+            var idx = msSelections[id].indexOf(value);
+            if (chk.checked && idx === -1) msSelections[id].push(value);
+            else if (!chk.checked && idx !== -1) msSelections[id].splice(idx, 1);
+        }
+
+        updateMsLabel(id);
+        triggerMsChange(id);
+    }
+
+    function msSelectAll(id, checkAll) {
+        if (id === 'sector_site' && checkAll) return;
+        if (id === 'sector_site' && checkAll) return; // Only allow clear all for sector_site
+        msSelections[id] = [];
+        document.querySelectorAll(`#ms-list-${id} .ms-item`).forEach(function (item) {
+            if (item.style.display !== "none") {
+                var chk = item.querySelector("input");
+                chk.checked = checkAll;
+                if (checkAll) msSelections[id].push(chk.value);
+            } else {
+                var chk = item.querySelector("input");
+                if (chk.checked) msSelections[id].push(chk.value); // keep hidden ones if checked
+            }
+        });
+        updateMsLabel(id);
+        triggerMsChange(id);
+    }
+
+    function filterMsMenu(id, query) {
+        query = query.toLowerCase();
+        document.querySelectorAll(`#ms-list-${id} .ms-item`).forEach(function (item) {
+            var text = item.querySelector("span").textContent.toLowerCase();
+            item.style.display = text.indexOf(query) !== -1 ? "flex" : "none";
+        });
+    }
+
+    function updateMsLabel(id) {
+        var count = msSelections[id].length;
+        var lbl = document.getElementById("ms-label-" + id);
+        var placeholder = lbl.getAttribute("data-placeholder") || "Select...";
+        if (!lbl.getAttribute("data-placeholder")) lbl.setAttribute("data-placeholder", lbl.textContent);
+
+        if (count === 0) lbl.textContent = placeholder;
+        else if (count === 1) lbl.textContent = msSelections[id][0];
+        else lbl.textContent = count + " selected";
+    }
+
+    function setMsDisabled(id, disabled) {
+        var toggle = document.getElementById("ms-toggle-" + id);
+        if (disabled) {
+            toggle.classList.add("disabled");
+            msSelections[id] = [];
+            document.querySelectorAll(`#ms-list-${id} input`).forEach(i => i.checked = false);
+            updateMsLabel(id);
+        } else {
+            toggle.classList.remove("disabled");
+        }
+    }
+
+    // Close menus when clicking outside
+    document.addEventListener("click", function (e) {
+        if (!e.target.closest(".ms-container")) {
+            document.querySelectorAll(".ms-menu").forEach(function (m) { m.style.display = "none"; });
+        }
+    });
+
+    /* ── Specific Filter Event Handlers ── */
+    function triggerMsChange(id) {
+        if (id === "nop_nsa") {
+            activeFilterDims.nop = msSelections[id];
+            updateTabDisplay("nop");
+        }
+        else if (id === "city_nsa") {
+            // Cascade to City
+            var selNsas = msSelections[id];
+            if (selNsas.length === 0) {
+                setMsDisabled("city_city", true);
+                msSelections["city_city"] = [];
+                updateMsLabel("city_city");
+                updateTabDisplay("city");
+            } else {
+                setMsDisabled("city_city", false);
+                var validCities = new Set();
+                selNsas.forEach(nsa => {
+                    if (NSA_CITY_MAP[nsa]) NSA_CITY_MAP[nsa].forEach(c => validCities.add(c));
+                });
+                initMsOptions("city_city", Array.from(validCities).sort());
+                activeFilterDims.city = msSelections["city_city"];
+                updateTabDisplay("city");
+            }
+        }
+        else if (id === "city_city") {
+            activeFilterDims.city = msSelections[id];
+            updateTabDisplay("city");
+        }
+        else if (id === "bsc_bsc") {
+            activeFilterDims.bsc = msSelections[id];
+            updateTabDisplay("bsc");
+        }
+        else if (id === "site_city") {
+            // Cascade to Site
+            var selCities = msSelections[id];
+            if (selCities.length === 0) {
+                setMsDisabled("site_site", true);
+                msSelections["site_site"] = [];
+                updateMsLabel("site_site");
+                updateTabDisplay("site");
+            } else {
+                setMsDisabled("site_site", false);
+                var validSites = new Set();
+                selCities.forEach(city => {
+                    if (CITY_SITE_MAP[city]) CITY_SITE_MAP[city].forEach(s => validSites.add(s));
+                });
+                initMsOptions("site_site", Array.from(validSites).sort());
+                activeFilterDims.site = msSelections["site_site"];
+            }
+        }
+        else if (id === "site_bsc") {
+            // Cascade to Site
+            var selBscs = msSelections[id];
+            if (selBscs.length === 0) {
+                setMsDisabled("site_site", true);
+                msSelections["site_site"] = [];
+                updateMsLabel("site_site");
+                updateTabDisplay("site");
+            } else {
+                setMsDisabled("site_site", false);
+                var validSites = new Set();
+                selBscs.forEach(bsc => {
+                    if (BSC_SITE_MAP[bsc]) BSC_SITE_MAP[bsc].forEach(s => validSites.add(s));
+                });
+                initMsOptions("site_site", Array.from(validSites).sort());
+                activeFilterDims.site = msSelections["site_site"];
+                updateTabDisplay("site");
+            }
+        }
+        else if (id === "site_site") {
+            activeFilterDims.site = msSelections[id];
+            updateTabDisplay("site");
+        }
+        else if (id === "sector_site") {
+            activeFilterDims.sector = msSelections[id];
+            updateTabDisplay("sector");
+        }
+        else if (id === "sector_kpi" || id === "sector_sector" || id === "sector_band") {
+            applySectorLocalFilters();
+        }
+    }
+
+    function toggleSiteFilterMode() {
+        var mode = document.querySelector('input[name="siteFilterType"]:checked').value;
+        // Clear site selection
+        msSelections["site_site"] = [];
+        updateMsLabel("site_site");
+
+        if (mode === 'city') {
+            document.getElementById('siteFilterCityWrapper').style.display = 'block';
+            document.getElementById('siteFilterBscWrapper').style.display = 'none';
+            triggerMsChange('site_city');
+        } else {
+            document.getElementById('siteFilterCityWrapper').style.display = 'none';
+            document.getElementById('siteFilterBscWrapper').style.display = 'block';
+            triggerMsChange('site_bsc');
+        }
+    }
+
+    var CURRENT_GRANULARITY = { regional: 'daily', nop: 'daily', city: 'daily', bsc: 'daily', site: 'daily', sector: 'daily' };
+    var HOURLY_DATA = { regional: null, nop: null, city: null, bsc: null, site: null, sector: null };
+    var HOURLY_LABELS = { regional: null, nop: null, city: null, bsc: null, site: null, sector: null };
+
+    var SITE_MODE = 'per_site'; // 'per_site' or 'cluster'
+    var SECTOR_CHART_MODE = 'combined'; // combined | split
+
+    function setSectorMode(mode, btn) {
+        if (SECTOR_CHART_MODE === mode) return;
+        SECTOR_CHART_MODE = mode;
+        var btns = document.querySelectorAll('.chartGrid-sector-mode-btn');
+        btns.forEach(function (b) {
+            b.classList.remove('active');
+            b.style.background = 'transparent';
+        });
+        btn.classList.add('active');
+        btn.style.background = 'rgba(79,172,254,0.3)';
+        applySectorLocalFilters();
+    }
+
+    var CLUSTER_DAILY_DATA = null;
+    var CLUSTER_DAILY_LABELS = null;
+    var CLUSTER_HOURLY_DATA = null;
+    var SECTOR_API_DATA = null;
+    var CLUSTER_HOURLY_LABELS = null;
+    var SITE_DAILY_LABELS = null;
+
+    function setSiteMode(mode, btn) {
+        if (SITE_MODE === mode) return;
+
+        document.querySelectorAll(`.chartGrid-site-mode-btn`).forEach(b => {
+            b.classList.remove('active');
+            b.style.background = 'transparent';
+        });
+        btn.classList.add('active');
+        btn.style.background = 'rgba(79,172,254,0.3)';
+
+        SITE_MODE = mode;
+        updateTabDisplay('site');
+    }
+
+
+    function fetchSectorData(dims) {
+        if (dims.length === 0) {
+            document.getElementById("emptyState-sector").style.display = "block";
+            document.getElementById("dataContainer-sector").style.display = "none";
+            return;
+        }
+        document.getElementById("emptyState-sector").style.display = "none";
+        document.getElementById("dataContainer-sector").style.display = "block";
+
+        // Check if we already have the exact same sites cached in SECTOR_API_DATA
+        // This is simple: just check if the dims string matches the last fetched
+        var dimsStr = dims.sort().join(',');
+        if (SECTOR_API_DATA && SECTOR_API_DATA._dims === dimsStr) {
+            applySectorLocalFilters();
+            return;
+        }
+
+        var loading = document.getElementById("loadingOverlay");
+        if (loading) loading.style.display = "flex";
+
+        fetch('/api/kpi_2g/sector_data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                from_date: "{{ from_date }}",
+                to_date: "{{ to_date }}",
+                sites: dims,
+                kpis: KPI_DEFS.map(k => k[0])
+            })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (loading) loading.style.display = "none";
+                if (data.error) {
+                    alert("Error: " + data.error);
+                    return;
+                }
+                SECTOR_API_DATA = data;
+                SECTOR_API_DATA._dims = dimsStr;
+
+                // Extract unique sectors from legends dynamically
+                var uniqueSectors = new Set();
+                (data.daily.legends || []).forEach(leg => {
+                    var match = leg.match(/ S(\d+)(?:-([A-Za-z0-9]+))?$/);
+                    if (match) uniqueSectors.add(match[1]);
+                });
+                var sortedSectors = Array.from(uniqueSectors).sort((a, b) => parseInt(a) - parseInt(b));
+                if (sortedSectors.length > 0) {
+                    initMsOptions('sector_sector', sortedSectors, true);
+                }
+
+                applySectorLocalFilters();
+            })
+            .catch(err => {
+                if (loading) loading.style.display = "none";
+                alert("Failed to fetch sector data.");
+                console.error(err);
+            });
+    }
+
+    function applySectorLocalFilters() {
+        if (!SECTOR_API_DATA) return;
+
+        var isHourly = CURRENT_GRANULARITY['sector'] === 'hourly';
+        var sourceData = isHourly ? SECTOR_API_DATA.hourly : SECTOR_API_DATA.daily;
+
+        if (!sourceData) return;
+
+        var selSectors = msSelections['sector_sector'] || [];
+        var selBands = msSelections['sector_band'] || [];
+        var selKpis = msSelections['sector_kpi'] || [];
+        if (selKpis.length === 0) selKpis = KPI_DEFS.map(k => k[0]); // Default to all if empty
+
+        // Filter the legend keys
+        var validLegends = sourceData.legends.filter(leg => {
+            // Legend format: {siteid} S{sector}-{tech} or {siteid} S{sector}
+            var match = leg.match(/ S(\d+)(?:-([A-Za-z0-9]+))?$/);
+            if (!match) return true; // keep if format differs
+            var legSec = match[1];
+            var legBand = match[2] || "";
+
+            if (selSectors.length > 0 && !selSectors.includes(legSec)) return false;
+            if (selBands.length > 0 && !selBands.includes(legBand)) return false;
+            return true;
+        });
+
+        // Update TAB_DATA['sector'] to only include validLegends
+        TAB_DATA['sector'] = {};
+        for (var k in sourceData.data) {
+            TAB_DATA['sector'][k] = {};
+            validLegends.forEach(leg => {
+                TAB_DATA['sector'][k][leg] = sourceData.data[k][leg];
+            });
+        }
+
+        // Determine active labels
+        var labels = sourceData.labels;
+        if (isHourly) {
+            HOURLY_LABELS['sector'] = labels;
+            HOURLY_DATA['sector'] = TAB_DATA['sector']; // for buildDatasets logic
+        } else {
+            SECTOR_DAILY_LABELS = labels;
+            // TAB_DATA['sector'] is already set above
+        }
+
+        // Dynamically build chart grid
+        var kpisToRender = KPI_DEFS.filter(k => selKpis.includes(k[0]));
+        var grid = document.getElementById("chartGrid-sector");
+        var html = "";
+        var chartCalls = [];
+
+        function buildCardHtml(k, titleSuffix, canvasSuffix) {
+            var unitLabel;
+            if (['payloadChart', 'gprsPayloadChart', 'edgePayloadChart'].includes(k[0])) unitLabel = ' <span style="font-size:10px;opacity:.55;">(MB)</span>';
+            else if (k[2]) unitLabel = ' <span style="font-size:10px;opacity:.55;">(' + k[2] + ')</span>';
+
+            return `<div class="card kpi-card-sector" data-kpi="${k[0]}">
+            <div class="card-title">${k[1]}${titleSuffix}${unitLabel}</div>
+            <div class="chart-wrap" style="height:200px;position:relative;">
+                <canvas id="canvas-sector-${k[0]}${canvasSuffix}"></canvas>
+            </div>
+        </div>`;
+        }
+
+        kpisToRender.forEach(function (k) {
+            if (SECTOR_CHART_MODE === 'combined') {
+                html += buildCardHtml(k, "", "");
+                chartCalls.push({ kpi: k, dims: validLegends, suffix: "" });
+            } else {
+                // Group valid legends by base sector (e.g., "AGA002 S1")
+                var groupedSectors = {};
+                validLegends.forEach(function (leg) {
+                    var secBase = leg;
+                    var match = leg.match(/^(.* S\d+)(?:-.*)?$/);
+                    if (match) secBase = match[1];
+
+                    if (!groupedSectors[secBase]) groupedSectors[secBase] = [];
+                    groupedSectors[secBase].push(leg);
+                });
+
+                Object.keys(groupedSectors).forEach(function (secBase) {
+                    var safeSecBase = secBase.replace(/[^a-zA-Z0-9_-]/g, "_");
+                    html += buildCardHtml(k, " - " + secBase, "-" + safeSecBase);
+                    chartCalls.push({ kpi: k, dims: groupedSectors[secBase], suffix: "-" + safeSecBase });
+                });
+            }
+        });
+
+        // Clean up old chart instances to prevent memory leaks and PNG export bugs
+        Object.keys(chartInstances).forEach(function (key) {
+            if (key.startsWith('sector::')) {
+                if (chartInstances[key]) chartInstances[key].destroy();
+                delete chartInstances[key];
+            }
+        });
+
+        grid.innerHTML = html;
+
+        setTimeout(function () {
+            chartCalls.forEach(function (call) {
+                renderChart('sector', call.kpi, call.dims, call.suffix);
+            });
+        }, 50);
+
+        var tv = document.getElementById("tableView-sector");
+        if (tv && tv.style.display !== "none") buildTable('sector', validLegends);
+    }
+
+    function fetchClusterData(granularity, dims) {
+        var loading = document.getElementById("loadingOverlay");
+        if (loading) loading.style.display = "flex";
+
+        fetch('/api/kpi_2g/site_cluster', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                from_date: "{{ from_date }}",
+                to_date: "{{ to_date }}",
+                sites: dims,
+                granularity: granularity,
+                kpis: KPI_DEFS.map(k => k[0])
+            })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (loading) loading.style.display = "none";
+                if (data.error) {
+                    alert("Error: " + data.error);
+                    return;
+                }
+                if (granularity === 'hourly') {
+                    CLUSTER_HOURLY_DATA = data.data;
+                    CLUSTER_HOURLY_LABELS = data.labels;
+                } else {
+                    CLUSTER_DAILY_DATA = data.data;
+                    CLUSTER_DAILY_LABELS = data.labels;
+                }
+                renderTabCharts('site', dims);
+                var tv = document.getElementById("tableView-site");
+                if (tv && tv.style.display !== "none") buildTable('site', dims);
+            })
+            .catch(err => {
+                if (loading) loading.style.display = "none";
+                alert("Failed to fetch cluster data.");
+                console.error(err);
+            });
+    }
+
+
+    function setGranularity(tabId, mode, btn) {
+        if (CURRENT_GRANULARITY[tabId] === mode) return;
+
+        document.querySelectorAll(`.chartGrid-${tabId}-gran-btn`).forEach(b => {
+            b.classList.remove('active');
+            b.style.background = 'transparent';
+        });
+        btn.classList.add('active');
+        btn.style.background = 'rgba(79,172,254,0.3)';
+
+        CURRENT_GRANULARITY[tabId] = mode;
+        updateTabDisplay(tabId);
+    }
+
+    function fetchHourlyData(tabId, dims) {
+        var loading = document.getElementById("loadingOverlay");
+        if (loading) loading.style.display = "flex";
+
+        fetch('/api/kpi_2g/hourly', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                from_date: "{{ from_date }}",
+                to_date: "{{ to_date }}",
+                tab: tabId,
+                entities: dims,
+                granularity: 'hourly',
+                kpis: KPI_DEFS.map(k => k[0])
+            })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (loading) loading.style.display = "none";
+                if (data.error) {
+                    alert("Error: " + data.error);
+                    return;
+                }
+                HOURLY_DATA[tabId] = data.data;
+                HOURLY_LABELS[tabId] = data.labels;
+                renderTabCharts(tabId, dims);
+                var tv = document.getElementById("tableView-" + tabId);
+                if (tv && tv.style.display !== "none") buildTable(tabId, dims);
+            })
+            .catch(err => {
+                if (loading) loading.style.display = "none";
+                alert("Failed to fetch hourly data.");
+                console.error(err);
+            });
+    }
+
+    function fetchSiteDailyData(dims) {
+        // Check if we already have daily data for all requested dims
+        var hasAll = true;
+        if (!TAB_DATA['site']) hasAll = false;
+        else {
+            dims.forEach(function (d) {
+                if (!TAB_DATA['site']['payloadChart'] || !TAB_DATA['site']['payloadChart'].hasOwnProperty(d)) hasAll = false;
+            });
+        }
+        if (hasAll) {
+            renderTabCharts('site', dims);
+            var tv = document.getElementById("tableView-site");
+            if (tv && tv.style.display !== "none") buildTable('site', dims);
+            return;
+        }
+
+        var loading = document.getElementById("loadingOverlay");
+        if (loading) loading.style.display = "flex";
+
+        fetch('/api/kpi_2g/hourly', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                from_date: "{{ from_date }}",
+                to_date: "{{ to_date }}",
+                tab: 'site',
+                entities: dims,
+                granularity: 'daily',
+                kpis: KPI_DEFS.map(k => k[0])
+            })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (loading) loading.style.display = "none";
+                if (data.error) {
+                    alert("Error: " + data.error);
+                    return;
+                }
+                if (data.labels && data.labels.length === 0) {
+                    alert("No Daily data available for the selected Site and Date Range. Try checking the Hourly tab or selecting a different date range.");
+                }
+                console.log("Site Daily Data API Response:", data);
+                TAB_DATA['site'] = data.data;
+                SITE_DAILY_LABELS = data.labels;
+                renderTabCharts('site', dims);
+                var tv = document.getElementById("tableView-site");
+                if (tv && tv.style.display !== "none") buildTable('site', dims);
+            })
+            .catch(err => {
+                if (loading) loading.style.display = "none";
+                alert("Failed to fetch site daily data.");
+                console.error(err);
+            });
+    }
+
+    function updateTabDisplay(tabId) {
+        var dims = activeFilterDims[tabId];
+        if (tabId === 'regional') dims = ['Regional'];
+
+        var dataContainer = document.getElementById("dataContainer-" + tabId);
+        var emptyState = document.getElementById("emptyState-" + tabId);
+
+        if (!dims || dims.length === 0) {
+            if (dataContainer) dataContainer.style.display = "none";
+            if (emptyState) emptyState.style.display = "block";
+        } else {
+            if (dataContainer) dataContainer.style.display = "block";
+            if (emptyState) emptyState.style.display = "none";
+
+            var isHourly = CURRENT_GRANULARITY[tabId] === 'hourly';
+
+
+            if (tabId === 'sector') {
+                fetchSectorData(dims);
+                return;
+            }
+            if (tabId === 'site' && SITE_MODE === 'cluster') {
+                fetchClusterData(isHourly ? 'hourly' : 'daily', dims);
+            } else if (isHourly) {
+                fetchHourlyData(tabId, dims);
+            } else if (tabId === 'site' && SITE_MODE === 'per_site') {
+                fetchSiteDailyData(dims);
+            } else {
+                renderTabCharts(tabId, dims);
+                var tv = document.getElementById("tableView-" + tabId);
+                if (tv && tv.style.display !== "none") buildTable(tabId, dims);
+            }
+        }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       CHART INSTANCES & COLORS
+       ═══════════════════════════════════════════════════════════════ */
+    var chartInstances = {}; /* key: "tab_id::kpi_id" → Chart instance */
+    var COLORS = [
+        "#4facfe", "#f093fb", "#00c853", "#ff9f40", "#a78bfa", "#ff5555",
+        "#00f2fe", "#f6c90e", "#8884d8", "#ff6b6b", "#ffd166", "#06d6a0",
+        "#e879f9", "#fb923c", "#34d399", "#60a5fa", "#f87171", "#a3e635"
+    ];
+
+    function tc() { return document.documentElement.getAttribute("data-theme") === "dark" ? "#b0b8c8" : "#555"; }
+    function gc() { return document.documentElement.getAttribute("data-theme") === "dark" ? "rgba(79,172,254,0.07)" : "rgba(0,0,0,0.05)"; }
+
+    function makeChartOpts(unit, yMin, yMax) {
+        var opts = {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            plugins: {
+                legend: {
+                    display: true, position: "bottom",
+                    labels: { color: tc(), font: { size: 9 }, boxWidth: 10, padding: 8, maxItems: 8 }
+                },
+                tooltip: {
+                    mode: "index", intersect: false,
+                    backgroundColor: "rgba(8,8,25,0.90)",
+                    titleFont: { size: 10 }, bodyFont: { size: 11 }, padding: 8,
+                    callbacks: {
+                        title: function (i) { return i[0] ? i[0].label : ""; },
+                        label: function (ctx) {
+                            var v = ctx.parsed.y;
+                            if (v === null || v === undefined) return null;
+                            return ctx.dataset.label + ": " + v.toFixed(2) + (unit ? " " + unit : "");
+                        }
+                    }
+                }
+            },
+            interaction: { mode: "index", intersect: false },
+            scales: {
+                x: {
+                    ticks: {
+                        color: tc(), font: { size: 9 }, maxRotation: 0, autoSkip: true, autoSkipPadding: 20,
+                        callback: function (val) {
+                            var lbl = this.getLabelForValue(val);
+                            if (typeof lbl === "string" && lbl.length >= 10) {
+                                var p = lbl.split("-");
+                                var mon = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agt", "Sep", "Okt", "Nov", "Des"];
+                                if (p.length === 3) {
+                                    var timeParts = p[2].split(" ");
+                                    var day = timeParts[0];
+                                    var time = timeParts.length > 1 ? " " + timeParts[1] : "";
+                                    return day + " " + mon[parseInt(p[1], 10) - 1] + time;
+                                }
+                            }
+                            return lbl;
+                        }
+                    }, grid: { color: gc() }
+                },
+                y: {
+                    ticks: { color: tc(), font: { size: 10 } }, grid: { color: gc() },
+                    title: { display: !!unit, text: unit || "", color: tc(), font: { size: 10 } }
+                }
+            }
+        };
+        if (yMin !== null && yMin !== undefined) opts.scales.y.min = yMin;
+        if (yMax !== null && yMax !== undefined) opts.scales.y.max = yMax;
+        return opts;
+    }
+
+    /* ── Build datasets for a tab ── */
+    function buildDatasets(tabId, kpiId, dims) {
+        var isHourly = CURRENT_GRANULARITY[tabId] === 'hourly';
+        var isCluster = tabId === 'site' && SITE_MODE === 'cluster';
+
+        var data;
+        if (isCluster) {
+            data = isHourly ? CLUSTER_HOURLY_DATA || {} : CLUSTER_DAILY_DATA || {};
+            dims = ['Cluster'];
+        } else {
+            data = isHourly ? HOURLY_DATA[tabId] || {} : TAB_DATA[tabId] || {};
+        }
+        var kpiData = data[kpiId] || {};
+
+        return dims
+            .filter(function (d) { return kpiData.hasOwnProperty(d); })
+            .map(function (d, i) {
+                var arr = kpiData[d] || [];
+                return {
+                    label: d,
+                    data: arr,
+                    borderColor: COLORS[i % COLORS.length],
+                    backgroundColor: "transparent",
+                    tension: 0.22, pointRadius: 0, pointHoverRadius: 5, borderWidth: 1.8
+                };
+            });
+    }
+
+    /* ── Create or update a single chart ── */
+    function renderChart(tabId, kpiDef, dims, suffix = '') {
+        var kpiId = kpiDef[0];
+        var unit = kpiDef[2];
+        var yMin = kpiDef[3];
+        var yMax = kpiDef[4];
+
+        if ((tabId === 'site' || tabId === 'sector') && ['payloadChart', 'gprsPayloadChart', 'edgePayloadChart'].includes(kpiId)) {
+            unit = "MB";
+        }
+
+        var canvasId = "canvas-" + tabId + "-" + kpiId + suffix;
+        var c = document.getElementById(canvasId);
+        if (!c) return;
+
+        var key = tabId + "::" + kpiId + suffix;
+        if (chartInstances[key]) { chartInstances[key].destroy(); }
+
+        var ds = buildDatasets(tabId, kpiId, dims);
+        var opts = makeChartOpts(unit, yMin, yMax);
+        var isHourly = CURRENT_GRANULARITY[tabId] === 'hourly';
+        var isCluster = tabId === 'site' && SITE_MODE === 'cluster';
+
+        var labels;
+        if (isCluster) {
+            labels = isHourly ? (CLUSTER_HOURLY_LABELS || []) : (CLUSTER_DAILY_LABELS || []);
+        } else {
+            if (tabId === 'site' && !isHourly) {
+                labels = SITE_DAILY_LABELS || [];
+            } else if (tabId === 'sector' && !isHourly) {
+                labels = SECTOR_DAILY_LABELS || [];
+            } else {
+                labels = isHourly ? (HOURLY_LABELS[tabId] || []) : CHART_LABELS;
+            }
+        }
+
+        chartInstances[key] = new Chart(c, {
+            type: "line",
+            data: { labels: labels, datasets: ds },
+            options: opts
+        });
+    }
+
+    /* ── Render all KPI charts for a tab ── */
+    function renderTabCharts(tabId, dims) {
+        KPI_DEFS.forEach(function (k) { renderChart(tabId, k, dims); });
+    }
+
+    /* ── Build table for a tab ── */
+    function buildTable(tabId, dims) {
+        var thead = document.getElementById("tableHead-" + tabId);
+        var tbody = document.getElementById("tableBody-" + tabId);
+        if (!thead || !tbody) return;
+
+        var dimLabel = { regional: "Group", nop: "NOP", city: "City", bsc: "BSC", site: "Site", sector: "Sector Legend" }[tabId] || "Group";
+
+        var isCluster = tabId === 'site' && SITE_MODE === 'cluster';
+        if (isCluster) dims = ['Cluster'];
+
+        var hdrs = ["Date", dimLabel].concat(KPI_DEFS.map(function (k) {
+            var unit = k[2];
+            if ((tabId === 'site' || tabId === 'sector') && ['payloadChart', 'gprsPayloadChart', 'edgePayloadChart'].includes(k[0])) unit = 'MB';
+            return k[1] + (unit ? " (" + unit + ")" : "");
+        }));
+        thead.innerHTML = "<tr>" + hdrs.map(function (h) { return "<th>" + h + "</th>"; }).join("") + "</tr>";
+
+        var isHourly = CURRENT_GRANULARITY[tabId] === 'hourly';
+
+        var data;
+        var labels;
+        if (isCluster) {
+            data = isHourly ? CLUSTER_HOURLY_DATA || {} : CLUSTER_DAILY_DATA || {};
+            labels = isHourly ? (CLUSTER_HOURLY_LABELS || []) : (CLUSTER_DAILY_LABELS || []);
+        } else {
+            data = isHourly ? HOURLY_DATA[tabId] || {} : TAB_DATA[tabId] || {};
+            if (tabId === 'site' && !isHourly) {
+                labels = SITE_DAILY_LABELS || [];
+            } else if (tabId === 'sector' && !isHourly) {
+                labels = SECTOR_DAILY_LABELS || [];
+            } else {
+                labels = isHourly ? (HOURLY_LABELS[tabId] || []) : CHART_LABELS;
+            }
+        }
+
+        // Auto-calculate dims for sector tab from the filtered data object
+        if (tabId === 'sector') {
+            var anyKpi = Object.keys(data)[0];
+            dims = anyKpi && data[anyKpi] ? Object.keys(data[anyKpi]) : [];
+        }
+
+        var rows = "";
+        labels.forEach(function (day) {
+            dims.forEach(function (dim) {
+                rows += "<tr><td>" + day + "</td><td>" + dim + "</td>";
+                KPI_DEFS.forEach(function (k) {
+                    var arr = (data[k[0]] || {})[dim] || [];
+                    var idx = labels.indexOf(day);
+                    var v = arr[idx];
+                    rows += "<td>" + (v !== null && v !== undefined ? v.toFixed(2) : "—") + "</td>";
+                });
+                rows += "</tr>";
+            });
+        });
+        tbody.innerHTML = rows;
+    }
+
+    /* ── Chart / Table view toggle ── */
+    function setTabView(tabId, view, btn) {
+        var cg = document.getElementById("chartGrid-" + tabId);
+        var tv = document.getElementById("tableView-" + tabId);
+        if (cg) cg.style.display = view === "chart" ? "" : "none";
+        if (tv) tv.style.display = view === "table" ? "" : "none";
+
+        document.querySelectorAll("#tabPanel-" + tabId + " .view-btn").forEach(function (b) { b.classList.remove("active"); });
+        if (btn) btn.classList.add("active");
+
+        if (view === "table") {
+            buildTable(tabId, activeFilterDims[tabId]);
+        }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       TAB SWITCHING
+       ═══════════════════════════════════════════════════════════════ */
+    var activeTab = "regional";
+
+    function switchTab(tabId, btn) {
+        document.querySelectorAll(".mon-tab-panel").forEach(function (p) { p.classList.remove("active"); });
+        document.querySelectorAll(".mon-tab").forEach(function (b) { b.classList.remove("active"); });
+
+        var panel = document.getElementById("tabPanel-" + tabId);
+        if (panel) panel.classList.add("active");
+        if (btn) btn.classList.add("active");
+        activeTab = tabId;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       FILTER PANEL TOGGLE
+       ═══════════════════════════════════════════════════════════════ */
+    var _filterOpen = true;
+    function toggleFilterPanel() {
+        var fc = document.getElementById("filterContainer");
+        var ic = document.getElementById("filterToggleIcon");
+        var lbl = document.getElementById("filterToggleLabel");
+        _filterOpen = !_filterOpen;
+        if (_filterOpen) {
+            fc.classList.remove("collapsed");
+            ic.className = "fas fa-chevron-up";
+            lbl.textContent = "Hide Filters";
+        } else {
+            fc.classList.add("collapsed");
+            ic.className = "fas fa-chevron-down";
+            lbl.textContent = "Show Filters";
+        }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       QUICK DATE RANGE
+       ═══════════════════════════════════════════════════════════════ */
+    function setRange(days) {
+        var today = new Date();
+        var from = new Date(today);
+        from.setDate(today.getDate() - (days - 1));
+        function fmt(d) { return d.toISOString().slice(0, 10); }
+        document.getElementById("fFrom").value = fmt(from);
+        document.getElementById("fTo").value = fmt(today);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       KPI SELECTION COUNTER
+       ═══════════════════════════════════════════════════════════════ */
+    function updateKpiCount() {
+        var total = document.querySelectorAll(".mon-kpi-cb").length;
+        var sel = document.querySelectorAll(".mon-kpi-cb:checked").length;
+        var el = document.getElementById("kpiSelCount");
+        if (el) el.textContent = "(" + sel + " / " + total + " selected)";
+    }
+    function kpiSelectAll(v) {
+        document.querySelectorAll(".mon-kpi-cb").forEach(function (cb) { cb.checked = v; });
+        updateKpiCount();
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       LOADING OVERLAY
+       ═══════════════════════════════════════════════════════════════ */
+    function showOverlay() {
+        var o = document.getElementById("loadingOverlay");
+        if (o) { o.style.display = "flex"; }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       EXPORT PNG (Composite Dashboard Style)
+       ═══════════════════════════════════════════════════════════════ */
+    var _pngTab = "regional";
+    function openPngModal(tabId) { _pngTab = tabId; document.getElementById("pngModalOverlay").classList.add("open"); }
+    function closePngModal() { document.getElementById("pngModalOverlay").classList.remove("open"); }
+    function pngSelectAll(v) { document.querySelectorAll(".png-kpi-check").forEach(function (cb) { cb.checked = v; }); }
+
+    function doExportPng() {
+        var checkedBoxes = document.querySelectorAll(".png-kpi-check:checked");
+        if (checkedBoxes.length === 0) { alert("Please select at least one KPI."); return; }
+
+        // Ensure chartGrid is visible so charts have valid size
+        var gridId = "chartGrid-" + _pngTab;
+        var cg = document.getElementById(gridId);
+        var cgWasHidden = cg.style.display === "none";
+        if (cgWasHidden) cg.style.display = "";
+
+        setTimeout(() => {
+            var activeBtn = document.querySelector("." + gridId + "-row-btn.active");
+            var cols = parseInt(activeBtn ? activeBtn.textContent.trim() : 3);
+
+            var dpr = window.devicePixelRatio || 1;
+            var cardPad = 12 * dpr;
+            var titleHeight = 36 * dpr;
+            var gridPad = 16 * dpr;
+
+            var renderItems = [];
+            var totalWidth = 0;
+            var totalHeight = gridPad;
+            var sampleChart = null;
+
+            checkedBoxes.forEach(function (cb) {
+                var kpiId = cb.value;
+                var baseKey = _pngTab + "::" + kpiId;
+                var prefixKey = baseKey + "-";
+
+                var matchingKeys = Object.keys(chartInstances).filter(function (k) {
+                    return k === baseKey || k.startsWith(prefixKey);
+                });
+
+                matchingKeys.forEach(function (key) {
+                    var chart = chartInstances[key];
+                    if (!chart) return;
+
+                    if (!sampleChart) sampleChart = chart;
+
+                    var cWidth = chart.canvas ? chart.canvas.width : 800;
+                    var cHeight = chart.canvas ? chart.canvas.height : 400;
+                    var cardWidth = cWidth + (cardPad * 2);
+                    var cardHeight = cHeight + titleHeight + (cardPad * 2);
+
+                    var title = cb.getAttribute("data-title") || kpiId;
+                    if (key !== baseKey) {
+                        var suffix = key.substring(prefixKey.length);
+                        title += " - " + suffix.replace(/_/g, " ");
+                    }
+
+                    renderItems.push({
+                        chartId: key,
+                        kpiTitle: title,
+                        cardWidth: cardWidth,
+                        cardHeight: cardHeight
+                    });
+                });
+            });
+
+            if (!sampleChart) {
+                if (cgWasHidden) cg.style.display = "none";
+                return alert("No valid charts found to export.");
+            }
+
+            // Calculate total canvas dimensions
+            var rows = Math.ceil(renderItems.length / cols);
+            totalWidth = cols * renderItems[0].cardWidth + (cols + 1) * gridPad;
+            totalHeight += rows * renderItems[0].cardHeight + rows * gridPad;
+
+            var tempCanvas = document.createElement('canvas');
+            tempCanvas.width = totalWidth;
+            tempCanvas.height = totalHeight;
+            var ctx = tempCanvas.getContext('2d');
+
+            var isDark = document.documentElement.getAttribute("data-theme") === "dark";
+
+            // Background - Transparent for PNG, but cards have backgrounds
+            ctx.clearRect(0, 0, totalWidth, totalHeight);
+
+            var currentY = 0;
+
+            renderItems.forEach(function (item, idx) {
+                var chart = chartInstances[item.chartId];
+                var col = idx % cols;
+                var row = Math.floor(idx / cols);
+                var cx = gridPad + col * (item.cardWidth + gridPad);
+                var cy = currentY + gridPad + row * (item.cardHeight + gridPad);
+
+                // Draw card background
+                ctx.fillStyle = isDark ? 'rgba(30,30,58,0.95)' : '#ffffff';
+                ctx.fillRect(cx, cy, item.cardWidth, item.cardHeight);
+
+                // Draw card border
+                ctx.strokeStyle = isDark ? 'rgba(79,172,254,0.2)' : 'rgba(0,0,0,0.1)';
+                ctx.lineWidth = 1 * dpr;
+                ctx.strokeRect(cx, cy, item.cardWidth, item.cardHeight);
+
+                // Draw KPI Title
+                ctx.font = "600 " + (14 * dpr) + "px sans-serif";
+                ctx.fillStyle = isDark ? '#ffffff' : '#1e293b';
+                ctx.textAlign = "left";
+                ctx.fillText(item.kpiTitle, cx + cardPad, cy + cardPad + (16 * dpr));
+
+                // Draw Chart
+                ctx.drawImage(chart.canvas, cx + cardPad, cy + cardPad + titleHeight);
+            });
+
+            var a = document.createElement('a');
+            a.href = tempCanvas.toDataURL('image/png');
+            a.download = "2G_Monitoring_" + _pngTab.toUpperCase() + "_Charts.png";
+            a.click();
+
+            if (cgWasHidden) cg.style.display = "none";
+            closePngModal();
+        }, 150);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       GRID COLUMNS TOGGLE
+       ═══════════════════════════════════════════════════════════════ */
+    function setGridColLocal(cols, gridId) {
+        document.querySelectorAll(`.${gridId}-row-btn`).forEach(b => {
+            b.classList.remove('active');
+            b.style.background = 'transparent';
+        });
+        var btn = document.querySelector(`.${gridId}-row-btn[onclick*="${cols}"]`);
+        if (btn) {
+            btn.classList.add('active');
+            btn.style.background = 'rgba(79,172,254,0.3)';
+        }
+
+        var grid = document.getElementById(gridId);
+        if (grid) {
+            grid.className = grid.className.replace(/grid-\d/g, '').trim();
+            grid.classList.add(`grid-${cols}`);
+
+            // Trigger chart resize
+            window.dispatchEvent(new Event('resize'));
+        }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       EXPORT CSV
+       ═══════════════════════════════════════════════════════════════ */
+    var _csvTab = "regional";
+    function openCsvModal(tabId) { _csvTab = tabId; document.getElementById("csvModalOverlay").classList.add("open"); }
+    function closeCsvModal() { document.getElementById("csvModalOverlay").classList.remove("open"); }
+    function csvSelectAll(v) { document.querySelectorAll(".csv-kpi-check").forEach(function (cb) { cb.checked = v; }); }
+
+    function doExportCsv() {
+        var selKpis = Array.from(document.querySelectorAll(".csv-kpi-check:checked")).map(function (cb) { return cb.value; });
+        if (!selKpis.length) { alert("Please select at least one KPI."); return; }
+        closeCsvModal();
+
+        var tabId = _csvTab;
+        var dims = activeFilterDims[tabId] || [];
+        if (tabId === 'regional') dims = ['Regional'];
+        var isCluster = tabId === 'site' && SITE_MODE === 'cluster';
+        if (isCluster) dims = ['Cluster'];
+        if (dims.length === 0) { alert("No data available to export. Please select filters first."); return; }
+
+        var isHourly = CURRENT_GRANULARITY[tabId] === 'hourly';
+
+        var data;
+        var labels;
+        if (isCluster) {
+            data = isHourly ? CLUSTER_HOURLY_DATA || {} : CLUSTER_DAILY_DATA || {};
+            labels = isHourly ? (CLUSTER_HOURLY_LABELS || []) : (CLUSTER_DAILY_LABELS || []);
+        } else {
+            data = isHourly ? HOURLY_DATA[tabId] || {} : TAB_DATA[tabId] || {};
+            if (tabId === 'site' && !isHourly) {
+                labels = SITE_DAILY_LABELS || [];
+            } else if (tabId === 'sector' && !isHourly) {
+                labels = SECTOR_DAILY_LABELS || [];
+            } else {
+                labels = isHourly ? (HOURLY_LABELS[tabId] || []) : CHART_LABELS;
+            }
+        }
+        if (tabId === 'sector') {
+            var anyKpi = Object.keys(data)[0];
+            dims = anyKpi && data[anyKpi] ? Object.keys(data[anyKpi]) : [];
+            if (dims.length === 0) { alert("No data available to export. Please select filters first."); return; }
+        }
+        var dimLabel = { regional: "Group", nop: "NOP", city: "City", bsc: "BSC", site: "Site", sector: "Sector Legend" }[tabId] || "Group";
+
+        /* Build header row */
+        var kdefsFiltered = KPI_DEFS.filter(function (k) { return selKpis.indexOf(k[0]) >= 0; });
+        var hdrs = ["Date", dimLabel].concat(kdefsFiltered.map(function (k) {
+            var unit = k[2];
+            if ((tabId === 'site' || tabId === 'sector') && ['payloadChart', 'gprsPayloadChart', 'edgePayloadChart'].includes(k[0])) unit = 'MB';
+            return k[1] + (unit ? " (" + unit + ")" : "");
+        }));
+        var rows = [hdrs.join(",")];
+
+        labels.forEach(function (day) {
+            dims.forEach(function (dim) {
+                var row = [day, '"' + dim + '"'];
+                kdefsFiltered.forEach(function (k) {
+                    var arr = (data[k[0]] || {})[dim] || [];
+                    var idx = labels.indexOf(day);
+                    var v = arr[idx];
+
+                    row.push(v !== null && v !== undefined ? v : "");
+                });
+                rows.push(row.join(","));
+            });
+        });
+
+        var blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "2g_monitoring_" + tabId + "_" + (new Date().toISOString().slice(0, 10)) + ".csv";
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       INIT ON DOM READY
+       ═══════════════════════════════════════════════════════════════ */
+    document.addEventListener("DOMContentLoaded", function () {
+        var fc = document.getElementById("filterContainer");
+        if (fc) fc.style.maxHeight = fc.scrollHeight + "px";
+
+        {% if query_done and chart_labels %}
+        // Init Dropdowns
+        initMsOptions('nop_nsa', TAB_DIMS.nop);
+        initMsOptions('bsc_bsc', TAB_DIMS.bsc);
+
+        // Init Cascading Dropdowns
+        initMsOptions('city_nsa', Object.keys(NSA_CITY_MAP).sort());
+        setMsDisabled('city_city', true);
+
+        initMsOptions('site_city', Object.keys(CITY_SITE_MAP).sort());
+        initMsOptions('site_bsc', Object.keys(BSC_SITE_MAP).sort());
+        setMsDisabled('site_site', true);
+
+        // Populate sector_site with ALL sites
+        var allSitesSet = new Set();
+        Object.values(CITY_SITE_MAP).forEach(sites => sites.forEach(s => allSitesSet.add(s)));
+        initMsOptions('sector_site', Array.from(allSitesSet).sort());
+        // Populate sector_sector and sector_band
+        var sectorOpts = ["1", "2", "3", "4", "5", "6"];
+        initMsOptions('sector_sector', sectorOpts, true);
+
+        var bandOpts = ["GSM", "DCS"];
+        initMsOptions('sector_band', bandOpts, true);
+        // Populate sector_kpi
+        var kpiListEl = document.getElementById("ms-list-sector_kpi");
+        if (kpiListEl) {
+            msSelections['sector_kpi'] = KPI_DEFS.map(k => k[0]); // Select all by default
+            var html = "";
+            KPI_DEFS.forEach(function (k) {
+                html += `<div class="ms-item" onclick="toggleMsItem('sector_kpi', '${k[0]}')">
+                        <input type="checkbox" id="chk-sector_kpi-${k[0]}" value="${k[0]}" checked>
+                        <span>${k[1]}</span>
+                     </div>`;
+            });
+            kpiListEl.innerHTML = html;
+            updateMsLabel('sector_kpi');
+        }
+
+        // Render regional charts
+        renderTabCharts("regional", ["Regional"]);
+        {% endif %}
+    });
+
+    window.addEventListener("resize", function () {
+        if (_filterOpen) {
+            var fc = document.getElementById("filterContainer");
+            if (fc) fc.style.maxHeight = fc.scrollHeight + "px";
+        }
+    });
+</script>
+{% endblock %}

@@ -544,55 +544,12 @@
     [data-theme="light"] .modal-content {
         background: #ffffff;
     }
-
-    /* ── Mobile: date panel — keep all rows compact (1 row each, no overflow) ── */
-    body.mobile-view .date-panel .f-input {
-        height: 32px !important;
-        min-height: 32px !important;
-        font-size: 11px !important;
-        padding: 2px 6px !important;
-        /* Never stretch beyond what's needed */
-        width: auto !important;
-        max-width: 140px !important;
+    
+    /* Fallback layout for mobile: Dashboard 4G filter bar should remain flex, not grid */
+    body.mobile-view .dashboard-top .filter-bar {
+        display: flex !important;
     }
-    body.mobile-view .date-panel input[type="color"].color-sel {
-        width: 26px !important;
-        height: 26px !important;
-        padding: 0 !important;
-    }
-    body.mobile-view .date-panel .btn-xs {
-        height: 32px !important;
-        min-height: 32px !important;
-        width: 32px !important;
-        padding: 2px !important;
-        font-size: 11px !important;
-    }
-    /* These specific controls must stay fixed-width */
-    body.mobile-view #execWeight {
-        width: 25px !important;
-        max-width: 25px !important;
-    }
-    body.mobile-view #execDash {
-        width: 30px !important;
-        max-width: 30px !important;
-    }
-    body.mobile-view #execDateAdd {
-        max-width: 130px !important;
-    }
-    /* Exec row: prevent the margin-left:auto group from overflowing */
-    body.mobile-view .date-panel .exec-style-group {
-        margin-left: 0 !important;
-        flex-shrink: 0;
-    }
-    /* Exec row outer: allow wrapping so style controls move to next line if needed */
-    body.mobile-view .exec-dates-row {
-        flex-wrap: wrap !important;
-        gap: 6px !important;
-    }
-
 </style>
-
-
 
 <div class="content-area">
     <!-- Filter Bar Header -->
@@ -695,7 +652,7 @@
                 <div class="filter-panel"
                     style="flex: 1 1 auto; max-width: 350px; display: flex; flex-direction: column; gap: 16px;">
                     <div class="filter-group" style="width: 100%;">
-                        <div class="filter-label"
+                        <div class="filter-label" id="siteFilterLabel"
                             style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
                             <span id="filterTitleLabel">SITES</span>
                             <div style="display: flex; gap: 8px; font-weight: 600; font-size: 10px; text-transform: none;">
@@ -884,14 +841,12 @@
                         {% set d = cluster_compare.get(kpi[0], {}) %}
                         {% if d and d.get('before') is not none %}
                         <tr>
-                            <td class="text-left" style="opacity:0.7;">{{ d.get('group') }}</td>
-                            <td class="text-left" style="font-weight:600;">{{ d.get('title') }} {% if d.get('unit')
-                                %}({{ d.get('unit') }}){% endif %}</td>
-                            <td class="before-val">{{ "%.2f"|format(d.get('before')) }}</td>
-                            <td class="after-val">{{ "%.2f"|format(d.get('after')) }}</td>
-                            <td>{{ "+%.2f"|format(d.get('delta')) if d.get('delta') > 0 else
-                                "%.2f"|format(d.get('delta')) }}</td>
-                            <td>
+                            <td class="text-left" data-label="Category" style="opacity:0.7;">{{ d.get('group') }}</td>
+                            <td class="text-left" data-label="KPI" style="font-weight:600;">{{ d.get('title') }} {% if d.get('unit') %}({{ d.get('unit') }}){% endif %}</td>
+                            <td data-label="Before" class="before-val">{{ "%.2f"|format(d.get('before')) }}</td>
+                            <td data-label="After" class="after-val">{{ "%.2f"|format(d.get('after')) }}</td>
+                            <td data-label="Delta">{{ "+%.2f"|format(d.get('delta')) if d.get('delta') > 0 else "%.2f"|format(d.get('delta')) }}</td>
+                            <td data-label="Growth">
                                 {% set pct = d.get('delta_pct') %}
                                 {% if pct is not none %}
                                 {{ "+%.1f"|format(pct) if pct > 0 else "%.1f"|format(pct) }}%
@@ -899,7 +854,7 @@
                                 -
                                 {% endif %}
                             </td>
-                            <td class="text-center">
+                            <td class="text-center" data-label="Remark">
                                 {% set pct = d.get('delta_pct') %}
                                 {% if pct is not none %}
                                 {% set is_lower_better = d.get('is_lower_better') %}
@@ -2241,17 +2196,6 @@
     }
 
     // -- Filter UI Functions --
-    function toggleFilters() {
-        const container = document.getElementById('filterContainer');
-        const btn = document.getElementById('filterToggleBtn');
-        if (container.style.display === 'none') {
-            container.style.display = 'block';
-            btn.innerHTML = '<i class="fas fa-chevron-up"></i> Hide Filters';
-        } else {
-            container.style.display = 'none';
-            btn.innerHTML = '<i class="fas fa-filter"></i> Show Filters';
-        }
-    }
 
     function showLoading() {
         document.getElementById('loadingOverlay').style.display = 'flex';

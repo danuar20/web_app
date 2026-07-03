@@ -75,16 +75,28 @@
 [data-theme="light"] .data-table th:first-child, [data-theme="light"] .data-table td:first-child { background-color: #ffffff; box-shadow: inset -1px 0 0 rgba(0,0,0,0.1); }
 </style>
 
-<!-- FILTER BAR -->
+<!-- Filter Bar Header (always visible) -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 4px;">
+    <div style="font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+        <i class="fas fa-filter" style="color: #4facfe;"></i> Filters
+    </div>
+    <button type="button" class="btn-xs" onclick="toggleFilters()" id="filterToggleBtn"
+        style="padding: 4px 10px; font-size: 11px;">
+        <i class="fas fa-chevron-up"></i> Hide Filters
+    </button>
+</div>
+
+<!-- Filter Bar Content (collapsible card) -->
+<div class="card" id="filterContainer" style="transition: all 0.3s ease; padding: 16px 20px; margin-bottom: 0;">
 <form method="GET" action="/site_level" id="filterForm">
-<div class="filter-bar">
+<div class="filter-bar" style="padding:0; background:transparent; border:none; gap:14px; align-items:flex-end;">
     <div class="filter-group">
         <div class="filter-label">From Date</div>
-        <input type="date" name="from_date" class="f-input" style="width:140px" value="{{ from_date }}">
+        <input type="date" name="from_date" class="f-input" style="height:32px; padding:4px 8px; font-size:11px;" value="{{ from_date }}">
     </div>
     <div class="filter-group">
         <div class="filter-label">To Date</div>
-        <input type="date" name="to_date" class="f-input" style="width:140px" value="{{ to_date }}">
+        <input type="date" name="to_date" class="f-input" style="height:32px; padding:4px 8px; font-size:11px;" value="{{ to_date }}">
     </div>
 
     <!-- NSA multi-select -->
@@ -165,6 +177,7 @@
 
 </div>
 </form>
+</div>
 
 <div class="content-area">
 
@@ -289,7 +302,7 @@
             </select>
         </div>
     </div>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div class="chart-grid">
         <div class="chart-wrap"><canvas id="topChart"></canvas></div>
         <div class="chart-wrap"><canvas id="bottomChart"></canvas></div>
     </div>

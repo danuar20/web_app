@@ -70,28 +70,28 @@ def create_app():
     # ── 5. REGISTER BLUEPRINTS ─────────────────────────────────────────────────
     from .routes import (
         auth, prod,
-        kpi2g_daily, kpi2g_hourly, kpi2g_hourly_sector, kpi2g_compare, kpi2g_trend,
-        kpi4g_daily, kpi4g_hourly, kpi4g_trend, kpi4g_compare, kpi4g_api, kpi4g_hourly_sector,
-        kpi5g_daily, kpi5g_hourly, kpi5g_hourly_sector, kpi5g_compare,
+        kpi2g_hourly_sector, kpi2g_compare, kpi2g_monitoring,
+        kpi4g_daily, kpi4g_hourly, kpi4g_trend, kpi4g_compare, kpi4g_api, kpi4g_hourly_sector, kpi4g_monitoring,
+        kpi5g_daily, kpi5g_hourly, kpi5g_hourly_sector, kpi5g_compare, kpi5g_monitoring,
         pl, ta4g, dashboard_4g, coverage, okumura_hata, nettilt3d
     )
     app.register_blueprint(auth)
     app.register_blueprint(prod)
-    app.register_blueprint(kpi2g_daily)
-    app.register_blueprint(kpi2g_hourly)
     app.register_blueprint(kpi2g_hourly_sector)
     app.register_blueprint(kpi2g_compare)
-    app.register_blueprint(kpi2g_trend)
+    app.register_blueprint(kpi2g_monitoring)
     app.register_blueprint(kpi4g_daily)
     app.register_blueprint(kpi4g_hourly)
     app.register_blueprint(kpi4g_hourly_sector)
     app.register_blueprint(kpi4g_trend)
     app.register_blueprint(kpi4g_compare)
     app.register_blueprint(kpi4g_api)
+    app.register_blueprint(kpi4g_monitoring)
     app.register_blueprint(kpi5g_daily)
     app.register_blueprint(kpi5g_hourly)
     app.register_blueprint(kpi5g_hourly_sector)
     app.register_blueprint(kpi5g_compare)
+    app.register_blueprint(kpi5g_monitoring)
     app.register_blueprint(pl)
     app.register_blueprint(ta4g)
     app.register_blueprint(dashboard_4g)

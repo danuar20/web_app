@@ -37,3 +37,10 @@ instance/
 Thumbs.db
 .AppleDouble
 .LSOverride
+
+# AI Agent Configuration
+.agent.md
+agents/
+forbidden-actions.md
+shared-rules.md
+definition-of-done.md

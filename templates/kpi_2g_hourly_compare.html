@@ -144,11 +144,45 @@
 .legend-dot { width: 12px; height: 3px; border-radius: 2px; }
 .legend-before { background: #4facfe; }
 .legend-after  { background: #00e676; }
+
+/* ── Mobile Layout Overrides for Compare Pages ── */
+@media (max-width: 768px) {
+    .filter-bar > div[style*="display:flex"] {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        grid-column: 1 / -1 !important;
+        width: 100% !important;
+        gap: 12px !important;
+    }
+    .filter-bar > div[style*="display:flex"] > .filter-group:first-child {
+        grid-column: 1 / -1 !important; /* The "Before" / "After" badge takes full width */
+        margin-bottom: -6px !important;
+    }
+    .filter-bar > span.period-badge-vs {
+        grid-column: 1 / -1 !important;
+        text-align: center;
+        margin: 4px 0;
+    }
+}
+
 </style>
 
 <!-- FILTER BAR -->
+<!-- Filter Bar Header (always visible) -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 4px;">
+    <div style="font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+        <i class="fas fa-filter" style="color: #4facfe;"></i> Filters
+    </div>
+    <button type="button" class="btn-xs" onclick="toggleFilters()" id="filterToggleBtn"
+        style="padding: 4px 10px; font-size: 11px;">
+        <i class="fas fa-chevron-up"></i> Hide Filters
+    </button>
+</div>
+
+<!-- Filter Bar Content (collapsible card) -->
+<div class="card" id="filterContainer" style="transition: all 0.3s ease; padding: 16px 20px; margin-bottom: 0;">
 <form method="GET" action="/kpi_2g_hourly/compare" id="filterForm" onsubmit="showLoading()">
-<div class="filter-bar">
+<div class="filter-bar" style="padding:0; background:transparent; border:none; gap:14px; align-items:flex-end;">
     <!-- BEFORE period -->
     <div style="display:flex;align-items:flex-end;gap:8px;flex-shrink:0">
         <div class="filter-group">
@@ -251,6 +285,7 @@
     <span style="font-size:10px;opacity:0.4" id="sitePasteCount"></span>
 </div>
 </form>
+</div>
 
 <div style="font-size:12px; color:#888; margin: 0 20px 10px;">
     Last update: <span id="lastUpdateDisplay">{{ last_update or 'N/A' }}</span>
@@ -264,6 +299,27 @@
 </div>
 <style>
 @keyframes spin { 100% { transform:rotate(360deg); } }
+
+/* ── Mobile Layout Overrides for Compare Pages ── */
+@media (max-width: 768px) {
+    .filter-bar > div[style*="display:flex"] {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        grid-column: 1 / -1 !important;
+        width: 100% !important;
+        gap: 12px !important;
+    }
+    .filter-bar > div[style*="display:flex"] > .filter-group:first-child {
+        grid-column: 1 / -1 !important; /* The "Before" / "After" badge takes full width */
+        margin-bottom: -6px !important;
+    }
+    .filter-bar > span.period-badge-vs {
+        grid-column: 1 / -1 !important;
+        text-align: center;
+        margin: 4px 0;
+    }
+}
+
 </style>
 <div class="content-area">
 {% if agg_data %}

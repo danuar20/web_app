@@ -11,13 +11,7 @@ auth = auth_routes.auth
 from . import productivity_routes
 prod = productivity_routes.prod
 
-# 2G KPI Daily — /kpi_2g_daily (BSC Level & Site Level)
-from . import kpi_2g_daily_routes
-kpi2g_daily = kpi_2g_daily_routes.kpi2g_daily
 
-# 2G KPI Hourly — /kpi_2g_hourly (BSC Level & Site Level)
-from . import kpi_2g_hourly_routes
-kpi2g_hourly = kpi_2g_hourly_routes.kpi2g_hourly
 
 # 2G KPI Hourly Sector — /kpi_2g_hourly_sector
 from . import kpi_2g_hourly_sector_routes
@@ -27,9 +21,10 @@ kpi2g_hourly_sector = kpi_2g_hourly_sector_routes.kpi2g_hourly_sector
 from . import kpi_2g_compare_routes
 kpi2g_compare = kpi_2g_compare_routes.kpi2g_compare
 
-# 2G KPI Hourly Trend — /kpi_2g_hourly/trend
-from . import kpi_2g_trend_routes
-kpi2g_trend = kpi_2g_trend_routes.kpi2g_trend
+
+# 2G Monitoring — /kpi_2g_monitoring (daily agg, 5 dimension tabs)
+from . import kpi_2g_monitoring_routes
+kpi2g_monitoring = kpi_2g_monitoring_routes.kpi2g_monitoring
 
 # 4G KPI Daily — /kpi_4g_daily
 from . import kpi_4g_daily_routes
@@ -82,6 +77,14 @@ kpi5g_hourly_sector = kpi_5g_hourly_sector_routes.kpi5g_hourly_sector
 # 5G KPI Hourly Compare — /kpi_5g_hourly/compare
 from . import kpi_5g_compare_routes
 kpi5g_compare = kpi_5g_compare_routes.kpi5g_compare
+
+# 5G Monitoring — /kpi_5g_monitoring
+from . import kpi_5g_monitoring_routes
+kpi5g_monitoring = kpi_5g_monitoring_routes.kpi5g_monitoring
+
+# 4G Monitoring — /kpi_4g_monitoring
+from . import kpi_4g_monitoring_routes
+kpi4g_monitoring = kpi_4g_monitoring_routes.kpi4g_monitoring
 
 # Coverage Simulation — /coverage_simulation
 from . import coverage_routes

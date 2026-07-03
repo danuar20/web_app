@@ -86,7 +86,6 @@
         if(max !== null && max !== undefined && parseFloat(val) > parseFloat(max)) return "over";
         return null;
     };
-})();
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -531,15 +530,22 @@ body.mobile-view .hamburger-btn {
 
 /* filter bar */
 .filter-bar {
-    display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
-    padding: 13px 20px;
+    display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap;
+    padding: 12px 16px;
     border-bottom: 1px solid rgba(79,172,254,0.08);
     transition: background 0.3s ease;
 }
 [data-theme="dark"] .filter-bar { background: rgba(13,13,26,0.5); }
 [data-theme="light"] .filter-bar { background: rgba(255,255,255,0.5); border-bottom-color: rgba(0,0,0,0.07); }
-.filter-group { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
-.filter-label { font-size: 10px; font-weight: 600; opacity: 0.48; text-transform: uppercase; letter-spacing: 0.5px; }
+/* filter-panel card: the collapsible card wrapping the filter bar */
+.filter-panel.card { padding: 12px 16px; margin-bottom: 0; border-radius: 12px 12px 0 0; }
+.filter-panel.card .filter-bar {
+    padding: 8px 0 0 0;
+    border-bottom: none;
+    background: transparent;
+}
+.filter-group { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
+.filter-label { font-size: 10px; font-weight: 700; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.6px; }
 .f-select, .f-input {
     padding: 6px 10px; border-radius: 8px; font-size: 12px;
     outline: none; transition: border-color 0.18s, background 0.3s ease, color 0.3s ease, box-shadow 0.18s;
@@ -626,6 +632,50 @@ body.mobile-view .hamburger-btn {
 .view-toggle-btn.active {
     background: rgba(79,172,254,0.15); border-color: #4facfe; color: #4facfe;
 }
+
+/* ── Navigation Tabs (Chart / Table, Trend / Compare, etc.) ── */
+.tabs-container {
+    display: flex;
+    gap: 4px;
+    padding: 0 20px;
+    margin-bottom: 0;
+    border-bottom: 1px solid rgba(79,172,254,0.15);
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    flex-shrink: 0;
+}
+.tabs-container::-webkit-scrollbar { display: none; }
+.tab-btn {
+    background: transparent;
+    border: none;
+    padding: 10px 18px;
+    color: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s, opacity 0.2s;
+    opacity: 0.55;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+[data-theme="dark"] .tab-btn { color: #c8d0e0; }
+[data-theme="light"] .tab-btn { color: #334155; }
+.tab-btn:hover { opacity: 0.85; color: #4facfe; }
+.tab-btn.active { opacity: 1; color: #4facfe; }
+.tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #4facfe, #00f2fe);
+    border-radius: 2px 2px 0 0;
+}
+.tab-content { display: none; }
+.tab-content.active { display: block; }
 
 /* chart card download icon */
 .card-actions {
@@ -838,16 +888,28 @@ body.mobile-view .kpi-value {
 body.mobile-view .kpi-unit { font-size: 10px !important; opacity: 0.55 !important; }
 body.mobile-view .kpi-delta { font-size: 10px !important; }
 body.mobile-view .kpi-icon { font-size: 16px !important; right: 8px !important; top: 8px !important; opacity: 0.12 !important; }
-/* ── Filter bar: wrap items to prevent dropdown clipping ── */
+/* ── Filter bar: proportional grid layout on mobile ── */
 body.mobile-view .filter-bar {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
     padding: 10px 12px !important;
-    gap: 8px !important;
-    flex-wrap: wrap !important;
+    gap: 12px !important;
     overflow: visible !important;
 }
-/* Hide filter labels on mobile to save space — use placeholder */
-body.mobile-view .filter-group { gap: 2px !important; flex: 0 0 auto !important; scroll-snap-align: start; }
-body.mobile-view .filter-label { display: none !important; }
+/* Ensure filter labels are visible on mobile, compact size */
+body.mobile-view .filter-group { flex-direction: column !important; align-items: stretch !important; gap: 3px !important; flex: none !important; width: 100% !important; scroll-snap-align: start; }
+/* Make dropdowns, inputs, textareas, and buttons span full width if they aren't the first two date inputs */
+body.mobile-view .filter-bar > .filter-group:not(:nth-child(1)):not(:nth-child(2)) { grid-column: 1 / -1 !important; }
+body.mobile-view .filter-bar > .btn-apply { grid-column: 1 / -1 !important; width: 100% !important; margin-top: 4px; }
+body.mobile-view .filter-bar > .filter-label { grid-column: 1 / -1 !important; margin-bottom: -6px; }
+body.mobile-view .filter-bar > label.f-input { grid-column: 1 / -1 !important; }
+body.mobile-view .filter-bar > textarea.f-input { grid-column: 1 / -1 !important; }
+/* Compare form card (Weekly Comparison) mobile layout */
+body.mobile-view .compare-form-card { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 12px !important; }
+body.mobile-view .compare-form-card > div:first-child { grid-column: 1 / -1 !important; }
+body.mobile-view .compare-form-card .filter-group { grid-column: auto !important; }
+body.mobile-view .compare-form-card .filter-group:last-child { grid-column: 1 / -1 !important; margin-top: 4px; }
+body.mobile-view .filter-label { font-size: 10px !important; font-weight: 700 !important; opacity: 0.6 !important; }
 body.mobile-view .f-select,
 body.mobile-view .f-input {
     padding: 7px 10px !important;
@@ -913,8 +975,217 @@ body.mobile-view .dropdown-menu {
     background: rgba(0,0,0,0.45);
     z-index: 3000;
 }
-.mobile-dropdown-backdrop.active { display: block; }
-/* ── Table card: full width, scrollable ── */
+    .mobile-dropdown-backdrop.active { display: block; }
+
+    /* ── Mobile: date panel — keep all rows compact (1 row each, no overflow) ── */
+    body.mobile-view .date-panel .f-input {
+        height: 32px !important;
+        min-height: 32px !important;
+        font-size: 11px !important;
+        padding: 2px 6px !important;
+        /* Never stretch beyond what's needed */
+        width: auto !important;
+        max-width: 140px !important;
+    }
+    body.mobile-view .date-panel input[type="color"].color-sel {
+        width: 26px !important;
+        height: 26px !important;
+        padding: 0 !important;
+    }
+    body.mobile-view .date-panel .btn-xs {
+        height: 32px !important;
+        min-height: 32px !important;
+        width: 32px !important;
+        padding: 2px !important;
+        font-size: 11px !important;
+    }
+    /* These specific controls must stay fixed-width */
+    body.mobile-view #execWeight {
+        width: 25px !important;
+        max-width: 25px !important;
+    }
+    body.mobile-view #execDash {
+        width: 30px !important;
+        max-width: 30px !important;
+    }
+
+    /* ── Mobile: Redesign date filter panel — grid layout ── */
+    /* Each date row: label fixed-width left, inputs fill right */
+    body.mobile-view .date-panel {
+        width: 100% !important;
+    }
+    body.mobile-view .date-panel > .filter-group > div[style*="flex"],
+    body.mobile-view .date-panel .date-row,
+    body.mobile-view .date-panel > .filter-group > div {
+        display: flex !important;
+        align-items: center !important;
+        flex-wrap: nowrap !important;
+        gap: 6px !important;
+        width: 100% !important;
+    }
+    /* Date label: fixed width column */
+    body.mobile-view .date-panel .date-label {
+        display: inline-block !important;
+        min-width: 72px !important;
+        max-width: 72px !important;
+        font-size: 11px !important;
+        flex-shrink: 0 !important;
+    }
+    /* Date inputs in date panel: fill remaining space equally */
+    body.mobile-view .date-panel .f-input:not(#execWeight):not(#execDash):not(#execDateAdd) {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        width: auto !important;
+        height: 36px !important;
+        min-height: 36px !important;
+        font-size: 11px !important;
+        padding: 4px 6px !important;
+    }
+    /* Color swatch: fixed small size */
+    body.mobile-view .date-panel input[type="color"].color-sel {
+        width: 28px !important;
+        height: 28px !important;
+        flex-shrink: 0 !important;
+    }
+    /* Exec row specific */
+    body.mobile-view .exec-dates-row {
+        flex-wrap: nowrap !important;
+        gap: 4px !important;
+    }
+    body.mobile-view .exec-dates-row .date-label {
+        min-width: 66px !important;
+        max-width: 66px !important;
+    }
+    body.mobile-view #execDateAdd {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        width: auto !important;
+        height: 36px !important;
+        min-height: 36px !important;
+    }
+    body.mobile-view .date-panel .btn-xs {
+        height: 32px !important;
+        width: 32px !important;
+        flex-shrink: 0 !important;
+    }
+    body.mobile-view .date-panel .exec-style-group {
+        margin-left: 0 !important;
+        flex-shrink: 0 !important;
+        gap: 3px !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    body.mobile-view #execWeight {
+        width: 25px !important;
+        max-width: 25px !important;
+        height: 28px !important;
+        min-height: 28px !important;
+    }
+    body.mobile-view #execDash {
+        width: 30px !important;
+        max-width: 30px !important;
+        height: 28px !important;
+        min-height: 28px !important;
+    }
+
+    /* ── Mobile: Custom Charts controls — stack to prevent overlap ── */
+    body.mobile-view .custom-chart-controls {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 10px !important;
+    }
+    body.mobile-view .ctrl-group {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+    body.mobile-view .ctrl-group .btn-apply {
+        flex: 1 1 auto !important;
+        font-size: 12px !important;
+        padding: 8px 10px !important;
+        text-align: center !important;
+        justify-content: center !important;
+    }
+    body.mobile-view #dashboardNameInput {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    body.mobile-view #loadDashboardSelect {
+        flex: 1 1 auto !important;
+    }
+
+    /* ── Mobile: Make nav tabs scrollable horizontally ── */
+    body.mobile-view .nav-tabs > div {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        flex-wrap: nowrap !important;
+        scrollbar-width: none; /* Firefox */
+        width: 100% !important;
+        justify-content: flex-start !important;
+    }
+    body.mobile-view .nav-tabs > div::-webkit-scrollbar {
+        display: none; /* Chrome/Safari/Opera */
+    }
+    body.mobile-view .nav-tab {
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+        padding: 10px 12px !important;
+        font-size: 12px !important;
+    }
+
+    /* ── Mobile: Sites & KPI panels — full width stacked ── */
+    body.mobile-view .filter-panel {
+        flex: 1 1 100% !important;
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+    /* The filter-bar itself should stack vertically on mobile */
+    body.mobile-view .filter-bar {
+        flex-direction: column !important;
+        gap: 12px !important;
+    }
+    /* base.html hides ALL .filter-label on mobile — override for Sites panel
+       so the Site ID / Site-Cell radio buttons remain visible */
+    body.mobile-view #siteFilterLabel {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 6px !important;
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        color: #64748b !important;
+        margin-bottom: 6px !important;
+    }
+    body.mobile-view #siteFilterLabel label {
+        font-size: 12px !important;
+        cursor: pointer !important;
+    }
+    /* Dropdown toggles: full width on mobile */
+    body.mobile-view .dropdown-toggle {
+        width: 100% !important;
+    }
+
+    /* ── Table card: full width, scrollable ── */
+    body.mobile-view #globalChartControls {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+    }
+    body.mobile-view #globalChartControls > div {
+        flex-wrap: wrap !important;
+        width: 100% !important;
+    }
+    body.mobile-view #globalChartControls .dropdown-container {
+        flex: 1 1 auto !important;
+        width: 100% !important;
+    }
+    body.mobile-view #globalChartControls .btn-apply {
+        width: 100% !important;
+        justify-content: center !important;
+    }
 body.mobile-view .table-card {
     border-radius: 10px !important;
     overflow: hidden !important;
@@ -950,51 +1221,27 @@ body.mobile-view .site-table { min-width: 500px !important; font-size: 11px !imp
 body.mobile-view .site-table thead th { padding: 6px 8px !important; font-size: 9px !important; }
 body.mobile-view .site-table td { padding: 6px 8px !important; font-size: 11px !important; }
 
-/* ── Card-based Compare Tables on Mobile ── */
-body.mobile-view .compare-table-wrap { overflow: visible !important; border: none !important; }
-body.mobile-view .compare-table, 
-body.mobile-view .compare-table tbody, 
-body.mobile-view .compare-table tr, 
-body.mobile-view .compare-table td {
-    display: block; width: 100%;
+/* ── Compare Tables on Mobile: horizontal scroll (works for all table types) ── */
+body.mobile-view .compare-table-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 8px !important;
+    border: 1px solid rgba(79,172,254,0.1) !important;
 }
-body.mobile-view .compare-table thead { display: none; }
-body.mobile-view .compare-table tr {
-    margin-bottom: 15px; border-radius: 12px;
-    background: rgba(30, 30, 58, 0.5) !important;
-    border: 1px solid rgba(79, 172, 254, 0.15) !important;
-    padding: 10px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+body.mobile-view .compare-table,
+body.mobile-view .compare-table tbody,
+body.mobile-view .compare-table thead,
+body.mobile-view .compare-table tr,
+body.mobile-view .compare-table td,
+body.mobile-view .compare-table th {
+    display: revert !important;
+    width: auto !important;
 }
-[data-theme="light"] body.mobile-view .compare-table tr {
-    background: #fff !important; border-color: rgba(0,0,0,0.1) !important;
-}
-body.mobile-view .compare-table td {
-    padding: 6px 8px !important;
-    text-align: right !important;
-    border: none !important;
-    border-bottom: 1px solid rgba(128,128,128,0.1) !important;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-body.mobile-view .compare-table td.entity-cell {
-    background: transparent !important;
-    text-align: left !important;
-    font-size: 14px !important;
-    color: #4facfe !important;
-    justify-content: flex-start;
-    border-bottom: 2px solid rgba(79, 172, 254, 0.3) !important;
-    margin-bottom: 8px;
-}
-body.mobile-view .compare-table td::before {
-    content: attr(data-label);
-    font-weight: 600;
-    font-size: 11px;
-    color: rgba(200,208,224,0.6);
-    text-transform: uppercase;
-}
-[data-theme="light"] body.mobile-view .compare-table td::before { color: rgba(0,0,0,0.5); }
+body.mobile-view .compare-table { min-width: 500px !important; font-size: 10px !important; }
+body.mobile-view .compare-table thead { display: table-header-group !important; }
+body.mobile-view .compare-table thead th { padding: 6px 8px !important; font-size: 9px !important; }
+body.mobile-view .compare-table td { padding: 5px 7px !important; font-size: 10px !important; }
+body.mobile-view .compare-table td::before { content: none !important; }
 /* ── Charts: taller for readability ── */
 body.mobile-view .chart-wrap {
     height: 200px !important;
@@ -1328,7 +1575,6 @@ body.mobile-view .sidebar .nav-link {
 </style>
 </head>
 
-
 <body class="preload">
 <div class="app-shell">
 
@@ -1350,10 +1596,9 @@ body.mobile-view .sidebar .nav-link {
         </svg>
       </div>
 
-      
       <div class="sidebar-brand-wrap">
         <div class="sidebar-brand">NetKPI</div>
-        <div class="sidebar-brand-sub">Monitor v3.0</div>
+        <div class="sidebar-brand-sub">Monitor v3.2</div>
       </div>
     </div>
 
@@ -1402,27 +1647,37 @@ body.mobile-view .sidebar .nav-link {
     <div class="menu-section">
       <div class="menu-section-label">Network KPI</div>
 
+      <div class="menu-item {% block nav_monitoring %}{% endblock %}" onclick="toggleSub('sub_monitoring', this)">
+        <div class="menu-dot" style="background:#00c6ff"></div>
+        <span class="menu-item-label">Monitoring KPI</span>
+        <i class="fas fa-chevron-right menu-arrow"></i>
+      </div>
+      <div class="sub-menu {% block sub_monitoring_open %}{% endblock %}" id="sub_monitoring">
+        <a href="/kpi_2g_monitoring" class="sub-item {% block nav_2g_monitoring %}{% endblock %}">
+          <span class="sub-item-dot"></span> 2G Monitoring
+        </a>
+        <a href="/kpi_4g_monitoring" class="sub-item {% block nav_4g_monitoring %}{% endblock %}">
+          <span class="sub-item-dot"></span> 4G Monitoring
+        </a>
+        <a href="/kpi_5g_monitoring" class="sub-item {% block nav_5g_monitoring %}{% endblock %}">
+          <span class="sub-item-dot"></span> 5G Monitoring
+        </a>
+      </div>
+
       <div class="menu-item {% block nav_2g %}{% endblock %}" onclick="toggleSub('sub2g', this)">
         <div class="menu-dot" style="background:#f6c90e"></div>
         <span class="menu-item-label">2G KPI</span>
         <i class="fas fa-chevron-right menu-arrow"></i>
       </div>
       <div class="sub-menu {% block sub2g_open %}{% endblock %}" id="sub2g">
-        <a href="/kpi_2g_daily" class="sub-item {% block nav_2g_daily %}{% endblock %}">
-          <span class="sub-item-dot"></span> 2G Daily
-        </a>
-        <a href="/kpi_2g_hourly" class="sub-item {% block nav_2g_hourly %}{% endblock %}">
-          <span class="sub-item-dot"></span> 2G Hourly
-        </a>
+
         <a href="/kpi_2g_hourly_sector" class="sub-item {% block nav_2g_hourly_sector %}{% endblock %}">
           <span class="sub-item-dot"></span> 2G Hourly Sector
         </a>
         <a href="/kpi_2g_hourly/compare" class="sub-item {% block nav_2g_compare %}{% endblock %}">
           <span class="sub-item-dot"></span> 2G Hourly Compare
         </a>
-        <a href="/kpi_2g_hourly/trend" class="sub-item {% block nav_2g_trend %}{% endblock %}">
-          <span class="sub-item-dot"></span> 2G Hourly Cluster
-        </a>
+
       </div>
 
       <div class="menu-item {% block nav_4g %}{% endblock %}" onclick="toggleSub('sub4g', this)">
@@ -1513,7 +1768,6 @@ body.mobile-view .sidebar .nav-link {
         <a href="/okumura_hata" class="sub-item {% block nav_okumura %}{% endblock %}"><span class="sub-item-dot"></span> Okumura-Hata Model</a>
         <a href="/nettilt3d" class="sub-item {% block nav_nettilt3d %}{% endblock %}"><span class="sub-item-dot"></span> NetTilt 3D</a>
       </div>
-
 
     </div>
   </aside>
@@ -1883,7 +2137,6 @@ body.mobile-view .sidebar .nav-link {
     .modal-ya-input::placeholder { color: rgba(200,208,224,0.3); }
     .modal-ya-input[type="number"]::-webkit-inner-spin-button { opacity: 1; }
     [data-theme="light"] .modal-ya-input[type="number"] { -webkit-appearance: none; }
-
 
     /* Smaller legend font inside modal */
   </style>
@@ -2339,7 +2592,6 @@ function buildModalConfig(sourceChart, titleText){
     };
 }
 
-
 // Y-Axis Scale Controls
 var _modalYOverride = null;   // {min, max} or null (auto)
 function applyModalYScale(){
@@ -2565,7 +2817,6 @@ function downloadChartData(canvasId, filename){
     URL.revokeObjectURL(url);
 }
 
-
 /* ── Sub-menu accordion ── */
 function toggleSub(id, el){
     var sub = document.getElementById(id);
@@ -2697,8 +2948,22 @@ document.addEventListener("DOMContentLoaded", function(){
         });
     });
 });
-</script>
 
+/* ── Global Filter Panel Toggle (matches Dashboard 4G pattern) ── */
+function toggleFilters() {
+    var card = document.getElementById('filterContainer');
+    var btn = document.getElementById('filterToggleBtn');
+    if (!card || !btn) return;
+    
+    if (card.style.display === 'none') {
+        card.style.display = '';
+        btn.innerHTML = '<i class="fas fa-chevron-up"></i> Hide Filters';
+    } else {
+        card.style.display = 'none';
+        btn.innerHTML = '<i class="fas fa-chevron-down"></i> Show Filters';
+    }
+}
+</script>
 
 {% block page_scripts %}{% endblock %}
 </body>

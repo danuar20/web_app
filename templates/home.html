@@ -6,231 +6,708 @@
 
 {% block page_content %}
 <style>
-/* ── Animations ── */
-@keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(15px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-@keyframes pulseGlow {
-    0% { box-shadow: 0 0 0 0 rgba(var(--pulse-color), 0.7); }
-    70% { box-shadow: 0 0 0 6px rgba(var(--pulse-color), 0); }
-    100% { box-shadow: 0 0 0 0 rgba(var(--pulse-color), 0); }
-}
+    /* ── Animations ── */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(15px);
+        }
 
-/* ── Skeleton Loader ── */
-[data-theme="dark"] {
-    --skel-bg: rgba(255,255,255,0.03);
-    --skel-hl: rgba(255,255,255,0.08);
-}
-[data-theme="light"] {
-    --skel-bg: rgba(0,0,0,0.04);
-    --skel-hl: rgba(0,0,0,0.08);
-}
-.skeleton-box {
-    background: linear-gradient(90deg, var(--skel-bg) 25%, var(--skel-hl) 50%, var(--skel-bg) 75%);
-    background-size: 400% 100%;
-    animation: skeleton-loading 1.5s infinite ease-in-out;
-    border-radius: 6px;
-}
-@keyframes skeleton-loading {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-}
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
 
-/* ── Layout ── */
-.dash-wrap { 
-    flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; 
-}
-/* Staggered animation classes */
-.dash-wrap > div {
-    animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-.dash-wrap > div:nth-child(1) { animation-delay: 0.05s; }
-.dash-wrap > div:nth-child(2) { animation-delay: 0.15s; }
-.dash-wrap > div:nth-child(3) { animation-delay: 0.25s; }
-.dash-wrap > div:nth-child(4) { animation-delay: 0.35s; }
-.dash-wrap > div:nth-child(5) { animation-delay: 0.45s; }
+    @keyframes pulseGlow {
+        0% {
+            box-shadow: 0 0 0 0 rgba(var(--pulse-color), 0.7);
+        }
 
-.dash-section-title { 
-    font-size: 14px; font-weight: 600; letter-spacing: 0.4px; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; 
-}
-[data-theme="dark"]  .dash-section-title { color: rgba(200,208,224,0.8); }
-[data-theme="light"] .dash-section-title { color: #444; }
+        70% {
+            box-shadow: 0 0 0 6px rgba(var(--pulse-color), 0);
+        }
 
-/* ── Welcome Banner ── */
-.welcome-banner {
-    display: flex; align-items: center; gap: 16px; padding: 20px 24px; border-radius: 16px; 
-    position: relative; overflow: hidden;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-[data-theme="dark"] .welcome-banner {
-    background: linear-gradient(135deg, rgba(30,30,58,0.8) 0%, rgba(13,13,26,0.9) 100%);
-    border: 1px solid rgba(79,172,254,0.15);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-    backdrop-filter: blur(10px);
-}
-[data-theme="light"] .welcome-banner {
-    background: linear-gradient(135deg, #ffffff 0%, #f0f4f8 100%);
-    border: 1px solid rgba(0,0,0,0.06);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-}
-.welcome-banner:hover { transform: translateY(-2px); }
-[data-theme="dark"] .welcome-banner:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(79,172,254,0.2); }
-[data-theme="light"] .welcome-banner:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.1); }
-.wb-icon { font-size: 38px; animation: wave 2s infinite; transform-origin: 70% 70%; }
-@keyframes wave { 0% { transform: rotate( 0.0deg) } 10% { transform: rotate(14.0deg) } 20% { transform: rotate(-8.0deg) } 30% { transform: rotate(14.0deg) } 40% { transform: rotate(-4.0deg) } 50% { transform: rotate(10.0deg) } 60% { transform: rotate( 0.0deg) } 100% { transform: rotate( 0.0deg) } }
-.wb-content { z-index: 1; }
-.wb-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
-.wb-sub { font-size: 13px; opacity: 0.6; font-weight: 500; }
-[data-theme="dark"] .wb-title { color: #fff; }
-[data-theme="light"] .wb-title { color: #1e293b; }
+        100% {
+            box-shadow: 0 0 0 0 rgba(var(--pulse-color), 0);
+        }
+    }
 
-/* ── DB Status Cards ── */
-.db-status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-@media(max-width:700px){ .db-status-grid { grid-template-columns: 1fr; } }
+    /* ── Skeleton Loader ── */
+    [data-theme="dark"] {
+        --skel-bg: rgba(255, 255, 255, 0.03);
+        --skel-hl: rgba(255, 255, 255, 0.08);
+    }
 
-.db-status-card {
-    border-radius: 14px; padding: 16px 18px; display: flex; align-items: center; gap: 14px;
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    position: relative; overflow: hidden;
-}
-[data-theme="dark"]  .db-status-card { background: rgba(30,30,58,0.5); border: 1px solid rgba(79,172,254,0.08); backdrop-filter: blur(8px); }
-[data-theme="light"] .db-status-card { background: rgba(255,255,255,0.8); border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 2px 10px rgba(0,0,0,0.03); backdrop-filter: blur(8px); }
-.db-status-card:hover { transform: translateY(-3px); }
-[data-theme="dark"] .db-status-card:hover { border-color: rgba(79,172,254,0.3); box-shadow: 0 8px 24px rgba(0,0,0,0.25); background: rgba(30,30,58,0.7); }
-[data-theme="light"] .db-status-card:hover { border-color: rgba(79,172,254,0.3); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+    [data-theme="light"] {
+        --skel-bg: rgba(0, 0, 0, 0.04);
+        --skel-hl: rgba(0, 0, 0, 0.08);
+    }
 
-.db-status-icon {
-    width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
-    font-size: 20px; flex-shrink: 0; transition: transform 0.3s ease;
-}
-.db-status-card:hover .db-status-icon { transform: scale(1.1); }
-.db-status-icon.pg { background: linear-gradient(135deg, rgba(79,172,254,0.2), rgba(0,242,254,0.1)); color: #4facfe; }
-.db-status-icon.pz { background: linear-gradient(135deg, rgba(0,200,83,0.2), rgba(105,240,174,0.1)); color: #00e676; }
-.db-status-icon.wa { background: linear-gradient(135deg, rgba(255,193,7,0.2), rgba(255,213,79,0.1)); color: #ffc107; }
+    .skeleton-box {
+        background: linear-gradient(90deg, var(--skel-bg) 25%, var(--skel-hl) 50%, var(--skel-bg) 75%);
+        background-size: 400% 100%;
+        animation: skeleton-loading 1.5s infinite ease-in-out;
+        border-radius: 6px;
+    }
 
-.db-status-info { flex: 1; min-width: 0; }
-.db-status-name { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
-.db-status-sub  { font-size: 11px; opacity: 0.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+    @keyframes skeleton-loading {
+        0% {
+            background-position: 200% 0;
+        }
 
-.db-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.db-dot.ok      { background: #00e676; --pulse-color: 0, 230, 118; animation: pulseGlow 2s infinite; }
-.db-dot.error   { background: #ff5252; --pulse-color: 255, 82, 82; animation: pulseGlow 2s infinite; }
-.db-dot.loading { background: #ffd166; animation: dotPulse 1s infinite; }
-@keyframes dotPulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        100% {
+            background-position: -200% 0;
+        }
+    }
 
-/* ── Quick Links ── */
-.dash-quick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-@media(max-width:1000px){ .dash-quick-grid { grid-template-columns: repeat(3, 1fr); } }
-@media(max-width:700px){ .dash-quick-grid { grid-template-columns: repeat(2, 1fr); } }
+    /* ── Layout ── */
+    .dash-wrap {
+        flex: 1;
+        padding: 18px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        overflow-y: auto;
+    }
 
-.dash-quick-link {
-    display: flex; align-items: center; gap: 14px; padding: 16px 18px;
-    border-radius: 14px; text-decoration: none; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer;
-    position: relative; overflow: hidden;
-}
-[data-theme="dark"]  .dash-quick-link { background: rgba(30,30,58,0.4); border: 1px solid rgba(79,172,254,0.08); color: rgba(200,208,224,0.85); backdrop-filter: blur(5px); }
-[data-theme="light"] .dash-quick-link { background: rgba(255,255,255,0.7); border: 1px solid rgba(0,0,0,0.05); color: #333; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
+    /* Staggered animation classes */
+    .dash-wrap>div {
+        animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
 
-.dash-quick-link::before {
-    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    background: linear-gradient(135deg, rgba(79,172,254,0.1) 0%, transparent 100%);
-    opacity: 0; transition: opacity 0.3s ease;
-}
-.dash-quick-link:hover::before { opacity: 1; }
-.dash-quick-link:hover { border-color: #4facfe; color: #4facfe; transform: translateY(-3px); }
-[data-theme="dark"] .dash-quick-link:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.25); background: rgba(30,30,58,0.6); }
-[data-theme="light"] .dash-quick-link:hover { box-shadow: 0 8px 24px rgba(79,172,254,0.15); background: #fff; }
+    .dash-wrap>div:nth-child(1) {
+        animation-delay: 0.05s;
+    }
 
-.dash-quick-icon { font-size: 22px; flex-shrink: 0; z-index: 1; transition: transform 0.3s ease; }
-.dash-quick-link:hover .dash-quick-icon { transform: scale(1.15) rotate(5deg); }
-.dash-quick-text { z-index: 1; }
-.dash-quick-label { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
-.dash-quick-desc { font-size: 11px; opacity: 0.5; font-weight: 500; transition: color 0.3s; }
-.dash-quick-link:hover .dash-quick-desc { color: inherit; opacity: 0.7; }
+    .dash-wrap>div:nth-child(2) {
+        animation-delay: 0.15s;
+    }
 
-/* ── KPI Cards ── */
-.dash-kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-@media(max-width:700px){ .dash-kpi-grid { grid-template-columns: 1fr; } }
+    .dash-wrap>div:nth-child(3) {
+        animation-delay: 0.25s;
+    }
 
-.dash-kpi-card {
-    border-radius: 16px; padding: 20px 22px; position: relative; overflow: hidden;
-    display: flex; flex-direction: column; gap: 6px;
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-[data-theme="dark"]  .dash-kpi-card { background: rgba(30,30,58,0.55); border: 1px solid rgba(79,172,254,0.1); backdrop-filter: blur(8px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
-[data-theme="light"] .dash-kpi-card { background: rgba(255,255,255,0.9); border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 4px 16px rgba(0,0,0,0.04); backdrop-filter: blur(8px); }
-.dash-kpi-card:hover { transform: translateY(-4px); }
-[data-theme="dark"] .dash-kpi-card:hover { border-color: rgba(79,172,254,0.3); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-[data-theme="light"] .dash-kpi-card:hover { border-color: rgba(79,172,254,0.3); box-shadow: 0 10px 30px rgba(79,172,254,0.1); }
+    .dash-wrap>div:nth-child(4) {
+        animation-delay: 0.35s;
+    }
 
-.dash-kpi-icon { position: absolute; right: 20px; top: 20px; font-size: 32px; opacity: 0.15; transition: all 0.3s ease; }
-.dash-kpi-card:hover .dash-kpi-icon { opacity: 0.3; transform: scale(1.1) rotate(5deg); }
-.dash-kpi-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.6; }
-.dash-kpi-value { font-size: 32px; font-weight: 700; line-height: 1.1; margin-top: 4px; }
-.dash-kpi-unit { font-size: 14px; font-weight: 500; opacity: 0.6; margin-left: 4px; }
-.dash-kpi-sub { font-size: 12px; opacity: 0.5; margin-top: 6px; font-weight: 500; }
+    .dash-wrap>div:nth-child(5) {
+        animation-delay: 0.45s;
+    }
 
-/* ── Chart Cards ── */
-.dash-chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-@media(max-width:900px){ .dash-chart-grid { grid-template-columns: 1fr; } }
+    .dash-section-title {
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
 
-.dash-chart-card {
-    border-radius: 16px; padding: 20px; cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    position: relative; overflow: hidden;
-}
-[data-theme="dark"]  .dash-chart-card { background: rgba(30,30,58,0.55); border: 1px solid rgba(79,172,254,0.08); backdrop-filter: blur(8px); }
-[data-theme="light"] .dash-chart-card { background: rgba(255,255,255,0.9); border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 4px 16px rgba(0,0,0,0.03); backdrop-filter: blur(8px); }
-.dash-chart-card:hover {
-    transform: translateY(-4px);
-    border-color: #4facfe;
-}
-[data-theme="dark"] .dash-chart-card:hover { box-shadow: 0 10px 30px rgba(79,172,254,0.15); }
-[data-theme="light"] .dash-chart-card:hover { box-shadow: 0 10px 30px rgba(79,172,254,0.12); }
-.dash-chart-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
-.dash-chart-sub  { font-size: 12px; opacity: 0.5; font-weight: 500; margin-bottom: 16px; }
+    [data-theme="dark"] .dash-section-title {
+        color: rgba(200, 208, 224, 0.8);
+    }
 
-/* ── Dashboard Responsive Breakpoints ── */
-@media (max-width: 1024px) {
-    .dash-wrap { padding: 14px 14px; gap: 16px; }
-}
-@media (max-width: 768px) {
-    .dash-wrap { padding: 10px 10px; gap: 12px; }
-    .wb-title { font-size: 16px; }
-    .wb-sub { font-size: 11px; }
-    .welcome-banner { padding: 14px 16px; gap: 12px; }
-    .wb-icon { font-size: 28px; }
-}
+    [data-theme="light"] .dash-section-title {
+        color: #444;
+    }
 
-/* DB Status Grid: 2-col at medium */
-@media (max-width: 1000px) and (min-width: 701px) {
-    .db-status-grid { grid-template-columns: repeat(2, 1fr); }
-}
+    /* ── Welcome Banner ── */
+    .welcome-banner {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 20px 24px;
+        border-radius: 16px;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
 
-/* Quick Access: smoother breakpoints */
-@media (max-width: 1200px) and (min-width: 1001px) {
-    .dash-quick-grid { grid-template-columns: repeat(3, 1fr); }
-}
-@media (max-width: 600px) {
-    .dash-quick-grid { grid-template-columns: 1fr; }
-    .dash-quick-link { padding: 12px 14px; gap: 10px; }
-}
+    [data-theme="dark"] .welcome-banner {
+        background: linear-gradient(135deg, rgba(30, 30, 58, 0.8) 0%, rgba(13, 13, 26, 0.9) 100%);
+        border: 1px solid rgba(79, 172, 254, 0.15);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(10px);
+    }
 
-/* KPI cards intermediate */
-@media (max-width: 900px) and (min-width: 701px) {
-    .dash-kpi-grid { grid-template-columns: repeat(2, 1fr); }
-}
-@media (max-width: 600px) {
-    .dash-kpi-value { font-size: 24px; }
-    .dash-kpi-icon { font-size: 24px; }
-    .dash-kpi-card { padding: 14px 16px; }
-}
+    [data-theme="light"] .welcome-banner {
+        background: linear-gradient(135deg, #ffffff 0%, #f0f4f8 100%);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    }
 
-/* Chart grid responsive */
-@media (max-width: 768px) {
-    .dash-chart-grid { grid-template-columns: 1fr; }
-}
+    .welcome-banner:hover {
+        transform: translateY(-2px);
+    }
+
+    [data-theme="dark"] .welcome-banner:hover {
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(79, 172, 254, 0.2);
+    }
+
+    [data-theme="light"] .welcome-banner:hover {
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .wb-icon {
+        font-size: 38px;
+        animation: wave 2s infinite;
+        transform-origin: 70% 70%;
+    }
+
+    @keyframes wave {
+        0% {
+            transform: rotate(0.0deg)
+        }
+
+        10% {
+            transform: rotate(14.0deg)
+        }
+
+        20% {
+            transform: rotate(-8.0deg)
+        }
+
+        30% {
+            transform: rotate(14.0deg)
+        }
+
+        40% {
+            transform: rotate(-4.0deg)
+        }
+
+        50% {
+            transform: rotate(10.0deg)
+        }
+
+        60% {
+            transform: rotate(0.0deg)
+        }
+
+        100% {
+            transform: rotate(0.0deg)
+        }
+    }
+
+    .wb-content {
+        z-index: 1;
+    }
+
+    .wb-title {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .wb-sub {
+        font-size: 13px;
+        opacity: 0.6;
+        font-weight: 500;
+    }
+
+    [data-theme="dark"] .wb-title {
+        color: #fff;
+    }
+
+    [data-theme="light"] .wb-title {
+        color: #1e293b;
+    }
+
+    /* ── DB Status Cards ── */
+    .db-status-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+    }
+
+    @media(max-width:700px) {
+        .db-status-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .db-status-card {
+        border-radius: 14px;
+        padding: 16px 18px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    [data-theme="dark"] .db-status-card {
+        background: rgba(30, 30, 58, 0.5);
+        border: 1px solid rgba(79, 172, 254, 0.08);
+        backdrop-filter: blur(8px);
+    }
+
+    [data-theme="light"] .db-status-card {
+        background: rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+        backdrop-filter: blur(8px);
+    }
+
+    .db-status-card:hover {
+        transform: translateY(-3px);
+    }
+
+    [data-theme="dark"] .db-status-card:hover {
+        border-color: rgba(79, 172, 254, 0.3);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        background: rgba(30, 30, 58, 0.7);
+    }
+
+    [data-theme="light"] .db-status-card:hover {
+        border-color: rgba(79, 172, 254, 0.3);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    .db-status-icon {
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        flex-shrink: 0;
+        transition: transform 0.3s ease;
+    }
+
+    .db-status-card:hover .db-status-icon {
+        transform: scale(1.1);
+    }
+
+    .db-status-icon.pg {
+        background: linear-gradient(135deg, rgba(79, 172, 254, 0.2), rgba(0, 242, 254, 0.1));
+        color: #4facfe;
+    }
+
+    .db-status-icon.pz {
+        background: linear-gradient(135deg, rgba(0, 200, 83, 0.2), rgba(105, 240, 174, 0.1));
+        color: #00e676;
+    }
+
+    .db-status-icon.wa {
+        background: linear-gradient(135deg, rgba(255, 193, 7, 0.2), rgba(255, 213, 79, 0.1));
+        color: #ffc107;
+    }
+
+    .db-status-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .db-status-name {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 3px;
+    }
+
+    .db-status-sub {
+        font-size: 11px;
+        opacity: 0.5;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-weight: 500;
+    }
+
+    .db-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .db-dot.ok {
+        background: #00e676;
+        --pulse-color: 0, 230, 118;
+        animation: pulseGlow 2s infinite;
+    }
+
+    .db-dot.error {
+        background: #ff5252;
+        --pulse-color: 255, 82, 82;
+        animation: pulseGlow 2s infinite;
+    }
+
+    .db-dot.loading {
+        background: #ffd166;
+        animation: dotPulse 1s infinite;
+    }
+
+    @keyframes dotPulse {
+
+        0%,
+        100% {
+            opacity: 1
+        }
+
+        50% {
+            opacity: 0.3
+        }
+    }
+
+    /* ── Quick Links ── */
+    .dash-quick-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+    }
+
+    @media(max-width:1000px) {
+        .dash-quick-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @media(max-width:700px) {
+        .dash-quick-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    .dash-quick-link {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 18px;
+        border-radius: 14px;
+        text-decoration: none;
+        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+
+    [data-theme="dark"] .dash-quick-link {
+        background: rgba(30, 30, 58, 0.4);
+        border: 1px solid rgba(79, 172, 254, 0.08);
+        color: rgba(200, 208, 224, 0.85);
+        backdrop-filter: blur(5px);
+    }
+
+    [data-theme="light"] .dash-quick-link {
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        color: #333;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    }
+
+    .dash-quick-link::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, rgba(79, 172, 254, 0.1) 0%, transparent 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .dash-quick-link:hover::before {
+        opacity: 1;
+    }
+
+    .dash-quick-link:hover {
+        border-color: #4facfe;
+        color: #4facfe;
+        transform: translateY(-3px);
+    }
+
+    [data-theme="dark"] .dash-quick-link:hover {
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        background: rgba(30, 30, 58, 0.6);
+    }
+
+    [data-theme="light"] .dash-quick-link:hover {
+        box-shadow: 0 8px 24px rgba(79, 172, 254, 0.15);
+        background: #fff;
+    }
+
+    .dash-quick-icon {
+        font-size: 22px;
+        flex-shrink: 0;
+        z-index: 1;
+        transition: transform 0.3s ease;
+    }
+
+    .dash-quick-link:hover .dash-quick-icon {
+        transform: scale(1.15) rotate(5deg);
+    }
+
+    .dash-quick-text {
+        z-index: 1;
+    }
+
+    .dash-quick-label {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 2px;
+    }
+
+    .dash-quick-desc {
+        font-size: 11px;
+        opacity: 0.5;
+        font-weight: 500;
+        transition: color 0.3s;
+    }
+
+    .dash-quick-link:hover .dash-quick-desc {
+        color: inherit;
+        opacity: 0.7;
+    }
+
+    /* ── KPI Cards ── */
+    .dash-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+    }
+
+    @media(max-width:700px) {
+        .dash-kpi-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .dash-kpi-card {
+        border-radius: 16px;
+        padding: 20px 22px;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    [data-theme="dark"] .dash-kpi-card {
+        background: rgba(30, 30, 58, 0.55);
+        border: 1px solid rgba(79, 172, 254, 0.1);
+        backdrop-filter: blur(8px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    [data-theme="light"] .dash-kpi-card {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+        backdrop-filter: blur(8px);
+    }
+
+    .dash-kpi-card:hover {
+        transform: translateY(-4px);
+    }
+
+    [data-theme="dark"] .dash-kpi-card:hover {
+        border-color: rgba(79, 172, 254, 0.3);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    [data-theme="light"] .dash-kpi-card:hover {
+        border-color: rgba(79, 172, 254, 0.3);
+        box-shadow: 0 10px 30px rgba(79, 172, 254, 0.1);
+    }
+
+    .dash-kpi-icon {
+        position: absolute;
+        right: 20px;
+        top: 20px;
+        font-size: 32px;
+        opacity: 0.15;
+        transition: all 0.3s ease;
+    }
+
+    .dash-kpi-card:hover .dash-kpi-icon {
+        opacity: 0.3;
+        transform: scale(1.1) rotate(5deg);
+    }
+
+    .dash-kpi-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        opacity: 0.6;
+    }
+
+    .dash-kpi-value {
+        font-size: 32px;
+        font-weight: 700;
+        line-height: 1.1;
+        margin-top: 4px;
+    }
+
+    .dash-kpi-unit {
+        font-size: 14px;
+        font-weight: 500;
+        opacity: 0.6;
+        margin-left: 4px;
+    }
+
+    .dash-kpi-sub {
+        font-size: 12px;
+        opacity: 0.5;
+        margin-top: 6px;
+        font-weight: 500;
+    }
+
+    /* ── Chart Cards ── */
+    .dash-chart-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+
+    @media(max-width:900px) {
+        .dash-chart-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .dash-chart-card {
+        border-radius: 16px;
+        padding: 20px;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    [data-theme="dark"] .dash-chart-card {
+        background: rgba(30, 30, 58, 0.55);
+        border: 1px solid rgba(79, 172, 254, 0.08);
+        backdrop-filter: blur(8px);
+    }
+
+    [data-theme="light"] .dash-chart-card {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+        backdrop-filter: blur(8px);
+    }
+
+    .dash-chart-card:hover {
+        transform: translateY(-4px);
+        border-color: #4facfe;
+    }
+
+    [data-theme="dark"] .dash-chart-card:hover {
+        box-shadow: 0 10px 30px rgba(79, 172, 254, 0.15);
+    }
+
+    [data-theme="light"] .dash-chart-card:hover {
+        box-shadow: 0 10px 30px rgba(79, 172, 254, 0.12);
+    }
+
+    .dash-chart-title {
+        font-size: 15px;
+        font-weight: 700;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .dash-chart-sub {
+        font-size: 12px;
+        opacity: 0.5;
+        font-weight: 500;
+        margin-bottom: 16px;
+    }
+
+    /* ── Dashboard Responsive Breakpoints ── */
+    @media (max-width: 1024px) {
+        .dash-wrap {
+            padding: 14px 14px;
+            gap: 16px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .dash-wrap {
+            padding: 10px 10px;
+            gap: 12px;
+        }
+
+        .wb-title {
+            font-size: 16px;
+        }
+
+        .wb-sub {
+            font-size: 11px;
+        }
+
+        .welcome-banner {
+            padding: 14px 16px;
+            gap: 12px;
+        }
+
+        .wb-icon {
+            font-size: 28px;
+        }
+    }
+
+    /* DB Status Grid: 2-col at medium */
+    @media (max-width: 1000px) and (min-width: 701px) {
+        .db-status-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    /* Quick Access: smoother breakpoints */
+    @media (max-width: 1200px) and (min-width: 1001px) {
+        .dash-quick-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @media (max-width: 600px) {
+        .dash-quick-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .dash-quick-link {
+            padding: 12px 14px;
+            gap: 10px;
+        }
+    }
+
+    /* KPI cards intermediate */
+    @media (max-width: 900px) and (min-width: 701px) {
+        .dash-kpi-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (max-width: 600px) {
+        .dash-kpi-value {
+            font-size: 24px;
+        }
+
+        .dash-kpi-icon {
+            font-size: 24px;
+        }
+
+        .dash-kpi-card {
+            padding: 14px 16px;
+        }
+    }
+
+    /* Chart grid responsive */
+    @media (max-width: 768px) {
+        .dash-chart-grid {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 
 
@@ -241,7 +718,7 @@
         <div class="wb-icon">👋</div>
         <div class="wb-content">
             <div class="wb-title">Welcome back, {{ username }}!</div>
-            <div class="wb-sub">Network KPI Monitor v3.0 — {{ now }}</div>
+            <div class="wb-sub">Network KPI Monitor v3.2 — {{ now }}</div>
         </div>
     </div>
 
@@ -250,9 +727,27 @@
         <div class="dash-section-title">🗄️ Database Status</div>
         <div class="db-status-grid" id="dashDbGrid">
             <!-- Skeleton -->
-            <div class="db-status-card"><div class="skeleton-box" style="width:46px;height:46px;border-radius:12px;flex-shrink:0;"></div><div class="db-status-info" style="width:100%;"><div class="skeleton-box" style="height:14px;width:60%;margin-bottom:6px"></div><div class="skeleton-box" style="height:10px;width:80%"></div></div></div>
-            <div class="db-status-card"><div class="skeleton-box" style="width:46px;height:46px;border-radius:12px;flex-shrink:0;"></div><div class="db-status-info" style="width:100%;"><div class="skeleton-box" style="height:14px;width:60%;margin-bottom:6px"></div><div class="skeleton-box" style="height:10px;width:80%"></div></div></div>
-            <div class="db-status-card"><div class="skeleton-box" style="width:46px;height:46px;border-radius:12px;flex-shrink:0;"></div><div class="db-status-info" style="width:100%;"><div class="skeleton-box" style="height:14px;width:60%;margin-bottom:6px"></div><div class="skeleton-box" style="height:10px;width:80%"></div></div></div>
+            <div class="db-status-card">
+                <div class="skeleton-box" style="width:46px;height:46px;border-radius:12px;flex-shrink:0;"></div>
+                <div class="db-status-info" style="width:100%;">
+                    <div class="skeleton-box" style="height:14px;width:60%;margin-bottom:6px"></div>
+                    <div class="skeleton-box" style="height:10px;width:80%"></div>
+                </div>
+            </div>
+            <div class="db-status-card">
+                <div class="skeleton-box" style="width:46px;height:46px;border-radius:12px;flex-shrink:0;"></div>
+                <div class="db-status-info" style="width:100%;">
+                    <div class="skeleton-box" style="height:14px;width:60%;margin-bottom:6px"></div>
+                    <div class="skeleton-box" style="height:10px;width:80%"></div>
+                </div>
+            </div>
+            <div class="db-status-card">
+                <div class="skeleton-box" style="width:46px;height:46px;border-radius:12px;flex-shrink:0;"></div>
+                <div class="db-status-info" style="width:100%;">
+                    <div class="skeleton-box" style="height:14px;width:60%;margin-bottom:6px"></div>
+                    <div class="skeleton-box" style="height:10px;width:80%"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -260,14 +755,62 @@
     <div>
         <div class="dash-section-title">⚡ Quick Access</div>
         <div class="dash-quick-grid">
-            <a href="/productivity" class="dash-quick-link"><div class="dash-quick-icon">📈</div><div class="dash-quick-text"><div class="dash-quick-label">Productivity</div><div class="dash-quick-desc">Trend YoY</div></div></a>
-            <a href="/kpi_2g_hourly" class="dash-quick-link"><div class="dash-quick-icon">📻</div><div class="dash-quick-text"><div class="dash-quick-label">2G Hourly</div><div class="dash-quick-desc">Per site</div></div></a>
-            <a href="/kpi_4g_hourly" class="dash-quick-link"><div class="dash-quick-icon">📶</div><div class="dash-quick-text"><div class="dash-quick-label">4G Hourly</div><div class="dash-quick-desc">Per site</div></div></a>
-            <a href="/kpi_5g_hourly" class="dash-quick-link"><div class="dash-quick-icon">🚀</div><div class="dash-quick-text"><div class="dash-quick-label">5G Hourly</div><div class="dash-quick-desc">Per site</div></div></a>
-            <a href="/kpi_2g_daily" class="dash-quick-link"><div class="dash-quick-icon">📊</div><div class="dash-quick-text"><div class="dash-quick-label">2G Daily</div><div class="dash-quick-desc">BSC Level</div></div></a>
-            <a href="/ta_4g" class="dash-quick-link"><div class="dash-quick-icon">📐</div><div class="dash-quick-text"><div class="dash-quick-label">TA 4G</div><div class="dash-quick-desc">Timing Advance</div></div></a>
-            <a href="/pl_2g" class="dash-quick-link"><div class="dash-quick-icon">📡</div><div class="dash-quick-text"><div class="dash-quick-label">PL 2G</div><div class="dash-quick-desc">Packet Loss</div></div></a>
-            <a href="/pl_4g" class="dash-quick-link"><div class="dash-quick-icon">📡</div><div class="dash-quick-text"><div class="dash-quick-label">PL 4G</div><div class="dash-quick-desc">Packet Loss</div></div></a>
+            <a href="/productivity" class="dash-quick-link">
+                <div class="dash-quick-icon">📈</div>
+                <div class="dash-quick-text">
+                    <div class="dash-quick-label">Productivity</div>
+                    <div class="dash-quick-desc">Trend YoY</div>
+                </div>
+            </a>
+            <a href="/kpi_2g_hourly" class="dash-quick-link">
+                <div class="dash-quick-icon">📻</div>
+                <div class="dash-quick-text">
+                    <div class="dash-quick-label">2G Hourly</div>
+                    <div class="dash-quick-desc">Per site</div>
+                </div>
+            </a>
+            <a href="/kpi_4g_hourly" class="dash-quick-link">
+                <div class="dash-quick-icon">📶</div>
+                <div class="dash-quick-text">
+                    <div class="dash-quick-label">4G Hourly</div>
+                    <div class="dash-quick-desc">Per site</div>
+                </div>
+            </a>
+            <a href="/kpi_5g_hourly" class="dash-quick-link">
+                <div class="dash-quick-icon">🚀</div>
+                <div class="dash-quick-text">
+                    <div class="dash-quick-label">5G Hourly</div>
+                    <div class="dash-quick-desc">Per site</div>
+                </div>
+            </a>
+            <a href="/kpi_2g_daily" class="dash-quick-link">
+                <div class="dash-quick-icon">📊</div>
+                <div class="dash-quick-text">
+                    <div class="dash-quick-label">2G Daily</div>
+                    <div class="dash-quick-desc">BSC Level</div>
+                </div>
+            </a>
+            <a href="/ta_4g" class="dash-quick-link">
+                <div class="dash-quick-icon">📐</div>
+                <div class="dash-quick-text">
+                    <div class="dash-quick-label">TA 4G</div>
+                    <div class="dash-quick-desc">Timing Advance</div>
+                </div>
+            </a>
+            <a href="/pl_2g" class="dash-quick-link">
+                <div class="dash-quick-icon">📡</div>
+                <div class="dash-quick-text">
+                    <div class="dash-quick-label">PL 2G</div>
+                    <div class="dash-quick-desc">Packet Loss</div>
+                </div>
+            </a>
+            <a href="/pl_4g" class="dash-quick-link">
+                <div class="dash-quick-icon">📡</div>
+                <div class="dash-quick-text">
+                    <div class="dash-quick-label">PL 4G</div>
+                    <div class="dash-quick-desc">Packet Loss</div>
+                </div>
+            </a>
         </div>
     </div>
 
@@ -276,9 +819,21 @@
         <div class="dash-section-title">📊 Network Overview</div>
         <div class="dash-kpi-grid" id="dashKpiGrid">
             <!-- Skeleton -->
-            <div class="dash-kpi-card"><div class="skeleton-box" style="height:12px;width:40%;margin-bottom:8px"></div><div class="skeleton-box" style="height:36px;width:70%;margin-bottom:8px"></div><div class="skeleton-box" style="height:12px;width:50%"></div></div>
-            <div class="dash-kpi-card"><div class="skeleton-box" style="height:12px;width:40%;margin-bottom:8px"></div><div class="skeleton-box" style="height:36px;width:70%;margin-bottom:8px"></div><div class="skeleton-box" style="height:12px;width:50%"></div></div>
-            <div class="dash-kpi-card"><div class="skeleton-box" style="height:12px;width:40%;margin-bottom:8px"></div><div class="skeleton-box" style="height:36px;width:70%;margin-bottom:8px"></div><div class="skeleton-box" style="height:12px;width:50%"></div></div>
+            <div class="dash-kpi-card">
+                <div class="skeleton-box" style="height:12px;width:40%;margin-bottom:8px"></div>
+                <div class="skeleton-box" style="height:36px;width:70%;margin-bottom:8px"></div>
+                <div class="skeleton-box" style="height:12px;width:50%"></div>
+            </div>
+            <div class="dash-kpi-card">
+                <div class="skeleton-box" style="height:12px;width:40%;margin-bottom:8px"></div>
+                <div class="skeleton-box" style="height:36px;width:70%;margin-bottom:8px"></div>
+                <div class="skeleton-box" style="height:12px;width:50%"></div>
+            </div>
+            <div class="dash-kpi-card">
+                <div class="skeleton-box" style="height:12px;width:40%;margin-bottom:8px"></div>
+                <div class="skeleton-box" style="height:36px;width:70%;margin-bottom:8px"></div>
+                <div class="skeleton-box" style="height:12px;width:50%"></div>
+            </div>
         </div>
     </div>
 
@@ -305,184 +860,184 @@
 
 {% block page_scripts %}
 <script>
-function tc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "#b0b8c8" : "#444"; }
-function gc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "rgba(79,172,254,0.06)" : "rgba(0,0,0,0.04)"; }
-function fmtNum(n){ return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+    function tc() { return document.documentElement.getAttribute("data-theme") === "dark" ? "#b0b8c8" : "#444"; }
+    function gc() { return document.documentElement.getAttribute("data-theme") === "dark" ? "rgba(79,172,254,0.06)" : "rgba(0,0,0,0.04)"; }
+    function fmtNum(n) { return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
 
-/* ── Chart colors per Tech ── */
-var TECH_COLORS = {
-    "2G": { border: "#f6c90e", bg: "rgba(246,201,14,0.7)" },
-    "4G": { border: "#4facfe", bg: "rgba(79,172,254,0.7)" },
-    "5G": { border: "#a78bfa", bg: "rgba(167,139,250,0.7)" },
-};
+    /* ── Chart colors per Tech ── */
+    var TECH_COLORS = {
+        "2G": { border: "#f6c90e", bg: "rgba(246,201,14,0.7)" },
+        "4G": { border: "#4facfe", bg: "rgba(79,172,254,0.7)" },
+        "5G": { border: "#a78bfa", bg: "rgba(167,139,250,0.7)" },
+    };
 
-function buildDatasets(techData){
-    var datasets = [];
-    var techs = Object.keys(techData).sort();
-    for(var i=0; i<techs.length; i++){
-        var tech = techs[i];
-        var c = TECH_COLORS[tech] || {border:'#888',bg:'rgba(136,136,136,0.6)'};
-        datasets.push({
-            label: tech,
-            data: techData[tech],
-            borderColor: c.border,
-            backgroundColor: c.bg,
-            borderWidth: 0,
-            borderRadius: 0, // Removed border radius to ensure flush rectangular stacking
-            hoverBackgroundColor: c.border, // Highlight on hover
-        });
+    function buildDatasets(techData) {
+        var datasets = [];
+        var techs = Object.keys(techData).sort();
+        for (var i = 0; i < techs.length; i++) {
+            var tech = techs[i];
+            var c = TECH_COLORS[tech] || { border: '#888', bg: 'rgba(136,136,136,0.6)' };
+            datasets.push({
+                label: tech,
+                data: techData[tech],
+                borderColor: c.border,
+                backgroundColor: c.bg,
+                borderWidth: 0,
+                borderRadius: 0, // Removed border radius to ensure flush rectangular stacking
+                hoverBackgroundColor: c.border, // Highlight on hover
+            });
+        }
+        return datasets;
     }
-    return datasets;
-}
 
-/* ── DB Status render ── */
-function dbStatusCards(d){
-    function dot(s){ return `<span class="db-dot ${s}"></span>`; }
-    function card(icon, cls, name, sub, status){
-        return `
+    /* ── DB Status render ── */
+    function dbStatusCards(d) {
+        function dot(s) { return `<span class="db-dot ${s}"></span>`; }
+        function card(icon, cls, name, sub, status) {
+            return `
         <div class="db-status-card">
             <div class="db-status-icon ${cls}">${icon}</div>
             <div class="db-status-info">
                 <div class="db-status-name">${name}</div>
                 <div class="db-status-sub">${sub}</div>
             </div>
-            ${dot(status||'loading')}
+            ${dot(status || 'loading')}
         </div>`;
-    };
-    var pg = d.postgres_db;
-    
-    var pgSub = [];
-    if(pg.last_update_2g) pgSub.push('2G: '+pg.last_update_2g);
-    if(pg.last_update_4g) pgSub.push('4G: '+pg.last_update_4g);
-    if(pg.last_update_5g) pgSub.push('5G: '+pg.last_update_5g);
-    if(!pgSub.length) pgSub.push('No data');
+        };
+        var pg = d.postgres_db;
 
-    var plSub = [];
-    if(pg.last_tp) plSub.push('TP: '+pg.last_tp);
-    if(pg.last_mk2g) plSub.push('2G: '+pg.last_mk2g);
-    if(pg.last_mk4g) plSub.push('4G: '+pg.last_mk4g);
-    if(!plSub.length) plSub.push('No data');
+        var pgSub = [];
+        if (pg.last_update_2g) pgSub.push('2G: ' + pg.last_update_2g);
+        if (pg.last_update_4g) pgSub.push('4G: ' + pg.last_update_4g);
+        if (pg.last_update_5g) pgSub.push('5G: ' + pg.last_update_5g);
+        if (!pgSub.length) pgSub.push('No data');
 
-    var taSub = [];
-    if(pg.last_2gpl) taSub.push('2G: '+pg.last_2gpl);
-    if(pg.last_4gpl) taSub.push('4G: '+pg.last_4gpl);
-    if(pg.last_ta4g) taSub.push('TA: '+pg.last_ta4g);
-    if(!taSub.length) taSub.push('No data');
+        var plSub = [];
+        if (pg.last_tp) plSub.push('TP: ' + pg.last_tp);
+        if (pg.last_mk2g) plSub.push('2G: ' + pg.last_mk2g);
+        if (pg.last_mk4g) plSub.push('4G: ' + pg.last_mk4g);
+        if (!plSub.length) plSub.push('No data');
 
-    return card('🐘','pg','Hourly KPI', pgSub.join(' · '), pg.status)
-         + card('📦','pz','Productivity & Daily KPI', plSub.join(' · '), pg.status)
-         + card('📡','wa','Packet Loss & TA', taSub.join(' · '), pg.status);
-}
+        var taSub = [];
+        if (pg.last_2gpl) taSub.push('2G: ' + pg.last_2gpl);
+        if (pg.last_4gpl) taSub.push('4G: ' + pg.last_4gpl);
+        if (pg.last_ta4g) taSub.push('TA: ' + pg.last_ta4g);
+        if (!taSub.length) taSub.push('No data');
 
-/* ── KPI cards ── */
-function kpiCard(icon, label, value, unit, sub){
-    return `
+        return card('🐘', 'pg', 'Hourly KPI', pgSub.join(' · '), pg.status)
+            + card('📦', 'pz', 'Productivity & Daily KPI', plSub.join(' · '), pg.status)
+            + card('📡', 'wa', 'Packet Loss & TA', taSub.join(' · '), pg.status);
+    }
+
+    /* ── KPI cards ── */
+    function kpiCard(icon, label, value, unit, sub) {
+        return `
     <div class="dash-kpi-card">
         <div class="dash-kpi-icon">${icon}</div>
         <div class="dash-kpi-label">${label}</div>
         <div class="dash-kpi-value">${value}<span class="dash-kpi-unit">${unit}</span></div>
         ${sub ? `<div class="dash-kpi-sub">${sub}</div>` : ''}
     </div>`;
-}
+    }
 
-/* ── Main load ── */
-var dashPayloadChart = null, dashTrafficChart = null;
+    /* ── Main load ── */
+    var dashPayloadChart = null, dashTrafficChart = null;
 
-function dashLoad(){
-    fetch('/api/home')
-        .then(function(r){ return r.json(); })
-        .then(function(d){
-            document.getElementById('dashDbGrid').innerHTML = dbStatusCards(d);
+    function dashLoad() {
+        fetch('/api/home')
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                document.getElementById('dashDbGrid').innerHTML = dbStatusCards(d);
 
-            var grid = document.getElementById('dashKpiGrid');
-            if(grid){
-                grid.innerHTML =
-                    kpiCard('📻','2G Sites', fmtNum(d.postgres_db.site_count_2g), ' sites', d.postgres_db.last_update_2g ? 'Last data: '+d.postgres_db.last_update_2g : '') +
-                    kpiCard('📡','4G Sites', fmtNum(d.postgres_db.site_count_4g), ' sites', d.postgres_db.last_update_4g ? 'Last data: '+d.postgres_db.last_update_4g : '') +
-                    kpiCard('🚀','5G Sites', fmtNum(d.postgres_db.site_count_5g), ' sites', d.postgres_db.last_update_5g ? 'Last data: '+d.postgres_db.last_update_5g : '');
-            }
+                var grid = document.getElementById('dashKpiGrid');
+                if (grid) {
+                    grid.innerHTML =
+                        kpiCard('📻', '2G Sites', fmtNum(d.postgres_db.site_count_2g), ' sites', d.postgres_db.last_update_2g ? 'Last data: ' + d.postgres_db.last_update_2g : '') +
+                        kpiCard('📡', '4G Sites', fmtNum(d.postgres_db.site_count_4g), ' sites', d.postgres_db.last_update_4g ? 'Last data: ' + d.postgres_db.last_update_4g : '') +
+                        kpiCard('🚀', '5G Sites', fmtNum(d.postgres_db.site_count_5g), ' sites', d.postgres_db.last_update_5g ? 'Last data: ' + d.postgres_db.last_update_5g : '');
+                }
 
-            var cgrid = document.getElementById('dashChartGrid');
-            if(cgrid){
-                var labels = d.trend_labels || [];
-                var payloadData = d.trend_payload || {};
-                var trafficData = d.trend_traffic || {};
-                var hasData = labels.length > 0;
+                var cgrid = document.getElementById('dashChartGrid');
+                if (cgrid) {
+                    var labels = d.trend_labels || [];
+                    var payloadData = d.trend_payload || {};
+                    var trafficData = d.trend_traffic || {};
+                    var hasData = labels.length > 0;
 
-                var payloadDatasets = buildDatasets(payloadData);
-                var trafficDatasets = buildDatasets(trafficData);
+                    var payloadDatasets = buildDatasets(payloadData);
+                    var trafficDatasets = buildDatasets(trafficData);
 
-                cgrid.innerHTML = `
+                    cgrid.innerHTML = `
                     <div class="dash-chart-card" onclick="openChartModal(this.querySelector('canvas'))">
                         <div class="dash-chart-title">📦 Payload Trend</div>
-                        <div class="dash-chart-sub">Stacked per Technology (TB/day) — last 14 days</div>
+                        <div class="dash-chart-sub">Stacked per Technology (TB/day) — last 30 days</div>
                         <div style="height:240px;position:relative;"><canvas id="cPayload" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas></div>
                     </div>
                     <div class="dash-chart-card" onclick="openChartModal(this.querySelector('canvas'))">
                         <div class="dash-chart-title">🚀 Traffic Trend</div>
-                        <div class="dash-chart-sub">Stacked per Technology (KErl) — last 14 days</div>
+                        <div class="dash-chart-sub">Stacked per Technology (KErl) — last 30 days</div>
                         <div style="height:240px;position:relative;"><canvas id="cTraffic" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas></div>
                     </div>`;
 
-                setTimeout(function(){
-                    var tooltipCfg = {
-                        mode:'index', intersect:false, backgroundColor:'rgba(15,15,30,0.85)', 
-                        titleFont:{size:13, weight:600}, bodyFont:{size:12}, padding:12,
-                        cornerRadius: 8, borderColor: 'rgba(79,172,254,0.3)', borderWidth: 1
-                    };
-                    
-                    var cp = document.getElementById('cPayload');
-                    if(cp && hasData && payloadDatasets.length > 0){
-                        if(dashPayloadChart) dashPayloadChart.destroy();
-                        dashPayloadChart = new Chart(cp, {
-                            type: 'bar',
-                            data: { labels: labels, datasets: payloadDatasets },
-                            options: {
-                                responsive:true, maintainAspectRatio:false, animation:{ duration: 1000, easing: 'easeOutQuart' },
-                                plugins: {
-                                    legend: { position:'top', labels:{ color:tc(), font:{size:11, weight:500}, boxWidth:12, padding:14, usePointStyle:true } },
-                                    tooltip: tooltipCfg,
-                                },
-                                scales: {
-                                    x: { ticks:{ color:tc(), font:{size:10}, maxRotation:45 }, grid:{ color:gc(), drawBorder:false }, stacked:true },
-                                    y: { position:'left', title:{ display:true, text:'TB/day', color:tc(), font:{size:11, weight:600} }, ticks:{ color:tc(), font:{size:10} }, grid:{ color:gc(), drawBorder:false }, stacked:true },
+                    setTimeout(function () {
+                        var tooltipCfg = {
+                            mode: 'index', intersect: false, backgroundColor: 'rgba(15,15,30,0.85)',
+                            titleFont: { size: 13, weight: 600 }, bodyFont: { size: 12 }, padding: 12,
+                            cornerRadius: 8, borderColor: 'rgba(79,172,254,0.3)', borderWidth: 1
+                        };
+
+                        var cp = document.getElementById('cPayload');
+                        if (cp && hasData && payloadDatasets.length > 0) {
+                            if (dashPayloadChart) dashPayloadChart.destroy();
+                            dashPayloadChart = new Chart(cp, {
+                                type: 'bar',
+                                data: { labels: labels, datasets: payloadDatasets },
+                                options: {
+                                    responsive: true, maintainAspectRatio: false, animation: { duration: 1000, easing: 'easeOutQuart' },
+                                    plugins: {
+                                        legend: { position: 'top', labels: { color: tc(), font: { size: 11, weight: 500 }, boxWidth: 12, padding: 14, usePointStyle: true } },
+                                        tooltip: tooltipCfg,
+                                    },
+                                    scales: {
+                                        x: { ticks: { color: tc(), font: { size: 10 }, maxRotation: 45 }, grid: { color: gc(), drawBorder: false }, stacked: true },
+                                        y: { position: 'left', title: { display: true, text: 'TB/day', color: tc(), font: { size: 11, weight: 600 } }, ticks: { color: tc(), font: { size: 10 } }, grid: { color: gc(), drawBorder: false }, stacked: true },
+                                    }
                                 }
-                            }
-                        });
-                        chartInstances['cPayload'] = dashPayloadChart;
-                    } else if(cp){ cp.parentElement.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;opacity:0.4;font-size:13px;font-weight:500;">No data available</div>'; }
+                            });
+                            chartInstances['cPayload'] = dashPayloadChart;
+                        } else if (cp) { cp.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;opacity:0.4;font-size:13px;font-weight:500;">No data available</div>'; }
 
-                    var ct = document.getElementById('cTraffic');
-                    if(ct && hasData && trafficDatasets.length > 0){
-                        if(dashTrafficChart) dashTrafficChart.destroy();
-                        dashTrafficChart = new Chart(ct, {
-                            type: 'bar',
-                            data: { labels: labels, datasets: trafficDatasets },
-                            options: {
-                                responsive:true, maintainAspectRatio:false, animation:{ duration: 1000, easing: 'easeOutQuart' },
-                                plugins: {
-                                    legend: { position:'top', labels:{ color:tc(), font:{size:11, weight:500}, boxWidth:12, padding:14, usePointStyle:true } },
-                                    tooltip: tooltipCfg,
-                                },
-                                scales: {
-                                    x: { ticks:{ color:tc(), font:{size:10}, maxRotation:45 }, grid:{ color:gc(), drawBorder:false }, stacked:true },
-                                    y: { position:'left', title:{ display:true, text:'KErl', color:tc(), font:{size:11, weight:600} }, ticks:{ color:tc(), font:{size:10} }, grid:{ color:gc(), drawBorder:false }, stacked:true },
+                        var ct = document.getElementById('cTraffic');
+                        if (ct && hasData && trafficDatasets.length > 0) {
+                            if (dashTrafficChart) dashTrafficChart.destroy();
+                            dashTrafficChart = new Chart(ct, {
+                                type: 'bar',
+                                data: { labels: labels, datasets: trafficDatasets },
+                                options: {
+                                    responsive: true, maintainAspectRatio: false, animation: { duration: 1000, easing: 'easeOutQuart' },
+                                    plugins: {
+                                        legend: { position: 'top', labels: { color: tc(), font: { size: 11, weight: 500 }, boxWidth: 12, padding: 14, usePointStyle: true } },
+                                        tooltip: tooltipCfg,
+                                    },
+                                    scales: {
+                                        x: { ticks: { color: tc(), font: { size: 10 }, maxRotation: 45 }, grid: { color: gc(), drawBorder: false }, stacked: true },
+                                        y: { position: 'left', title: { display: true, text: 'KErl', color: tc(), font: { size: 11, weight: 600 } }, ticks: { color: tc(), font: { size: 10 } }, grid: { color: gc(), drawBorder: false }, stacked: true },
+                                    }
                                 }
-                            }
-                        });
-                        chartInstances['cTraffic'] = dashTrafficChart;
-                    } else if(ct){ ct.parentElement.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;opacity:0.4;font-size:13px;font-weight:500;">No data available</div>'; }
-                }, 50);
-            }
-        })
-        .catch(function(err){
-            console.error('Dashboard error:', err);
-            document.getElementById('dashDbGrid').innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;background:rgba(255,82,82,0.1);border-radius:12px;color:#ff5252;">⚠️ Failed to load data. <a href="#" onclick="dashLoad();return false;" style="color:inherit;text-decoration:underline;font-weight:bold;">Retry</a></div>';
-        });
-}
+                            });
+                            chartInstances['cTraffic'] = dashTrafficChart;
+                        } else if (ct) { ct.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;opacity:0.4;font-size:13px;font-weight:500;">No data available</div>'; }
+                    }, 50);
+                }
+            })
+            .catch(function (err) {
+                console.error('Dashboard error:', err);
+                document.getElementById('dashDbGrid').innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;background:rgba(255,82,82,0.1);border-radius:12px;color:#ff5252;">⚠️ Failed to load data. <a href="#" onclick="dashLoad();return false;" style="color:inherit;text-decoration:underline;font-weight:bold;">Retry</a></div>';
+            });
+    }
 
-/* Removed redundant window resize listener */
+    /* Removed redundant window resize listener */
 
-document.addEventListener("DOMContentLoaded", dashLoad);
+    document.addEventListener("DOMContentLoaded", dashLoad);
 </script>
 {% endblock %}

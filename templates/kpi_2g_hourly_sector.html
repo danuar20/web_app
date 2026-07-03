@@ -37,8 +37,21 @@
 [data-theme="light"] .data-table th { background: #f8fafc; }
 </style>
 
+<!-- Filter Bar Header (always visible) -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 4px;">
+    <div style="font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+        <i class="fas fa-filter" style="color: #4facfe;"></i> Filters
+    </div>
+    <button type="button" class="btn-xs" onclick="toggleFilters()" id="filterToggleBtn"
+        style="padding: 4px 10px; font-size: 11px;">
+        <i class="fas fa-chevron-up"></i> Hide Filters
+    </button>
+</div>
+
+<!-- Filter Bar Content (collapsible card) -->
+<div class="card" id="filterContainer" style="transition: all 0.3s ease; padding: 16px 20px; margin-bottom: 0;">
 <form method="GET" action="/kpi_2g_hourly_sector" id="filterForm" onsubmit="showLoading()">
-<div class="filter-bar">
+<div class="filter-bar" style="padding:0; background:transparent; border:none; gap:14px; align-items:flex-end;">
     <div class="filter-group">
         <div class="filter-label">Date From</div>
         <input type="date" name="from_date" class="f-input" value="{{ from_date }}" id="fFrom">
@@ -101,15 +114,6 @@
     <button type="submit" class="btn-apply">
         <i class="fas fa-play" style="font-size:10px;margin-right:4px"></i> Show
     </button>
-
-    <div class="view-toggle">
-        <button type="button" class="view-toggle-btn active" id="viewChart" onclick="setView('chart', this)">
-            <i class="fas fa-chart-line"></i> Chart
-        </button>
-        <button type="button" class="view-toggle-btn" id="viewTable" onclick="setView('table', this)">
-            <i class="fas fa-table"></i> Table
-        </button>
-    </div>
 </div>
 <!-- CSV upload + paste -->
 <div class="filter-bar" style="margin-top:-6px;">
@@ -128,6 +132,16 @@
     </div>
 </div>
 </form>
+</div>
+<div class="tabs-container view-tabs" id="viewTabsContainer" style="margin: 0 20px 0;">
+    <button class="tab-btn active" id="viewChart" type="button" onclick="setView('chart', this)">
+        <i class="fas fa-chart-line" style="margin-right:6px;"></i>Chart
+    </button>
+    <button class="tab-btn" id="viewTable" type="button" onclick="setView('table', this)">
+        <i class="fas fa-table" style="margin-right:6px;"></i>Table
+    </button>
+</div>
+
 
 <div style="font-size:12px; color:#888; margin: 0 20px 10px;">
     Last update: <span id="lastUpdateDisplay">{{ last_update or 'N/A' }}</span>
@@ -500,7 +514,7 @@ document.addEventListener("DOMContentLoaded", function(){
 });
 
 function setView(view, btn) {
-    document.querySelectorAll('.view-toggle-btn').forEach(function(b){ b.classList.remove('active'); });
+    document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
     if (view === 'chart') {
         document.getElementById('chartView').style.display = 'block';
