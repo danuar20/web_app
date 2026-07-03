@@ -798,6 +798,15 @@
                 transform: rotate(360deg);
             }
         }
+        .view-btn {
+            background: transparent;
+            transition: all 0.2s;
+        }
+        .view-btn.active {
+            background: #4facfe !important;
+            color: white !important;
+            border-radius: 4px;
+        }
     </style>
 
     {% if trend_from_date and sel_sites %}
@@ -811,12 +820,40 @@
             <div class="nav-tab" onclick="switchTab('tab-sector', this)">Sector Level</div>
             <div class="nav-tab" onclick="switchTab('tab-custom', this)">Custom Charts</div>
         </div>
-
-
     </div>
+
+    {% macro render_tab_controls(tab_id, show_toggle=True, is_chart_active=False, chart_grid_id=None, export_chart_prefix=None) %}
+    <div class="tab-controls-bar" style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; background: rgba(128,128,128,0.05); padding: 12px; border-radius: 8px;">
+        <div style="display:flex; align-items: center; gap: 12px;">
+            {% if show_toggle %}
+            <div class="view-btns" style="display:flex; background:rgba(128,128,128,0.1); border-radius:6px; overflow:hidden;">
+                <button id="btn-chart-{{ tab_id }}" class="view-btn {% if is_chart_active %}active{% endif %}" style="padding:4px 12px; font-size:11px; border:none; cursor:pointer; color:inherit;" onclick="setTabView('{{ tab_id }}','chart')">Chart</button>
+                <button id="btn-table-{{ tab_id }}" class="view-btn {% if not is_chart_active %}active{% endif %}" style="padding:4px 12px; font-size:11px; border:none; cursor:pointer; color:inherit;" onclick="setTabView('{{ tab_id }}','table')">Table</button>
+            </div>
+            {% endif %}
+        </div>
+        <div style="display:flex; align-items: center; gap: 8px;">
+            {% if chart_grid_id %}
+            <button class="btn-apply" style="height:24px; padding:0 10px; border-radius:4px; font-size:11px;" onclick="openExportModal('{{ export_chart_prefix }}', '{{ chart_grid_id }}')">
+                <i class="fas fa-camera" style="margin-right:4px"></i> Export PNG
+            </button>
+            <span style="font-size:11px; font-weight:600; opacity:0.7; margin-left: 8px;">Charts / Row:</span>
+            <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                <button class="btn-xs row-btn {{ chart_grid_id }}-row-btn " style="background:transparent;" onclick="setGridColLocal(1, '{{ chart_grid_id }}')">1</button>
+                <button class="btn-xs row-btn {{ chart_grid_id }}-row-btn {% if chart_grid_id == 'bandChartGrid' %}active{% endif %}" style="background:{% if chart_grid_id == 'bandChartGrid' %}rgba(79,172,254,0.3){% else %}transparent{% endif %};" onclick="setGridColLocal(2, '{{ chart_grid_id }}')">2</button>
+                <button class="btn-xs row-btn {{ chart_grid_id }}-row-btn {% if chart_grid_id != 'bandChartGrid' %}active{% endif %}" style="background:{% if chart_grid_id != 'bandChartGrid' %}rgba(79,172,254,0.3){% else %}transparent{% endif %};" onclick="setGridColLocal(3, '{{ chart_grid_id }}')">3</button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endmacro %}
 
     <!-- 1. Comparison Table Tab -->
     <div id="tab-compare" class="tab-content active">
+        {{ render_tab_controls('tab-compare', show_toggle=True, is_chart_active=False, chart_grid_id='compareChartGrid', export_chart_prefix='compareChart') }}
+        
+        <div id="tableView-tab-compare" class="tab-view-container" style="display: block;">
+
         <div class="card">
             <div class="chart-box-header">
                 <div class="card-title">Cluster Comparison</div>
@@ -840,7 +877,7 @@
                         {% for kpi in kpi_defs %}
                         {% set d = cluster_compare.get(kpi[0], {}) %}
                         {% if d and d.get('before') is not none %}
-                        <tr>
+                        <tr data-kpi="{{ kpi[0] }}" data-lb="{{ 'true' if d.get('is_lower_better') else 'false' }}">
                             <td class="text-left" data-label="Category" style="opacity:0.7;">{{ d.get('group') }}</td>
                             <td class="text-left" data-label="KPI" style="font-weight:600;">{{ d.get('title') }} {% if d.get('unit') %}({{ d.get('unit') }}){% endif %}</td>
                             <td data-label="Before" class="before-val">{{ "%.2f"|format(d.get('before')) }}</td>
@@ -945,25 +982,12 @@
                 </div>
             </div>
         </div>
-
+        </div>
+        <div id="chartView-tab-compare" class="tab-view-container" style="display: none;">
         <div
             style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; margin-bottom: 8px;">
             <div style="font-size: 16px; font-weight: 600;">Hourly Trend Charts</div>
-            <div style="display:flex; align-items: center; gap: 8px; margin-bottom: 12px; justify-content: flex-end;">
-                <button class="btn-apply" style="height:24px; padding:0 10px; border-radius:4px; font-size:11px;" onclick="openExportModal('compareChart', 'compareChartGrid')">
-                    <i class="fas fa-camera" style="margin-right:4px"></i> Export PNG
-                </button>
-                <span class="date-label" style="margin: 0; margin-left: 8px;">Charts / Row</span>
-                <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
-                    <button class="btn-xs row-btn compareChartGrid-row-btn " style="background:transparent;"
-                        onclick="setGridColLocal(1, 'compareChartGrid')">1</button>
-                    <button class="btn-xs row-btn compareChartGrid-row-btn " style="background:transparent;"
-                        onclick="setGridColLocal(2, 'compareChartGrid')">2</button>
-                    <button class="btn-xs row-btn compareChartGrid-row-btn active"
-                        style="background:rgba(79,172,254,0.3);"
-                        onclick="setGridColLocal(3, 'compareChartGrid')">3</button>
-                </div>
-            </div>
+            
         </div>
         <div class="chart-grid grid-3" id="compareChartGrid">
             {% for kpi in kpi_defs %}
@@ -975,24 +999,48 @@
             </div>
             {% endfor %}
         </div>
+        </div>
     </div>
 
     <!-- 2. Trend Charts Tab -->
     <div id="tab-trend" class="tab-content">
-        <div style="display:flex; align-items: center; gap: 8px; margin-bottom: 12px; justify-content: flex-end;">
-            <button class="btn-apply" style="height:24px; padding:0 10px; border-radius:4px; font-size:11px;" onclick="openExportModal('trendChart', 'trendChartGrid')">
-                <i class="fas fa-camera" style="margin-right:4px"></i> Export PNG
-            </button>
-            <span class="date-label" style="margin: 0; margin-left: 8px;">Charts / Row</span>
-            <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
-                <button class="btn-xs row-btn trendChartGrid-row-btn " style="background:transparent;"
-                    onclick="setGridColLocal(1, 'trendChartGrid')">1</button>
-                <button class="btn-xs row-btn trendChartGrid-row-btn " style="background:transparent;"
-                    onclick="setGridColLocal(2, 'trendChartGrid')">2</button>
-                <button class="btn-xs row-btn trendChartGrid-row-btn active" style="background:rgba(79,172,254,0.3);"
-                    onclick="setGridColLocal(3, 'trendChartGrid')">3</button>
+        {{ render_tab_controls('tab-trend', show_toggle=True, is_chart_active=True, chart_grid_id='trendChartGrid', export_chart_prefix='trendChart') }}
+        
+        <div id="tableView-tab-trend" class="tab-view-container" style="display: none;">
+            <div class="card">
+                <div class="chart-box-header">
+                    <div class="card-title">Trend Table</div>
+                    <button class="btn-apply" onclick="downloadCSV('trendTable')"><i class="fas fa-download"></i> CSV</button>
+                </div>
+                <div class="site-table-wrap">
+                    <table class="site-table" id="trendTable">
+                        <thead>
+                            <tr>
+                                <th class="entity-col" style="background:#1e3a5f;">Hour</th>
+                                {% for kpi in kpi_defs %}
+                                <th class="text-center">{{ kpi[1] }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for i in range(trend_labels|length) %}
+                            <tr class="trend-table-row">
+                                <td class="entity-cell" style="white-space: nowrap;">{{ trend_labels[i] }}</td>
+                                {% for kpi in kpi_defs %}
+                                <td class="text-center trend-val-cell" data-kpi="{{ kpi[0] }}" data-idx="{{ i }}">
+                                    {% set val = trend_chart_data.get(kpi[0], {}).get('total', [])[i] %}
+                                    {{ "%.2f"|format(val) if val is not none else '-' }}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
+        <div id="chartView-tab-trend" class="tab-view-container" style="display: block;">
+
         <div class="chart-grid grid-3" id="trendChartGrid">
             {% for kpi in kpi_defs %}
             <div class="card">
@@ -1003,10 +1051,14 @@
             </div>
             {% endfor %}
         </div>
+        </div>
     </div>
 
     <!-- 3. Band Level Tab -->
     <div id="tab-band" class="tab-content">
+        {{ render_tab_controls('tab-band', show_toggle=True, is_chart_active=False, chart_grid_id='bandChartGrid', export_chart_prefix='bandChart') }}
+        
+        <div id="tableView-tab-band" class="tab-view-container" style="display: block;">
         <div class="card" style="margin-bottom: 16px;">
             <div class="card-title" style="margin-bottom:10px;">Band Comparison Table</div>
             <div class="site-table-wrap">
@@ -1064,21 +1116,9 @@
                 </table>
             </div>
         </div>
-
-        <div style="display:flex; align-items: center; gap: 8px; margin-bottom: 12px; justify-content: flex-end;">
-            <button class="btn-apply" style="height:24px; padding:0 10px; border-radius:4px; font-size:11px;" onclick="openExportModal('bandChart', 'bandChartGrid')">
-                <i class="fas fa-camera" style="margin-right:4px"></i> Export PNG
-            </button>
-            <span class="date-label" style="margin: 0; margin-left: 8px;">Charts / Row</span>
-            <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
-                <button class="btn-xs row-btn bandChartGrid-row-btn " style="background:transparent;"
-                    onclick="setGridColLocal(1, 'bandChartGrid')">1</button>
-                <button class="btn-xs row-btn bandChartGrid-row-btn active" style="background:rgba(79,172,254,0.3);"
-                    onclick="setGridColLocal(2, 'bandChartGrid')">2</button>
-                <button class="btn-xs row-btn bandChartGrid-row-btn " style="background:transparent;"
-                    onclick="setGridColLocal(3, 'bandChartGrid')">3</button>
-            </div>
         </div>
+        
+        <div id="chartView-tab-band" class="tab-view-container" style="display: none;">
         <div class="chart-grid grid-2" id="bandChartGrid">
             {% for kpi in kpi_defs %}
             <div class="card">
@@ -1089,10 +1129,12 @@
             </div>
             {% endfor %}
         </div>
+        </div>
     </div>
 
     <!-- 4. Sector Level Tab -->
     <div id="tab-sector" class="tab-content">
+        {{ render_tab_controls('tab-sector', show_toggle=False) }}
         <div class="card">
             <div class="chart-box-header">
                 <div class="card-title">Sector Comparison Table</div>
@@ -1514,9 +1556,11 @@
     // Chart Configuration
     const TREND_LABELS = {{ trend_labels| tojson | safe }};
     const TREND_DATA = {{ trend_chart_data| tojson | safe }};
+    const SITE_TREND_DATA = {{ site_trend_chart_data| tojson | safe }};
     const BAND_TREND_DATA = {{ band_trend_chart_data| tojson | safe }};
     const COMPARE_HOURLY_LABELS = {{ compare_hourly_labels| tojson | safe }};
     const COMPARE_HOURLY_DATA = {{ compare_hourly_data| tojson | safe }};
+
 
     const KPI_DEFS = {{ kpi_defs| tojson | safe }};
     const ALL_KPIS = {{ all_kpis| tojson | safe }};
@@ -2035,7 +2079,7 @@
     }
 
     // Render logic
-    function renderCustomCharts() {
+    function renderCustomCharts(site = 'ALL') {
         if (!TREND_LABELS || TREND_LABELS.length === 0) return alert("No trend data available to render charts.");
 
         customChartInstances.forEach(c => c.destroy());
@@ -2052,7 +2096,13 @@
 
             cfg.series.forEach(s => {
                 // Find KPI data
-                let data = TREND_DATA[s.kpi]?.total || [];
+                let data = [];
+                if (site === 'ALL') {
+                    data = TREND_DATA[s.kpi]?.total || [];
+                } else {
+                    data = SITE_TREND_DATA[s.kpi]?.[site] || [];
+                }
+                
                 // If the selected KPI is not in the dashboard query (it was not selected in filter), 
                 // data might be empty. For a robust implementation, it would fetch via API,
                 // but here we just render what we have.
@@ -2431,5 +2481,38 @@
             .catch(err => console.error("Error fetching filter list:", err));
     }
 
-</script>
+    // ── Tab Controls (Chart/Table Toggle & Site Filter) ──
+    function setTabView(tabId, viewType) {
+        // Update buttons
+        const btnChart = document.getElementById('btn-chart-' + tabId);
+        const btnTable = document.getElementById('btn-table-' + tabId);
+        if (btnChart && btnTable) {
+            if (viewType === 'chart') {
+                btnChart.classList.add('active');
+                btnTable.classList.remove('active');
+            } else {
+                btnTable.classList.add('active');
+                btnChart.classList.remove('active');
+            }
+        }
+        
+        // Update views
+        const chartView = document.getElementById('chartView-' + tabId);
+        const tableView = document.getElementById('tableView-' + tabId);
+        if (chartView) chartView.style.display = viewType === 'chart' ? 'block' : 'none';
+        if (tableView) tableView.style.display = viewType === 'table' ? 'block' : 'none';
+    }
+
+    
+    
+    // Close all tab dropdowns when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.tab-dropdown-container')) {
+            document.querySelectorAll('.tab-dropdown-menu').forEach(menu => {
+                menu.style.display = 'none';
+            });
+        }
+    });
+
+    </script>
 {% endblock %}

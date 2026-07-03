@@ -12,45 +12,125 @@ dashboard_4g = Blueprint("dashboard_4g", __name__)
 
 ALL_KPI_DEFS = [
     # chart_id, title, unit, y_label, y_min, y_max, sql_expr, group_name, is_lower_better
+
+    # --- Productivity ---
     ("payloadChart",   "4G Payload",             "GB",             "4G Payload (GB)",  None, None,
      'SUM("4g_payload_mb")/1024.0',             "Productivity", False),
     ("volteChart",     "VoLTE Traffic",         "Erl",            "VoLTE (Erl)",  None, None,
      "SUM(volte_traffic)",                "Productivity", False),
+    ("dlPayloadChart", "DL Payload",            "GB",     "DL Payload (GB)", None, None,
+     'ROUND((SUM(dl_traffic_volume) / 1024.0)::numeric, 3)', "Productivity", False),
+    ("ulPayloadChart", "UL Payload",            "GB",     "UL Payload (GB)", None, None,
+     'ROUND((SUM(ul_traffic_volume) / 1024.0)::numeric, 3)', "Productivity", False),
+    ("dlPayloadCaChart", "DL Payload CA",       "GB",     "DL Payload CA (GB)", None, None,
+     'ROUND((SUM(dl_payload_ca_mbyte) / 1024.0)::numeric, 3)', "Productivity", False),
+    ("ulPayloadCaChart", "UL Payload CA",       "GB",     "UL Payload CA (GB)", None, None,
+     'ROUND((SUM(ul_payload_ca_mbyte) / 1024.0)::numeric, 3)', "Productivity", False),
+
+    # --- Availability ---
     ("availChart",     "Availability",          "%",      "Availability (%)", None, 100,
      'CASE WHEN SUM(avail_denum)>0 THEN ROUND((SUM(avail_num)/SUM(avail_denum)*100)::numeric,2) ELSE NULL END',    "Availability", False),
+
+    # --- User ---
     ("maxRrcChart",    "Max RRC User",          "Users",          "Max RRC Users",  None, None,
      "SUM(max_rrc_conn_user)",            "User", False),
     ("activeUserChart","Active User",           "Users",          "Active Users",  None, None,
      "SUM(new_active_users)",            "User", False),
+
+    # --- Accessibility ---
     ("cssrChart",      "CSSR",                  "%",       "CSSR (%)", None, 100,
      'CASE WHEN SUM(cssr_denum)>0 THEN ROUND((SUM(cssr_num)/SUM(cssr_denum)*100)::numeric,2) ELSE NULL END', "Accessibility", False),
     ("rrcSrChart",     "RRC SR",                "%",     "RRC SR (%)", None, 100,
      'CASE WHEN SUM(rrc_setup_denum)>0 THEN ROUND((SUM(rrc_setup_num)/SUM(rrc_setup_denum)*100)::numeric,2) ELSE NULL END', "Accessibility", False),
     ("erabSrChart",    "ERAB SR",               "%",    "ERAB SR (%)", None, 100,
      'CASE WHEN SUM(erab_setup_denum)>0 THEN ROUND((SUM(erab_setup_num)/SUM(erab_setup_denum)*100)::numeric,2) ELSE NULL END', "Accessibility", False),
+    ("srvcc2gChart",   "SRVCC 2G",              "%",      "SRVCC 2G (%)", None, 100,
+     'CASE WHEN SUM(srvcc_gsm_denum) > 0 THEN ROUND((SUM(srvcc_gsm_num) / SUM(srvcc_gsm_denum) * 100.0)::numeric, 2) ELSE NULL END', "Accessibility", False),
+    ("pagingDiscardedChart", "Paging Discarded", "%",     "Paging Discarded (%)", 0, None,
+     'CASE WHEN SUM(number_of_paging_records_received_by_the_enodeb) > 0 THEN ROUND((SUM(number_of_paging_records_discarded_at_the_enodeb) / SUM(number_of_paging_records_received_by_the_enodeb) * 100.0)::numeric, 2) ELSE NULL END', "Accessibility", True),
+    ("s1SrChart",      "S1 SR",                 "%",      "S1 SR (%)", None, 100,
+     'CASE WHEN SUM(s1_signaling_sr_denum)>0 THEN ROUND((SUM(s1_signaling_sr_num)/SUM(s1_signaling_sr_denum)*100)::numeric,2) ELSE NULL END', "Accessibility", False),
+
+    # --- Retainability ---
     ("sdrChart",       "SDR",                   "%",        "SDR (%)",  None, None,
      'CASE WHEN SUM(sdr_denum)>0 THEN ROUND((SUM(sdr_num)/SUM(sdr_denum)*100)::numeric,2) ELSE NULL END', "Retainability", True),
+    ("erabDropChart",  "ERAB Drop",             "%",      "ERAB Drop (%)", 0, None,
+     'CASE WHEN SUM(erab_drop_denum) > 0 THEN ROUND((SUM(erab_drop_num) / SUM(erab_drop_denum) * 100.0)::numeric, 2) ELSE NULL END', "Retainability", True),
+    ("volteDropChart", "VoLTE Call Drop",       "%",      "VoLTE Call Drop (%)", 0, None,
+     'CASE WHEN SUM(volte_call_drop_rate_mme_denum) > 0 THEN ROUND((SUM(volte_call_drop_rate_mme_num) / SUM(volte_call_drop_rate_mme_denum) * 100.0)::numeric, 2) ELSE NULL END', "Retainability", True),
+
+    # --- Mobility ---
+    ("ifhoChart",      "IFHO",                  "%",       "IFHO (%)", None, 100,
+     'CASE WHEN SUM(ifho_denum)>0 THEN ROUND((SUM(ifho_num)/SUM(ifho_denum)*100)::numeric,2) ELSE NULL END', "Mobility", False),
+    ("intraFreqHoChart", "Intra Freq HO",       "%",      "Intra Freq HO (%)", None, 100,
+     'CASE WHEN SUM(inta_rat_ifho_denum) > 0 THEN ROUND((SUM(inta_rat_ifho_num) / SUM(inta_rat_ifho_denum) * 100.0)::numeric, 2) ELSE NULL END', "Mobility", False),
+    ("bsrAttemptChart","BSR Attempt",           "",       "BSR Attempt", 0, None,
+     'SUM("Number of Outgoing HO Preparation Attempts(based UL Service)")', "Mobility", False),
+    ("bsrSrChart",     "BSR SR",                "%",      "BSR SR (%)", None, 100,
+     'CASE WHEN SUM("Number of Outgoing HO Preparation Attempts(based UL Service)") > 0 THEN ROUND((SUM("Number of Outgoing HO Success(based UL Service)") / SUM("Number of Outgoing HO Preparation Attempts(based UL Service)") * 100.0)::numeric, 2) ELSE NULL END', "Mobility", False),
+
+    # --- Capacity ---
     ("dlPrbChart",     "DL PRB",                "%",     "DL PRB (%)", 0, 100,
      'CASE WHEN SUM(dl_prb_util_denum)>0 THEN ROUND((SUM(dl_prb_util_num)/SUM(dl_prb_util_denum)*100)::numeric,2) ELSE NULL END', "Capacity", False),
     ("ulPrbChart",     "UL PRB",                "%",     "UL PRB (%)", 0, 100,
      'CASE WHEN SUM(ul_prb_util_denum)>0 THEN ROUND((SUM(ul_prb_util_num)/SUM(ul_prb_util_denum)*100)::numeric,2) ELSE NULL END', "Capacity", False),
+
+    # --- Integrity ---
     ("dlThpChart",     "User DL Throughput",    "Mbps",  "DL Thp (Mbps)",  None, None,
      'CASE WHEN SUM(user_dl_thp_denum)>0 THEN ROUND((SUM(user_dl_thp_num)/SUM(user_dl_thp_denum)/1000)::numeric,2) ELSE NULL END', "Integrity", False),
     ("ulThpChart",     "User UL Throughput",    "Mbps",  "UL Thp (Mbps)",  None, None,
      'CASE WHEN SUM(user_ul_thp_denum)>0 THEN ROUND((SUM(user_ul_thp_num)/SUM(user_ul_thp_denum)/1000)::numeric,2) ELSE NULL END', "Integrity", False),
-    ("ifhoChart",      "IFHO",                  "%",       "IFHO (%)", None, 100,
-     'CASE WHEN SUM(ifho_denum)>0 THEN ROUND((SUM(ifho_num)/SUM(ifho_denum)*100)::numeric,2) ELSE NULL END', "Mobility", False),
+
+    # --- Quality ---
     ("seChart",        "Spectral Efficiency",   "SE",             "SE",  None, None,
      'CASE WHEN SUM(se_v3_denum)>0 THEN ROUND((SUM(se_v3_num)/SUM(se_v3_denum))::numeric,2) ELSE NULL END', "Quality", False),
     ("cqiChart",       "CQI",                  "CQI",            "CQI", None, None,
      'CASE WHEN SUM(denum_average_cqi)>0 THEN ROUND((SUM(num_average_cqi)/SUM(denum_average_cqi))::numeric,2) ELSE NULL END', "Quality", False),
+    ("dlMcsAvgChart",  "DL MCS Average",        "",       "DL MCS Average", 0, None,
+     'CASE WHEN SUM(denum_dl_avg_mcs) > 0 THEN ROUND((SUM(num_dl_avg_mcs) / SUM(denum_dl_avg_mcs))::numeric, 2) ELSE NULL END', "Quality", False),
+    ("ulMcsAvgChart",  "UL MCS Average",        "",       "UL MCS Average", 0, None,
+     'CASE WHEN SUM(denum_ul_avg_mcs) > 0 THEN ROUND((SUM(num_ul_avg_mcs) / SUM(denum_ul_avg_mcs))::numeric, 2) ELSE NULL END', "Quality", False),
+    ("agg8Chart",      "Agg8",                  "%",      "Agg8 (%)", 0, None,
+     'CASE WHEN SUM(denum_agg8) > 0 THEN ROUND((SUM(num_agg8) / SUM(denum_agg8) * 100.0)::numeric, 2) ELSE NULL END', "Quality", False),
+    ("dlCceFailChart", "DL CCE Failure",        "%",      "DL CCE Failure (%)", 0, None,
+     'CASE WHEN SUM("DL_CCE_Failure_Denum") > 0 THEN ROUND((SUM("DL_CCE_Failure_Num") / SUM("DL_CCE_Failure_Denum") * 100.0)::numeric, 2) ELSE NULL END', "Quality", True),
+    ("ulCceFailChart", "UL CCE Failure",        "%",      "UL CCE Failure (%)", 0, None,
+     'CASE WHEN SUM("UL_CCE_Failure_Denum") > 0 THEN ROUND((SUM("UL_CCE_Failure_Num") / SUM("UL_CCE_Failure_Denum") * 100.0)::numeric, 2) ELSE NULL END', "Quality", True),
+    ("avgRssiChart",   "Avg Rssi",              "dB",     "Avg Rssi (dB)", None, None,
+     'ROUND(AVG(avg_cell_rssi)::numeric, 0)', "Quality", False),
+    ("avgNiChart",     "Avg Ni",                "dB",     "Avg Ni (dB)", None, None,
+     'ROUND(AVG(average_ni_of_carrier)::numeric, 0)', "Quality", False),
+    ("avgPucchChart",  "Avg Pucch",             "dB",     "Avg Pucch (dB)", None, None,
+     'ROUND(AVG(pucch_avg_ni_of_carrier)::numeric, 0)', "Quality", False),
+    ("avgPuschChart",  "Avg Pusch",             "dB",     "Avg Pusch (dB)", None, None,
+     'ROUND(AVG(pusch_avg_ni_of_carrier)::numeric, 0)', "Quality", False),
+    ("ulBlerChart",    "UL Bler",               "%",      "UL Bler (%)", 0, None,
+     'ROUND((AVG(cell_uplink_init_bler) * 100.0)::numeric, 2)', "Quality", True),
+    ("dlBlerChart",    "DL Bler",               "%",      "DL Bler (%)", 0, None,
+     'ROUND((AVG(cell_downlink_init_bler) * 100.0)::numeric, 2)', "Quality", True),
+    ("procDelayChart", "Processing Delay",      "ms",     "Processing Delay (ms)", 0, None,
+     'CASE WHEN SUM(processing_delay_denum) > 0 THEN ROUND((SUM(processing_delay_num) / SUM(processing_delay_denum))::numeric, 2) ELSE NULL END', "Quality", True),
     ("csfbChart",      "CSFB",                  "%",       "CSFB (%)", None, 100,
-     'CASE WHEN SUM(csfb_denum)>0 THEN ROUND((SUM(csfb_num)/SUM(csfb_denum)*100)::numeric,2) ELSE NULL END', "Others", False),
-    ("s1SrChart",      "S1 SR",                 "%",      "S1 SR (%)", None, 100,
-     'CASE WHEN SUM(s1_signaling_sr_denum)>0 THEN ROUND((SUM(s1_signaling_sr_num)/SUM(s1_signaling_sr_denum)*100)::numeric,2) ELSE NULL END', "Others", False),
+     'CASE WHEN SUM(csfb_denum)>0 THEN ROUND((SUM(csfb_num)/SUM(csfb_denum)*100)::numeric,2) ELSE NULL END', "Quality", False),
+
+    # --- Coverage ---
+    ("badRsrpChart",   "Bad RSRP",              "%",      "Bad RSRP (%)", 0, None,
+     'CASE WHEN SUM(denum_rsrp_dbm) > 0 THEN ROUND((SUM(num_rsrp_dbm) / SUM(denum_rsrp_dbm) * 100.0)::numeric, 2) ELSE NULL END', "Coverage", True),
+    ("goodRsrpChart",  "Good RSRP",             "%",      "Good RSRP (%)", None, 100,
+     'CASE WHEN SUM("Good_RSRP (>-105) Ratio Denum") > 0 THEN ROUND((SUM("Good_RSRP (>-105) Ratio Num") / SUM("Good_RSRP (>-105) Ratio Denum") * 100.0)::numeric, 2) ELSE NULL END', "Coverage", False),
+    ("avgRsrpChart",   "Avg RSRP",              "dB",     "Avg RSRP (dB)", None, None,
+     'ROUND(AVG(avg_rsrp_dbm)::numeric, 0)', "Coverage", False),
+    ("avgRsrqChart",   "Avg RSRQ",              "dB",     "Avg RSRQ (dB)", None, None,
+     'ROUND(AVG("Average of RSRQ Value of Serving Cell(period measurement)(dB)")::numeric, 0)', "Coverage", False),
+
+    # --- Hardware ---
+    ("avgCpuChart",    "Avg CPU Util",          "%",      "Avg CPU Util (%)", 0, None,
+     'ROUND((AVG(average_cpu_utilization) * 100.0)::numeric, 2)', "Hardware", False),
+    ("peakCpuChart",   "Peak CPU Util",         "%",      "Peak CPU Util (%)", 0, None,
+     'ROUND((AVG(peak_cpu_utilization) * 100.0)::numeric, 2)', "Hardware", False),
 ]
 
-KPI_GROUPS = ["Productivity","Availability","User","Accessibility","Retainability","Capacity","Integrity","Mobility","Quality","Others"]
+KPI_GROUPS = ["Productivity","Availability","User","Accessibility","Retainability","Capacity","Integrity","Mobility","Quality","Hardware","Others"]
 
 
 @dashboard_4g.route("/dashboard_4g")
@@ -120,8 +200,9 @@ def dashboard_4g_view():
     
     # Initialize response structures
     trend_labels = []
-    trend_chart_data = defaultdict(lambda: {"total": []})
+    trend_chart_data = defaultdict(lambda: {"total": {}})
     band_trend_chart_data = defaultdict(lambda: defaultdict(list))
+    site_trend_chart_data = defaultdict(lambda: defaultdict(list))
     
     cluster_compare = {}
     band_compare = defaultdict(dict)
@@ -130,6 +211,7 @@ def dashboard_4g_view():
     
     compare_hourly_labels = []
     compare_hourly_data = {}
+    site_compare_hourly_data = defaultdict(lambda: {"before": defaultdict(list), "after": defaultdict(list)})
     
     conn = None
     cur = None
@@ -182,12 +264,43 @@ def dashboard_4g_view():
                         trend_labels.append(r[0])
                     trend_map[r[0]] = r[2:]
                 
+                # We need to initialize total arrays
+                for kpi in KPI_DEFS:
+                    trend_chart_data[kpi[0]]["total"] = []
+                
                 for idx, kpi in enumerate(KPI_DEFS):
                     kpi_id = kpi[0]
                     for hr in trend_labels:
                         val_row = trend_map.get(hr)
                         val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
                         trend_chart_data[kpi_id]["total"].append(val)
+                
+                # Site Trend
+                query_trend_site = f"""
+                    SELECT 
+                        TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') AS dt_label,
+                        datehour,
+                        {group_entity} as siteid,
+                        {kpi_selects}
+                    FROM "4g_kpi_zte"
+                    WHERE date BETWEEN %s AND %s AND {where_entity}
+                    GROUP BY datehour, dt_label, {group_entity} ORDER BY datehour
+                """
+                cur.execute(query_trend_site, [trend_from_date, trend_to_date, sel_sites_param])
+                rows_site_trend = cur.fetchall()
+                site_trend_map = defaultdict(dict)
+                for r in rows_site_trend:
+                    dt_label = r[0]
+                    site = r[2]
+                    site_trend_map[site][dt_label] = r[3:]
+                
+                for site in site_trend_map:
+                    for idx, kpi in enumerate(KPI_DEFS):
+                        kpi_id = kpi[0]
+                        for hr in trend_labels:
+                            val_row = site_trend_map[site].get(hr)
+                            val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
+                            site_trend_chart_data[kpi_id][site].append(val)
                 
                 # 2. Band Trend
                 query_trend_band = f"""
@@ -271,7 +384,7 @@ def dashboard_4g_view():
                         GROUP BY siteid, sector
                     """, [from_d, to_d, sel_sites_param])
                     sector_rows = cur.fetchall()
-                    
+
                     # Site
                     cur.execute(f"""
                         SELECT {group_entity} as siteid, {kpi_selects}
@@ -371,6 +484,40 @@ def dashboard_4g_view():
                         a = round(float(a_val[idx]), 2) if a_val and a_val[idx] is not None else None
                         compare_hourly_data[chart_id]["before"].append(b)
                         compare_hourly_data[chart_id]["after"].append(a)
+                        
+                # --- Compare Hourly Trend Site Level ---
+                cur.execute(f"""
+                    SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {group_entity} as siteid, {kpi_selects}
+                    FROM "4g_kpi_zte"
+                    WHERE date BETWEEN %s AND %s AND {where_entity}
+                    GROUP BY hr, {group_entity} ORDER BY hr
+                """, [before_from_date, before_to_date, sel_sites_param])
+                before_site_hourly = cur.fetchall()
+
+                cur.execute(f"""
+                    SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {group_entity} as siteid, {kpi_selects}
+                    FROM "4g_kpi_zte"
+                    WHERE date BETWEEN %s AND %s AND {where_entity}
+                    GROUP BY hr, {group_entity} ORDER BY hr
+                """, [after_from_date, after_to_date, sel_sites_param])
+                after_site_hourly = cur.fetchall()
+
+                b_site_h_map = defaultdict(dict)
+                for r in before_site_hourly: b_site_h_map[r[1]][r[0]] = r[2:]
+                a_site_h_map = defaultdict(dict)
+                for r in after_site_hourly: a_site_h_map[r[1]][r[0]] = r[2:]
+                
+                all_sh_sites = set(list(b_site_h_map.keys()) + list(a_site_h_map.keys()))
+                for site in all_sh_sites:
+                    for idx, kpi in enumerate(KPI_DEFS):
+                        chart_id = kpi[0]
+                        for hr in compare_hourly_labels:
+                            b_val = b_site_h_map[site].get(hr)
+                            a_val = a_site_h_map[site].get(hr)
+                            b = round(float(b_val[idx]), 2) if b_val and b_val[idx] is not None else None
+                            a = round(float(a_val[idx]), 2) if a_val and a_val[idx] is not None else None
+                            site_compare_hourly_data[chart_id]["before"][site].append(b)
+                            site_compare_hourly_data[chart_id]["after"][site].append(a)
 
         except Exception as e:
             if conn:
@@ -421,6 +568,7 @@ def dashboard_4g_view():
         
         trend_labels=trend_labels,
         trend_chart_data=dict(trend_chart_data),
+        site_trend_chart_data=dict(site_trend_chart_data),
         band_trend_chart_data=dict(band_trend_chart_data),
         
         cluster_compare=cluster_compare,
@@ -430,6 +578,7 @@ def dashboard_4g_view():
         
         compare_hourly_labels=compare_hourly_labels,
         compare_hourly_data=compare_hourly_data,
+        site_compare_hourly_data=dict(site_compare_hourly_data),
         
         kpi_defs=[(k[0], k[1], k[2], k[3], k[4], k[5], k[7], k[8]) for k in KPI_DEFS],
         kpi_groups=KPI_GROUPS,
