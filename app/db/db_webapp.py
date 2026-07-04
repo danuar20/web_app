@@ -213,19 +213,14 @@ def _get_site_cellid_list_5g_impl():
         with closing(get_postgres_connection()) as conn:
             with closing(conn.cursor()) as cur:
                 cur.execute("""
-                    SELECT DISTINCT cellid FROM "5g_kpi_zte"
-                    WHERE cellid IS NOT NULL
+                    SELECT DISTINCT siteid || '-' || REPLACE(cellid::text, '.0', '') AS site_cell
+                    FROM "5g_kpi_zte"
+                    WHERE siteid IS NOT NULL AND cellid IS NOT NULL
                       AND datehour >= CURRENT_TIMESTAMP - INTERVAL '30 days'
-                    ORDER BY cellid
-                    LIMIT 5000
+                    ORDER BY site_cell
+                    LIMIT 50000
                 """)
-                # cellid is numeric in postgres sometimes, need to convert to str/remove .0
-                cells = []
-                for r in cur.fetchall():
-                    c = str(r[0]).replace(".0", "")
-                    if c not in cells:
-                        cells.append(c)
-                return cells, "kpi"
+                return [r[0] for r in cur.fetchall()], "kpi"
     except Exception as e:
         return [], str(e)
 

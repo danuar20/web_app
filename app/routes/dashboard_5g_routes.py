@@ -85,7 +85,7 @@ def dashboard_5g_view():
             parsed = [('UNKNOWN', -1)]
         where_entity = "(siteid, cellid) IN %s"
         sel_sites_param = tuple(parsed)
-        group_entity = "siteid || '-' || cellid::text"
+        group_entity = "siteid || '-' || REPLACE(cellid::text, '.0', '')"
     else:
         if not sel_sites_db:
             sel_sites_db = ['UNKNOWN']
