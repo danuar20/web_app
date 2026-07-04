@@ -118,13 +118,13 @@ def kpi_5g_daily():
                     CASE WHEN SUM(denum_prb_utilization_ul_xhj) > 0
                          THEN ROUND((SUM(num_prb_utilization_ul_xhj) / SUM(denum_prb_utilization_ul_xhj) * 100.0)::numeric, 2)
                          ELSE NULL END AS ul_prb_pct,
-                    ROUND((AVG(cell_throughput_dl_xhj) / 1000.0)::numeric, 2) AS cell_dl_thp_mbps,
-                    ROUND((AVG(cell_throughput_ul_xhj) / 1000.0)::numeric, 2) AS cell_ul_thp_mbps,
+                    ROUND((AVG(cell_throughput_dl_xhj) )::numeric, 2) AS cell_dl_thp_mbps,
+                    ROUND((AVG(cell_throughput_ul_xhj))::numeric, 2) AS cell_ul_thp_mbps,
                     CASE WHEN SUM(denum_user_throughput_dl_xhj) > 0
-                         THEN ROUND((SUM(num_user_throughput_dl_xhj) / SUM(denum_user_throughput_dl_xhj) * 100.0 / 1000.0)::numeric, 2)
+                         THEN ROUND((SUM(num_user_throughput_dl_xhj) / SUM(denum_user_throughput_dl_xhj) )::numeric, 2)
                          ELSE NULL END AS user_dl_thp_mbps,
                     CASE WHEN SUM(denum_user_throughput_ul_xhj) > 0
-                         THEN ROUND((SUM(num_user_throughput_ul_xhj) / SUM(denum_user_throughput_ul_xhj) * 100.0 / 1000.0)::numeric, 2)
+                         THEN ROUND((SUM(num_user_throughput_ul_xhj) / SUM(denum_user_throughput_ul_xhj) )::numeric, 2)
                          ELSE NULL END AS user_ul_thp_mbps,
                     CASE WHEN SUM(spectrum_eff_bps_lw_denum) > 0
                          THEN ROUND((SUM(spectrum_eff_bps_lw_num) / SUM(spectrum_eff_bps_lw_denum))::numeric, 4)

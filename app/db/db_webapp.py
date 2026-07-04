@@ -98,42 +98,6 @@ def _get_cached(key, factory_fn):
     return g.request_cache[key]
 
 
-def get_site_list_2g():
-    """
-    Get list of 2G site IDs from siteID_2g reference table.
-    Cached per request for performance.
-    Returns: list of site IDs
-    """
-    return _get_cached("2g_sites", lambda: _get_site_list_2g_impl())
-
-
-def _get_site_list_2g_impl():
-    """Internal implementation — uses mv_siteid_2g materialized view."""
-    try:
-        with closing(get_postgres_connection()) as conn:
-            with closing(conn.cursor()) as cur:
-                cur.execute('SELECT siteid FROM "mv_siteid_2g" WHERE siteid IS NOT NULL ORDER BY siteid')
-                sites = [r[0] for r in cur.fetchall()]
-                if sites:
-                    return sites
-    except Exception:
-        pass
-
-    # Fallback: extract from 2g_kpi_zte using siteid column
-    try:
-        with closing(get_postgres_connection()) as conn:
-            with closing(conn.cursor()) as cur:
-                cur.execute("""
-                    SELECT DISTINCT siteid FROM "2g_kpi_zte"
-                    WHERE siteid IS NOT NULL
-                      AND datehour >= CURRENT_TIMESTAMP - INTERVAL '30 days'
-                    ORDER BY siteid
-                    LIMIT 10000
-                """)
-                return [r[0] for r in cur.fetchall()]
-    except Exception:
-        return []
-
 
 def get_site_list_4g():
     """Get the list of 4G site IDs from the siteID_4g reference table."""
@@ -199,10 +163,11 @@ def _get_site_cell_list_4g_impl():
 
 
 def get_site_list_5g():
-    """
-    Get the list of 5G site IDs from the siteID_5g view in the postgres DB.
-    Returns: tuple (list of site IDs, source label)
-    """
+    """Get the list of 5G site IDs from the siteID_5g view in the postgres DB."""
+    return _get_cached("5g_sites", lambda: _get_site_list_5g_impl())
+
+def _get_site_list_5g_impl():
+    """Internal implementation — uses mv_siteid_5g materialized view with siteid column."""
     try:
         with closing(get_postgres_connection()) as conn:
             with closing(conn.cursor()) as cur:
@@ -213,4 +178,116 @@ def get_site_list_5g():
     except Exception:
         pass
 
-    return [], "no_data"
+    # Fallback: extract from 5g_kpi_zte
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute("""
+                    SELECT DISTINCT siteid FROM "5g_kpi_zte"
+                    WHERE siteid IS NOT NULL
+                      AND datehour >= CURRENT_TIMESTAMP - INTERVAL '30 days'
+                    ORDER BY siteid
+                    LIMIT 5000
+                """)
+                return [r[0] for r in cur.fetchall()], "kpi"
+    except Exception as e:
+        return [], str(e)
+
+def get_site_cellid_list_5g():
+    """Get the list of 5G site cells."""
+    return _get_cached("5g_site_cellids", lambda: _get_site_cellid_list_5g_impl())
+
+def _get_site_cellid_list_5g_impl():
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute('SELECT site_cell FROM "mv_site_cell_5g" WHERE site_cell IS NOT NULL ORDER BY site_cell')
+                cells = [r[0] for r in cur.fetchall()]
+                if cells:
+                    return cells, "reference"
+    except Exception:
+        pass
+
+    # Fallback: extract from 5g_kpi_zte using cellid column
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute("""
+                    SELECT DISTINCT cellid FROM "5g_kpi_zte"
+                    WHERE cellid IS NOT NULL
+                      AND datehour >= CURRENT_TIMESTAMP - INTERVAL '30 days'
+                    ORDER BY cellid
+                    LIMIT 5000
+                """)
+                # cellid is numeric in postgres sometimes, need to convert to str/remove .0
+                cells = []
+                for r in cur.fetchall():
+                    c = str(r[0]).replace(".0", "")
+                    if c not in cells:
+                        cells.append(c)
+                return cells, "kpi"
+    except Exception as e:
+        return [], str(e)
+
+def get_site_list_2g():
+    """Get the list of 2G site IDs from the mv_siteid_2g view in the postgres DB."""
+    return _get_cached("2g_sites", lambda: _get_site_list_2g_impl())
+
+def _get_site_list_2g_impl():
+    """Internal implementation — uses mv_siteid_2g materialized view with siteid column."""
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute('SELECT siteid FROM "mv_siteid_2g" WHERE siteid IS NOT NULL ORDER BY siteid')
+                sites = [r[0] for r in cur.fetchall()]
+                if sites:
+                    return sites, "reference"
+    except Exception:
+        pass
+
+    # Fallback: extract from 2g_kpi_zte
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute("""
+                    SELECT DISTINCT siteid FROM "2g_kpi_zte"
+                    WHERE siteid IS NOT NULL
+                      AND datehour >= CURRENT_TIMESTAMP - INTERVAL '30 days'
+                    ORDER BY siteid
+                    LIMIT 5000
+                """)
+                return [r[0] for r in cur.fetchall()], "kpi"
+    except Exception as e:
+        return [], str(e)
+
+
+def get_site_cell_list_2g():
+    """Get the list of 2G site cells."""
+    return _get_cached("2g_site_cells", lambda: _get_site_cell_list_2g_impl())
+
+def _get_site_cell_list_2g_impl():
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute('SELECT site_cell FROM "mv_site_cell_2g" WHERE site_cell IS NOT NULL ORDER BY site_cell')
+                cells = [r[0] for r in cur.fetchall()]
+                if cells:
+                    return cells, "reference"
+    except Exception:
+        pass
+
+    # Fallback: extract from 2g_kpi_zte using siteid and bts columns
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute("""
+                    SELECT DISTINCT siteid || '-' || bts AS site_cell
+                    FROM "2g_kpi_zte"
+                    WHERE siteid IS NOT NULL AND bts IS NOT NULL
+                      AND datehour >= CURRENT_TIMESTAMP - INTERVAL '7 days'
+                    ORDER BY site_cell
+                    LIMIT 50000
+                """)
+                return [r[0] for r in cur.fetchall()], "kpi"
+    except Exception as e:
+        return [], str(e)

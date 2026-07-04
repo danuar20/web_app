@@ -62,6 +62,14 @@ ta4g = ta_4g_routes.ta4g
 from . import dashboard_4g_routes
 dashboard_4g = dashboard_4g_routes.dashboard_4g
 
+# Dashboard 2G — /dashboard_2g
+from . import dashboard_2g_routes
+dashboard_2g = dashboard_2g_routes.dashboard_2g
+
+# Dashboard 5G — /dashboard_5g
+from . import dashboard_5g_routes
+dashboard_5g = dashboard_5g_routes.dashboard_5g
+
 # 5G KPI Daily — /kpi_5g_daily (per-site view)
 from . import kpi_5g_daily_routes
 kpi5g_daily = kpi_5g_daily_routes.kpi5g_daily

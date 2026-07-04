@@ -1664,6 +1664,25 @@ body.mobile-view .sidebar .nav-link {
         </a>
       </div>
 
+      <div class="menu-item {% block nav_dashboard %}{% endblock %}" onclick="toggleSub('subDashboard', this)">
+        <div class="menu-dot" style="background:#00bcd4"></div>
+        <span class="menu-item-label">Dashboard</span>
+        <i class="fas fa-chevron-right menu-arrow"></i>
+      </div>
+      <div class="sub-menu {% block subDashboard_open %}{% endblock %}" id="subDashboard">
+        <a href="/dashboard_2g" class="sub-item {% block nav_dashboard_2g %}{% endblock %}">
+          <span class="sub-item-dot"></span> Dashboard 2G
+        </a>
+        <a href="/dashboard_4g" class="sub-item {% block nav_dashboard_4g %}{% endblock %}">
+          <span class="sub-item-dot"></span> Dashboard 4G
+        </a>
+        <a href="/dashboard_5g" class="sub-item {% block nav_dashboard_5g %}{% endblock %}">
+          <span class="sub-item-dot"></span> Dashboard 5G
+        </a>
+      </div>
+
+
+
       <div class="menu-item {% block nav_2g %}{% endblock %}" onclick="toggleSub('sub2g', this)">
         <div class="menu-dot" style="background:#f6c90e"></div>
         <span class="menu-item-label">2G KPI</span>
@@ -1723,16 +1742,7 @@ body.mobile-view .sidebar .nav-link {
         </a>
       </div>
       
-      <div class="menu-item {% block nav_dashboard %}{% endblock %}" onclick="toggleSub('subDashboard', this)">
-        <div class="menu-dot" style="background:#00bcd4"></div>
-        <span class="menu-item-label">Dashboard</span>
-        <i class="fas fa-chevron-right menu-arrow"></i>
-      </div>
-      <div class="sub-menu {% block subDashboard_open %}{% endblock %}" id="subDashboard">
-        <a href="/dashboard_4g" class="sub-item {% block nav_dashboard_4g %}{% endblock %}">
-          <span class="sub-item-dot"></span> Dashboard 4G
-        </a>
-      </div>
+
     </div>
 
     <div class="menu-section">

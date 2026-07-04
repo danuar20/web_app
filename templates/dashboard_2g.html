@@ -1,0 +1,2518 @@
+{% extends 'base.html' %}
+{% block nav_dashboard %}active{% endblock %}
+{% block nav_dashboard_2g %}active{% endblock %}
+{% block subDashboard_open %}open{% endblock %}
+{% block page_title %}Dashboard 2G{% endblock %}
+{% block page_sub %}Unified view for Comparison, Trend, and Custom Analysis{% endblock %}
+
+{% block topbar_chips %}
+{% if last_update %}
+<div class="info-chip" title="Latest Data in DB">
+    <i class="fas fa-database"></i> {{ last_update }}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block page_content %}
+<style>
+    /* Dashboard specific styles */
+    .dashboard-top {
+        margin-bottom: 12px;
+    }
+
+    .nav-tabs {
+        display: flex;
+        border-bottom: 1px solid rgba(79, 172, 254, 0.2);
+        margin-bottom: 16px;
+        gap: 4px;
+        padding: 0 10px;
+    }
+
+    .nav-tab {
+        padding: 10px 16px;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        font-size: 13px;
+        font-weight: 600;
+        opacity: 0.6;
+        transition: all 0.2s;
+    }
+
+    .nav-tab:hover {
+        opacity: 1;
+    }
+
+    .nav-tab.active {
+        opacity: 1;
+        border-bottom-color: #4facfe;
+        color: #4facfe;
+    }
+
+    .tab-content {
+        display: none;
+        padding-bottom: 40px;
+    }
+
+    .tab-content.active {
+        display: block;
+        animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(4px)
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0)
+        }
+    }
+
+    /* Table styles */
+    .compare-table-wrap {
+        overflow-x: auto;
+        border-radius: 8px;
+        border: 1px solid rgba(79, 172, 254, 0.1);
+    }
+
+    .compare-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 11px;
+        text-align: center;
+        min-width: 800px;
+    }
+
+    .compare-table thead th {
+        position: sticky;
+        top: 0;
+        background: #1e2a4a !important;
+        color: #fff;
+        z-index: 10;
+        padding: 8px 10px;
+        text-align: center;
+        border-bottom: 2px solid rgba(79, 172, 254, 0.3);
+        border-right: 1px solid rgba(79, 172, 254, 0.1);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+    }
+
+    [data-theme="light"] .compare-table thead th {
+        background: #334155 !important;
+        color: #fff;
+    }
+
+    .compare-table th.before-header {
+        color: #4facfe;
+    }
+
+    .compare-table th.after-header {
+        color: #00e676;
+    }
+
+    .compare-table th.entity-col {
+        position: sticky;
+        left: 0;
+        z-index: 12;
+        background: #1e1e2d !important;
+    }
+    
+    .compare-table td.entity-cell {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        background: #1e1e2d !important;
+        border-right: 2px solid rgba(79, 172, 254, 0.2);
+        font-weight: 600;
+    }
+
+    [data-theme="light"] .compare-table th.entity-col,
+    [data-theme="light"] .compare-table td.entity-cell {
+        background: #f8fafc !important;
+    }
+
+    .compare-table tbody tr:hover td.entity-cell {
+        background: #2a2a3f !important;
+    }
+    [data-theme="light"] .compare-table tbody tr:hover td.entity-cell {
+        background: #e2e8f0 !important;
+    }
+
+    .compare-table td {
+        padding: 7px 10px;
+        border-bottom: 1px solid rgba(79, 172, 254, 0.06);
+        vertical-align: middle;
+    }
+
+    .compare-table tbody tr:hover td {
+        background: rgba(79, 172, 254, 0.04);
+    }
+
+    .text-left {
+        text-align: left !important;
+    }
+
+    .text-center {
+        text-align: center !important;
+    }
+
+    .remark-improve {
+        background: rgba(0, 230, 118, 0.15);
+        color: #00e676;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 10px;
+    }
+
+    .remark-maintain {
+        background: rgba(79, 172, 254, 0.15);
+        color: #4facfe;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 10px;
+    }
+
+    .remark-degraded {
+        background: rgba(255, 82, 82, 0.15);
+        color: #ff5252;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 10px;
+    }
+
+    /* Grouped Site Table Styling (Frozen Pane) */
+    .site-table-wrap {
+        overflow-x: auto;
+        max-height: 500px;
+        border-radius: 8px;
+    }
+
+    .site-table {
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 11px;
+        min-width: max-content;
+    }
+
+    .site-table thead th {
+        padding: 6px 8px;
+        font-size: 9px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: #1e2a4a !important;
+        color: #fff;
+        border-bottom: 1px solid rgba(79, 172, 254, 0.3);
+        border-right: 1px solid rgba(79, 172, 254, 0.1);
+    }
+
+    .site-table thead tr:nth-child(2) th {
+        top: 26px;
+    }
+
+    .site-table thead tr:first-child th {
+        border-bottom: 2px solid rgba(79, 172, 254, 0.3);
+        text-align: center;
+    }
+
+    .site-table th.entity-col {
+        position: sticky;
+        left: 0;
+        z-index: 12;
+        min-width: 120px;
+        background: #1e1e2d !important;
+    }
+
+    .site-table td {
+        padding: 6px 8px;
+        border-bottom: 1px solid rgba(79, 172, 254, 0.05);
+        border-right: 1px solid rgba(79, 172, 254, 0.05);
+        text-align: center;
+    }
+
+    .site-table td.entity-cell {
+        position: sticky;
+        left: 0;
+        font-weight: 600;
+        z-index: 2;
+        background: #1e1e2d !important;
+        border-right: 2px solid rgba(79, 172, 254, 0.2);
+    }
+
+    [data-theme="light"] .site-table thead th,
+    [data-theme="light"] .site-table th.entity-col,
+    [data-theme="light"] .site-table td.entity-cell {
+        background: #f8fafc !important;
+        color: #1e293b;
+    }
+
+    .site-table tbody tr:hover td.entity-cell {
+        background: #2a2a3f !important;
+    }
+    [data-theme="light"] .site-table tbody tr:hover td.entity-cell {
+        background: #e2e8f0 !important;
+    }
+
+    /* Chart grid */
+    .chart-grid {
+        display: grid;
+        gap: 14px;
+    }
+
+    .chart-grid>* {
+        min-width: 0;
+    }
+
+    /* Fix horizontal overflow bug on charts */
+    .grid-1 {
+        grid-template-columns: 1fr;
+    }
+
+    .grid-2 {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .grid-3 {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    /* Custom chart builder */
+    .custom-chart-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+        background: rgba(79, 172, 254, 0.05);
+        padding: 12px 16px;
+        border-radius: 10px;
+        border: 1px solid rgba(79, 172, 254, 0.1);
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .ctrl-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .chart-box {
+        background: rgba(30, 30, 58, 0.5);
+        border: 1px solid rgba(79, 172, 254, 0.15);
+        border-radius: 12px;
+        padding: 16px;
+        position: relative;
+    }
+
+    [data-theme="light"] .chart-box {
+        background: #fff;
+    }
+
+    .chart-box-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+    }
+
+    .chart-title-input {
+        background: transparent;
+        border: 1px dashed rgba(79, 172, 254, 0.4);
+        color: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: 4px;
+        width: 60%;
+    }
+
+    .chart-title-input:focus {
+        outline: none;
+        border-color: #4facfe;
+        background: rgba(0, 0, 0, 0.1);
+    }
+
+    .chart-config-panel {
+        background: rgba(0, 0, 0, 0.15);
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 10px;
+        font-size: 11px;
+    }
+
+    .config-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 6px;
+    }
+
+    .kpi-sel,
+    .axis-sel,
+    .type-sel {
+        padding: 4px;
+        font-size: 11px;
+        border-radius: 4px;
+        border: 1px solid rgba(79, 172, 254, 0.2);
+        background: rgba(20, 20, 44, 0.8);
+        color: inherit;
+    }
+
+    [data-theme="light"] .kpi-sel,
+    [data-theme="light"] .axis-sel,
+    [data-theme="light"] .type-sel {
+        background: #fff;
+        border-color: #ccc;
+    }
+
+    .color-sel {
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .btn-xs {
+        padding: 3px 8px;
+        font-size: 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        border: 1px solid;
+        background: transparent;
+        color: inherit;
+        transition: all 0.2s;
+    }
+
+    .btn-xs:hover {
+        background: rgba(79, 172, 254, 0.1);
+        border-color: #4facfe;
+    }
+
+    .btn-xs.danger:hover {
+        background: rgba(255, 82, 82, 0.1);
+        border-color: #ff5252;
+        color: #ff5252;
+    }
+
+    .axis-labels-row {
+        display: flex;
+        gap: 10px;
+        margin-top: 8px;
+    }
+
+    .axis-input {
+        flex: 1;
+        padding: 4px 8px;
+        font-size: 11px;
+        border-radius: 4px;
+        border: 1px solid rgba(79, 172, 254, 0.2);
+        background: rgba(20, 20, 44, 0.4);
+        color: inherit;
+    }
+
+    [data-theme="light"] .axis-input {
+        background: #fff;
+        border-color: #ccc;
+    }
+
+    .chart-wrap-inner {
+        height: 260px;
+        position: relative;
+        margin-top: 10px;
+    }
+
+    .date-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+    }
+
+    .date-label {
+        font-size: 11px;
+        font-weight: 600;
+        opacity: 0.6;
+        min-width: 80px;
+    }
+
+    /* Layout Padding */
+    .content-area {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    #tab-custom {
+        padding: 0 16px;
+    }
+
+    input[type="color"].color-sel {
+        border: none;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        background: transparent;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+
+    input[type="color"].color-sel::-webkit-color-swatch-wrapper {
+        padding: 0;
+    }
+
+    input[type="color"].color-sel::-webkit-color-swatch {
+        border: none;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Solid White Filters */
+    .f-input,
+    .dropdown-toggle {
+        background: #ffffff !important;
+        color: #1e293b !important;
+        border: 1px solid #cbd5e1 !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    [data-theme="dark"] .f-input,
+    [data-theme="dark"] .dropdown-toggle {
+        background: #1e293b !important;
+        color: #f8fafc !important;
+        border: 1px solid #334155 !important;
+    }
+
+    .dropdown-menu {
+        background: #ffffff !important;
+        color: #1e293b !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+        border: 1px solid #cbd5e1 !important;
+    }
+
+    [data-theme="dark"] .dropdown-menu {
+        background: #1e293b !important;
+        color: #f8fafc !important;
+        border: 1px solid #334155 !important;
+    }
+
+    .filter-panel {
+        background: #ffffff;
+        border: 1px solid rgba(128, 128, 128, 0.2);
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    [data-theme="dark"] .filter-panel {
+        background: rgba(30, 30, 58, 0.6);
+        border: 1px solid rgba(79, 172, 254, 0.1);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Modal Styles */
+    .modal-overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(4px);
+    }
+    .modal-content {
+        background: #1e1e2d;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        width: 100%;
+        max-width: 500px;
+        padding: 24px;
+        border: 1px solid rgba(128,128,128,0.2);
+    }
+    [data-theme="light"] .modal-content {
+        background: #ffffff;
+    }
+    
+    /* Fallback layout for mobile: Dashboard 2G filter bar should remain flex, not grid */
+    body.mobile-view .dashboard-top .filter-bar {
+        display: flex !important;
+    }
+</style>
+
+<div class="content-area">
+    <!-- Filter Bar Header -->
+    <div
+        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 4px;">
+        <div style="font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-filter" style="color: #4facfe;"></i> Filters
+        </div>
+        <button type="button" class="btn-xs" onclick="toggleFilters()" id="filterToggleBtn"
+            style="padding: 4px 10px; font-size: 11px;">
+            <i class="fas fa-chevron-up"></i> Hide Filters
+        </button>
+    </div>
+
+    <!-- Filter Bar Content -->
+    <div class="card dashboard-top" id="filterContainer" style="transition: all 0.3s ease; padding: 20px;">
+        <form method="GET" action="/dashboard_2g" id="filterForm" onsubmit="showLoading()">
+            <div class="filter-bar"
+                style="padding: 0; background: transparent; border: none; display: flex; gap: 16px; align-items: stretch; flex-wrap: wrap; overflow: visible; width: 100%;">
+
+                <!-- Panel 1: Dates Section -->
+                <div class="filter-panel date-panel"
+                    style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 12px;">
+                    <div
+                        style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+                        <span class="date-label" style="margin:0; font-size:11px;">Trend Range</span>
+                        <input type="date" class="f-input" name="trend_from_date" value="{{ trend_from_date }}" required
+                            style="padding: 4px 8px; height: 32px; font-size: 11px;">
+                        <span style="font-size:10px; opacity:0.5; text-align: center;">to</span>
+                        <input type="date" class="f-input" name="trend_to_date" value="{{ trend_to_date }}" required
+                            style="padding: 4px 8px; height: 32px; font-size: 11px;">
+                        <input type="color" class="color-sel" id="trendColor" value="#4facfe" title="Trend Color"
+                            style="width: 24px; height: 24px; padding: 0; margin-left: 6px;">
+                    </div>
+                    <div
+                        style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+                        <span class="date-label" style="margin:0; font-size:11px;">Date Before</span>
+                        <input type="date" class="f-input" name="before_from_date" value="{{ before_from_date }}"
+                            required style="padding: 4px 8px; height: 32px; font-size: 11px;">
+                        <span style="font-size:10px; opacity:0.5; text-align: center;">to</span>
+                        <input type="date" class="f-input" name="before_to_date" value="{{ before_to_date }}" required
+                            style="padding: 4px 8px; height: 32px; font-size: 11px;">
+                        <input type="color" class="color-sel" id="beforeColor" value="#00e676"
+                            title="Before Shade Color" style="width: 24px; height: 24px; padding: 0; margin-left: 6px;">
+                    </div>
+                    <div
+                        style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+                        <span class="date-label" style="margin:0; font-size:11px;">Date After</span>
+                        <input type="date" class="f-input" name="after_from_date" value="{{ after_from_date }}" required
+                            style="padding: 4px 8px; height: 32px; font-size: 11px;">
+                        <span style="font-size:10px; opacity:0.5; text-align: center;">to</span>
+                        <input type="date" class="f-input" name="after_to_date" value="{{ after_to_date }}" required
+                            style="padding: 4px 8px; height: 32px; font-size: 11px;">
+                        <input type="color" class="color-sel" id="afterColor" value="#4facfe" title="After Shade Color"
+                            style="width: 24px; height: 24px; padding: 0; margin-left: 6px;">
+                    </div>
+                    <div class="exec-dates-row"
+                        style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+                        <span class="date-label" style="margin:0; font-size:11px;">Exec Dates</span>
+                        <input type="date" class="f-input" id="execDateAdd"
+                            onchange="addExecDate(this.value); this.value='';"
+                            style="padding: 4px 8px; height: 32px; font-size: 11px;">
+                        <button type="button" class="btn-xs danger" onclick="clearExecDates()"
+                            style="padding: 4px; height: 32px; width: 32px; border-radius:6px; display:flex; align-items:center; justify-content:center;"
+                            title="Clear All Exec Dates"><i class="fas fa-trash"></i></button>
+                        <div class="exec-style-group" style="display: flex; align-items: center; gap: 4px; margin-left: auto;">
+                            <span style="font-size:11px; opacity:0.5;" title="Line Weight"><i class="fas fa-align-justify"></i></span>
+                            <select id="execWeight" class="f-input"
+                                style="width: 25px; padding: 0; text-align: center; height: 26px; font-size: 11px; cursor: pointer; -webkit-appearance: none; appearance: none;"
+                                title="Line Weight (1-5)">
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                            </select>
+                            <span style="font-size:11px; opacity:0.5;" title="Dash pattern"><i class="fas fa-ellipsis-h"></i></span>
+                            <input type="text" id="execDash" value="5,5" class="f-input"
+                                style="width: 30px; padding: 0; text-align: center; height: 26px; font-size: 11px;"
+                                title="Dash pattern (e.g. 5,5 or 0 for solid)">
+                            <input type="color" class="color-sel" id="execColor" value="#ff5252" title="Line Color"
+                                style="width: 24px; height: 24px; padding: 0; margin-left: 2px; cursor: pointer;">
+                        </div>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+                        <input type="hidden" name="execution_dates" id="execution_dates_hidden"
+                            value="{{ execution_dates }}">
+                        <div id="execDatesChips"
+                            style="display:flex; flex-wrap:wrap; gap:4px; min-height: 24px; padding: 4px; border: 1px dashed rgba(79,172,254,0.3); border-radius: 6px;">
+                        </div>
+                    </div>
+                    <label
+                        style="display:flex; align-items:center; gap:6px; font-size:11px; font-weight:600; cursor:pointer; color: #4facfe; margin-top: 4px;">
+                        <input type="checkbox" id="showShadingToggle" checked style="width: 14px; height: 14px;">
+                        Show Comparison Shading on Charts
+                    </label>
+                </div>
+
+                <!-- Panel 2: Sites Section -->
+                <div class="filter-panel"
+                    style="flex: 1 1 auto; max-width: 350px; display: flex; flex-direction: column; gap: 16px;">
+                    <div class="filter-group" style="width: 100%;">
+                        <div class="filter-label" id="siteFilterLabel"
+                            style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+                            <span id="filterTitleLabel">SITES</span>
+                            <div style="display: flex; gap: 8px; font-weight: 600; font-size: 10px; text-transform: none;">
+                                <label style="cursor:pointer;"><input type="radio" name="filter_type" value="siteid" {% if filter_type != 'site_cell' %}checked{% endif %} onchange="onFilterTypeChange(this.value)"> Site ID</label>
+                                <label style="cursor:pointer;"><input type="radio" name="filter_type" value="site_cell" {% if filter_type == 'site_cell' %}checked{% endif %} onchange="onFilterTypeChange(this.value)"> Site-Cell</label>
+                            </div>
+                        </div>
+                        <div class="dropdown-container" id="siteDropdownContainer" style="position: relative;">
+                            <button type="button" class="dropdown-toggle" onclick="toggleSiteDropdown(event)"
+                                style="width: 100%; height: 36px; justify-content: space-between; padding: 0 12px; border-radius: 8px; font-size: 12px;">
+                                <span id="siteBtnText" style="font-weight: 600;">Select {% if filter_type == 'site_cell' %}Cells{% else %}Sites{% endif %} ({{ sel_sites|length if
+                                    sel_sites else 0 }})</span> <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="dropdown-menu" id="siteDropdown"
+                                style="display: none; z-index: 1000; position: absolute; width: 100%; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+                                <input type="text" id="siteSearch" placeholder="Search {% if filter_type == 'site_cell' %}cells{% else %}sites{% endif %}..." onkeyup="filterSites()"
+                                    style="width: calc(100% - 16px); padding: 6px; margin: 8px; border: 1px solid rgba(128,128,128,0.2); border-radius: 4px; font-size: 12px;">
+                                <label class="checkbox-label"
+                                    style="border-bottom: 1px solid rgba(128,128,128,0.1); padding: 6px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                                    <input type="checkbox" id="siteSelectAll" onchange="toggleAllSites(this)">
+                                    <span><strong>Select All</strong></span>
+                                </label>
+                                <div id="siteCheckboxes"
+                                    style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding: 6px 12px;">
+                                    {% for site in sites_list %}
+                                    <label class="checkbox-label" data-site="{{ site }}"
+                                        style="cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                                        <input type="checkbox" name="site" value="{{ site }}" {% if site in sel_sites
+                                            %}checked{% endif %} onchange="updateSiteCount()">
+                                        <span>{{ site }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="filter-group" style="width: 100%;">
+                        <div class="filter-label" id="importLabel"
+                            style="font-size: 10px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">
+                            Or import {% if filter_type == 'site_cell' %}cells{% else %}sites{% endif %} from CSV</div>
+                        <label class="f-input"
+                            style="display:flex; align-items:center; gap:6px; cursor:pointer; width: max-content; padding:4px 10px; height: 32px; border-radius: 6px; background: rgba(128,128,128,0.05) !important;">
+                            <i class="fas fa-file-import" style="color: #4facfe; font-size: 12px;"></i>
+                            <input type="file" id="siteFileInput" accept=".csv,.txt" style="display:none;"
+                                onchange="handleSiteFileImport(this)">
+                            <span id="siteFileLabel" style="font-weight: 600; font-size: 11px;">Choose CSV
+                                file...</span>
+                        </label>
+                        <textarea id="sitePasteArea" class="f-input" placeholder="Paste {% if filter_type == 'site_cell' %}cell{% else %}site{% endif %} IDs here
+(one per line or comma-separated)" rows="3"
+                            style="width: 100%; resize:vertical; font-size:11px; margin-top:8px; box-sizing: border-box; border-radius: 6px;"
+                            oninput="handleInlinePasteAndSelect(this.value)"></textarea>
+                    </div>
+                </div>
+
+                <!-- Panel 3: KPIs Section -->
+                <div class="filter-panel"
+                    style="flex: 1 1 auto; max-width: 350px; display: flex; flex-direction: column; gap: 16px;">
+                    <div class="filter-group" style="width: 100%;">
+                        <div class="filter-label"
+                            style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px;">KPIS</div>
+                        <div class="dropdown-container" id="kpiDropdownContainer" style="position: relative;">
+                            <button type="button" class="dropdown-toggle" onclick="toggleKpiDropdown(event)"
+                                style="width: 100%; height: 36px; justify-content: space-between; padding: 0 12px; border-radius: 8px; font-size: 12px;">
+                                <span id="kpiBtnText" style="font-weight: 600;">{{ sel_kpis|length if sel_kpis else
+                                    all_kpis|length }} KPI(s) Selected</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="dropdown-menu" id="kpiDropdown"
+                                style="display: none; width: 100%; max-height: 400px; z-index: 1000; position: absolute; overflow-y: auto; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+                                <label class="checkbox-label"
+                                    style="border-bottom: 1px solid rgba(128,128,128,0.1); padding: 10px 12px; margin: 0; background: rgba(79,172,254,0.05); cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                                    <input type="checkbox" id="kpiSelectAll" onchange="toggleAllKPIs(this)">
+                                    <span style="color:#4facfe; font-weight:700">Select All KPIs</span>
+                                </label>
+                                <div id="kpiCheckboxes"
+                                    style="display: flex; flex-direction: column; padding-bottom: 12px;">
+                                    {% for grp in kpi_groups %}
+                                    <div
+                                        style="font-size:10px; font-weight:800; color:#94a3b8; margin:10px 12px 4px; text-transform:uppercase; letter-spacing: 0.5px;">
+                                        {{ grp }}</div>
+                                    {% for k in all_kpis %}
+                                    {% if k[7] == grp %}
+                                    <label class="checkbox-label"
+                                        style="padding: 4px 12px; margin: 0; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 11px;">
+                                        <input type="checkbox" name="kpi" value="{{ k[0] }}" {% if k[0] in sel_kpis
+                                            %}checked{% endif %} onchange="updateKpiCount()">
+                                        <span>{{ k[1] }}</span>
+                                    </label>
+                                    {% endif %}
+                                    {% endfor %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel 4: Buttons Section -->
+                <div
+                    style="display: flex; flex-direction: column; gap: 12px; justify-content: flex-start; flex: 0 0 auto;">
+                    <button type="submit" class="btn-apply"
+                        style="padding: 12px 24px; font-size: 14px; font-weight: 700; border-radius: 12px; box-shadow: 0 4px 14px rgba(79,172,254,0.4); background: linear-gradient(135deg, #4facfe, #00f2fe); border: none; color: #fff;">Generate
+                        Dashboard</button>
+                    <button type="button" onclick="resetUI()" class="btn-reset text-center"
+                        style="padding: 8px 24px; font-size: 13px; font-weight: 600; border-radius: 12px; border: 1px solid rgba(128,128,128,0.2); background: transparent;">Reset</button>
+                </div>
+
+            </div>
+            <script>
+                // Hydrate inputs immediately to prevent UI flicker
+                (function () {
+                    const fields = ['trendColor', 'beforeColor', 'afterColor', 'execColor', 'execWeight', 'execDash'];
+                    fields.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) {
+                            const saved = localStorage.getItem('d2g_' + id);
+                            if (saved !== null) el.value = saved;
+                        }
+                    });
+                    const shading = document.getElementById('showShadingToggle');
+                    if (shading) {
+                        const saved = localStorage.getItem('d2g_showShadingToggle');
+                        if (saved !== null) shading.checked = (saved === 'true');
+                    }
+                })();
+            </script>
+        </form>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter: blur(2px); z-index:9999; align-items:center; justify-content:center; flex-direction:column; color:#fff;">
+        <div style="font-size:40px; animation:spin 1s linear infinite;"><i class="fas fa-circle-notch"></i></div>
+        <div style="margin-top:16px; font-size:16px; font-weight:600;">Generating Dashboard...</div>
+        <div style="margin-top:8px; font-size:12px; opacity:0.7;">Querying network data, this might take a moment...
+        </div>
+    </div>
+    <style>
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+        .view-btn {
+            background: transparent;
+            transition: all 0.2s;
+        }
+        .view-btn.active {
+            background: #4facfe !important;
+            color: white !important;
+            border-radius: 4px;
+        }
+    </style>
+
+    {% if trend_from_date and sel_sites %}
+    <!-- Tabs Navigation -->
+    <div class="nav-tabs"
+        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid rgba(79, 172, 254, 0.2); margin-bottom: 20px;">
+        <div style="display: flex; gap: 8px;">
+            <div class="nav-tab active" onclick="switchTab('tab-compare', this)">Comparison Table</div>
+            <div class="nav-tab" onclick="switchTab('tab-trend', this)">Trend Charts</div>
+            <div class="nav-tab" onclick="switchTab('tab-band', this)">Band Level</div>
+            <div class="nav-tab" onclick="switchTab('tab-sector', this)">Sector Level</div>
+            <div class="nav-tab" onclick="switchTab('tab-custom', this)">Custom Charts</div>
+        </div>
+    </div>
+
+    {% macro render_tab_controls(tab_id, show_toggle=True, is_chart_active=False, chart_grid_id=None, export_chart_prefix=None) %}
+    <div class="tab-controls-bar" style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; background: rgba(128,128,128,0.05); padding: 12px; border-radius: 8px;">
+        <div style="display:flex; align-items: center; gap: 12px;">
+            {% if show_toggle %}
+            <div class="view-btns" style="display:flex; background:rgba(128,128,128,0.1); border-radius:6px; overflow:hidden;">
+                <button id="btn-chart-{{ tab_id }}" class="view-btn {% if is_chart_active %}active{% endif %}" style="padding:4px 12px; font-size:11px; border:none; cursor:pointer; color:inherit;" onclick="setTabView('{{ tab_id }}','chart')">Chart</button>
+                <button id="btn-table-{{ tab_id }}" class="view-btn {% if not is_chart_active %}active{% endif %}" style="padding:4px 12px; font-size:11px; border:none; cursor:pointer; color:inherit;" onclick="setTabView('{{ tab_id }}','table')">Table</button>
+            </div>
+            {% endif %}
+        </div>
+        <div style="display:flex; align-items: center; gap: 8px;">
+            {% if chart_grid_id %}
+            <button class="btn-apply" style="height:24px; padding:0 10px; border-radius:4px; font-size:11px;" onclick="openExportModal('{{ export_chart_prefix }}', '{{ chart_grid_id }}')">
+                <i class="fas fa-camera" style="margin-right:4px"></i> Export PNG
+            </button>
+            <span style="font-size:11px; font-weight:600; opacity:0.7; margin-left: 8px;">Charts / Row:</span>
+            <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                <button class="btn-xs row-btn {{ chart_grid_id }}-row-btn " style="background:transparent;" onclick="setGridColLocal(1, '{{ chart_grid_id }}')">1</button>
+                <button class="btn-xs row-btn {{ chart_grid_id }}-row-btn {% if chart_grid_id == 'bandChartGrid' %}active{% endif %}" style="background:{% if chart_grid_id == 'bandChartGrid' %}rgba(79,172,254,0.3){% else %}transparent{% endif %};" onclick="setGridColLocal(2, '{{ chart_grid_id }}')">2</button>
+                <button class="btn-xs row-btn {{ chart_grid_id }}-row-btn {% if chart_grid_id != 'bandChartGrid' %}active{% endif %}" style="background:{% if chart_grid_id != 'bandChartGrid' %}rgba(79,172,254,0.3){% else %}transparent{% endif %};" onclick="setGridColLocal(3, '{{ chart_grid_id }}')">3</button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endmacro %}
+
+    <!-- 1. Comparison Table Tab -->
+    <div id="tab-compare" class="tab-content active">
+        {{ render_tab_controls('tab-compare', show_toggle=True, is_chart_active=False, chart_grid_id='compareChartGrid', export_chart_prefix='compareChart') }}
+        
+        <div id="tableView-tab-compare" class="tab-view-container" style="display: block;">
+
+        <div class="card">
+            <div class="chart-box-header">
+                <div class="card-title">Cluster Comparison</div>
+                <button class="btn-apply" onclick="downloadCSV('compareTable')"><i class="fas fa-download"></i>
+                    CSV</button>
+            </div>
+            <div class="compare-table-wrap">
+                <table class="compare-table" id="compareTable">
+                    <thead>
+                        <tr>
+                            <th class="text-left">Category</th>
+                            <th class="text-left">KPI</th>
+                            <th>Before<br><small>({{ before_str }})</small></th>
+                            <th>After<br><small>({{ after_str }})</small></th>
+                            <th>Delta</th>
+                            <th>Growth</th>
+                            <th class="text-center">Remark</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for kpi in kpi_defs %}
+                        {% set d = cluster_compare.get(kpi[0], {}) %}
+                        {% if d and d.get('before') is not none %}
+                        <tr data-kpi="{{ kpi[0] }}" data-lb="{{ 'true' if d.get('is_lower_better') else 'false' }}">
+                            <td class="text-left" data-label="Category" style="opacity:0.7;">{{ d.get('group') }}</td>
+                            <td class="text-left" data-label="KPI" style="font-weight:600;">{{ d.get('title') }} {% if d.get('unit') %}({{ d.get('unit') }}){% endif %}</td>
+                            <td data-label="Before" class="before-val">{{ "%.2f"|format(d.get('before')) }}</td>
+                            <td data-label="After" class="after-val">{{ "%.2f"|format(d.get('after')) }}</td>
+                            <td data-label="Delta">{{ "+%.2f"|format(d.get('delta')) if d.get('delta') > 0 else "%.2f"|format(d.get('delta')) }}</td>
+                            <td data-label="Growth">
+                                {% set pct = d.get('delta_pct') %}
+                                {% if pct is not none %}
+                                {{ "+%.1f"|format(pct) if pct > 0 else "%.1f"|format(pct) }}%
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td class="text-center" data-label="Remark">
+                                {% set pct = d.get('delta_pct') %}
+                                {% if pct is not none %}
+                                {% set is_lower_better = d.get('is_lower_better') %}
+                                {% set remark = "" %}
+                                {% set badge = "" %}
+                                {% if not is_lower_better %}
+                                {% if pct >= 5.0 %}{% set remark = "Improve" %}{% set badge = "remark-improve" %}
+                                {% elif pct <= -5.0 %}{% set remark="Degraded" %}{% set badge="remark-degraded" %} {%
+                                    else %}{% set remark="Maintain" %}{% set badge="remark-maintain" %}{% endif %} {%
+                                    else %} {% if pct>= 5.0 %}{% set remark = "Degraded" %}{% set badge =
+                                    "remark-degraded" %}
+                                    {% elif pct <= -5.0 %}{% set remark="Improve" %}{% set badge="remark-improve" %} {%
+                                        else %}{% set remark="Maintain" %}{% set badge="remark-maintain" %}{% endif %}
+                                        {% endif %} <span class="{{ badge }}">{{ remark }}</span>
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Site Level Comparison -->
+        <div class="card" style="margin-top: 16px;">
+            <div class="chart-box-header">
+                <div class="card-title">{% if filter_type == 'site_cell' %}Site-cell{% else %}Site{% endif %} Level Comparison</div>
+                <button class="btn-apply" onclick="downloadCSV('siteTable')"><i class="fas fa-download"></i>
+                    CSV</button>
+            </div>
+            <div class="compare-table-wrap">
+                <div class="site-table-wrap">
+                    <table class="site-table" id="siteTable">
+                        <thead>
+                            <tr>
+                                <th class="entity-col" rowspan="2" style="background:#1e3a5f;">{% if filter_type == 'site_cell' %}Site-Cell{% else %}Site ID{% endif %}</th>
+                                {% for kpi in kpi_defs %}
+                                <th colspan="4" class="text-center">{{ kpi[1] }}</th>
+                                {% endfor %}
+                            </tr>
+                            <tr>
+                                {% for kpi in kpi_defs %}
+                                <th class="before-col">Before</th>
+                                <th class="after-col">After</th>
+                                <th class="delta-col">Delta</th>
+                                <th>%</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% set sorted_sites = site_compare.keys() | sort %}
+                            {% for site in sorted_sites %}
+                            {% set metrics = site_compare[site] %}
+                            <tr>
+                                <td class="entity-cell">{{ site }}</td>
+                                {% for kpi in kpi_defs %}
+                                {% set m = metrics.get(kpi[0], {}) %}
+                                <td class="before-val">{% if m.get('before') is not none %}{{
+                                    "%.2f"|format(m.get('before')) }}{% else %}-{% endif %}</td>
+                                <td class="after-val">{% if m.get('after') is not none %}{{
+                                    "%.2f"|format(m.get('after')) }}{% else %}-{% endif %}</td>
+                                <td>{% if m.get('delta') is not none %}{{ "+%.2f"|format(m.get('delta')) if
+                                    m.get('delta')>0 else "%.2f"|format(m.get('delta')) }}{% else %}-{% endif %}</td>
+                                <td style="font-weight: 600;">
+                                    {% if m.get('delta_pct') is not none %}
+                                    {% set pct = m.get('delta_pct') %}
+                                    {% set is_lb = kpi[7] %}
+                                    {% if kpi[0] in ['dlPrbChart', 'ulPrbChart'] %}{% set is_lb = False %}{% endif %}
+                                    {% set c = '#4facfe' %} <!-- blue -->
+                                    {% if not is_lb %}
+                                    {% if pct >= 5.0 %}{% set c = '#00e676' %}
+                                    {% elif pct <= -5.0 %}{% set c='#ff5252' %} {% endif %} {% else %} {% if pct>= 5.0
+                                        %}{% set c = '#ff5252' %}
+                                        {% elif pct <= -5.0 %}{% set c='#00e676' %} {% endif %} {% endif %} <span
+                                            style="color: {{ c }};">
+                                            {{ "+%.1f"|format(pct) if pct > 0 else "%.1f"|format(pct) }}%
+                                            </span>
+                                            {% else %}-{% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        </div>
+        <div id="chartView-tab-compare" class="tab-view-container" style="display: none;">
+        <div
+            style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; margin-bottom: 8px;">
+            <div style="font-size: 16px; font-weight: 600;">Hourly Trend Charts</div>
+            
+        </div>
+        <div class="chart-grid grid-3" id="compareChartGrid">
+            {% for kpi in kpi_defs %}
+            <div class="card">
+                <div class="card-title">{{ kpi[1] }}</div>
+                <div class="chart-wrap-inner">
+                    <canvas id="compareChart_{{ kpi[0] }}" style="cursor:pointer" onclick="openChartModal(this)"></canvas>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        </div>
+    </div>
+
+    <!-- 2. Trend Charts Tab -->
+    <div id="tab-trend" class="tab-content">
+        {{ render_tab_controls('tab-trend', show_toggle=True, is_chart_active=True, chart_grid_id='trendChartGrid', export_chart_prefix='trendChart') }}
+        
+        <div id="tableView-tab-trend" class="tab-view-container" style="display: none;">
+            <div class="card">
+                <div class="chart-box-header">
+                    <div class="card-title">Trend Table</div>
+                    <button class="btn-apply" onclick="downloadCSV('trendTable')"><i class="fas fa-download"></i> CSV</button>
+                </div>
+                <div class="site-table-wrap">
+                    <table class="site-table" id="trendTable">
+                        <thead>
+                            <tr>
+                                <th class="entity-col" style="background:#1e3a5f;">Hour</th>
+                                {% for kpi in kpi_defs %}
+                                <th class="text-center">{{ kpi[1] }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for i in range(trend_labels|length) %}
+                            <tr class="trend-table-row">
+                                <td class="entity-cell" style="white-space: nowrap;">{{ trend_labels[i] }}</td>
+                                {% for kpi in kpi_defs %}
+                                <td class="text-center trend-val-cell" data-kpi="{{ kpi[0] }}" data-idx="{{ i }}">
+                                    {% set val = trend_chart_data.get(kpi[0], {}).get('total', [])[i] %}
+                                    {{ "%.2f"|format(val) if val is not none else '-' }}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div id="chartView-tab-trend" class="tab-view-container" style="display: block;">
+
+        <div class="chart-grid grid-3" id="trendChartGrid">
+            {% for kpi in kpi_defs %}
+            <div class="card">
+                <div class="card-title">{{ kpi[1] }}</div>
+                <div class="chart-wrap-inner">
+                    <canvas id="trendChart_{{ kpi[0] }}" style="cursor:pointer" onclick="openChartModal(this)"></canvas>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        </div>
+    </div>
+
+    <!-- 3. Band Level Tab -->
+    <div id="tab-band" class="tab-content">
+        {{ render_tab_controls('tab-band', show_toggle=True, is_chart_active=False, chart_grid_id='bandChartGrid', export_chart_prefix='bandChart') }}
+        
+        <div id="tableView-tab-band" class="tab-view-container" style="display: block;">
+        <div class="card" style="margin-bottom: 16px;">
+            <div class="card-title" style="margin-bottom:10px;">Band Comparison Table</div>
+            <div class="site-table-wrap">
+                <table class="site-table" id="bandTable">
+                    <thead>
+                        <tr>
+                            <th rowspan="2" class="entity-col">Band</th>
+                            {% for kpi in kpi_defs %}
+                            <th colspan="4" class="text-center">{{ kpi[1] }}</th>
+                            {% endfor %}
+                        </tr>
+                        <tr>
+                            {% for kpi in kpi_defs %}
+                            <th class="before-col">Before</th>
+                            <th class="after-col">After</th>
+                            <th class="delta-col">Delta</th>
+                            <th>%</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set sorted_bands = band_compare.keys() %}
+                        {% for band in sorted_bands %}
+                        {% set metrics = band_compare[band] %}
+                        <tr>
+                            <td class="entity-cell">{{ band }}</td>
+                            {% for kpi in kpi_defs %}
+                            {% set m = metrics.get(kpi[0], {}) %}
+                            <td class="before-val">{% if m.get('before') is not none %}{{ "%.2f"|format(m.get('before'))
+                                }}{% else %}-{% endif %}</td>
+                            <td class="after-val">{% if m.get('after') is not none %}{{ "%.2f"|format(m.get('after'))
+                                }}{% else %}-{% endif %}</td>
+                            <td>{% if m.get('delta') is not none %}{{ "+%.2f"|format(m.get('delta')) if m.get('delta')>0
+                                else "%.2f"|format(m.get('delta')) }}{% else %}-{% endif %}</td>
+                            <td style="font-weight: 600;">
+                                {% if m.get('delta_pct') is not none %}
+                                {% set pct = m.get('delta_pct') %}
+                                {% set is_lb = kpi[7] %}
+                                {% if kpi[0] in ['dlPrbChart', 'ulPrbChart'] %}{% set is_lb = False %}{% endif %}
+                                {% set c = '#4facfe' %} <!-- blue -->
+                                {% if not is_lb %}
+                                {% if pct >= 5.0 %}{% set c = '#00e676' %}
+                                {% elif pct <= -5.0 %}{% set c='#ff5252' %} {% endif %} {% else %} {% if pct>= 5.0 %}{%
+                                    set c = '#ff5252' %}
+                                    {% elif pct <= -5.0 %}{% set c='#00e676' %} {% endif %} {% endif %} <span
+                                        style="color: {{ c }};">
+                                        {{ "+%.1f"|format(pct) if pct > 0 else "%.1f"|format(pct) }}%
+                                        </span>
+                                        {% else %}-{% endif %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        </div>
+        
+        <div id="chartView-tab-band" class="tab-view-container" style="display: none;">
+        <div class="chart-grid grid-2" id="bandChartGrid">
+            {% for kpi in kpi_defs %}
+            <div class="card">
+                <div class="card-title">{{ kpi[1] }} (Band Level)</div>
+                <div class="chart-wrap-inner">
+                    <canvas id="bandChart_{{ kpi[0] }}" style="cursor:pointer" onclick="openChartModal(this)"></canvas>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        </div>
+    </div>
+
+    <!-- 4. Sector Level Tab -->
+    <div id="tab-sector" class="tab-content">
+        {{ render_tab_controls('tab-sector', show_toggle=False) }}
+        <div class="card">
+            <div class="chart-box-header">
+                <div class="card-title">Sector Comparison Table</div>
+                <button class="btn-apply" onclick="downloadCSV('sectorTable')"><i class="fas fa-download"></i>
+                    CSV</button>
+            </div>
+            <div class="compare-table-wrap">
+                <div class="site-table-wrap">
+                    <table class="site-table" id="sectorTable">
+                        <thead>
+                            <tr>
+                                <th rowspan="2" class="entity-col">Site_Sector</th>
+                                {% for kpi in kpi_defs %}
+                                <th colspan="4" class="text-center">{{ kpi[1] }}</th>
+                                {% endfor %}
+                            </tr>
+                            <tr>
+                                {% for kpi in kpi_defs %}
+                                <th class="before-col">Before</th>
+                                <th class="after-col">After</th>
+                                <th class="delta-col">Delta</th>
+                                <th>%</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% set sorted_sectors = sector_compare.keys() | sort %}
+                            {% for sector in sorted_sectors %}
+                            {% set metrics = sector_compare[sector] %}
+                            <tr>
+                                <td class="entity-cell">{{ sector }}</td>
+                                {% for kpi in kpi_defs %}
+                                {% set m = metrics.get(kpi[0], {}) %}
+                                <td class="before-val">{% if m.get('before') is not none %}{{
+                                    "%.2f"|format(m.get('before')) }}{% else %}-{% endif %}</td>
+                                <td class="after-val">{% if m.get('after') is not none %}{{
+                                    "%.2f"|format(m.get('after')) }}{% else %}-{% endif %}</td>
+                                <td>{% if m.get('delta') is not none %}{{ "+%.2f"|format(m.get('delta')) if
+                                    m.get('delta')>0 else "%.2f"|format(m.get('delta')) }}{% else %}-{% endif %}</td>
+                                <td style="font-weight: 600;">
+                                    {% if m.get('delta_pct') is not none %}
+                                    {% set pct = m.get('delta_pct') %}
+                                    {% set is_lb = kpi[7] %}
+                                    {% if kpi[0] in ['dlPrbChart', 'ulPrbChart'] %}{% set is_lb = False %}{% endif %}
+                                    {% set c = '#4facfe' %} <!-- blue -->
+                                    {% if not is_lb %}
+                                    {% if pct >= 5.0 %}{% set c = '#00e676' %}
+                                    {% elif pct <= -5.0 %}{% set c='#ff5252' %} {% endif %} {% else %} {% if pct>= 5.0
+                                        %}{% set c = '#ff5252' %}
+                                        {% elif pct <= -5.0 %}{% set c='#00e676' %} {% endif %} {% endif %} <span
+                                            style="color: {{ c }};">
+                                            {{ "+%.1f"|format(pct) if pct > 0 else "%.1f"|format(pct) }}%
+                                            </span>
+                                            {% else %}-{% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Custom Charts Tab -->
+    <div id="tab-custom" class="tab-content">
+        <div class="custom-chart-controls">
+            <div class="ctrl-group">
+                <span class="date-label">Charts / Row</span>
+                <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                    <button class="btn-xs row-btn customChartGrid-row-btn"
+                        onclick="setGridColLocal(1, 'customChartGrid')">1</button>
+                    <button class="btn-xs row-btn customChartGrid-row-btn"
+                        onclick="setGridColLocal(2, 'customChartGrid')">2</button>
+                    <button class="btn-xs row-btn customChartGrid-row-btn active" data-col="3"
+                        style="background:rgba(79,172,254,0.3);"
+                        onclick="setGridColLocal(3, 'customChartGrid')">3</button>
+                </div>
+                <button class="btn-apply" onclick="addCustomChart()"><i class="fas fa-plus"></i> Add Chart</button>
+                <button class="btn-apply" onclick="renderCustomCharts()"
+                    style="background:linear-gradient(135deg, #00c853, #009624);"><i class="fas fa-paint-brush"></i>
+                    Render Charts</button>
+                <button class="btn-apply" onclick="openExportModal('customChart', 'customChartGrid')"><i class="fas fa-camera"></i> Export PNG</button>
+                <button class="btn-apply" onclick="exportAllCustomChartsCSV()"><i class="fas fa-file-csv"></i> Export CSV</button>
+            </div>
+
+            <div class="ctrl-group">
+                <input type="text" id="dashboardNameInput" class="f-input" placeholder="Dashboard name...">
+                <button class="btn-apply" onclick="saveDashboard()"><i class="fas fa-save"></i> Save</button>
+                <select class="f-select" id="loadDashboardSelect" onchange="loadDashboard(this.value)">
+                    <option value="">Load saved...</option>
+                    {% for db in user_charts %}
+                    <option value="{{ db.dashboard_name }}">{{ db.dashboard_name }}</option>
+                    {% endfor %}
+                </select>
+                <button class="btn-apply" style="background:linear-gradient(135deg, #ff5252, #c62828);"
+                    onclick="deleteDashboard()"><i class="fas fa-trash"></i> Delete</button>
+            </div>
+        </div>
+
+
+        <div class="chart-grid grid-3" id="customChartGrid" style="padding-bottom: 60px; min-height: 200px;">
+            <!-- Custom charts appended here -->
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-chart-bar" style="font-size: 40px; opacity: 0.3; margin-bottom: 16px; display: block;"></i>
+        <h3>Dashboard 2G</h3>
+        <p style="font-size:12px; margin-top:8px;">Please select date ranges and at least one site to generate the
+            dashboard.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Advanced PNG Export Modal -->
+<div id="exportModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 500px; padding: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; font-size: 16px; color: #4facfe;">Export PNG Settings</h3>
+            <button class="btn-xs" onclick="document.getElementById('exportModal').style.display='none'" style="border:none; font-size:16px; background:transparent;"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <p style="font-size: 12px; opacity: 0.8; margin-bottom: 12px;">Select the KPIs you want to include in the exported image:</p>
+        
+        <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(128,128,128,0.2);">
+            <label class="checkbox-label" style="margin:0;"><input type="checkbox" id="exportSelectAll" checked onchange="toggleAllExportKPIs(this)"> <span style="font-weight:bold; color:#4facfe;">Select All KPIs</span></label>
+        </div>
+        
+        <div id="exportKpiList" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 300px; overflow-y: auto; font-size: 12px; margin-bottom: 20px;">
+            <!-- Javascript will inject options here -->
+        </div>
+        
+        <div style="display: flex; justify-content: flex-end; gap: 12px;">
+            <button class="btn-xs" style="padding: 8px 16px; font-size: 12px;" onclick="document.getElementById('exportModal').style.display='none'">Cancel</button>
+            <button class="btn-apply" style="padding: 8px 16px; font-size: 12px;" onclick="executeAdvancedExport()"><i class="fas fa-camera"></i> Export Now</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.chartInstances = window.chartInstances || {};
+    // Disable animations to massively improve performance on this heavy dashboard
+    if (typeof Chart !== 'undefined') {
+        Chart.defaults.animation = false;
+    }
+    function handleInlinePasteAndSelect(val) {
+        if (!val) return;
+        let items = val.split(/[\n,]+/).map(s => s.trim().toUpperCase()).filter(s => s);
+        if (items.length > 0) {
+            let cbs = document.querySelectorAll('#siteCheckboxes input[type="checkbox"]');
+            cbs.forEach(cb => cb.checked = false); // Uncheck all first
+            items.forEach(site => {
+                let cb = document.querySelector(`#siteCheckboxes input[value="${site}"]`);
+                if (cb) cb.checked = true;
+            });
+            updateSiteCount();
+            sortSitesToTop();
+        }
+    }
+
+    function sortSitesToTop() {
+        let container = document.getElementById('siteCheckboxes');
+        if (!container) return;
+        
+        let checkedBoxes = container.querySelectorAll('input[type="checkbox"]:checked');
+        if (checkedBoxes.length === 0) return;
+        
+        container.style.display = 'none';
+        checkedBoxes.forEach(cb => {
+            let label = cb.closest('.checkbox-label');
+            if (label) container.insertBefore(label, container.firstChild);
+        });
+        container.style.display = 'flex';
+    }
+
+    function resetUI() {
+        ['trendColor', 'beforeColor', 'afterColor', 'execColor', 'execWeight', 'execDash', 'showShadingToggle'].forEach(id => {
+            localStorage.removeItem('d2g_' + id);
+        });
+        window.location.href = '/dashboard_2g';
+    }
+
+    function setGridColLocal(cols, gridId) {
+        document.querySelectorAll(`.${gridId}-row-btn`).forEach(b => {
+            b.classList.remove('active');
+            b.style.background = 'transparent';
+        });
+        const btns = document.querySelectorAll(`.${gridId}-row-btn[onclick*="${cols}"]`);
+        btns.forEach(btn => {
+            btn.classList.add('active');
+            btn.style.background = 'rgba(79,172,254,0.3)';
+        });
+
+        const grid = document.getElementById(gridId);
+        if (grid) {
+            grid.className = grid.className.replace(/grid-\d/g, '').trim();
+            grid.classList.add(`grid-${cols}`);
+        }
+    }
+
+    function loadUIState() {
+        const fields = ['trendColor', 'beforeColor', 'afterColor', 'execColor', 'execWeight', 'execDash'];
+        fields.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                const saved = localStorage.getItem('d2g_' + id);
+                if (saved !== null) el.value = saved;
+                el.addEventListener('change', (e) => localStorage.setItem('d2g_' + id, e.target.value));
+            }
+        });
+
+        const shading = document.getElementById('showShadingToggle');
+        if (shading) {
+            const saved = localStorage.getItem('d2g_showShadingToggle');
+            if (saved !== null) shading.checked = (saved === 'true');
+            shading.addEventListener('change', (e) => localStorage.setItem('d2g_showShadingToggle', e.target.checked));
+        }
+    }
+    document.addEventListener('DOMContentLoaded', loadUIState);
+
+    // Tab switching
+    function switchTab(tabId, el) {
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+    }
+
+    // Dropdown toggles
+    function toggleMs(id) {
+        document.querySelectorAll('.ms-dropdown').forEach(d => { if (d.parentElement.id !== id) d.classList.remove('open'); });
+        document.querySelector('#' + id + ' .ms-dropdown').classList.toggle('open');
+    }
+    function toggleAllMs(chk, name) {
+        let wrap = chk.closest('.ms-wrap');
+        let cbs = wrap.querySelectorAll('input[name="' + name + '"]');
+        cbs.forEach(c => { if (c.offsetParent !== null) c.checked = chk.checked; });
+    }
+    function filterMs(inp) {
+        let val = inp.value.toLowerCase();
+        let labels = inp.closest('.ms-dropdown').querySelectorAll('.ms-list .ms-option');
+        labels.forEach(l => {
+            if (l.textContent.toLowerCase().includes(val)) l.style.display = "flex";
+            else l.style.display = "none";
+        });
+    }
+    document.addEventListener("click", function (e) {
+        if (!e.target.closest('.ms-wrap')) {
+            document.querySelectorAll('.ms-dropdown').forEach(d => d.classList.remove('open'));
+        }
+    });
+
+    // CSV Download
+    function downloadCSV(tableId) {
+        let table = document.getElementById(tableId);
+        if (!table) return;
+        let rows = table.querySelectorAll('tr');
+        let csv = [];
+        for (let i = 0; i < rows.length; i++) {
+            let row = [], cols = rows[i].querySelectorAll('td, th');
+            for (let j = 0; j < cols.length; j++) {
+                let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, ' ').replace(/"/g, '""');
+                csv.push('"' + data + '"');
+            }
+            csv.push(row.join(','));
+        }
+        let csvFile = new Blob([csv.join('\n')], { type: "text/csv" });
+        let dlLink = document.createElement("a");
+        dlLink.download = "dashboard_2g_export.csv";
+        dlLink.href = window.URL.createObjectURL(csvFile);
+        dlLink.style.display = "none";
+        document.body.appendChild(dlLink);
+        dlLink.click();
+        document.body.removeChild(dlLink);
+    }
+
+    // Export PNG Logic
+    let currentExportPrefix = '';
+    let currentExportGrid = '';
+
+    function openExportModal(prefix, gridId) {
+        currentExportPrefix = prefix;
+        currentExportGrid = gridId;
+        
+        var html = "";
+        
+        if (prefix === 'customChart') {
+            if (!customChartsConfig || customChartsConfig.length === 0) return alert("No custom charts to export.");
+            html = customChartsConfig.map(function(cfg, idx) {
+                var title = cfg.title || "Custom Chart " + (idx + 1);
+                return '<label class="checkbox-label" style="margin:0;"><input type="checkbox" value="' + idx + '" data-title="' + title + '" checked onchange="checkExportAllSync()"> ' + title + '</label>';
+            }).join("");
+        } else {
+            if (!KPI_DEFS || KPI_DEFS.length === 0) return alert("No KPIs active.");
+            html = KPI_DEFS.map(function(kpi) {
+                return '<label class="checkbox-label" style="margin:0;"><input type="checkbox" value="' + kpi[0] + '" data-title="' + kpi[1] + '" checked onchange="checkExportAllSync()"> ' + kpi[1] + ' (' + kpi[2] + ')</label>';
+            }).join("");
+        }
+        
+        document.getElementById("exportKpiList").innerHTML = html;
+        document.getElementById("exportSelectAll").checked = true;
+        document.getElementById("exportModal").style.display = "flex";
+    }
+
+    function toggleAllExportKPIs(cb) {
+        document.querySelectorAll("#exportKpiList input[type='checkbox']").forEach(function(c){
+            c.checked = cb.checked;
+        });
+    }
+
+    function checkExportAllSync() {
+        var total = document.querySelectorAll("#exportKpiList input[type='checkbox']").length;
+        var checked = document.querySelectorAll("#exportKpiList input[type='checkbox']:checked").length;
+        document.getElementById("exportSelectAll").checked = (total === checked);
+    }
+
+    async function executeAdvancedExport() {
+        var checkedBoxes = document.querySelectorAll("#exportKpiList input[type='checkbox']:checked");
+        if(checkedBoxes.length === 0) return alert("Please select at least one KPI to export.");
+        
+        document.getElementById("exportModal").style.display = "none";
+        
+        var activeBtn = document.querySelector("." + currentExportGrid + "-row-btn.active");
+        var cols = parseInt(activeBtn ? activeBtn.textContent.trim() : 3);
+        
+        var dpr = window.devicePixelRatio || 1;
+        var cardPad = 8 * dpr;
+        var titleHeight = 36 * dpr;
+        var gridPad = 12 * dpr;
+        
+        var renderItems = [];
+        var totalWidth = 0;
+        var totalHeight = gridPad;
+        
+        var sampleChart = null;
+        
+        checkedBoxes.forEach(function(cb) {
+            var chartId;
+            if (currentExportPrefix === 'customChart') {
+                chartId = "customCanvas_" + cb.value;
+            } else {
+                chartId = currentExportPrefix + "_" + cb.value;
+            }
+            
+            var chart = chartInstances[chartId];
+            if(!chart) return;
+            
+            if(!sampleChart) sampleChart = chart;
+            
+            var cWidth = chart.canvas ? chart.canvas.width : 800;
+            var cHeight = chart.canvas ? chart.canvas.height : 400;
+            var cardWidth = cWidth + (cardPad * 2);
+            var cardHeight = cHeight + titleHeight + (cardPad * 2);
+            
+            renderItems.push({
+                chartId: chartId,
+                kpiTitle: cb.getAttribute("data-title"),
+                cardWidth: cardWidth,
+                cardHeight: cardHeight
+            });
+        });
+        
+        if(!sampleChart) return alert("No valid charts found.");
+        
+        // Calculate dimensions
+        var rows = Math.ceil(renderItems.length / cols);
+        totalWidth = cols * renderItems[0].cardWidth + (cols + 1) * gridPad;
+        totalHeight += rows * renderItems[0].cardHeight + rows * gridPad;
+        
+        var tempCanvas = document.createElement('canvas');
+        tempCanvas.width = totalWidth;
+        tempCanvas.height = totalHeight;
+        var ctx = tempCanvas.getContext('2d');
+        
+        var isDark = document.documentElement.getAttribute("data-theme") === "dark";
+        ctx.clearRect(0, 0, totalWidth, totalHeight);
+        
+        var currentY = 0;
+        
+        renderItems.forEach(function(item, idx) {
+            var chart = chartInstances[item.chartId];
+            var col = idx % cols;
+            var row = Math.floor(idx / cols);
+            var cx = gridPad + col * (item.cardWidth + gridPad);
+            var cy = currentY + gridPad + row * (item.cardHeight + gridPad);
+            
+            ctx.fillStyle = isDark ? 'rgba(30,30,58,1)' : '#ffffff';
+            ctx.fillRect(cx, cy, item.cardWidth, item.cardHeight);
+            
+            ctx.strokeStyle = isDark ? 'rgba(79,172,254,0.2)' : 'rgba(0,0,0,0.1)';
+            ctx.lineWidth = 1 * dpr;
+            ctx.strokeRect(cx, cy, item.cardWidth, item.cardHeight);
+            
+            ctx.font = "bold " + (15 * dpr) + "px Inter, sans-serif";
+            ctx.fillStyle = isDark ? '#ffffff' : '#1e293b';
+            ctx.textAlign = "left";
+            var headerText = item.kpiTitle;
+            if (currentExportPrefix === "bandChart") headerText += " (Band Level)";
+            ctx.fillText(headerText, cx + cardPad, cy + cardPad + (16 * dpr));
+            
+            ctx.drawImage(chart.canvas, cx + cardPad, cy + cardPad + titleHeight);
+        });
+        
+        var a = document.createElement('a');
+        a.href = tempCanvas.toDataURL('image/png');
+        
+        var dlName = 'Dashboard_2G_' + currentExportPrefix + '_Export.png';
+        if (currentExportPrefix === 'customChart') {
+            var dbName = document.getElementById("dashboardNameInput").value.trim() || "Custom_Dashboard";
+            dlName = dbName + '_Charts.png';
+        }
+        
+        a.download = dlName;
+        a.click();
+    }
+
+    // Chart Configuration
+    const TREND_LABELS = {{ trend_labels| tojson | safe }};
+    const TREND_DATA = {{ trend_chart_data| tojson | safe }};
+    const SITE_TREND_DATA = {{ site_trend_chart_data| tojson | safe }};
+    const BAND_TREND_DATA = {{ band_trend_chart_data| tojson | safe }};
+    const COMPARE_HOURLY_LABELS = {{ compare_hourly_labels| tojson | safe }};
+    const COMPARE_HOURLY_DATA = {{ compare_hourly_data| tojson | safe }};
+
+
+    const KPI_DEFS = {{ kpi_defs| tojson | safe }};
+    const ALL_KPIS = {{ all_kpis| tojson | safe }};
+
+    const BEFORE_FROM = "{{ before_from_date }}";
+    const BEFORE_TO = "{{ before_to_date }}";
+    const AFTER_FROM = "{{ after_from_date }}";
+    const AFTER_TO = "{{ after_to_date }}";
+    const EXECUTION_DATES = "{{ execution_dates }}".split(",").map(d => d.trim()).filter(d => d);
+
+    // Chart.js Default Styles
+    const THEME = document.documentElement.getAttribute("data-theme") || "dark";
+    const gridColor = THEME === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
+    const textColor = THEME === "dark" ? "rgba(200,208,224,0.6)" : "rgba(0,0,0,0.6)";
+
+    const sharedXAxisTicks = {
+        color: textColor,
+        font: { size: 9 },
+        maxRotation: 0,
+        minRotation: 0,
+        autoSkip: true,
+        autoSkipPadding: 20,
+        maxTicksLimit: 8,
+        callback: function (value, index, ticks) {
+            const fullLabel = this.getLabelForValue(value);
+            if (!fullLabel) return value;
+            const dtStr = fullLabel.split(' ')[0];
+            const parts = dtStr.split('-');
+            if (parts.length === 3) {
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                return parts[2] + ' ' + months[parseInt(parts[1]) - 1];
+            }
+            return fullLabel;
+        }
+    };
+
+    // Plugin for background shading (Before/After) and execution lines
+    // --- UI State Management via LocalStorage ---
+    function handleInlinePasteAndSelect(val) {
+        if (!val) return;
+        let items = val.split(/[\n,]+/).map(s => s.trim()).filter(s => s);
+        if (items.length > 0) {
+            let cbs = document.querySelectorAll('#siteCheckboxes input[type="checkbox"]');
+            cbs.forEach(cb => cb.checked = false); // Uncheck all first
+            items.forEach(site => {
+                let cb = document.querySelector(`#siteCheckboxes input[value="${site}"]`);
+                if (cb) cb.checked = true;
+            });
+            updateSiteCount();
+            sortSitesToTop();
+        }
+    }
+
+    function sortSitesToTop() {
+        let container = document.getElementById('siteCheckboxes');
+        if (!container) return;
+        
+        let checkedBoxes = container.querySelectorAll('input[type="checkbox"]:checked');
+        if (checkedBoxes.length === 0) return;
+        
+        container.style.display = 'none';
+        checkedBoxes.forEach(cb => {
+            let label = cb.closest('.checkbox-label');
+            if (label) container.insertBefore(label, container.firstChild);
+        });
+        container.style.display = 'flex';
+    }
+
+    function resetUI() {
+        ['trendColor', 'beforeColor', 'afterColor', 'execColor', 'execWeight', 'execDash', 'showShadingToggle'].forEach(id => {
+            localStorage.removeItem('d2g_' + id);
+        });
+        window.location.href = '/dashboard_2g';
+    }
+
+    function setGridColLocal(cols, gridId) {
+        document.querySelectorAll(`.${gridId}-row-btn`).forEach(b => {
+            b.classList.remove('active');
+            b.style.background = 'transparent';
+        });
+        const btns = document.querySelectorAll(`.${gridId}-row-btn[onclick*="${cols}"]`);
+        btns.forEach(btn => {
+            btn.classList.add('active');
+            btn.style.background = 'rgba(79,172,254,0.3)';
+        });
+
+        const grid = document.getElementById(gridId);
+        if (grid) {
+            grid.className = grid.className.replace(/grid-\d/g, '').trim();
+            grid.classList.add(`grid-${cols}`);
+        }
+    }
+
+    function loadUIState() {
+        const fields = ['trendColor', 'beforeColor', 'afterColor', 'execColor', 'execWeight', 'execDash'];
+        fields.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                const saved = localStorage.getItem('d2g_' + id);
+                if (saved !== null) el.value = saved;
+                el.addEventListener('change', (e) => localStorage.setItem('d2g_' + id, e.target.value));
+            }
+        });
+
+        const shading = document.getElementById('showShadingToggle');
+        if (shading) {
+            const saved = localStorage.getItem('d2g_showShadingToggle');
+            if (saved !== null) shading.checked = (saved === 'true');
+            shading.addEventListener('change', (e) => localStorage.setItem('d2g_showShadingToggle', e.target.checked));
+        }
+    }
+    document.addEventListener('DOMContentLoaded', loadUIState);
+
+    function getUIConfig() {
+        return {
+            trendColor: document.getElementById('trendColor')?.value || '#4facfe',
+            beforeColor: document.getElementById('beforeColor')?.value || '#00e676',
+            afterColor: document.getElementById('afterColor')?.value || '#4facfe',
+            execColor: document.getElementById('execColor')?.value || '#ff5252',
+            execWeight: parseInt(document.getElementById('execWeight')?.value || '1'),
+            execDash: (document.getElementById('execDash')?.value || '5,5').split(',').map(n => parseInt(n.trim())),
+            showShading: document.getElementById('showShadingToggle')?.checked ?? true
+        };
+    }
+
+    // Custom Chart Plugin Update: highlightPeriods with dynamic colors
+    const highlightPlugin = {
+        id: 'highlightPeriods',
+        beforeDraw: (chart) => {
+            const uic = getUIConfig();
+            if (!uic.showShading) return; // Don't draw if disabled
+
+            const { ctx, chartArea: { top, bottom, left, right }, scales: { x } } = chart;
+            const TREND_LABELS = chart.data.labels;
+
+            ctx.save();
+            // Shade Before Period
+            if (typeof BEFORE_FROM !== 'undefined' && BEFORE_FROM && typeof BEFORE_TO !== 'undefined' && BEFORE_TO) {
+                let startIdx = TREND_LABELS.findIndex(l => l.startsWith(BEFORE_FROM));
+                let endIdx = TREND_LABELS.slice().reverse().findIndex(l => l.startsWith(BEFORE_TO));
+                if (endIdx !== -1) endIdx = TREND_LABELS.length - 1 - endIdx;
+
+                if (startIdx !== -1 && endIdx !== -1) {
+                    let startX = x.getPixelForValue(startIdx);
+                    let endX = x.getPixelForValue(endIdx);
+                    ctx.fillStyle = uic.beforeColor + '15'; // 15 = ~8% opacity hex
+                    ctx.fillRect(startX, top, endX - startX, bottom - top);
+                    ctx.beginPath();
+                    ctx.strokeStyle = uic.beforeColor + '40';
+                    ctx.setLineDash([5, 5]);
+                    ctx.moveTo(startX, top); ctx.lineTo(startX, bottom);
+                    ctx.moveTo(endX, top); ctx.lineTo(endX, bottom);
+                    ctx.stroke();
+                }
+            }
+
+            // Shade After Period
+            if (typeof AFTER_FROM !== 'undefined' && AFTER_FROM && typeof AFTER_TO !== 'undefined' && AFTER_TO) {
+                let startIdx = TREND_LABELS.findIndex(l => l.startsWith(AFTER_FROM));
+                let endIdx = TREND_LABELS.slice().reverse().findIndex(l => l.startsWith(AFTER_TO));
+                if (endIdx !== -1) endIdx = TREND_LABELS.length - 1 - endIdx;
+
+                if (startIdx !== -1 && endIdx !== -1) {
+                    let startX = x.getPixelForValue(startIdx);
+                    let endX = x.getPixelForValue(endIdx);
+                    ctx.fillStyle = uic.afterColor + '15'; // 15 = ~8% opacity
+                    ctx.fillRect(startX, top, endX - startX, bottom - top);
+                    ctx.beginPath();
+                    ctx.strokeStyle = uic.afterColor + '40';
+                    ctx.setLineDash([5, 5]);
+                    ctx.moveTo(startX, top); ctx.lineTo(startX, bottom);
+                    ctx.moveTo(endX, top); ctx.lineTo(endX, bottom);
+                    ctx.stroke();
+                }
+            }
+
+            // Draw Execution Dates Lines
+            if (typeof EXECUTION_DATES !== 'undefined' && EXECUTION_DATES && EXECUTION_DATES.length > 0) {
+                EXECUTION_DATES.forEach(dStr => {
+                    let dIdx = TREND_LABELS.findIndex(l => l.startsWith(dStr));
+                    if (dIdx !== -1) {
+                        let dX = x.getPixelForValue(dIdx);
+                        ctx.beginPath();
+                        ctx.strokeStyle = uic.execColor;
+                        ctx.lineWidth = uic.execWeight;
+                        ctx.setLineDash(uic.execDash);
+                        ctx.moveTo(dX, top); ctx.lineTo(dX, bottom);
+                        ctx.stroke();
+                    }
+                });
+            }
+            ctx.restore();
+        }
+    };
+    Chart.register(highlightPlugin);
+
+    // Initialize Standard Trend Charts
+    if (TREND_LABELS && TREND_LABELS.length > 0) {
+        KPI_DEFS.forEach(kpi => {
+            const kpiId = kpi[0];
+            const title = kpi[1];
+            const yLabel = kpi[3] || kpi[2];
+
+            // Render Cluster Trend Chart
+            let cCtx = document.getElementById("trendChart_" + kpiId);
+            if (cCtx) {
+                if(chartInstances[cCtx.id]) chartInstances[cCtx.id].destroy();
+                chartInstances[cCtx.id] = new Chart(cCtx, {
+                    type: 'line',
+                    data: {
+                        labels: TREND_LABELS,
+                        datasets: [{
+                            label: title,
+                            data: TREND_DATA[kpiId]?.total || [],
+                            borderColor: getUIConfig().trendColor,
+                            backgroundColor: getUIConfig().trendColor + '1A',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            pointRadius: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: { display: false },
+                            highlightPeriods: true
+                        },
+                        scales: {
+                            x: { grid: { color: gridColor, drawBorder: false }, ticks: sharedXAxisTicks },
+                            y: { title: { display: true, text: yLabel, color: textColor, font: { size: 9 } }, grid: { color: gridColor, drawBorder: false }, ticks: { color: textColor, font: { size: 9 } } }
+                        }
+                    }
+                });
+            }
+
+            // Render Band Trend Chart
+            let bCtx = document.getElementById("bandChart_" + kpiId);
+            if (bCtx) {
+                const FIXED_BAND_COLORS = { "L700": "#f093fb", "L900": "#ff5555", "L1800": "#4facfe", "L2100": "#00c853", "L2300_1": "#a78bfa", "L2300_2": "#ff9f40", "L2300_3": "#f6c90e", "L2300": "#a78bfa" };
+                const fbColors = ["#4facfe", "#f093fb", "#00c853", "#ff9f40", "#a78bfa", "#ff5555", "#00f2fe", "#f6c90e", "#8884d8", "#ff6b6b"];
+                let bData = BAND_TREND_DATA[kpiId] || {};
+
+                let sortedBands = Object.keys(bData).sort((a, b) => {
+                    if (a.length !== b.length) return a.length - b.length;
+                    return a.localeCompare(b);
+                });
+
+                let datasets = sortedBands.map((band, i) => {
+                    let cleanedBand = band.trim();
+                    let colorToUse = FIXED_BAND_COLORS[cleanedBand] || fbColors[i % fbColors.length];
+                    return {
+                        label: cleanedBand,
+                        data: bData[band] || [],
+                        borderColor: colorToUse,
+                        backgroundColor: colorToUse,
+                        borderWidth: 2,
+                        tension: 0.4,
+                        pointRadius: 0
+                    };
+                });
+
+                if(chartInstances[bCtx.id]) chartInstances[bCtx.id].destroy();
+                chartInstances[bCtx.id] = new Chart(bCtx, {
+                    type: 'line',
+                    data: { labels: TREND_LABELS, datasets: datasets },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: { position: 'bottom', labels: { boxWidth: 8, color: textColor, font: { size: 8 }, padding: 8 } },
+                            highlightPeriods: true
+                        },
+                        scales: {
+                            x: { grid: { color: gridColor }, ticks: sharedXAxisTicks },
+                            y: { title: { display: true, text: yLabel, color: textColor, font: { size: 9 } }, grid: { color: gridColor }, ticks: { color: textColor, font: { size: 9 } } }
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    // Initialize Hourly Trend Charts (Comparison)
+    if (COMPARE_HOURLY_LABELS && COMPARE_HOURLY_LABELS.length > 0) {
+        KPI_DEFS.forEach(kpi => {
+            const kpiId = kpi[0];
+            const title = kpi[1];
+            const yLabel = kpi[3] || kpi[2];
+
+            let cmpCtx = document.getElementById("compareChart_" + kpiId);
+            if (cmpCtx) {
+                if(chartInstances[cmpCtx.id]) chartInstances[cmpCtx.id].destroy();
+                chartInstances[cmpCtx.id] = new Chart(cmpCtx, {
+                    type: 'line',
+                    data: {
+                        labels: COMPARE_HOURLY_LABELS,
+                        datasets: [
+                            {
+                                label: 'Before',
+                                data: COMPARE_HOURLY_DATA[kpiId]?.before || [],
+                                borderColor: getUIConfig().beforeColor,
+                                backgroundColor: getUIConfig().beforeColor + '1A',
+                                borderWidth: 2,
+                                tension: 0.4,
+                                pointRadius: 0
+                            },
+                            {
+                                label: 'After',
+                                data: COMPARE_HOURLY_DATA[kpiId]?.after || [],
+                                borderColor: getUIConfig().afterColor,
+                                backgroundColor: getUIConfig().afterColor + '1A',
+                                borderWidth: 2,
+                                tension: 0.4,
+                                pointRadius: 0
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: { position: 'bottom', labels: { boxWidth: 10, color: textColor, font: { size: 10 } } }
+                        },
+                        scales: {
+                            x: { grid: { color: gridColor, drawBorder: false }, ticks: sharedXAxisTicks },
+                            y: { title: { display: true, text: yLabel, color: textColor, font: { size: 9 } }, grid: { color: gridColor, drawBorder: false }, ticks: { color: textColor, font: { size: 9 } } }
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    // ── Custom Chart Builder Logic ──
+    const customChartColors = ["#4facfe", "#00e676", "#ff5252", "#f6c90e", "#a78bfa"];
+    let customChartsConfig = []; // Array of chart config objects
+    let customChartInstances = [];
+
+    function setGridCol(c) {
+        document.querySelectorAll('.row-btn').forEach(b => {
+            b.classList.remove('active');
+            b.style.background = 'transparent';
+        });
+        const btns = document.querySelectorAll(`.row-btn[data-col="${c}"]`);
+        btns.forEach(btn => {
+            if (btn) {
+                btn.classList.add('active');
+                btn.style.background = 'rgba(79,172,254,0.3)';
+            }
+        });
+
+        ['customChartGrid', 'compareChartGrid', 'trendChartGrid', 'bandChartGrid'].forEach(id => {
+            const grid = document.getElementById(id);
+            if (grid) {
+                grid.className = grid.className.replace(/grid-\d/g, '').trim();
+                grid.classList.add(`grid-${c}`);
+            }
+        });
+    }
+
+    function addCustomChart(config = null) {
+        if (!config) {
+            config = {
+                title: "New Custom Chart",
+                leftAxisName: "",
+                rightAxisName: "",
+                series: [
+                    { kpi: KPI_DEFS.length > 0 ? KPI_DEFS[0][0] : ALL_KPIS[0][0], axis: 'L', type: 'line', color: customChartColors[0], shading: true }
+                ]
+            };
+        }
+        customChartsConfig.push(config);
+        renderCustomChartsUI(); // UI only! No chart render.
+    }
+
+    // Store open state of config panels before render
+    let openConfigPanels = {};
+
+    function renderCustomChartsUI() {
+        // Record currently open panels
+        document.querySelectorAll('.chart-config-panel').forEach(panel => {
+            if (panel.style.display !== 'none') {
+                openConfigPanels[panel.id] = true;
+            }
+        });
+
+        const grid = document.getElementById("customChartGrid");
+        grid.innerHTML = "";
+        customChartInstances.forEach(c => c.destroy());
+        customChartInstances = [];
+
+        customChartsConfig.forEach((cfg, cIdx) => {
+            const chartDiv = document.createElement('div');
+            chartDiv.className = "chart-box";
+            chartDiv.style.minWidth = "0"; // Fix horizontal scroll issue
+
+            // Build series config UI
+            let seriesHtml = "";
+            cfg.series.forEach((s, sIdx) => {
+                let kpiOptions = ALL_KPIS.map(k => `<option value="${k[0]}" ${s.kpi === k[0] ? 'selected' : ''}>${k[1]}</option>`).join('');
+                seriesHtml += `
+                    <div class="config-row">
+                        <select class="kpi-sel" onchange="updateCustomCfg(${cIdx}, ${sIdx}, 'kpi', this.value)">${kpiOptions}</select>
+                        <select class="axis-sel" onchange="updateCustomCfg(${cIdx}, ${sIdx}, 'axis', this.value)">
+                            <option value="L" ${s.axis === 'L' ? 'selected' : ''}>L</option>
+                            <option value="R" ${s.axis === 'R' ? 'selected' : ''}>R</option>
+                        </select>
+                        <select class="type-sel" onchange="updateCustomCfg(${cIdx}, ${sIdx}, 'type', this.value)">
+                            <option value="line" ${s.type === 'line' ? 'selected' : ''}>line</option>
+                            <option value="bar" ${s.type === 'bar' ? 'selected' : ''}>bar</option>
+                            <option value="area" ${s.type === 'area' ? 'selected' : ''}>area</option>
+                        </select>
+                        <input type="color" class="color-sel" value="${s.color}" onchange="updateCustomCfg(${cIdx}, ${sIdx}, 'color', this.value)">
+                        <label style="display:flex; align-items:center; gap:3px;"><input type="checkbox" ${s.shading ? 'checked' : ''} onchange="updateCustomCfg(${cIdx}, ${sIdx}, 'shading', this.checked)"> shading</label>
+                        <button class="btn-xs danger" onclick="removeSeries(${cIdx}, ${sIdx})"><i class="fas fa-times"></i></button>
+                    </div>
+                `;
+            });
+
+            chartDiv.innerHTML = `
+                <div class="chart-box-header">
+                    <input type="text" class="chart-title-input" value="${cfg.title}" onchange="updateChartTitle(${cIdx}, this.value)">
+                    <div style="display:flex; gap:4px;">
+                        <button class="btn-xs" onclick="duplicateCustomChart(${cIdx})" title="Duplicate Chart"><i class="fas fa-copy"></i></button>
+                        <button class="btn-xs" onclick="toggleConfig(${cIdx})"><i class="fas fa-cog"></i> Edit</button>
+                        <button class="btn-xs danger" onclick="removeCustomChart(${cIdx})"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+                <div class="chart-wrap-inner">
+                    <canvas id="customCanvas_${cIdx}" style="cursor:pointer" onclick="openChartModal(this)"></canvas>
+                </div>
+                <div class="chart-config-panel" id="configPanel_${cIdx}" style="display:${openConfigPanels['configPanel_' + cIdx] ? 'block' : 'none'};">
+                    ${seriesHtml}
+                    <button class="btn-xs" style="margin-top:6px;" onclick="addSeries(${cIdx})"><i class="fas fa-plus"></i> KPI</button>
+                    <div class="axis-labels-row">
+                        <input type="text" class="axis-input" placeholder="Left axis name (auto)" value="${cfg.leftAxisName}" onchange="updateAxisName(${cIdx}, 'L', this.value)">
+                        <input type="text" class="axis-input" placeholder="Right axis name (auto)" value="${cfg.rightAxisName}" onchange="updateAxisName(${cIdx}, 'R', this.value)">
+                    </div>
+                </div>
+            `;
+            grid.appendChild(chartDiv);
+        });
+
+        // When UI redraws, auto-render if data is already available!
+        if (typeof TREND_LABELS !== 'undefined' && TREND_LABELS && TREND_LABELS.length > 0) {
+            setTimeout(renderCustomCharts, 50);
+        }
+    }
+
+    // Handlers for config
+    function toggleConfig(cIdx) {
+        let p = document.getElementById(`configPanel_${cIdx}`);
+        p.style.display = p.style.display === "none" ? "block" : "none";
+    }
+    function updateChartTitle(cIdx, val) { customChartsConfig[cIdx].title = val; }
+    function updateAxisName(cIdx, axis, val) {
+        if (axis === 'L') customChartsConfig[cIdx].leftAxisName = val;
+        else customChartsConfig[cIdx].rightAxisName = val;
+    }
+    function updateCustomCfg(cIdx, sIdx, key, val) { customChartsConfig[cIdx].series[sIdx][key] = val; }
+    function renderConfigPanelUI(cIdx) {
+        let p = document.getElementById(`configPanel_${cIdx}`);
+        if (!p) return;
+        let cfg = customChartsConfig[cIdx];
+        let seriesHtml = "";
+        cfg.series.forEach((s, sIdx) => {
+            let kpiOptions = ALL_KPIS.map(k => `<option value="${k[0]}" ${s.kpi === k[0] ? 'selected' : ''}>${k[1]}</option>`).join('');
+            seriesHtml += `
+                <div class="config-row">
+                    <select class="kpi-sel" onchange="updateCustomCfg(${cIdx}, ${sIdx}, 'kpi', this.value)">${kpiOptions}</select>
+                    <select class="axis-sel" onchange="updateCustomCfg(${cIdx}, ${sIdx}, 'axis', this.value)">
+                        <option value="L" ${s.axis === 'L' ? 'selected' : ''}>L</option>
+                        <option value="R" ${s.axis === 'R' ? 'selected' : ''}>R</option>
+                    </select>
+                    <select class="type-sel" onchange="updateCustomCfg(${cIdx}, ${sIdx}, 'type', this.value)">
+                        <option value="line" ${s.type === 'line' ? 'selected' : ''}>line</option>
+                        <option value="bar" ${s.type === 'bar' ? 'selected' : ''}>bar</option>
+                        <option value="area" ${s.type === 'area' ? 'selected' : ''}>area</option>
+                    </select>
+                    <input type="color" class="color-sel" value="${s.color}" onchange="updateCustomCfg(${cIdx}, ${sIdx}, 'color', this.value)">
+                    <label style="display:flex; align-items:center; gap:3px;"><input type="checkbox" ${s.shading ? 'checked' : ''} onchange="updateCustomCfg(${cIdx}, ${sIdx}, 'shading', this.checked)"> shading</label>
+                    <button class="btn-xs danger" onclick="removeSeries(${cIdx}, ${sIdx})"><i class="fas fa-times"></i></button>
+                </div>
+            `;
+        });
+        p.innerHTML = `
+            ${seriesHtml}
+            <button class="btn-xs" style="margin-top:6px;" onclick="addSeries(${cIdx})"><i class="fas fa-plus"></i> KPI</button>
+            <div class="axis-labels-row">
+                <input type="text" class="axis-input" placeholder="Left axis name (auto)" value="${cfg.leftAxisName}" onchange="updateAxisName(${cIdx}, 'L', this.value)">
+                <input type="text" class="axis-input" placeholder="Right axis name (auto)" value="${cfg.rightAxisName}" onchange="updateAxisName(${cIdx}, 'R', this.value)">
+            </div>
+        `;
+    }
+
+    function addSeries(cIdx) {
+        customChartsConfig[cIdx].series.push({
+            kpi: ALL_KPIS[0][0], axis: 'L', type: 'line', color: customChartColors[customChartsConfig[cIdx].series.length % customChartColors.length], shading: false
+        });
+        renderConfigPanelUI(cIdx);
+    }
+    function removeSeries(cIdx, sIdx) {
+        customChartsConfig[cIdx].series.splice(sIdx, 1);
+        renderConfigPanelUI(cIdx);
+    }
+    function removeCustomChart(cIdx) {
+        customChartsConfig.splice(cIdx, 1);
+        renderCustomChartsUI();
+    }
+    function duplicateCustomChart(cIdx) {
+        let cfg = JSON.parse(JSON.stringify(customChartsConfig[cIdx]));
+        cfg.title = cfg.title + " (Copy)";
+        customChartsConfig.push(cfg);
+        renderCustomChartsUI();
+    }
+
+    // Render logic
+    function renderCustomCharts(site = 'ALL') {
+        if (!TREND_LABELS || TREND_LABELS.length === 0) return alert("No trend data available to render charts.");
+
+        customChartInstances.forEach(c => c.destroy());
+        customChartInstances = [];
+
+        customChartsConfig.forEach((cfg, cIdx) => {
+            let ctx = document.getElementById(`customCanvas_${cIdx}`);
+            if (!ctx) return;
+
+            let datasets = [];
+            let hasRight = false;
+            let leftTitle = cfg.leftAxisName;
+            let rightTitle = cfg.rightAxisName;
+
+            cfg.series.forEach(s => {
+                // Find KPI data
+                let data = [];
+                if (site === 'ALL') {
+                    data = TREND_DATA[s.kpi]?.total || [];
+                } else {
+                    data = SITE_TREND_DATA[s.kpi]?.[site] || [];
+                }
+                
+                // If the selected KPI is not in the dashboard query (it was not selected in filter), 
+                // data might be empty. For a robust implementation, it would fetch via API,
+                // but here we just render what we have.
+                if (data.length === 0) {
+                    console.warn(`KPI ${s.kpi} data not loaded. Please select it in the main filters.`);
+                }
+
+                let kpiDef = ALL_KPIS.find(k => k[0] === s.kpi);
+                let labelName = kpiDef ? kpiDef[1] : s.kpi;
+
+                if (s.axis === 'R') hasRight = true;
+                if (!leftTitle && s.axis === 'L' && kpiDef) leftTitle = kpiDef[3] || kpiDef[2];
+                if (!rightTitle && s.axis === 'R' && kpiDef) rightTitle = kpiDef[3] || kpiDef[2];
+
+                datasets.push({
+                    label: labelName,
+                    data: data,
+                    type: s.type === 'area' ? 'line' : s.type,
+                    fill: s.type === 'area' ? true : s.shading,
+                    borderColor: s.color,
+                    backgroundColor: s.type === 'bar' ? s.color : ((s.type === 'area' || s.shading) ? s.color.replace(')', ', 0.1)').replace('rgb', 'rgba') : 'transparent'),
+                    yAxisID: s.axis === 'L' ? 'y-left' : 'y-right',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    pointRadius: 0
+                });
+            });
+
+            let options = {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, color: textColor, font: { size: 10 } } },
+                    highlightPeriods: true
+                },
+                scales: {
+                    x: { grid: { color: gridColor }, ticks: sharedXAxisTicks },
+                    'y-left': {
+                        type: 'linear', position: 'left',
+                        title: { display: !!leftTitle, text: leftTitle, color: textColor, font: { size: 9 } },
+                        grid: { color: gridColor }, ticks: { color: textColor, font: { size: 9 } }
+                    }
+                }
+            };
+
+            if (hasRight) {
+                options.scales['y-right'] = {
+                    type: 'linear', position: 'right',
+                    title: { display: !!rightTitle, text: rightTitle, color: textColor, font: { size: 9 } },
+                    grid: { drawOnChartArea: false, color: gridColor }, ticks: { color: textColor, font: { size: 9 } }
+                };
+            }
+
+            if(chartInstances[ctx.id]) chartInstances[ctx.id].destroy();
+            let chart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: TREND_LABELS, datasets: datasets },
+                options: options
+            });
+            chartInstances[ctx.id] = chart;
+            customChartInstances.push(chart);
+        });
+    }
+
+    // DB Operations
+    const csrfToken = "{{ csrf_token() }}";
+    async function saveDashboard() {
+        let dbName = document.getElementById("dashboardNameInput").value.trim();
+        if (!dbName) return alert("Please enter a dashboard name");
+
+        let cols = document.querySelector('.row-btn.active')?.dataset.col || 3;
+
+        try {
+            let res = await fetch("/api/dashboard_2g/save_chart", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+                body: JSON.stringify({ dashboard_name: dbName, chart_config: { cols: cols, charts: customChartsConfig } })
+            });
+            let json = await res.json();
+            if (json.success) {
+                alert("Saved successfully!");
+                let sel = document.getElementById("loadDashboardSelect");
+                if(sel && !Array.from(sel.options).some(o => o.value === dbName)) {
+                    let opt = document.createElement("option");
+                    opt.value = dbName; opt.text = dbName;
+                    sel.add(opt);
+                }
+                let existing = USER_CHARTS.find(u => u.dashboard_name === dbName);
+                if(existing) existing.chart_config = { cols: cols, charts: customChartsConfig };
+                else USER_CHARTS.push({ dashboard_name: dbName, chart_config: { cols: cols, charts: customChartsConfig } });
+                if(sel) sel.value = dbName;
+            } else {
+                alert("Error: " + json.error);
+            }
+        } catch (e) { alert("Network error"); }
+    }
+
+    let USER_CHARTS = {{ user_charts| tojson | safe }};
+    function loadDashboard(dbName) {
+        if (!dbName) return;
+        let db = USER_CHARTS.find(u => u.dashboard_name === dbName);
+        if (db && db.chart_config) {
+            document.getElementById("dashboardNameInput").value = dbName;
+            customChartsConfig = db.chart_config.charts || [];
+            setGridCol(db.chart_config.cols || 3);
+            renderCustomChartsUI();
+            renderCustomCharts();
+        }
+    }
+
+    async function deleteDashboard() {
+        let dbName = document.getElementById("loadDashboardSelect").value;
+        if (!dbName) return alert("Please select a dashboard to delete");
+        if (!confirm("Are you sure you want to delete " + dbName + "?")) return;
+
+        try {
+            let res = await fetch("/api/dashboard_2g/delete_chart", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+                body: JSON.stringify({ dashboard_name: dbName })
+            });
+            let json = await res.json();
+            if (json.success) {
+                alert("Deleted successfully!");
+                let sel = document.getElementById("loadDashboardSelect");
+                if(sel) {
+                    for(let i=0; i<sel.options.length; i++) {
+                        if(sel.options[i].value === dbName) {
+                            sel.remove(i);
+                            break;
+                        }
+                    }
+                    sel.value = "";
+                }
+                USER_CHARTS = USER_CHARTS.filter(u => u.dashboard_name !== dbName);
+                document.getElementById("dashboardNameInput").value = "";
+            } else {
+                alert("Error: " + json.error);
+            }
+        } catch (e) { alert("Network error"); }
+    }
+
+    // -- Filter UI Functions --
+
+    function showLoading() {
+        document.getElementById('loadingOverlay').style.display = 'flex';
+    }
+
+    // -- Dropdown Functions --
+    function toggleSiteDropdown(e) {
+        e.preventDefault();
+        const menu = document.getElementById('siteDropdown');
+        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        if (menu.style.display === 'block') {
+            document.getElementById('siteSearch').focus();
+        }
+    }
+    function toggleKpiDropdown(e) {
+        e.preventDefault();
+        const menu = document.getElementById('kpiDropdown');
+        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }
+
+    // Close dropdowns on outside click
+    window.addEventListener('click', function (e) {
+        if (!e.target.closest('#siteDropdownContainer')) {
+            const siteMenu = document.getElementById('siteDropdown');
+            if (siteMenu) siteMenu.style.display = 'none';
+        }
+        if (!e.target.closest('#kpiDropdownContainer')) {
+            const kpiMenu = document.getElementById('kpiDropdown');
+            if (kpiMenu) kpiMenu.style.display = 'none';
+        }
+    });
+
+    function filterSites() {
+        const query = document.getElementById('siteSearch').value.toLowerCase();
+        const container = document.getElementById('siteCheckboxes');
+        const labels = document.querySelectorAll('#siteCheckboxes .checkbox-label');
+        container.style.display = 'none';
+        labels.forEach(label => {
+            const text = label.querySelector('span').textContent.toLowerCase();
+            label.style.display = text.includes(query) ? 'flex' : 'none';
+        });
+        container.style.display = 'flex';
+    }
+
+    function toggleAllSites(source) {
+        const container = document.getElementById('siteCheckboxes');
+        const checkboxes = document.querySelectorAll('#siteCheckboxes input[type="checkbox"]');
+        container.style.display = 'none';
+        checkboxes.forEach(cb => {
+            if (cb.closest('.checkbox-label').style.display !== 'none') {
+                cb.checked = source.checked;
+            }
+        });
+        container.style.display = 'flex';
+        updateSiteCount();
+    }
+
+    function toggleAllKPIs(source) {
+        const checkboxes = document.querySelectorAll('#kpiCheckboxes input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = source.checked);
+        updateKpiCount();
+    }
+
+    function updateSiteCount() {
+        const count = document.querySelectorAll('#siteCheckboxes input[type="checkbox"]:checked').length;
+        const filterTypeNode = document.querySelector('input[name="filter_type"]:checked');
+        const isCell = filterTypeNode && filterTypeNode.value === 'site_cell';
+        const typeStr = isCell ? 'Cells' : 'Sites';
+        document.getElementById('siteBtnText').textContent = count > 0 ? `Select ${typeStr} (${count})` : `Select ${typeStr} (0)`;
+        sortSitesToTop();
+    }
+
+    function updateKpiCount() {
+        const count = document.querySelectorAll('#kpiCheckboxes input[type="checkbox"]:checked').length;
+        document.getElementById('kpiBtnText').textContent = `${count} KPI(s) Selected`;
+    }
+
+    // -- CSV / Paste Logic --
+    function handleSiteFileImport(input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        document.getElementById('siteFileLabel').textContent = file.name;
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            parseSiteText(e.target.result);
+            input.value = ""; // reset
+        };
+        reader.readAsText(file);
+    }
+
+    function handleInlinePaste(text) {
+        if (text.trim().length > 2) parseSiteText(text);
+    }
+
+    function parseSiteText(text) {
+        if (!text) return;
+        const rawItems = text.split(/[\n,;\t]+/).map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
+        let count = 0;
+        const container = document.getElementById('siteCheckboxes');
+        container.style.display = 'none';
+        const checkboxes = document.querySelectorAll('#siteCheckboxes input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+            if (rawItems.includes(cb.value.toUpperCase())) {
+                cb.checked = true;
+                count++;
+            }
+        });
+        container.style.display = 'flex';
+        updateSiteCount();
+        const cSpan = document.getElementById('sitePasteCount');
+        if (cSpan) {
+            cSpan.textContent = "Matched: " + count;
+            setTimeout(() => cSpan.textContent = "", 3000);
+        }
+    }
+
+    // -- Exec Dates Logic --
+    let execDatesArray = [];
+    function renderExecDatesChips() {
+        const container = document.getElementById('execDatesChips');
+        const hiddenInput = document.getElementById('execution_dates_hidden');
+        if (!container) return;
+        container.innerHTML = '';
+
+        // Remove duplicates and sort
+        execDatesArray = [...new Set(execDatesArray)].sort();
+
+        execDatesArray.forEach(dateStr => {
+            const chip = document.createElement('div');
+            chip.style.cssText = 'background: rgba(79,172,254,0.15); border: 1px solid rgba(79,172,254,0.3); border-radius: 4px; padding: 2px 6px; font-size: 11px; display: flex; align-items: center; gap: 4px; color: #4facfe;';
+            chip.innerHTML = `
+                ${dateStr}
+                <i class="fas fa-times" style="cursor: pointer; opacity: 0.7;" onclick="removeExecDate('${dateStr}')"></i>
+            `;
+            container.appendChild(chip);
+        });
+
+        if (hiddenInput) hiddenInput.value = execDatesArray.join(',');
+    }
+
+    function addExecDate(val) {
+        if (!val) return;
+        if (!execDatesArray.includes(val)) {
+            execDatesArray.push(val);
+            renderExecDatesChips();
+        }
+    }
+
+    function removeExecDate(val) {
+        execDatesArray = execDatesArray.filter(d => d !== val);
+        renderExecDatesChips();
+    }
+
+    function clearExecDates() {
+        execDatesArray = [];
+        renderExecDatesChips();
+    }
+
+    // Render initially if any custom config loaded (from memory)
+    document.addEventListener("DOMContentLoaded", () => {
+        const initVal = document.getElementById('execution_dates_hidden')?.value;
+        if (initVal) {
+            execDatesArray = initVal.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            renderExecDatesChips();
+        }
+    });
+
+    // ── Export All Custom Charts ──
+
+    function exportAllCustomChartsCSV() {
+        if (customChartInstances.length === 0) return alert("No charts to export.");
+        if (!TREND_LABELS || TREND_LABELS.length === 0) return alert("No trend data available.");
+        
+        let csvContent = "data:text/csv;charset=utf-8,Datetime";
+        let allDataCols = [];
+        
+        customChartsConfig.forEach((cfg, cIdx) => {
+            let chartTitle = cfg.title || "Chart " + (cIdx+1);
+            cfg.series.forEach(s => {
+                let kpiDef = ALL_KPIS.find(k => k[0] === s.kpi);
+                let labelName = kpiDef ? kpiDef[1] : s.kpi;
+                let colHeader = `"${chartTitle} - ${labelName}"`.replace(/"/g, '""');
+                csvContent += ',"' + colHeader + '"';
+                
+                let data = TREND_DATA[s.kpi]?.total || [];
+                allDataCols.push(data);
+            });
+        });
+        csvContent += "\r\n";
+        
+        for (let i = 0; i < TREND_LABELS.length; i++) {
+            let row = ['"' + String(TREND_LABELS[i]).replace(/"/g, '""') + '"'];
+            allDataCols.forEach(dataCol => {
+                let val = dataCol[i];
+                row.push((val !== null && val !== undefined) ? val : "");
+            });
+            csvContent += row.join(",") + "\r\n";
+        }
+        
+        let a = document.createElement('a');
+        a.href = encodeURI(csvContent);
+        let dbName = document.getElementById("dashboardNameInput").value.trim() || "Custom_Dashboard";
+        a.download = dbName + '_Data.csv';
+        a.click();
+    }
+
+    function onFilterTypeChange(type) {
+        // Update placeholders
+        let isCell = (type === "site_cell");
+        document.getElementById("filterTitleLabel").innerText = isCell ? "SITE-CELLS" : "SITES";
+        document.getElementById("siteBtnText").textContent = `Select ${isCell ? 'Cells' : 'Sites'} (0)`;
+        document.getElementById("siteSearch").placeholder = `Search ${isCell ? 'cells' : 'sites'}...`;
+        document.getElementById("importLabel").innerText = `OR IMPORT ${isCell ? 'CELLS' : 'SITES'} FROM CSV`;
+        document.getElementById("sitePasteArea").placeholder = `Paste ${isCell ? 'cell' : 'site'} IDs here\n(one per line or comma-separated)`;
+        
+        // Fetch new items
+        fetch(`/api/filter_list_2g?filter_type=${type}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.items) {
+                    let container = document.getElementById("siteCheckboxes");
+                    let html = [];
+                    data.items.forEach(item => {
+                        html.push(`<label class="checkbox-label" data-site="${item}" style="cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                            <input type="checkbox" name="site" value="${item}" onchange="updateSiteCount()">
+                            <span>${item}</span>
+                        </label>`);
+                    });
+                    container.innerHTML = html.join('');
+                    updateSiteCount();
+                }
+            })
+            .catch(err => console.error("Error fetching filter list:", err));
+    }
+
+    // ── Tab Controls (Chart/Table Toggle & Site Filter) ──
+    function setTabView(tabId, viewType) {
+        // Update buttons
+        const btnChart = document.getElementById('btn-chart-' + tabId);
+        const btnTable = document.getElementById('btn-table-' + tabId);
+        if (btnChart && btnTable) {
+            if (viewType === 'chart') {
+                btnChart.classList.add('active');
+                btnTable.classList.remove('active');
+            } else {
+                btnTable.classList.add('active');
+                btnChart.classList.remove('active');
+            }
+        }
+        
+        // Update views
+        const chartView = document.getElementById('chartView-' + tabId);
+        const tableView = document.getElementById('tableView-' + tabId);
+        if (chartView) chartView.style.display = viewType === 'chart' ? 'block' : 'none';
+        if (tableView) tableView.style.display = viewType === 'table' ? 'block' : 'none';
+    }
+
+    
+    
+    // Close all tab dropdowns when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.tab-dropdown-container')) {
+            document.querySelectorAll('.tab-dropdown-menu').forEach(menu => {
+                menu.style.display = 'none';
+            });
+        }
+    });
+
+    </script>
+{% endblock %}
