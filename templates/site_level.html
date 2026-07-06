@@ -350,19 +350,31 @@
             
             <div class="chart-grid">
                 <div class="glass-card">
-                    <h3 style="font-size:15px; margin-bottom:16px;"><i class="fas fa-box-open" style="color:#4facfe;"></i> Payload (TB)</h3>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                        <h3 style="font-size:15px; margin:0;"><i class="fas fa-box-open" style="color:#4facfe;"></i> Payload (TB)</h3>
+                        <button type="button" class="chart-action-btn" onclick="openChartModal(document.getElementById('cPayload'))"><i class="fas fa-expand"></i></button>
+                    </div>
                     <div style="height:240px; width:100%; position:relative;"><canvas id="cPayload"></canvas></div>
                 </div>
                 <div class="glass-card">
-                    <h3 style="font-size:15px; margin-bottom:16px;"><i class="fas fa-signal" style="color:#f093fb;"></i> Traffic (KErl)</h3>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                        <h3 style="font-size:15px; margin:0;"><i class="fas fa-signal" style="color:#f093fb;"></i> Traffic (KErl)</h3>
+                        <button type="button" class="chart-action-btn" onclick="openChartModal(document.getElementById('cTraffic'))"><i class="fas fa-expand"></i></button>
+                    </div>
                     <div style="height:240px; width:100%; position:relative;"><canvas id="cTraffic"></canvas></div>
                 </div>
                 <div class="glass-card">
-                    <h3 style="font-size:15px; margin-bottom:16px;"><i class="fas fa-check-circle" style="color:#00c853;"></i> Availability (%)</h3>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                        <h3 style="font-size:15px; margin:0;"><i class="fas fa-check-circle" style="color:#00c853;"></i> Availability (%)</h3>
+                        <button type="button" class="chart-action-btn" onclick="openChartModal(document.getElementById('cAvail'))"><i class="fas fa-expand"></i></button>
+                    </div>
                     <div style="height:240px; width:100%; position:relative;"><canvas id="cAvail"></canvas></div>
                 </div>
                 <div class="glass-card">
-                    <h3 style="font-size:15px; margin-bottom:16px;"><i class="fas fa-users" style="color:#ff9f40;"></i> RRC Users</h3>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                        <h3 style="font-size:15px; margin:0;"><i class="fas fa-users" style="color:#ff9f40;"></i> RRC Users</h3>
+                        <button type="button" class="chart-action-btn" onclick="openChartModal(document.getElementById('cRrc'))"><i class="fas fa-expand"></i></button>
+                    </div>
                     <div style="height:240px; width:100%; position:relative;"><canvas id="cRrc"></canvas></div>
                 </div>
             </div>
@@ -389,21 +401,31 @@
             <!-- Top / Bottom Charts -->
             <div class="chart-grid">
                 <div class="glass-card">
-                    <h3 style="font-size:15px; margin-bottom:16px;"><i class="fas fa-arrow-up" style="color:#10b981;"></i> Top 10 Growth (Payload Δ%)</h3>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                        <h3 style="font-size:15px; margin:0;"><i class="fas fa-arrow-up" style="color:#10b981;"></i> Top 10 Growth (Payload Δ%)</h3>
+                        <button type="button" class="chart-action-btn" onclick="openChartModal(document.getElementById('cTop'))"><i class="fas fa-expand"></i></button>
+                    </div>
                     <div style="height:260px; width:100%; position:relative;"><canvas id="cTop"></canvas></div>
                 </div>
                 <div class="glass-card">
-                    <h3 style="font-size:15px; margin-bottom:16px;"><i class="fas fa-arrow-down" style="color:#ef4444;"></i> Bottom 10 Decline (Payload Δ%)</h3>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                        <h3 style="font-size:15px; margin:0;"><i class="fas fa-arrow-down" style="color:#ef4444;"></i> Bottom 10 Decline (Payload Δ%)</h3>
+                        <button type="button" class="chart-action-btn" onclick="openChartModal(document.getElementById('cBot'))"><i class="fas fa-expand"></i></button>
+                    </div>
                     <div style="height:260px; width:100%; position:relative;"><canvas id="cBot"></canvas></div>
                 </div>
             </div>
             
             <div class="glass-card" style="padding:0; overflow:hidden;">
-                <div style="padding:16px 20px; border-bottom:1px solid rgba(0,0,0,0.05); background:rgba(79,172,254,0.05);">
-                    <h3 style="font-size:15px;"><i class="fas fa-table" style="color:#4facfe;"></i> Detailed Comparison Table</h3>
+                <div style="padding:16px 20px; border-bottom:1px solid rgba(0,0,0,0.05); background:rgba(79,172,254,0.05); display:flex; justify-content:space-between; align-items:center;">
+                    <h3 style="font-size:15px; margin:0;"><i class="fas fa-table" style="color:#4facfe;"></i> Detailed Comparison Table</h3>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <input type="text" id="cSearch" onkeyup="filterTable('cTableBody', this.value)" placeholder="Search..." class="f-input" style="padding:4px 8px; font-size:11px;">
+                        <button type="button" class="modal-action-btn" onclick="exportTableCSV('compareTable', 'Site_Compare')"><i class="fas fa-file-csv"></i> CSV</button>
+                    </div>
                 </div>
                 <div style="overflow-x:auto;">
-                    <table class="modern-table">
+                    <table class="modern-table" id="compareTable">
                         <thead>
                             <tr>
                                 <th>SITE ID</th>
@@ -542,7 +564,7 @@ function getChartOpts(title) {
     return {
         responsive: true, maintainAspectRatio: false, animation: { duration: 500 },
         plugins: {
-            legend: { display: false },
+            legend: { display: true, position: 'bottom', labels: { color: tc(), font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' } },
             tooltip: { mode: 'index', intersect: false, backgroundColor: 'rgba(15,23,42,0.9)', titleFont:{size:11}, bodyFont:{size:11} }
         },
         interaction: { mode: 'index', intersect: false },
@@ -607,6 +629,12 @@ async function loadDataTrend() {
         charts.cTraffic = new Chart(document.getElementById('cTraffic').getContext('2d'), { type:'line', data:{ labels:data.chart_labels, datasets:makeDatasets(data.chart_traffic) }, options:getChartOpts('KErl') });
         charts.cAvail   = new Chart(document.getElementById('cAvail').getContext('2d'), { type:'line', data:{ labels:data.chart_labels, datasets:makeDatasets(data.chart_availability) }, options:getChartOpts('%') });
         charts.cRrc     = new Chart(document.getElementById('cRrc').getContext('2d'), { type:'line', data:{ labels:data.chart_labels, datasets:makeDatasets(data.chart_rrc) }, options:getChartOpts('Users') });
+
+        window.chartInstances = window.chartInstances || {};
+        window.chartInstances['cPayload'] = charts.cPayload;
+        window.chartInstances['cTraffic'] = charts.cTraffic;
+        window.chartInstances['cAvail'] = charts.cAvail;
+        window.chartInstances['cRrc'] = charts.cRrc;
 
         document.getElementById('tSkeleton').style.display = 'none';
         document.getElementById('tData').style.display = 'flex';
@@ -684,6 +712,7 @@ async function loadDataCompare() {
                 },
                 options: {
                     indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                    layout: { padding: { right: 60 } },
                     plugins: { legend: { display: false }, tooltip: {
                         callbacks: { label: c => {
                             const row = rows[c.dataIndex];
@@ -710,6 +739,8 @@ async function loadDataCompare() {
                     }
                 }]
             });
+            window.chartInstances = window.chartInstances || {};
+            window.chartInstances[id] = charts[id];
         };
         
         renderBar('cTop', top10, false);

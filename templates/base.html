@@ -445,7 +445,44 @@ body.mobile-view .hamburger-btn {
 .alert { border-radius: 10px; font-size: 13px; padding: 10px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; border: 1px solid; }
 [data-theme="dark"]  .alert-warning { background: rgba(255,193,7,0.1); border-color: rgba(255,193,7,0.2); color: #ffd166; }
 [data-theme="light"] .alert-warning { background: #fff8e1; border-color: #ffe082; color: #b7791f; }
-[data-theme="dark"]  .alert-danger  { background: rgba(255,82,82,0.1); border-color: rgba(255,82,82,0.2); color: #ff5252; }
+[data-theme="dark"]  .logout-btn:hover {
+    background: rgba(255,82,82,0.1); border-color: rgba(255,82,82,0.4); color: #ff5252;
+}
+
+/* ── Chart Modal & Actions ── */
+.chart-action-btn { background:transparent; border:none; color:inherit; opacity:0.5; cursor:pointer; font-size:14px; transition:opacity 0.2s, color 0.2s; margin-left:6px; }
+.chart-action-btn:hover { opacity:1; color:#4facfe; }
+
+.chart-modal {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+    z-index: 9999; display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.3s; pointer-events: none;
+}
+.chart-modal.show { opacity: 1; pointer-events: auto; }
+.chart-modal-content {
+    width: 90vw; height: 90vh; max-width: 1400px;
+    display: flex; flex-direction: column; position: relative;
+    transform: scale(0.95); transition: transform 0.3s;
+    background: #fff; border-radius: 12px; overflow: visible;
+}
+[data-theme="dark"] .chart-modal-content { background: #1e1e2e; }
+.chart-modal.show .chart-modal-content { transform: scale(1); }
+.chart-modal-close {
+    position: absolute; top: -15px; right: -15px;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #ff5252; color: #fff; border: none; font-size: 16px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 12px rgba(255,82,82,0.4); z-index: 10;
+}
+.chart-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px; border-bottom: 1px solid rgba(128,128,128,0.2); }
+.chart-modal-actions { display: flex; gap: 10px; }
+.modal-action-btn { padding: 6px 12px; border-radius: 6px; border: 1px solid; background: transparent; cursor: pointer; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+[data-theme="dark"] .modal-action-btn { border-color: rgba(79,172,254,0.3); color: #4facfe; }
+[data-theme="light"] .modal-action-btn { border-color: rgba(0,0,0,0.1); color: #333; }
+.modal-action-btn:hover { background: rgba(79,172,254,0.1); }
+.chart-modal-body { flex: 1; min-height: 0; position: relative; padding: 20px; }
+
 [data-theme="light"] .alert-danger  { background: #fff0f0; border-color: #ffcccc; color: #c0392b; }
 [data-theme="dark"]  .alert-success { background: rgba(0,230,118,0.1); border-color: rgba(0,230,118,0.2); color: #00e676; }
 [data-theme="dark"]  .alert-info    { background: rgba(79,172,254,0.1); border-color: rgba(79,172,254,0.2); color: #4facfe; }
@@ -2650,9 +2687,9 @@ function closeYBar(){
 }
 
 function openChartModal(chartEl){
-    var card = chartEl.closest('.card') || chartEl.closest('.dash-chart-card') || chartEl.closest('.chart-box');
+    var card = chartEl.closest('.card') || chartEl.closest('.dash-chart-card') || chartEl.closest('.chart-box') || chartEl.closest('.glass-card');
     if(!card) return;
-    var title = card.querySelector('.card-title') || card.querySelector('.dash-chart-title');
+    var title = card.querySelector('.card-title') || card.querySelector('.dash-chart-title') || card.querySelector('h3');
     var titleInput = card.querySelector('.chart-title-input');
     var titleText = title ? title.textContent.replace(/\s+/g, ' ').trim() : (titleInput ? titleInput.value.replace(/\s+/g, ' ').trim() : 'Chart Preview');
     var chartId = chartEl.id;
@@ -2797,7 +2834,7 @@ function downloadModalCSV() {
     if(!modalChart) return;
     var labels = modalChart.data.labels;
     var visibleDatasets = modalChart.data.datasets.filter(function(ds) { return !ds.hidden; });
-    var csvContent = "data:text/csv;charset=utf-8,Label";
+    var csvContent = "\uFEFFLabel";
     visibleDatasets.forEach(function(ds) { csvContent += "," + '"' + ds.label.replace(/"/g, '""') + '"'; });
     csvContent += "\r\n";
     for (var i = 0; i < labels.length; i++) {
@@ -2808,11 +2845,14 @@ function downloadModalCSV() {
         });
         csvContent += row.join(",") + "\r\n";
     }
+    var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
-    a.href = encodeURI(csvContent);
+    a.href = url;
     var title = document.getElementById('modalTitle').textContent || 'Chart';
     a.download = title + '.csv';
     a.click();
+    URL.revokeObjectURL(url);
 }
 
 document.addEventListener('DOMContentLoaded', attachChartModalHandlers);
@@ -2834,7 +2874,7 @@ function downloadChartData(canvasId, filename){
         rows.push(row.join(","));
     }
     var csvContent = rows.join("\n");
-    var blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    var blob = new Blob(['\ufeff' + csvContent], { type: "text/csv;charset=utf-8;" });
     var url = URL.createObjectURL(blob);
     var link = document.createElement("a");
     link.href = url;
@@ -2988,6 +3028,46 @@ function toggleFilters() {
         card.style.display = 'none';
         btn.innerHTML = '<i class="fas fa-chevron-down"></i> Show Filters';
     }
+}
+
+/* ── Generic Table CSV Export ── */
+function exportTableCSV(tableId, filename) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    let csv = [];
+    const rows = table.querySelectorAll('tr');
+    for (let i = 0; i < rows.length; i++) {
+        let row = [], cols = rows[i].querySelectorAll('td, th');
+        for (let j = 0; j < cols.length; j++) {
+            let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, ' ').replace(/(\s\s)/gm, ' ').trim();
+            data = data.replace(/"/g, '""');
+            row.push('"' + data + '"');
+        }
+        csv.push(row.join(','));
+    }
+    const blob = new Blob(['\ufeff' + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+/* ── Generic Table Filter ── */
+function filterTable(tbodyId, searchTerm) {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+    const rows = tbody.querySelectorAll('tr');
+    const term = searchTerm.toLowerCase();
+    rows.forEach(row => {
+        const text = row.innerText.toLowerCase();
+        if (text.indexOf(term) > -1) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
 }
 </script>
 

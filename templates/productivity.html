@@ -37,6 +37,8 @@
     gap: 16px;
     align-items: flex-end;
     box-shadow: 0 4px 16px rgba(0,0,0,0.03);
+    position: relative;
+    z-index: 100;
 }
 [data-theme="dark"] .filter-card {
     background: rgba(30, 30, 46, 0.7);
@@ -240,20 +242,40 @@
         <!-- Charts -->
         <div class="chart-grid">
             <div class="glass-card">
-                <h3 style="font-size:16px; margin-bottom:4px; display:flex; align-items:center; gap:8px;"><i class="fas fa-chart-area" style="color:#8884d8;"></i> Payload Trend (TB)</h3>
-                <p style="font-size:12px; opacity:0.6; margin-bottom:16px;">Daily by day-of-year + YTD Cumulative</p>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                    <div>
+                        <h3 style="font-size:16px; margin-bottom:4px; display:flex; align-items:center; gap:8px;"><i class="fas fa-chart-area" style="color:#8884d8;"></i> Payload Trend (TB)</h3>
+                        <p style="font-size:12px; opacity:0.6; margin-bottom:0;">Daily by day-of-year + YTD Cumulative</p>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" class="chart-action-btn" onclick="openChartModal(document.getElementById('payloadChart'))"><i class="fas fa-expand"></i></button>
+                    </div>
+                </div>
                 <div style="height:260px; width:100%; position:relative;"><canvas id="payloadChart"></canvas></div>
             </div>
             <div class="glass-card">
-                <h3 style="font-size:16px; margin-bottom:4px; display:flex; align-items:center; gap:8px;"><i class="fas fa-chart-line" style="color:#ff9f40;"></i> Traffic Trend (KErl)</h3>
-                <p style="font-size:12px; opacity:0.6; margin-bottom:16px;">Daily by day-of-year + YTD Cumulative</p>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                    <div>
+                        <h3 style="font-size:16px; margin-bottom:4px; display:flex; align-items:center; gap:8px;"><i class="fas fa-chart-line" style="color:#ff9f40;"></i> Traffic Trend (KErl)</h3>
+                        <p style="font-size:12px; opacity:0.6; margin-bottom:0;">Daily by day-of-year + YTD Cumulative</p>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" class="chart-action-btn" onclick="openChartModal(document.getElementById('trafficChart'))"><i class="fas fa-expand"></i></button>
+                    </div>
+                </div>
                 <div style="height:260px; width:100%; position:relative;"><canvas id="trafficChart"></canvas></div>
             </div>
         </div>
 
         <!-- Table -->
         <div class="glass-card">
-            <h3 style="font-size:16px; margin-bottom:16px;"><i class="fas fa-sitemap" style="color:#4facfe;"></i> Regional Breakdown</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h3 style="font-size:16px; margin:0;"><i class="fas fa-sitemap" style="color:#4facfe;"></i> Regional Breakdown</h3>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <input type="text" onkeyup="filterTable('tableBody', this.value)" placeholder="Search table..." class="f-input" style="padding:4px 8px; font-size:11px;">
+                    <button type="button" class="modal-action-btn" onclick="exportTableCSV('dataTable', 'Regional_Breakdown')"><i class="fas fa-file-csv"></i> Export CSV</button>
+                </div>
+            </div>
             <div style="overflow-x:auto;">
                 <table class="modern-table" id="dataTable">
                     <thead>
@@ -424,6 +446,8 @@ async function loadData() {
             ]},
             options: buildChartOpts('TeraBytes')
         });
+        window.chartInstances = window.chartInstances || {};
+        window.chartInstances['payloadChart'] = payloadChart;
 
         const c2 = document.getElementById('trafficChart').getContext('2d');
         if(trafficChart) trafficChart.destroy();
@@ -436,6 +460,8 @@ async function loadData() {
             ]},
             options: buildChartOpts('Kilo Erlang')
         });
+        window.chartInstances = window.chartInstances || {};
+        window.chartInstances['trafficChart'] = trafficChart;
 
         // Render Table
         const tb = document.getElementById('tableBody');
