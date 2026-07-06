@@ -1,7 +1,7 @@
 """4G KPI Daily Routes — /kpi_4g_daily"""
 from flask import Blueprint, render_template, request, session, make_response, flash
 from app.db.db_webapp import get_postgres_connection
-from ._utils import login_required, _no_cache, csv_response, validate_date_params
+from ._utils import login_required, _no_cache, csv_response, validate_date_params, db_query
 import psycopg2
 import psycopg2.errors
 
@@ -103,83 +103,81 @@ def kpi_4g_daily():
     
     conn = cur = None
     try:
-        conn = get_postgres_connection(); cur = conn.cursor()
+        with db_query() as (conn, cur):
         
-        try:
-            cur.execute('SELECT MAX("Date") FROM "measKpiDy4G"')
-            raw_last = cur.fetchone()
-            last_update = raw_last[0].strftime('%Y-%m-%d') if raw_last and raw_last[0] else None
-        except: pass
+            try:
+                cur.execute('SELECT MAX("Date") FROM "measKpiDy4G"')
+                raw_last = cur.fetchone()
+                last_update = raw_last[0].strftime('%Y-%m-%d') if raw_last and raw_last[0] else None
+            except: pass
         
-        # Load Site list
-        site_expr = 'CASE WHEN LENGTH("ME Name") >= 8 THEN TRIM(SUBSTRING("ME Name", 3, 6)) ELSE TRIM("ME Name") END'
-        try:
-            cur.execute(f'''
-                SELECT DISTINCT {site_expr} 
-                FROM "measKpiDy4G" 
-                WHERE "ME Name" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL '60 days' 
-                ORDER BY 1
-            ''')
-            site_list = [r[0] for r in cur.fetchall() if r[0]]
+            # Load Site list
+            site_expr = 'CASE WHEN LENGTH("ME Name") >= 8 THEN TRIM(SUBSTRING("ME Name", 3, 6)) ELSE TRIM("ME Name") END'
+            try:
+                cur.execute(f'''
+                    SELECT DISTINCT {site_expr} 
+                    FROM "measKpiDy4G" 
+                    WHERE "ME Name" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL '60 days' 
+                    ORDER BY 1
+                ''')
+                site_list = [r[0] for r in cur.fetchall() if r[0]]
             
-            # move selected to top
-            if sel_sites:
-                site_list = [x for x in site_list if x in sel_sites] + [x for x in site_list if x not in sel_sites]
+                # move selected to top
+                if sel_sites:
+                    site_list = [x for x in site_list if x in sel_sites] + [x for x in site_list if x not in sel_sites]
                 
-        except Exception:
-            pass
+            except Exception:
+                pass
 
-        if from_date and to_date and sel_sites:
-            kpi_sql_parts = [kpi["sql"].replace("%", "%%") for kpi in ALL_KPIS]
-            kpi_sql_str = ",\n                        ".join(kpi_sql_parts)
+            if from_date and to_date and sel_sites:
+                kpi_sql_parts = [kpi["sql"].replace("%", "%%") for kpi in ALL_KPIS]
+                kpi_sql_str = ",\n                        ".join(kpi_sql_parts)
             
-            site_filter = f"AND ({site_expr}) = ANY(%s)"
+                site_filter = f"AND ({site_expr}) = ANY(%s)"
             
-            sql = f"""
-                SELECT
-                    "Date"::date AS date,
-                    {site_expr} AS site_id,
-                    {kpi_sql_str}
-                FROM "measKpiDy4G"
-                WHERE "Date" BETWEEN %s AND %s {site_filter}
-                GROUP BY "Date"::date, {site_expr}
-                ORDER BY "Date"::date, site_id
-            """
-            cur.execute(sql, [from_date, to_date, sel_sites])
-            rows_data = cur.fetchall()
+                sql = f"""
+                    SELECT
+                        "Date"::date AS date,
+                        {site_expr} AS site_id,
+                        {kpi_sql_str}
+                    FROM "measKpiDy4G"
+                    WHERE "Date" BETWEEN %s AND %s {site_filter}
+                    GROUP BY "Date"::date, {site_expr}
+                    ORDER BY "Date"::date, site_id
+                """
+                cur.execute(sql, [from_date, to_date, sel_sites])
+                rows_data = cur.fetchall()
             
-            timestamps_set = set()
-            date_dict = {}
-            for r in rows_data:
-                date_str = r[0].strftime("%Y-%m-%d") if r[0] else ""
-                site = (r[1] or "").strip()
-                timestamps_set.add(date_str)
-                if date_str not in date_dict:
-                    date_dict[date_str] = {}
-                date_dict[date_str][site] = r
+                timestamps_set = set()
+                date_dict = {}
+                for r in rows_data:
+                    date_str = r[0].strftime("%Y-%m-%d") if r[0] else ""
+                    site = (r[1] or "").strip()
+                    timestamps_set.add(date_str)
+                    if date_str not in date_dict:
+                        date_dict[date_str] = {}
+                    date_dict[date_str][site] = r
             
-            chart_labels = sorted(timestamps_set)
+                chart_labels = sorted(timestamps_set)
             
-            # Format Data for Charts
-            for site in sel_sites:
-                for kpi_idx, kpi in enumerate(ALL_KPIS):
-                    chart_data[kpi["id"]][site] = []
-                    for ts in chart_labels:
-                        day_data = date_dict.get(ts, {}).get(site)
-                        val = day_data[2 + kpi_idx] if day_data else None
-                        chart_data[kpi["id"]][site].append(_pv(val))
+                # Format Data for Charts
+                for site in sel_sites:
+                    for kpi_idx, kpi in enumerate(ALL_KPIS):
+                        chart_data[kpi["id"]][site] = []
+                        for ts in chart_labels:
+                            day_data = date_dict.get(ts, {}).get(site)
+                            val = day_data[2 + kpi_idx] if day_data else None
+                            chart_data[kpi["id"]][site].append(_pv(val))
             
-            # Format Data for Tables
-            for r in rows_data:
-                row_dict = {
-                    "date": r[0].strftime("%Y-%m-%d") if r[0] else "",
-                    "site": (r[1] or "").strip()
-                }
-                for kpi_idx, kpi in enumerate(ALL_KPIS):
-                    row_dict[kpi["id"]] = _pv(r[2 + kpi_idx])
-                table_rows.append(row_dict)
-
-        cur.close(); conn.close()
+                # Format Data for Tables
+                for r in rows_data:
+                    row_dict = {
+                        "date": r[0].strftime("%Y-%m-%d") if r[0] else "",
+                        "site": (r[1] or "").strip()
+                    }
+                    for kpi_idx, kpi in enumerate(ALL_KPIS):
+                        row_dict[kpi["id"]] = _pv(r[2 + kpi_idx])
+                    table_rows.append(row_dict)
     except Exception as e:
         import traceback
         with open('traceback.txt', 'w') as f:
@@ -218,35 +216,33 @@ def export_kpi_4g_daily():
         return "Missing parameters", 400
 
     try:
-        conn = get_postgres_connection(); cur = conn.cursor()
-        site_expr = 'CASE WHEN LENGTH("ME Name") >= 8 THEN TRIM(SUBSTRING("ME Name", 3, 6)) ELSE TRIM("ME Name") END'
-        kpi_sql_parts = [kpi["sql"].replace("%", "%%") for kpi in ALL_KPIS]
-        kpi_sql_str = ",\n                        ".join(kpi_sql_parts)
-        site_filter = f"AND ({site_expr}) = ANY(%s)"
+        with db_query() as (conn, cur):
+            site_expr = 'CASE WHEN LENGTH("ME Name") >= 8 THEN TRIM(SUBSTRING("ME Name", 3, 6)) ELSE TRIM("ME Name") END'
+            kpi_sql_parts = [kpi["sql"].replace("%", "%%") for kpi in ALL_KPIS]
+            kpi_sql_str = ",\n                        ".join(kpi_sql_parts)
+            site_filter = f"AND ({site_expr}) = ANY(%s)"
         
-        sql = f"""
-            SELECT
-                "Date"::date AS date,
-                {site_expr} AS site_id,
-                {kpi_sql_str}
-            FROM "measKpiDy4G"
-            WHERE "Date" BETWEEN %s AND %s {site_filter}
-            GROUP BY "Date"::date, {site_expr}
-            ORDER BY "Date"::date, site_id
-        """
-        cur.execute(sql, [from_date, to_date, sel_sites])
+            sql = f"""
+                SELECT
+                    "Date"::date AS date,
+                    {site_expr} AS site_id,
+                    {kpi_sql_str}
+                FROM "measKpiDy4G"
+                WHERE "Date" BETWEEN %s AND %s {site_filter}
+                GROUP BY "Date"::date, {site_expr}
+                ORDER BY "Date"::date, site_id
+            """
+            cur.execute(sql, [from_date, to_date, sel_sites])
         
-        headers = ["Date", "Site ID"] + [kpi["label"] for kpi in ALL_KPIS]
-        rows = []
-        for r in cur.fetchall():
-            date_str = r[0].strftime("%Y-%m-%d") if r[0] else ""
-            site_id = (r[1] or "").strip()
-            row = [date_str, site_id]
-            for val in r[2:]:
-                row.append(_pv(val) if val is not None else "")
-            rows.append(row)
-            
-        cur.close(); conn.close()
-        return csv_response(rows, headers, f"kpi_4g_daily_{from_date}_{to_date}.csv")
+            headers = ["Date", "Site ID"] + [kpi["label"] for kpi in ALL_KPIS]
+            rows = []
+            for r in cur.fetchall():
+                date_str = r[0].strftime("%Y-%m-%d") if r[0] else ""
+                site_id = (r[1] or "").strip()
+                row = [date_str, site_id]
+                for val in r[2:]:
+                    row.append(_pv(val) if val is not None else "")
+                rows.append(row)
+            return csv_response(rows, headers, f"kpi_4g_daily_{from_date}_{to_date}.csv")
     except Exception as e:
         return str(e), 500

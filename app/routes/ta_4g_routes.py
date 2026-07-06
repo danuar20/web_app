@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, session, make_response
 from app.db.db_webapp import get_postgres_connection
-from ._utils import login_required, _no_cache
+from ._utils import login_required, _no_cache, db_query
 import psycopg2
 
 ta4g = Blueprint("ta4g", __name__)
@@ -70,118 +70,105 @@ def ta_4g():
     conn = None
     cur = None
     try:
-        conn = get_postgres_connection()
-        cur = conn.cursor()
+        with db_query() as (conn, cur):
 
-        # Get distinct site names
-        cur.execute("""
-            SELECT DISTINCT "ME Name" FROM "measTA4G"
-            WHERE "ME Name" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL '60 days'
-            ORDER BY "ME Name"
-        """)
-        raw_sites = [r[0] for r in cur.fetchall()]
+            # Get distinct site names
+            cur.execute("""
+                SELECT DISTINCT "ME Name" FROM "measTA4G"
+                WHERE "ME Name" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL '60 days'
+                ORDER BY "ME Name"
+            """)
+            raw_sites = [r[0] for r in cur.fetchall()]
 
-        for me in raw_sites:
-            site_id = extract_site_id(me)
-            if site_id and site_id not in sites_list:
-                sites_list.append(site_id)
-        sites_list.sort()
+            for me in raw_sites:
+                site_id = extract_site_id(me)
+                if site_id and site_id not in sites_list:
+                    sites_list.append(site_id)
+            sites_list.sort()
 
-        try:
-            cur.execute('SELECT MAX("Date"::date) FROM "measTA4G"')
-            raw = cur.fetchone()
-            last_update = raw[0].strftime('%Y-%m-%d') if raw and raw[0] else None
-        except Exception:
-            last_update = None
+            try:
+                cur.execute('SELECT MAX("Date"::date) FROM "measTA4G"')
+                raw = cur.fetchone()
+                last_update = raw[0].strftime('%Y-%m-%d') if raw and raw[0] else None
+            except Exception:
+                last_update = None
 
-        if sel_date and sel_sites:
-            site_filter = " OR ".join([f'"ME Name" LIKE %s' for _ in sel_sites])
-            site_params = [f"%{site}%" for site in sel_sites]
+            if sel_date and sel_sites:
+                site_filter = " OR ".join([f'"ME Name" LIKE %s' for _ in sel_sites])
+                site_params = [f"%{site}%" for site in sel_sites]
 
-            cur.execute(f"""
-                SELECT
-                    "ME Name",
-                    "Cell ID",
-                    "Cell Name",
-                    "Product",
-                    COALESCE("0-0,156_km", 0),
-                    COALESCE("0,156-0,312_km", 0),
-                    COALESCE("0,312-0,468_km", 0),
-                    COALESCE("0,468-0,624_km", 0),
-                    COALESCE("0,624-0,780_km", 0),
-                    COALESCE("0,780-0,936_km", 0),
-                    COALESCE("0,936-1,092_km", 0),
-                    COALESCE("1,092-1,638_km", 0),
-                    COALESCE("1,638-2,184_km", 0),
-                    COALESCE("2,184-2,730_km", 0),
-                    COALESCE("2,730-3,198_km", 0),
-                    COALESCE("3,198-3,978_km", 0),
-                    COALESCE("3,978-6,396_km", 0),
-                    COALESCE("6,396-10,140_km", 0),
-                    COALESCE("TA > 10,140_km", 0)
-                FROM "measTA4G"
-                WHERE "Date"::date = %s AND ({site_filter})
-                ORDER BY "ME Name", "Cell ID", "Product"
-            """, [sel_date] + site_params)
+                cur.execute(f"""
+                    SELECT
+                        "ME Name",
+                        "Cell ID",
+                        "Cell Name",
+                        "Product",
+                        COALESCE("0-0,156_km", 0),
+                        COALESCE("0,156-0,312_km", 0),
+                        COALESCE("0,312-0,468_km", 0),
+                        COALESCE("0,468-0,624_km", 0),
+                        COALESCE("0,624-0,780_km", 0),
+                        COALESCE("0,780-0,936_km", 0),
+                        COALESCE("0,936-1,092_km", 0),
+                        COALESCE("1,092-1,638_km", 0),
+                        COALESCE("1,638-2,184_km", 0),
+                        COALESCE("2,184-2,730_km", 0),
+                        COALESCE("2,730-3,198_km", 0),
+                        COALESCE("3,198-3,978_km", 0),
+                        COALESCE("3,978-6,396_km", 0),
+                        COALESCE("6,396-10,140_km", 0),
+                        COALESCE("TA > 10,140_km", 0)
+                    FROM "measTA4G"
+                    WHERE "Date"::date = %s AND ({site_filter})
+                    ORDER BY "ME Name", "Cell ID", "Product"
+                """, [sel_date] + site_params)
 
-            rows = cur.fetchall()
-            if not rows:
-                session["flash"] = ("No data found for the selected date and sites.", "info")
+                rows = cur.fetchall()
+                if not rows:
+                    session["flash"] = ("No data found for the selected date and sites.", "info")
 
-            # Group by unique cell (site-sector-product)
-            for r in rows:
-                me_name   = r[0]   # ME Name
-                cell_id   = r[1]   # Cell ID
-                cell_name = r[2]  # Cell Name
-                product   = r[3]   # Product
-                ta_vals   = r[4:]  # TA distribution columns (15 bins)
+                # Group by unique cell (site-sector-product)
+                for r in rows:
+                    me_name   = r[0]   # ME Name
+                    cell_id   = r[1]   # Cell ID
+                    cell_name = r[2]  # Cell Name
+                    product   = r[3]   # Product
+                    ta_vals   = r[4:]  # TA distribution columns (15 bins)
 
-                site_id = extract_site_id(me_name)
-                # Cell ID: clean up any .0 float suffix (DB returns numeric as float)
-                cell_id_str = str(int(float(cell_id))) if cell_id else ""
-                # Sector: first 1 digit of 2-digit ID (11→S1), first 2 digits of 3-digit ID (171→S17)
-                try:
-                    num_str = str(int(float(cell_id)))
-                    sector = num_str[:2] if len(num_str) >= 3 else num_str[:1]
-                except (ValueError, TypeError):
-                    sector = ""
-                product_str = str(product) if product else ""
+                    site_id = extract_site_id(me_name)
+                    # Cell ID: clean up any .0 float suffix (DB returns numeric as float)
+                    cell_id_str = str(int(float(cell_id))) if cell_id else ""
+                    # Sector: first 1 digit of 2-digit ID (11→S1), first 2 digits of 3-digit ID (171→S17)
+                    try:
+                        num_str = str(int(float(cell_id)))
+                        sector = num_str[:2] if len(num_str) >= 3 else num_str[:1]
+                    except (ValueError, TypeError):
+                        sector = ""
+                    product_str = str(product) if product else ""
 
-                key = f"{site_id}|{sector}|{cell_id_str}|{product_str}"
+                    key = f"{site_id}|{sector}|{cell_id_str}|{product_str}"
 
-                if key not in chart_data:
-                    chart_data[key] = {
-                        "site_id": site_id,
-                        "sector": sector,
-                        "cell_id": cell_id_str,
-                        "cell_name": cell_name,
-                        "product": product_str,
-                        "ta_vals": [0] * 15
-                    }
+                    if key not in chart_data:
+                        chart_data[key] = {
+                            "site_id": site_id,
+                            "sector": sector,
+                            "cell_id": cell_id_str,
+                            "cell_name": cell_name,
+                            "product": product_str,
+                            "ta_vals": [0] * 15
+                        }
 
-                # Accumulate TA bins across rows with same cell
-                existing = chart_data[key]["ta_vals"]
-                for i in range(15):
-                    existing[i] += float(ta_vals[i]) if ta_vals[i] else 0
-
-        cur.close(); conn.close()
-        cur = None; conn = None
+                    # Accumulate TA bins across rows with same cell
+                    existing = chart_data[key]["ta_vals"]
+                    for i in range(15):
+                        existing[i] += float(ta_vals[i]) if ta_vals[i] else 0
+            cur = None; conn = None
 
     except psycopg2.OperationalError:
-        if conn:
-            try: conn.rollback()
-            except: pass
-        if cur: cur.close()
-        if conn: conn.close()
         conn = None; cur = None
         session["flash"] = ("Database connection failed.", "warning")
     except Exception as e:
         import traceback; traceback.print_exc()
-        if conn:
-            try: conn.rollback()
-            except: pass
-        if cur: cur.close()
-        if conn: conn.close()
         conn = None; cur = None
         session["flash"] = (f"Error: {str(e)}", "danger")
 

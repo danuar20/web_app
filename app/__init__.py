@@ -1,6 +1,10 @@
 from flask import Flask, render_template
 from flask_wtf import CSRFProtect
+from flask_caching import Cache
+import tempfile
+import logging
 
+cache = Cache()
 
 from datetime import datetime, timedelta
 import os
@@ -11,11 +15,27 @@ _project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(_project_dir, ".env"))
 
 def create_app():
+    # ── 0. CONFIGURE LOGGING ──────────────────────────────────────────────────
+    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(
+        level=getattr(logging, log_level, logging.INFO),
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    logger = logging.getLogger(__name__)
+    logger.info("Starting NetKPI Monitor...")
+
     app = Flask(
         __name__,
         template_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates"),
         static_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
     )
+
+    # Configure Cache
+    app.config['CACHE_TYPE'] = 'FileSystemCache'
+    app.config['CACHE_DIR'] = os.path.join(tempfile.gettempdir(), 'flask_cache')
+    app.config['CACHE_DEFAULT_TIMEOUT'] = 21600  # 6 hours
+    cache.init_app(app)
 
     # ── 1. SECRET KEY ─────────────────────────────────────────────────────────
     secret_key = os.getenv("FLASK_SECRET_KEY")
@@ -33,6 +53,7 @@ def create_app():
     app.config['SESSION_COOKIE_SECURE']  = False
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE']  = 'Lax'
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)  # Session expires after 8 hours
 
     # ── 3. CSRF PROTECTION via Flask-WTF ───────────────────────────────────────
     app.config['WTF_CSRF_ENABLED']    = True
@@ -102,12 +123,18 @@ def create_app():
     app.register_blueprint(nettilt3d)
  
 
-    # ── 6. CACHE BUSTING ───────────────────────────────────────────────────────
+    # ── 6. RESPONSE HEADERS (cache busting + security) ─────────────────────────
     @app.after_request
     def add_header(response):
-        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
+        # Cache busting for dynamic pages (skip static files)
+        if 'text/html' in response.content_type or 'application/json' in response.content_type:
+            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+        # Security headers
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         return response
 
     # ── 7. CUSTOM ERROR HANDLERS ───────────────────────────────────────────────
@@ -118,15 +145,13 @@ def create_app():
 
     @app.errorhandler(500)
     def handle_500(e):
-        import logging
-        logging.error("Unhandled 500 error: %s", str(e), exc_info=True)
+        logger.error("Unhandled 500 error: %s", str(e), exc_info=True)
         return render_template("error.html", code=500,
                                message="An internal error occurred. Please try again later."), 500
 
     @app.errorhandler(Exception)
     def handle_unexpected(e):
-        import logging
-        logging.error("Unhandled exception: %s", str(e), exc_info=True)
+        logger.error("Unhandled exception: %s", str(e), exc_info=True)
         return render_template("error.html", code=500,
                                message="An unexpected error occurred. Please try again later."), 500
 

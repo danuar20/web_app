@@ -1,739 +1,685 @@
-from flask import Blueprint, make_response, redirect, render_template, request, session, flash, url_for
+from flask import Blueprint, make_response, redirect, render_template, request, session, flash, url_for, jsonify
 from app.db.db_webapp import get_postgres_connection
-from ._utils import login_required, _no_cache, ytd_pct
+from ._utils import login_required, _no_cache, ytd_pct, db_query
 from datetime import datetime, timedelta
 from collections import OrderedDict
 import psycopg2
 import psycopg2.errors
+import time
 
 prod = Blueprint("prod", __name__)
 
-_prod_cache = {"ts": 0, "years": [], "nsas": []}
+_prod_cache = {"ts": 0, "years": [], "nsas": [], "yw": [], "cities": [], "sites": []}
 
-def _get_prod_dropdowns():
-    import time
+def _get_dropdown_data():
     now = time.time()
     if now - _prod_cache["ts"] < 3600 and _prod_cache["years"] and _prod_cache["nsas"]:
-        return _prod_cache["years"], _prod_cache["nsas"]
+        return _prod_cache
+    
     try:
-        conn = get_postgres_connection()
-        cur = conn.cursor()
-        cur.execute('SELECT DISTINCT "Year by Date" FROM traffic_payload WHERE "Year by Date" IS NOT NULL ORDER BY "Year by Date"')
-        years = [r[0] for r in cur.fetchall()]
-        cur.execute('SELECT DISTINCT "NSA" FROM traffic_payload WHERE "NSA" IS NOT NULL ORDER BY "NSA"')
-        nsas = [r[0] for r in cur.fetchall()]
-        cur.close(); conn.close()
-        _prod_cache["years"] = years
-        _prod_cache["nsas"] = nsas
-        _prod_cache["ts"] = now
-        return years, nsas
-    except Exception:
-        return [], []
+        with db_query() as (conn, cur):
+            # Years
+            cur.execute('SELECT DISTINCT "Year by Date" FROM traffic_payload WHERE "Year by Date" IS NOT NULL ORDER BY "Year by Date"')
+            years = [r[0] for r in cur.fetchall()]
+            
+            # NSAs (exclude bad data like SORONG RAJA AMPAT)
+            cur.execute('SELECT DISTINCT "NSA" FROM traffic_payload WHERE "NSA" IS NOT NULL AND "NSA" NOT ILIKE \'%SORONG RAJA AMPAT%\' ORDER BY "NSA"')
+            nsas = [r[0] for r in cur.fetchall()]
+            
+            # YW (Year Week) - latest 104 weeks
+            cur.execute('SELECT DISTINCT "Y_W" FROM traffic_payload WHERE "Y_W" IS NOT NULL ORDER BY "Y_W" DESC LIMIT 104')
+            yw = [r[0] for r in cur.fetchall()]
+            
+            # Cities (Recent 30 days)
+            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "KABUPATEN" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "KABUPATEN"')
+            cities = [r[0] for r in cur.fetchall()]
+            
+            _prod_cache["years"] = years
+            _prod_cache["nsas"] = nsas
+            _prod_cache["yw"] = yw
+            _prod_cache["cities"] = cities
+            _prod_cache["ts"] = now
+            
+    except Exception as e:
+        print("Error populating dropdown cache:", e)
+        
+    return _prod_cache
 
-# ── Productivity ───────────────────────────────────────────────────────────────
+def _get_sites(sel_nsas=None, sel_cities=None):
+    # This is more dynamic, so we fetch it when needed, maybe with a limit
+    sites = []
+    try:
+        with db_query() as (conn, cur):
+            params = []
+            nsa_clause = ""
+            if sel_nsas:
+                nsa_clause = 'AND "NSA"=ANY(%s)'
+                params.append(sel_nsas)
+                
+            city_clause = ""
+            if sel_cities:
+                city_clause = 'AND "KABUPATEN"=ANY(%s)'
+                params.append(sel_cities)
+                
+            cur.execute(f'''
+                SELECT DISTINCT "Site ID" 
+                FROM traffic_payload 
+                WHERE "Site ID" IS NOT NULL 
+                {nsa_clause} {city_clause}
+                ORDER BY "Site ID" LIMIT 2000
+            ''', params)
+            sites = [r[0] for r in cur.fetchall()]
+    except Exception as e:
+        print("Error fetching sites:", e)
+    return sites
+
+def _get_last_update():
+    try:
+        with db_query() as (conn, cur):
+            cur.execute('SELECT MAX("Date") FROM mv_traffic_payload_daily_city')
+            row = cur.fetchone()
+            if row and row[0]:
+                if isinstance(row[0], datetime):
+                    return row[0].strftime("%d %b %Y")
+                return row[0].strftime("%d %b %Y") # if it's already a date object
+    except:
+        pass
+    return None
+
+# ── Productivity (Trend YoY) ──────────────────────────────────────────────────
 @prod.route("/productivity")
 @login_required
 def productivity():
+    data = _get_dropdown_data()
+    return _no_cache(make_response(render_template(
+        "productivity.html",
+        username=session.get("username"),
+        years_list=data["years"],
+        nsas_list=data["nsas"],
+        last_date_after=_get_last_update()
+    )))
+
+@prod.route("/api/productivity/trend")
+@login_required
+def api_productivity_trend():
     year_before = request.args.get("year_before", "")
     year_after  = request.args.get("year_after",  "")
     sel_nsas    = request.args.getlist("nsa")
+    sel_nsas = [n for n in sel_nsas if n]
 
-    # Auto-select most-recent and previous year when page first loads (no args)
-    # Then redirect so the URL carries the params and data loads on this same request
-    if not year_before and not year_after:
-        years, _ = _get_prod_dropdowns()
-        years_sorted = sorted([str(y) for y in years], reverse=True)
-        if len(years_sorted) >= 2:
-            return redirect(url_for("prod.productivity", year_before=years_sorted[1], year_after=years_sorted[0]))
-        elif len(years_sorted) == 1:
-            return redirect(url_for("prod.productivity", year_after=years_sorted[0]))
+    if not year_before or not year_after:
+        return jsonify({"error": "Please provide year_before and year_after"}), 400
 
-
-    chart_labels   = []
-    payload_before = []; payload_after = []; payload_ytd = []
-    traffic_before = []; traffic_after = []; traffic_ytd = []
-    table_rows     = []
-
-    total_payload_after = 0.0; total_traffic_after = 0.0
-    peak_payload_after  = 0.0
-    ytd_payload_final  = None; ytd_traffic_final = None
-    last_date_after_str = ""; data_days = 0
-    years_list = []; nsas_list = []
-    filter_error = None
+    if year_before >= year_after:
+        return jsonify({"error": "Year Before must be smaller than Year After"}), 400
 
     try:
-        conn = get_postgres_connection()
-        cur  = conn.cursor()
+        with db_query() as (conn, cur):
+            nsa_clause = ""
+            params_after = [year_after]
+            params_before = [year_before]
+            
+            if sel_nsas:
+                nsa_clause = 'AND "NSA" = ANY(%s)'
+                params_after.append(sel_nsas)
+                params_before.append(sel_nsas)
 
-        years_list, nsas_list = _get_prod_dropdowns()
+            # Get daily data using Materialized Views
+            cur.execute(f'''
+                SELECT 
+                    EXTRACT(DOY FROM "Date")::INT AS doy, 
+                    SUM(sum_payload_mb)/1024.0/1024.0 AS pb,
+                    SUM(sum_traffic_erl)/1000.0 AS tb
+                FROM mv_traffic_payload_daily_city
+                WHERE "Year by Date" = %s {nsa_clause}
+                GROUP BY EXTRACT(DOY FROM "Date")::INT
+                ORDER BY EXTRACT(DOY FROM "Date")::INT
+            ''', params_before)
+            before_daily = {int(r[0]): {"pb": float(r[1] or 0), "tb": float(r[2] or 0)} for r in cur.fetchall()}
 
+            cur.execute(f'''
+                SELECT 
+                    EXTRACT(DOY FROM "Date")::INT AS doy, 
+                    SUM(sum_payload_mb)/1024.0/1024.0 AS pa,
+                    SUM(sum_traffic_erl)/1000.0 AS ta,
+                    MAX("Date")
+                FROM mv_traffic_payload_daily_city
+                WHERE "Year by Date" = %s {nsa_clause}
+                GROUP BY EXTRACT(DOY FROM "Date")::INT
+                ORDER BY EXTRACT(DOY FROM "Date")::INT
+            ''', params_after)
+            after_rows = cur.fetchall()
+            after_daily = {int(r[0]): {"pa": float(r[1] or 0), "ta": float(r[2] or 0), "date": r[3]} for r in after_rows}
+            
+            max_doy_after = max(after_daily.keys()) if after_daily else 0
+            max_doy_before = max(before_daily.keys()) if before_daily else 0
+            
+            # If Before year is leap, it might have 366. Show up to max available.
+            max_doy_to_show = max(max_doy_before, max_doy_after)
+            
+            chart_labels = []
+            payload_before = []; payload_after = []; payload_ytd = []
+            traffic_before = []; traffic_after = []; traffic_ytd = []
+            
+            cum_pb = cum_pa = cum_tb = cum_ta = 0.0
+            
+            for doy in range(1, max_doy_to_show + 1):
+                b_data = before_daily.get(doy, {"pb": 0, "tb": 0})
+                a_data = after_daily.get(doy, {"pa": 0, "ta": 0})
+                
+                pb = b_data["pb"]
+                tb = b_data["tb"]
+                pa = a_data["pa"]
+                ta = a_data["ta"]
+                
+                # Exclude leap day from YTD logic if we want, but for simplicity let's map directly
+                
+                # Chart labels: just dd Mon
+                label_date = datetime(int(year_after), 1, 1) + timedelta(days=doy - 1)
+                chart_labels.append(label_date.strftime("%d %b"))
+                
+                # Skip leap day on non-leap years
+                if int(year_after) % 4 != 0 and doy == 60 and int(year_before) % 4 == 0:
+                    continue # Skip Feb 29 logic simplified
 
-        if year_before and year_after:
-            if year_before >= year_after:
-                filter_error = "Year Before harus lebih kecil dari Year After!"
-            else:
-                nsa_clause  = 'AND "NSA" = ANY(%s)' if sel_nsas else ""
-                base_params = [sel_nsas] if sel_nsas else []
-
-                cur.execute(f'SELECT MAX("Date") FROM traffic_payload WHERE "Year by Date" = %s {nsa_clause}',
-                            [year_before] + base_params)
-                max_date_before = (cur.fetchone() or [None])[0]
-
-                if max_date_before is None:
-                    flash(f"Tidak ada data untuk Year Before = {year_before}.", "warning")
+                payload_before.append(pb if doy in before_daily else None)
+                payload_after.append(pa if doy in after_daily else None)
+                traffic_before.append(tb if doy in before_daily else None)
+                traffic_after.append(ta if doy in after_daily else None)
+                
+                if doy in before_daily: cum_pb += pb
+                if doy in before_daily: cum_tb += tb
+                
+                if doy in after_daily: cum_pa += pa
+                if doy in after_daily: cum_ta += ta
+                
+                if doy <= max_doy_after:
+                    yp = round((cum_pa - cum_pb) / cum_pb * 100, 2) if cum_pb > 0 else None
+                    yt = round((cum_ta - cum_tb) / cum_tb * 100, 2) if cum_tb > 0 else None
                 else:
-                    if isinstance(max_date_before, datetime):
-                        max_date_before = max_date_before.date()
+                    yp = yt = None
+                    
+                payload_ytd.append(yp)
+                traffic_ytd.append(yt)
 
-                cur.execute(f'SELECT MAX("Date") FROM traffic_payload WHERE "Year by Date" = %s {nsa_clause}',
-                            [year_after] + base_params)
-                max_date_after = (cur.fetchone() or [None])[0]
+            # Table Data (Regional > NOP > TO)
+            # Using the mv_traffic_payload_daily_regional
+            params_reg = [year_before, max_doy_after, year_after, max_doy_after, year_before, max_doy_after, year_after, max_doy_after, year_before, year_after]
+            reg_nsa_clause = ""
+            if sel_nsas:
+                reg_nsa_clause = 'AND "NSA" = ANY(%s)'
+                params_reg.append(sel_nsas)
+            
+            cur.execute(f'''
+                SELECT 
+                    "Regional", "NSA", "TO",
+                    SUM(CASE WHEN "Year by Date"=%s AND EXTRACT(DOY FROM "Date") <= %s THEN sum_payload_mb END)/1024.0/1024.0 AS pb,
+                    SUM(CASE WHEN "Year by Date"=%s AND EXTRACT(DOY FROM "Date") <= %s THEN sum_payload_mb END)/1024.0/1024.0 AS pa,
+                    SUM(CASE WHEN "Year by Date"=%s AND EXTRACT(DOY FROM "Date") <= %s THEN sum_traffic_erl END)/1000.0 AS tb,
+                    SUM(CASE WHEN "Year by Date"=%s AND EXTRACT(DOY FROM "Date") <= %s THEN sum_traffic_erl END)/1000.0 AS ta
+                FROM mv_traffic_payload_daily_regional
+                WHERE "Year by Date" IN (%s, %s) {reg_nsa_clause}
+                GROUP BY "Regional", "NSA", "TO"
+                ORDER BY "Regional", "NSA", "TO"
+            ''', params_reg)
+            
+            regional_data = OrderedDict()
+            for r in cur.fetchall():
+                reg = r[0] or "N/A"; nop = r[1] or "N/A"; to_ = r[2] or "N/A"
+                pb = float(r[3] or 0); pa = float(r[4] or 0)
+                tb = float(r[5] or 0); ta = float(r[6] or 0)
+                regional_data.setdefault(reg, OrderedDict()).setdefault(nop, {})[to_] = {
+                    "pb": pb, "pa": pa, "tb": tb, "ta": ta
+                }
 
-                if max_date_after is None:
-                    flash(f"Tidak ada data untuk Year After = {year_after}.", "warning")
-                else:
-                    if isinstance(max_date_after, datetime):
-                        max_date_after = max_date_after.date()
-                    last_date_after_str = max_date_after.strftime("%d %b %Y")
+            table_rows = []
+            for reg, nops in regional_data.items():
+                reg_pb=reg_pa=reg_tb=reg_ta=0.0; nop_rows=[]
+                for nop, tos in nops.items():
+                    nop_pb=nop_pa=nop_tb=nop_ta=0.0; to_rows=[]
+                    for to_, v in tos.items():
+                        nop_pb+=v["pb"]; nop_pa+=v["pa"]
+                        nop_tb+=v["tb"]; nop_ta+=v["ta"]
+                        to_rows.append({"level":"to","label":to_,
+                            "p_before":round(v["pb"],2),"p_after":round(v["pa"],2),"ytd_p":ytd_pct(v["pa"],v["pb"]),
+                            "t_before":round(v["tb"],1),"t_after":round(v["ta"],1),"ytd_t":ytd_pct(v["ta"],v["tb"])})
+                    reg_pb+=nop_pb; reg_pa+=nop_pa; reg_tb+=nop_tb; reg_ta+=nop_ta
+                    nop_rows.append({"level":"nop","label":nop,
+                        "p_before":round(nop_pb,2),"p_after":round(nop_pa,2),"ytd_p":ytd_pct(nop_pa,nop_pb),
+                        "t_before":round(nop_tb,1),"t_after":round(nop_ta,1),"ytd_t":ytd_pct(nop_ta,nop_tb),
+                        "children":to_rows})
+                table_rows.append({"level":"regional","label":reg,
+                    "p_before":round(reg_pb,2),"p_after":round(reg_pa,2),"ytd_p":ytd_pct(reg_pa,reg_pb),
+                    "t_before":round(reg_tb,1),"t_after":round(reg_ta,1),"ytd_t":ytd_pct(reg_ta,reg_tb),
+                    "children":nop_rows})
+            
+            # Filter None from payload after
+            pa_vals = [v for v in payload_after if v is not None]
+            ta_vals = [v for v in traffic_after if v is not None]
+            
+            valid_yp = [v for v in payload_ytd if v is not None]
+            valid_yt = [v for v in traffic_ytd if v is not None]
 
-                    start_before = f"{year_before}-01-01"
-                    end_before = f"{year_before}-12-31"
-                    start_after = f"{year_after}-01-01"
-                    end_after = f"{year_after}-12-31"
+            # Calculate peak and date
+            peak_val = 0.0
+            peak_date = None
+            for idx, p in enumerate(payload_after):
+                if p is not None and p > peak_val:
+                    peak_val = p
+                    peak_date = chart_labels[idx]
 
-                    def get_leap_day(year):
-                        try:
-                            return datetime(int(year), 2, 29).strftime('%Y-%m-%d')
-                        except ValueError:
-                            return '1900-01-01'
-
-                    exc_before = get_leap_day(year_before)
-                    exc_after = get_leap_day(year_after)
-
-                    cur.execute(f"""
-                        SELECT
-                            EXTRACT(DOY FROM "Date")::INT AS day_of_year,
-                            "Year by Date",
-                            SUM("Payload (MB)")/1024.0/1024.0,
-                            SUM("Traffic (erlang)")/1000.0
-                        FROM traffic_payload
-                        WHERE (
-                            ("Date" BETWEEN %s AND %s AND "Date" != %s::date)
-                            OR
-                            ("Date" BETWEEN %s AND %s AND "Date" != %s::date)
-                        ) {nsa_clause}
-                        GROUP BY EXTRACT(DOY FROM "Date")::INT, "Year by Date"
-                        ORDER BY EXTRACT(DOY FROM "Date")::INT, "Year by Date"
-                    """, [start_before, end_before, exc_before, start_after, end_after, exc_after] + ([sel_nsas] if sel_nsas else []))
-
-
-                    day_map = {}
-                    for r in cur.fetchall():
-                        doy = int(r[0])
-                        year = r[1]
-                        payload = float(r[2] or 0)
-                        traffic = float(r[3] or 0)
-                        if doy not in day_map:
-                            day_map[doy] = {}
-                        day_map[doy][year] = {"payload": payload, "traffic": traffic}
-
-                    is_before_complete = (max_date_before.month == 12 and max_date_before.day == 31)
-                    max_doy_before = 366 if is_before_complete else max_date_before.timetuple().tm_yday
-                    max_doy_after = max_date_after.timetuple().tm_yday
-                    max_doy_to_show = max(max_doy_before, max_doy_after)
-
-                    cum_pb = cum_pa = cum_tb = cum_ta = 0.0
-                    ytd_p_list = []; ytd_t_list = []
-
-                    def doy_to_ddmm(doy, year):
-                        return (datetime(year, 1, 1) + timedelta(days=doy - 1)).strftime("%d %b")
-
-                    for doy in range(1, max_doy_to_show + 1):
-                        day_data = day_map.get(doy, {})
-                        before_data = day_data.get(year_before, {})
-                        after_data  = day_data.get(year_after, {})
-                        pb = float(before_data.get("payload", 0))
-                        pa = float(after_data.get("payload", 0))
-                        tb = float(before_data.get("traffic", 0))
-                        ta = float(after_data.get("traffic", 0))
-
-                        chart_labels.append(doy_to_ddmm(doy, int(year_after)))
-                        payload_before.append(pb if pb else None)
-                        payload_after.append(pa if pa else None)
-                        traffic_before.append(tb if tb else None)
-                        traffic_after.append(ta if ta else None)
-
-                        cum_pb += pb; cum_tb += tb
-                        cum_pa += pa; cum_ta += ta
-
-                        if doy <= max_doy_after:
-                            yp = round((cum_pa - cum_pb) / cum_pb * 100, 2) if cum_pb > 0 else None
-                            yt = round((cum_ta - cum_tb) / cum_tb * 100, 2) if cum_tb > 0 else None
-                        else:
-                            yp = None; yt = None
-
-                        payload_ytd.append(yp); traffic_ytd.append(yt)
-                        if yp is not None: ytd_p_list.append(yp)
-                        if yt is not None: ytd_t_list.append(yt)
-
-                    ytd_payload_final = ytd_p_list[-1] if ytd_p_list else None
-                    ytd_traffic_final = ytd_t_list[-1] if ytd_t_list else None
-
-                    doy_after = max_date_after.timetuple().tm_yday
-                    cutoff_before_date = datetime(int(year_before), 1, 1) + timedelta(days=doy_after - 1)
-                    end_before_cutoff = cutoff_before_date.strftime('%Y-%m-%d')
-                    end_after_cutoff = max_date_after.strftime('%Y-%m-%d')
-
-                    cur.execute(f"""
-                        SELECT "Regional","NSA","TO",
-                            SUM(CASE WHEN "Year by Date"=%s THEN "Payload (MB)" END)/1024.0/1024.0,
-                            SUM(CASE WHEN "Year by Date"=%s THEN "Payload (MB)" END)/1024.0/1024.0,
-                            SUM(CASE WHEN "Year by Date"=%s THEN "Traffic (erlang)" END)/1000.0,
-                            SUM(CASE WHEN "Year by Date"=%s THEN "Traffic (erlang)" END)/1000.0
-                        FROM traffic_payload
-                        WHERE (
-                            ("Date" BETWEEN %s AND %s AND "Date" != %s::date)
-                            OR
-                            ("Date" BETWEEN %s AND %s AND "Date" != %s::date)
-                        )
-                        {nsa_clause}
-                        GROUP BY "Regional","NSA","TO"
-                        ORDER BY "Regional","NSA","TO"
-                    """,
-                    [year_before, year_after, year_before, year_after,
-                     start_before, end_before_cutoff, exc_before, 
-                     start_after, end_after_cutoff, exc_after] + base_params)
-
-
-                    regional_data = OrderedDict()
-                    for r in cur.fetchall():
-                        reg = r[0] or "N/A"; nop = r[1] or "N/A"; to_ = r[2] or "N/A"
-                        pb = float(r[3] or 0); pa = float(r[4] or 0)
-                        tb = float(r[5] or 0); ta = float(r[6] or 0)
-                        regional_data.setdefault(reg, OrderedDict()).setdefault(nop, {})[to_] = {
-                            "pb": pb, "pa": pa, "tb": tb, "ta": ta
-                        }
-
-                    for reg, nops in regional_data.items():
-                        reg_pb=reg_pa=reg_tb=reg_ta=0.0; nop_rows=[]
-                        for nop, tos in nops.items():
-                            nop_pb=nop_pa=nop_tb=nop_ta=0.0; to_rows=[]
-                            for to_, v in tos.items():
-                                nop_pb+=v["pb"]; nop_pa+=v["pa"]
-                                nop_tb+=v["tb"]; nop_ta+=v["ta"]
-                                to_rows.append({"level":"to","label":to_,
-                                    "p_before":round(v["pb"],2),"p_after":round(v["pa"],2),"ytd_p":ytd_pct(v["pa"],v["pb"]),
-                                    "t_before":round(v["tb"],1),"t_after":round(v["ta"],1),"ytd_t":ytd_pct(v["ta"],v["tb"])})
-                            reg_pb+=nop_pb; reg_pa+=nop_pa; reg_tb+=nop_tb; reg_ta+=nop_ta
-                            nop_rows.append({"level":"nop","label":nop,
-                                "p_before":round(nop_pb,2),"p_after":round(nop_pa,2),"ytd_p":ytd_pct(nop_pa,nop_pb),
-                                "t_before":round(nop_tb,1),"t_after":round(nop_ta,1),"ytd_t":ytd_pct(nop_ta,nop_tb),
-                                "children":to_rows})
-                        table_rows.append({"level":"regional","label":reg,
-                            "p_before":round(reg_pb,2),"p_after":round(reg_pa,2),"ytd_p":ytd_pct(reg_pa,reg_pb),
-                            "t_before":round(reg_tb,1),"t_after":round(reg_ta,1),"ytd_t":ytd_pct(reg_ta,reg_tb),
-                            "children":nop_rows})
-
-                    pa_vals = [v for v in payload_after if v is not None]
-                    ta_vals = [v for v in traffic_after if v is not None]
-                    total_payload_after = sum(pa_vals)
-                    total_traffic_after = sum(ta_vals)
-                    peak_payload_after  = max(pa_vals) if pa_vals else 0.0
-                    data_days = len(pa_vals)
-
-        cur.close(); conn.close()
-    except psycopg2.OperationalError:
-        flash("Database connection failed. Please try again.", "warning")
-    except psycopg2.errors.QueryCanceled:
-        flash("Query timed out. Please try a shorter date range.", "warning")
-    except psycopg2.errors.ConnectionDoesNotExist:
-        flash("Database server unreachable. Please try again later.", "warning")
+            return jsonify({
+                "chart_labels": chart_labels,
+                "payload_before": payload_before,
+                "payload_after": payload_after,
+                "payload_ytd": payload_ytd,
+                "traffic_before": traffic_before,
+                "traffic_after": traffic_after,
+                "traffic_ytd": traffic_ytd,
+                "table_rows": table_rows,
+                "total_payload_after": sum(pa_vals),
+                "total_traffic_after": sum(ta_vals),
+                "peak_payload_after": peak_val,
+                "peak_payload_date": peak_date,
+                "ytd_payload_final": valid_yp[-1] if valid_yp else None,
+                "ytd_traffic_final": valid_yt[-1] if valid_yt else None
+            })
     except Exception as e:
-        flash(f"Failed to fetch data: {str(e)}", "danger")
+        return jsonify({"error": str(e)}), 500
 
-    return _no_cache(make_response(render_template(
-        "productivity.html",
-        username=session["username"],
-        years_list=years_list,
-        nsas_list=nsas_list,
-        year_before=year_before,
-        year_after=year_after,
-        sel_nsas=sel_nsas,
-        filter_error=filter_error,
-        chart_labels=chart_labels,
-        payload_before=payload_before,
-        payload_after=payload_after,
-        payload_ytd=payload_ytd,
-        traffic_before=traffic_before,
-        traffic_after=traffic_after,
-        traffic_ytd=traffic_ytd,
-        table_rows=table_rows,
-        last_date_after=last_date_after_str,
-        data_days=data_days,
-        total_payload_after=total_payload_after,
-        total_traffic_after=total_traffic_after,
-        peak_payload_after=peak_payload_after,
-        ytd_payload_final=ytd_payload_final,
-        ytd_traffic_final=ytd_traffic_final,
-    )))
+@prod.route("/api/productivity/cities")
+@login_required
+def api_productivity_cities():
+    sel_nsas = [n for n in request.args.getlist("nsa") if n]
+    cities = []
+    if not sel_nsas:
+        return jsonify({"cities": []})
+    try:
+        with db_query() as (conn, cur):
+            cur.execute('''
+                SELECT DISTINCT "KABUPATEN" 
+                FROM mv_traffic_payload_daily_city 
+                WHERE "NSA"=ANY(%s) 
+                ORDER BY "KABUPATEN"
+            ''', [sel_nsas])
+            cities = [r[0] for r in cur.fetchall()]
+            
+            # Cleanup bad mappings where SORONG RAJA AMPAT appears under wrong NSAs
+            if not any("Sorong" in n for n in sel_nsas):
+                cities = [c for c in cities if c != "SORONG RAJA AMPAT"]
+                
+    except Exception as e:
+        pass
+    return jsonify({"cities": cities})
 
-# ── City Level ─────────────────────────────────────────────────────────────────
+@prod.route("/api/productivity/sites")
+@login_required
+def api_productivity_sites():
+    sel_nsas = [n for n in request.args.getlist("nsa") if n]
+    sel_cities = [c for c in request.args.getlist("city") if c]
+    if not sel_nsas and not sel_cities:
+        return jsonify({"sites": []})
+    return jsonify({"sites": _get_sites(sel_nsas, sel_cities)})
+
+# ── City Level ────────────────────────────────────────────────────────────────
 @prod.route("/city_level")
 @login_required
 def city_level():
-    from_date   = request.args.get("from_date", "")
-    to_date     = request.args.get("to_date", "")
-    sel_nsas    = request.args.getlist("nsa")
-    sel_cities  = request.args.getlist("city")
-    yw_before   = request.args.get("yw_before", "")
-    yw_after    = request.args.get("yw_after", "")
-
-    chart_labels    = []
-    chart_payload   = {}
-    chart_traffic   = {}
-    chart_availability = {}
-    chart_rrc       = {}
-    nsas_list = []; cities_list = []; filtered_cities = []; yw_list = []
-    compare_table = []   # [{nsa, rows: [{city, pb, pa, pch, tb, ta, tch, ab, aa, ach, rb, ra, rch}]}]
-
-    kpi_payload = 0.0; kpi_traffic = 0.0
-    kpi_availability = None; kpi_rrc = 0.0
-
-    try:
-        conn = get_postgres_connection(); cur = conn.cursor()
-
-        cur.execute('SELECT DISTINCT "NSA" FROM traffic_payload WHERE "NSA" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "NSA"')
-        nsas_list = [r[0] for r in cur.fetchall()]
-
-        cur.execute('SELECT DISTINCT "Y_W" FROM traffic_payload WHERE "Y_W" IS NOT NULL ORDER BY "Y_W" DESC LIMIT 104')
-        yw_list = [r[0] for r in cur.fetchall()]
-
-        if sel_nsas:
-            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "NSA"=ANY(%s) AND "KABUPATEN" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "KABUPATEN"', (sel_nsas,))
-        else:
-            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "KABUPATEN" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "KABUPATEN"')
-        cities_list = [r[0] for r in cur.fetchall()]
-        filtered_cities = cities_list
-
-        # ── Chart data (daily) ────────────────────────────────────────────────
-        if from_date and to_date and sel_cities:
-            nsa_clause  = 'AND "NSA"=ANY(%s)' if sel_nsas else ""
-            base_params = [from_date, to_date, sel_cities] + ([sel_nsas] if sel_nsas else [])
-
-            cur.execute(f"""
-                SELECT
-                    "Date"::text,
-                    "KABUPATEN",
-                    SUM("Payload (MB)")/1024.0/1024.0,
-                    SUM("Traffic (erlang)")/1000.0,
-                    SUM(CASE WHEN "Avail_Num" IS NOT NULL AND "Avail_Denum" IS NOT NULL
-                             AND "Avail_Denum" > 0 THEN "Avail_Num" END),
-                    SUM(CASE WHEN "Avail_Denum" IS NOT NULL AND "Avail_Denum" > 0
-                             THEN "Avail_Denum" END),
-                    SUM("Max_RRC_Conn_User")
-                FROM traffic_payload
-                WHERE "Date" BETWEEN %s AND %s AND "KABUPATEN"=ANY(%s) {nsa_clause}
-                GROUP BY "Date"::text,"KABUPATEN"
-                ORDER BY 1,"KABUPATEN"
-            """, base_params)
-
-            months_seen = {}
-            for r in cur.fetchall():
-                fd   = str(r[0] or ''); city = str(r[1] or '')
-                try: pg = float(r[2]) if r[2] is not None else 0.0
-                except: pg = 0.0
-                try: te = float(r[3]) if r[3] is not None else 0.0
-                except: te = 0.0
-                try: anum = float(r[4]) if r[4] is not None else 0.0
-                except: anum = 0.0
-                try: aden = float(r[5]) if r[5] is not None else 0.0
-                except: aden = 0.0
-                try: rrc = float(r[6]) if r[6] is not None else 0.0
-                except: rrc = 0.0
-                if fd not in months_seen: months_seen[fd] = fd
-                chart_payload.setdefault(city, {})[fd] = round(pg, 2)
-                chart_traffic.setdefault(city, {})[fd] = round(te, 1)
-                chart_rrc.setdefault(city, {})[fd] = round(rrc, 0)
-                av = round(anum / aden * 100, 2) if aden > 0 else 0.0
-                chart_availability.setdefault(city, {})[fd] = av
-
-            sorted_dates = sorted(months_seen.keys())
-            chart_labels = sorted_dates
-            for c in list(chart_payload.keys()):
-                chart_payload[c]     = [chart_payload[c].get(d, 0)     for d in sorted_dates]
-                chart_traffic[c]      = [chart_traffic[c].get(d, 0)      for d in sorted_dates]
-                chart_availability[c] = [chart_availability[c].get(d, 0) for d in sorted_dates]
-                chart_rrc[c]          = [chart_rrc[c].get(d, 0)          for d in sorted_dates]
-
-            all_av = []
-            for c in sel_cities:
-                all_av.extend(chart_availability.get(c, []))
-                kpi_payload += sum(chart_payload.get(c, []))
-                kpi_traffic += sum(chart_traffic.get(c, []))
-                kpi_rrc     += sum(chart_rrc.get(c, []))
-            kpi_availability = round(sum(all_av)/len(all_av), 2) if all_av else None
-
-        # ── Y_W Comparison Table ──────────────────────────────────────────────
-        # If the UI shows "Semua Kota" but no explicit checkboxes were sent, treat as all cities
-        if not sel_cities:
-            sel_cities = cities_list
-
-        if yw_before and yw_after and sel_cities:
-            # Build query dynamically — number of placeholders always matches params
-            p = [
-                yw_before, yw_after, yw_before, yw_after,
-                yw_before, yw_before, yw_after, yw_after,
-                yw_before, yw_after,
-                yw_before, yw_after
-            ]
-            nsa_clause2 = ""
-            if sel_nsas:
-                nsa_clause2 = 'AND t."NSA"=ANY(%s)'
-                p.append(sel_nsas)
-                
-            city_clause2 = 'AND t."KABUPATEN"=ANY(%s)'
-            p.append(sel_cities)
-
-            cur.execute(f"""
-                SELECT
-                    t."NSA",
-                    t."KABUPATEN",
-                    SUM(CASE WHEN t."Y_W"=%s THEN t."Payload (MB)" END)/1024.0/1024.0 AS pb,
-                    SUM(CASE WHEN t."Y_W"=%s THEN t."Payload (MB)" END)/1024.0/1024.0 AS pa,
-                    SUM(CASE WHEN t."Y_W"=%s THEN t."Traffic (erlang)" END)/1000.0 AS tb,
-                    SUM(CASE WHEN t."Y_W"=%s THEN t."Traffic (erlang)" END)/1000.0 AS ta,
-                    SUM(CASE WHEN t."Y_W"=%s AND t."Avail_Num" IS NOT NULL
-                                AND t."Avail_Denum" IS NOT NULL AND t."Avail_Denum">0
-                             THEN t."Avail_Num" END) AS ab_num,
-                    SUM(CASE WHEN t."Y_W"=%s AND t."Avail_Denum" IS NOT NULL AND t."Avail_Denum">0
-                             THEN t."Avail_Denum" END) AS ab_den,
-                    SUM(CASE WHEN t."Y_W"=%s AND t."Avail_Num" IS NOT NULL
-                                AND t."Avail_Denum" IS NOT NULL AND t."Avail_Denum">0
-                             THEN t."Avail_Num" END) AS aa_num,
-                    SUM(CASE WHEN t."Y_W"=%s AND t."Avail_Denum" IS NOT NULL AND t."Avail_Denum">0
-                             THEN t."Avail_Denum" END) AS aa_den,
-                    SUM(CASE WHEN t."Y_W"=%s THEN t."Max_RRC_Conn_User" END) AS rb,
-                    SUM(CASE WHEN t."Y_W"=%s THEN t."Max_RRC_Conn_User" END) AS ra
-                FROM traffic_payload t
-                WHERE t."Y_W" IN (%s,%s) {nsa_clause2} {city_clause2}
-                GROUP BY t."NSA", t."KABUPATEN"
-                ORDER BY t."NSA", t."KABUPATEN"
-            """, p)
-
-            def pct(a, b):
-                if not b or b == 0: return None
-                return round((a - b) / b * 100, 1)
-
-            grouped = {}
-            for r in cur.fetchall():
-                nsa   = str(r[0]) if r[0] else "—"
-                kota  = str(r[1]) if r[1] else "—"
-                pb = float(r[2]) if r[2] is not None else 0.0
-                pa = float(r[3]) if r[3] is not None else 0.0
-                tb = float(r[4]) if r[4] is not None else 0.0
-                ta = float(r[5]) if r[5] is not None else 0.0
-                ab_num = float(r[6]) if r[6] is not None else 0.0
-                ab_den = float(r[7]) if r[7] is not None else 0.0
-                aa_num = float(r[8]) if r[8] is not None else 0.0
-                aa_den = float(r[9]) if r[9] is not None else 0.0
-                rb = float(r[10]) if r[10] is not None else 0.0
-                ra = float(r[11]) if r[11] is not None else 0.0
-
-                ab = round(ab_num / ab_den * 100, 2) if ab_den > 0 else 0.0
-                aa = round(aa_num / aa_den * 100, 2) if aa_den > 0 else 0.0
-
-                row = {
-                    "kota": kota,
-                    "pb": round(pb, 2), "pa": round(pa, 2), "pch": pct(pa, pb),
-                    "tb": round(tb, 2), "ta": round(ta, 2), "tch": pct(ta, tb),
-                    "ab": ab, "aa": aa, "ach": pct(aa, ab),
-                    "rb": round(rb, 0), "ra": round(ra, 0), "rch": pct(ra, rb),
-                }
-                grouped.setdefault(nsa, []).append(row)
-
-            compare_table = [{"nsa": n, "rows": rows} for n, rows in grouped.items()]
-
-        cur.close(); conn.close()
-    except Exception as e:
-        if conn: conn.rollback(); conn.close()
-        flash(f"Error: {str(e)}", "danger")
-
-    # Auto-select all cities if user is trying to compare weeks but no city selected
-    if yw_before and yw_after and not sel_cities and cities_list:
-        sel_cities = cities_list
-
-    last_update = None
-    try:
-        conn2 = get_postgres_connection()
-        cur2 = conn2.cursor()
-        cur2.execute('SELECT MAX("Date") FROM traffic_payload')
-        row = cur2.fetchone()
-        if row and row[0]:
-            last_update = row[0].strftime("%d %b %Y")
-        cur2.close(); conn2.close()
-    except Exception:
-        pass
-
-    return _no_cache(make_response(render_template("city_level.html",
-        username=session["username"],
-        nsas_list=nsas_list, cities_list=cities_list,
-        filtered_cities=filtered_cities,
-        sel_nsas=sel_nsas, sel_cities=sel_cities,
-        from_date=from_date, to_date=to_date,
-        yw_list=yw_list, yw_before=yw_before, yw_after=yw_after,
-        chart_labels=chart_labels,
-        chart_payload=chart_payload,
-        chart_traffic=chart_traffic,
-        chart_availability=chart_availability,
-        chart_rrc=chart_rrc,
-        kpi_payload=round(kpi_payload, 1),
-        kpi_traffic=round(kpi_traffic, 1),
-        kpi_availability=kpi_availability,
-        kpi_rrc=round(kpi_rrc, 0),
-        compare_table=compare_table,
-        last_update=last_update,
+    data = _get_dropdown_data()
+    return _no_cache(make_response(render_template(
+        "city_level.html",
+        username=session.get("username"),
+        nsas_list=data["nsas"],
+        cities_list=data["cities"],
+        yw_list=data["yw"],
+        last_update=_get_last_update()
     )))
 
-# ── Site Level ─────────────────────────────────────────────────────────────────
+@prod.route("/api/productivity/city")
+@login_required
+def api_productivity_city():
+    mode = request.args.get("mode", "trend") # 'trend' or 'compare'
+    
+    sel_nsas = [n for n in request.args.getlist("nsa") if n]
+    sel_cities = [c for c in request.args.getlist("city") if c]
+    
+    try:
+        with db_query() as (conn, cur):
+            if mode == "trend":
+                from_date = request.args.get("from_date", "")
+                to_date = request.args.get("to_date", "")
+                if not from_date or not to_date or not sel_cities:
+                    return jsonify({"error": "Missing required filters for trend mode"})
+                
+                params = [from_date, to_date, sel_cities]
+                nsa_clause = ""
+                if sel_nsas:
+                    nsa_clause = 'AND "NSA"=ANY(%s)'
+                    params.append(sel_nsas)
+                
+                cur.execute(f'''
+                    SELECT
+                        "Date"::text,
+                        "KABUPATEN",
+                        SUM(sum_payload_mb)/1024.0/1024.0 AS pb,
+                        SUM(sum_traffic_erl)/1000.0 AS tb,
+                        SUM(sum_avail_num) AS anum,
+                        SUM(sum_avail_denum) AS aden,
+                        SUM(sum_max_rrc) AS rrc
+                    FROM mv_traffic_payload_daily_city
+                    WHERE "Date" BETWEEN %s AND %s AND "KABUPATEN"=ANY(%s) {nsa_clause}
+                    GROUP BY "Date"::text, "KABUPATEN"
+                    ORDER BY 1, 2
+                ''', params)
+                
+                chart_labels = []
+                chart_payload = {}
+                chart_traffic = {}
+                chart_availability = {}
+                chart_rrc = {}
+                months_seen = {}
+                
+                for r in cur.fetchall():
+                    fd = str(r[0] or '')
+                    city = str(r[1] or '')
+                    pg = float(r[2] or 0)
+                    te = float(r[3] or 0)
+                    anum = float(r[4] or 0)
+                    aden = float(r[5] or 0)
+                    rrc = float(r[6] or 0)
+                    
+                    if fd not in months_seen: months_seen[fd] = fd
+                    chart_payload.setdefault(city, {})[fd] = round(pg, 2)
+                    chart_traffic.setdefault(city, {})[fd] = round(te, 1)
+                    chart_rrc.setdefault(city, {})[fd] = round(rrc, 0)
+                    av = round(anum / aden * 100, 2) if aden > 0 else 0.0
+                    chart_availability.setdefault(city, {})[fd] = av
+
+                sorted_dates = sorted(months_seen.keys())
+                for c in list(chart_payload.keys()):
+                    chart_payload[c] = [chart_payload[c].get(d, 0) for d in sorted_dates]
+                    chart_traffic[c] = [chart_traffic[c].get(d, 0) for d in sorted_dates]
+                    chart_availability[c] = [chart_availability[c].get(d, 0) for d in sorted_dates]
+                    chart_rrc[c] = [chart_rrc[c].get(d, 0) for d in sorted_dates]
+
+                # KPIs
+                all_av = []; kpi_payload = 0; kpi_traffic = 0; kpi_rrc = 0
+                for c in sel_cities:
+                    all_av.extend(chart_availability.get(c, []))
+                    kpi_payload += sum(chart_payload.get(c, []))
+                    kpi_traffic += sum(chart_traffic.get(c, []))
+                    kpi_rrc += sum(chart_rrc.get(c, []))
+                
+                kpi_availability = round(sum(all_av)/len(all_av), 2) if all_av else None
+
+                return jsonify({
+                    "chart_labels": sorted_dates,
+                    "chart_payload": chart_payload,
+                    "chart_traffic": chart_traffic,
+                    "chart_availability": chart_availability,
+                    "chart_rrc": chart_rrc,
+                    "kpis": {
+                        "payload": round(kpi_payload, 1),
+                        "traffic": round(kpi_traffic, 1),
+                        "availability": kpi_availability,
+                        "rrc": round(kpi_rrc, 0)
+                    }
+                })
+            
+            elif mode == "compare":
+                yw_before = request.args.get("yw_before", "")
+                yw_after = request.args.get("yw_after", "")
+                
+                if not yw_before or not yw_after:
+                    return jsonify({"error": "Missing weeks for compare"})
+                
+                if not sel_cities:
+                    sel_cities = _get_dropdown_data()["cities"]
+                    
+                params = [yw_before, yw_after, sel_cities]
+                nsa_clause = ""
+                if sel_nsas:
+                    nsa_clause = 'AND "NSA"=ANY(%s)'
+                    params.append(sel_nsas)
+                    
+                cur.execute(f'''
+                    SELECT
+                        "NSA",
+                        "KABUPATEN",
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_payload_mb END)/1024.0/1024.0 AS pb,
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_payload_mb END)/1024.0/1024.0 AS pa,
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_traffic_erl END)/1000.0 AS tb,
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_traffic_erl END)/1000.0 AS ta,
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_avail_num END) AS ab_num,
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_avail_denum END) AS ab_den,
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_avail_num END) AS aa_num,
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_avail_denum END) AS aa_den,
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_max_rrc END) AS rb,
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_max_rrc END) AS ra
+                    FROM mv_traffic_payload_yw_city
+                    WHERE "Y_W" IN (%s, %s) AND "KABUPATEN"=ANY(%s) {nsa_clause}
+                    GROUP BY "NSA", "KABUPATEN"
+                    ORDER BY "NSA", "KABUPATEN"
+                ''', [yw_before, yw_after, yw_before, yw_after, yw_before, yw_before, yw_after, yw_after, yw_before, yw_after] + [yw_before, yw_after, sel_cities] + ([sel_nsas] if sel_nsas else []))
+                
+                grouped = {}
+                def pct(a, b): return round((a - b) / b * 100, 1) if b and b > 0 else None
+                
+                for r in cur.fetchall():
+                    nsa = str(r[0] or "—"); kota = str(r[1] or "—")
+                    pb = float(r[2] or 0); pa = float(r[3] or 0)
+                    tb = float(r[4] or 0); ta = float(r[5] or 0)
+                    ab_num = float(r[6] or 0); ab_den = float(r[7] or 0)
+                    aa_num = float(r[8] or 0); aa_den = float(r[9] or 0)
+                    rb = float(r[10] or 0); ra = float(r[11] or 0)
+                    
+                    ab = round(ab_num / ab_den * 100, 2) if ab_den > 0 else 0.0
+                    aa = round(aa_num / aa_den * 100, 2) if aa_den > 0 else 0.0
+                    
+                    grouped.setdefault(nsa, []).append({
+                        "kota": kota,
+                        "pb": round(pb, 2), "pa": round(pa, 2), "pch": pct(pa, pb),
+                        "tb": round(tb, 2), "ta": round(ta, 2), "tch": pct(ta, tb),
+                        "ab": ab, "aa": aa, "ach": pct(aa, ab),
+                        "rb": round(rb, 0), "ra": round(ra, 0), "rch": pct(ra, rb),
+                    })
+                
+                compare_table = [{"nsa": k, "rows": v} for k, v in grouped.items()]
+                return jsonify({"compare_table": compare_table})
+                
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ── Site Level ────────────────────────────────────────────────────────────────
 @prod.route("/site_level")
 @login_required
 def site_level():
-    from_date  = request.args.get("from_date", "")
-    to_date    = request.args.get("to_date", "")
-    sel_nsas   = request.args.getlist("nsa")
-    sel_cities = request.args.getlist("city")
-    sel_sites  = request.args.getlist("site")
-    yw_before  = request.args.get("yw_before", "")
-    yw_after   = request.args.get("yw_after", "")
-
-    chart_labels    = []
-    chart_payload   = {}; chart_traffic   = {}
-    chart_availability = {}; chart_rrc       = {}
-    nsas_list = []; cities_list = []; sites_list = []; filtered_cities = []; yw_list = []
-    compare_table = []   # [{city, rows: [{site, pb, pa, pch, tb, ta, tch, ab, aa, ach, rb, ra, rch}]}]
-
-    kpi_payload = 0.0; kpi_traffic = 0.0
-    kpi_availability = None; kpi_rrc = 0.0
-
-    try:
-        conn = get_postgres_connection(); cur = conn.cursor()
-
-        cur.execute('SELECT DISTINCT "NSA" FROM traffic_payload WHERE "NSA" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "NSA"')
-        nsas_list = [r[0] for r in cur.fetchall()]
-
-        cur.execute('SELECT DISTINCT "Y_W" FROM traffic_payload WHERE "Y_W" IS NOT NULL ORDER BY "Y_W" DESC LIMIT 104')
-        yw_list = [r[0] for r in cur.fetchall()]
-
-        if sel_nsas:
-            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "NSA"=ANY(%s) AND "KABUPATEN" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "KABUPATEN"', (sel_nsas,))
-        else:
-            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "KABUPATEN" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "KABUPATEN"')
-        cities_list = [r[0] for r in cur.fetchall()]
-
-        if sel_cities:
-            cur.execute('SELECT DISTINCT "Site ID" FROM traffic_payload WHERE "KABUPATEN"=ANY(%s) AND "Site ID" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'60 days\' ORDER BY "Site ID" LIMIT 2000', (sel_cities,))
-        else:
-            cur.execute('SELECT DISTINCT "Site ID" FROM traffic_payload WHERE "Site ID" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'60 days\' ORDER BY "Site ID" LIMIT 2000')
-        sites_list = [r[0] for r in cur.fetchall()]
-
-        # Cascading: cities filtered by NSA, sites filtered by NSA+city
-        if sel_nsas:
-            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "NSA"=ANY(%s) AND "KABUPATEN" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "KABUPATEN"', (sel_nsas,))
-        else:
-            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "KABUPATEN" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "KABUPATEN"')
-        filtered_cities = [r[0] for r in cur.fetchall()]
-
-        if sel_cities and sel_nsas:
-            cur.execute('SELECT DISTINCT "Site ID" FROM traffic_payload WHERE "NSA"=ANY(%s) AND "KABUPATEN"=ANY(%s) AND "Site ID" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'60 days\' ORDER BY "Site ID" LIMIT 2000', (sel_nsas, sel_cities))
-        elif sel_cities:
-            cur.execute('SELECT DISTINCT "Site ID" FROM traffic_payload WHERE "KABUPATEN"=ANY(%s) AND "Site ID" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'60 days\' ORDER BY "Site ID" LIMIT 2000', (sel_cities,))
-        elif sel_nsas:
-            cur.execute('SELECT DISTINCT "Site ID" FROM traffic_payload WHERE "NSA"=ANY(%s) AND "Site ID" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'60 days\' ORDER BY "Site ID" LIMIT 2000', (sel_nsas,))
-        sites_list = [r[0] for r in cur.fetchall()]
-
-        # ── Chart data (daily) ────────────────────────────────────────────────
-        if from_date and to_date and sel_sites:
-            city_clause  = 'AND "KABUPATEN"=ANY(%s)' if sel_cities else ""
-            nsa_clause   = 'AND "NSA"=ANY(%s)'      if sel_nsas  else ""
-            params = [from_date, to_date, sel_sites] + ([sel_cities] if sel_cities else []) + ([sel_nsas] if sel_nsas else [])
-
-            cur.execute(f"""
-                SELECT
-                    "Date"::text,
-                    "Site ID",
-                    SUM("Payload (MB)")/1024.0,
-                    SUM("Traffic (erlang)")/1000.0,
-                    SUM(CASE WHEN "Avail_Num" IS NOT NULL AND "Avail_Denum" IS NOT NULL
-                             AND "Avail_Denum" > 0 THEN "Avail_Num" END),
-                    SUM(CASE WHEN "Avail_Denum" IS NOT NULL AND "Avail_Denum" > 0
-                             THEN "Avail_Denum" END),
-                    SUM("Max_RRC_Conn_User")
-                FROM traffic_payload
-                WHERE "Date" BETWEEN %s AND %s AND "Site ID"=ANY(%s) {city_clause} {nsa_clause}
-                GROUP BY "Date"::text,"Site ID"
-                ORDER BY 1,"Site ID"
-            """, params)
-
-            months_seen = {}
-            for r in cur.fetchall():
-                fd   = str(r[0] or ''); site = str(r[1] or '')
-                try: pg = float(r[2]) if r[2] is not None else 0.0
-                except: pg = 0.0
-                try: te = float(r[3]) if r[3] is not None else 0.0
-                except: te = 0.0
-                try: anum = float(r[4]) if r[4] is not None else 0.0
-                except: anum = 0.0
-                try: aden = float(r[5]) if r[5] is not None else 0.0
-                except: aden = 0.0
-                try: rrc = float(r[6]) if r[6] is not None else 0.0
-                except: rrc = 0.0
-                if fd not in months_seen: months_seen[fd] = fd
-                chart_payload.setdefault(site, {})[fd] = round(pg, 2)
-                chart_traffic.setdefault(site, {})[fd] = round(te, 1)
-                chart_rrc.setdefault(site, {})[fd] = round(rrc, 0)
-                av = round(anum / aden * 100, 2) if aden > 0 else 0.0
-                chart_availability.setdefault(site, {})[fd] = av
-
-            sorted_dates = sorted(months_seen.keys())
-            chart_labels = sorted_dates
-
-            for s in list(chart_payload.keys()):
-                chart_payload[s]     = [chart_payload[s].get(d, 0)     for d in sorted_dates]
-                chart_traffic[s]       = [chart_traffic[s].get(d, 0)      for d in sorted_dates]
-                chart_availability[s] = [chart_availability[s].get(d, 0)  for d in sorted_dates]
-                chart_rrc[s]          = [chart_rrc[s].get(d, 0)          for d in sorted_dates]
-
-            av_all = []
-            # Guard: only aggregate over sites that actually have chart data
-            chart_sites = list(chart_payload.keys())
-            for s in sel_sites:
-                if s not in chart_sites:
-                    continue
-                kpi_payload  += sum(chart_payload.get(s) or [])
-                kpi_traffic  += sum(chart_traffic.get(s) or [])
-                kpi_rrc      += sum(chart_rrc.get(s) or [])
-                av_all.extend(chart_availability.get(s) or [])
-            kpi_availability = round(sum(av_all)/len(av_all), 2) if av_all else None
-
-        # ── Y_W Comparison Table ──────────────────────────────────────────────
-        # If the UI shows "Semua Site" but no explicit checkboxes were sent, treat as all sites
-        if not sel_sites:
-            sel_sites = sites_list
-
-        if yw_before and yw_after and sel_sites:
-            # Build query dynamically — number of placeholders always matches params
-            p = [
-                yw_before, yw_after, yw_before, yw_after,
-                yw_before, yw_before, yw_after, yw_after,
-                yw_before, yw_after,
-                yw_before, yw_after,
-                sel_sites
-            ]
-            nsa_clause2 = ""
-            if sel_nsas:
-                nsa_clause2 = 'AND t."NSA"=ANY(%s)'
-                p.append(sel_nsas)
-            city_clause2 = ""
-            if sel_cities:
-                city_clause2 = 'AND t."KABUPATEN"=ANY(%s)'
-                p.append(sel_cities)
-
-            cur.execute(f"""
-                SELECT
-                    t."KABUPATEN",
-                    t."Site ID",
-                    SUM(CASE WHEN t."Y_W"=%s THEN t."Payload (MB)" END)/1024.0 AS pb,
-                    SUM(CASE WHEN t."Y_W"=%s THEN t."Payload (MB)" END)/1024.0 AS pa,
-                    SUM(CASE WHEN t."Y_W"=%s THEN t."Traffic (erlang)" END)/1000.0 AS tb,
-                    SUM(CASE WHEN t."Y_W"=%s THEN t."Traffic (erlang)" END)/1000.0 AS ta,
-                    SUM(CASE WHEN t."Y_W"=%s AND t."Avail_Num" IS NOT NULL
-                                AND t."Avail_Denum" IS NOT NULL AND t."Avail_Denum">0
-                             THEN t."Avail_Num" END) AS ab_num,
-                    SUM(CASE WHEN t."Y_W"=%s AND t."Avail_Denum" IS NOT NULL AND t."Avail_Denum">0
-                             THEN t."Avail_Denum" END) AS ab_den,
-                    SUM(CASE WHEN t."Y_W"=%s AND t."Avail_Num" IS NOT NULL
-                                AND t."Avail_Denum" IS NOT NULL AND t."Avail_Denum">0
-                             THEN t."Avail_Num" END) AS aa_num,
-                    SUM(CASE WHEN t."Y_W"=%s AND t."Avail_Denum" IS NOT NULL AND t."Avail_Denum">0
-                             THEN t."Avail_Denum" END) AS aa_den,
-                    SUM(CASE WHEN t."Y_W"=%s THEN t."Max_RRC_Conn_User" END) AS rb,
-                    SUM(CASE WHEN t."Y_W"=%s THEN t."Max_RRC_Conn_User" END) AS ra
-                FROM traffic_payload t
-                WHERE t."Y_W" IN (%s,%s) AND t."Site ID"=ANY(%s) {nsa_clause2} {city_clause2}
-                GROUP BY t."KABUPATEN", t."Site ID"
-                ORDER BY t."KABUPATEN", t."Site ID"
-            """, p)
-
-            def pct(a, b):
-                if not b or b == 0: return None
-                return round((a - b) / b * 100, 1)
-
-            grouped = {}
-            for r in cur.fetchall():
-                kota  = str(r[0]) if r[0] else "—"
-                site  = str(r[1]) if r[1] else "—"
-                pb = float(r[2]) if r[2] is not None else 0.0
-                pa = float(r[3]) if r[3] is not None else 0.0
-                tb = float(r[4]) if r[4] is not None else 0.0
-                ta = float(r[5]) if r[5] is not None else 0.0
-                ab_num = float(r[6]) if r[6] is not None else 0.0
-                ab_den = float(r[7]) if r[7] is not None else 0.0
-                aa_num = float(r[8]) if r[8] is not None else 0.0
-                aa_den = float(r[9]) if r[9] is not None else 0.0
-                rb = float(r[10]) if r[10] is not None else 0.0
-                ra = float(r[11]) if r[11] is not None else 0.0
-
-                ab = round(ab_num / ab_den * 100, 2) if ab_den > 0 else 0.0
-                aa = round(aa_num / aa_den * 100, 2) if aa_den > 0 else 0.0
-
-                row = {
-                    "site": site,
-                    "pb": round(pb, 2), "pa": round(pa, 2), "pch": pct(pa, pb),
-                    "tb": round(tb, 2), "ta": round(ta, 2), "tch": pct(ta, tb),
-                    "ab": ab, "aa": aa, "ach": pct(aa, ab),
-                    "rb": round(rb, 0), "ra": round(ra, 0), "rch": pct(ra, rb),
-                }
-                grouped.setdefault(kota, []).append(row)
-
-            compare_table = [{"city": c, "rows": rows} for c, rows in grouped.items()]
-
-        cur.close(); conn.close()
-    except Exception as e:
-        if conn: conn.rollback(); conn.close()
-        flash(f"Error: {str(e)}", "danger")
-
-    # Auto-select all sites if user is trying to compare weeks but no site selected
-    if yw_before and yw_after and not sel_sites and sites_list:
-        sel_sites = sites_list
-
-    last_update = None
-    try:
-        conn2 = get_postgres_connection()
-        cur2 = conn2.cursor()
-        cur2.execute('SELECT MAX("Date") FROM traffic_payload')
-        row = cur2.fetchone()
-        if row and row[0]:
-            last_update = row[0].strftime("%d %b %Y")
-        cur2.close(); conn2.close()
-    except Exception:
-        pass
-
-    return _no_cache(make_response(render_template("site_level.html",
-        username=session["username"],
-        nsas_list=nsas_list, cities_list=cities_list, sites_list=sites_list,
-        filtered_cities=filtered_cities,
-        sel_nsas=sel_nsas, sel_cities=sel_cities, sel_sites=sel_sites,
-        from_date=from_date, to_date=to_date,
-        yw_list=yw_list, yw_before=yw_before, yw_after=yw_after,
-        chart_labels=chart_labels,
-        chart_payload=chart_payload,
-        chart_traffic=chart_traffic,
-        chart_availability=chart_availability,
-        chart_rrc=chart_rrc,
-        kpi_payload=round(kpi_payload, 1),
-        kpi_traffic=round(kpi_traffic, 1),
-        kpi_availability=kpi_availability,
-        kpi_rrc=round(kpi_rrc, 0),
-        compare_table=compare_table,
-        last_update=last_update,
+    data = _get_dropdown_data()
+    # Filter cities/sites based on arguments if provided
+    sel_nsas = [n for n in request.args.getlist("nsa") if n]
+    sel_cities = [c for c in request.args.getlist("city") if c]
+    
+    sites_list = _get_sites(sel_nsas, sel_cities)
+    
+    return _no_cache(make_response(render_template(
+        "site_level.html",
+        username=session.get("username"),
+        nsas_list=data["nsas"],
+        cities_list=data["cities"],
+        sites_list=sites_list,
+        yw_list=data["yw"],
+        last_update=_get_last_update()
     )))
+
+@prod.route("/api/productivity/sites")
+@login_required
+def api_productivity_sites_list():
+    sel_nsas = [n for n in request.args.getlist("nsa") if n]
+    sel_cities = [c for c in request.args.getlist("city") if c]
+    sites = _get_sites(sel_nsas, sel_cities)
+    return jsonify({"sites": sites})
+
+@prod.route("/api/productivity/site")
+@login_required
+def api_productivity_site():
+    mode = request.args.get("mode", "trend")
+    
+    sel_nsas = [n for n in request.args.getlist("nsa") if n]
+    sel_cities = [c for c in request.args.getlist("city") if c]
+    sel_sites = [s for s in request.args.getlist("site") if s]
+    
+    try:
+        with db_query() as (conn, cur):
+            if mode == "trend":
+                from_date = request.args.get("from_date", "")
+                to_date = request.args.get("to_date", "")
+                if not from_date or not to_date or not sel_sites:
+                    return jsonify({"error": "Missing required filters for trend mode"})
+                
+                params = [from_date, to_date, sel_sites]
+                nsa_clause = ""
+                city_clause = ""
+                if sel_nsas:
+                    nsa_clause = 'AND "NSA"=ANY(%s)'
+                    params.append(sel_nsas)
+                if sel_cities:
+                    city_clause = 'AND "KABUPATEN"=ANY(%s)'
+                    params.append(sel_cities)
+                
+                cur.execute(f'''
+                    SELECT
+                        "Date"::text,
+                        "Site ID",
+                        SUM(sum_payload_mb)/1024.0 AS pb,
+                        SUM(sum_traffic_erl)/1000.0 AS tb,
+                        SUM(sum_avail_num) AS anum,
+                        SUM(sum_avail_denum) AS aden,
+                        SUM(sum_max_rrc) AS rrc
+                    FROM mv_traffic_payload_daily_site
+                    WHERE "Date" BETWEEN %s AND %s AND "Site ID"=ANY(%s) {nsa_clause} {city_clause}
+                    GROUP BY "Date"::text, "Site ID"
+                    ORDER BY 1, 2
+                ''', params)
+                
+                chart_labels = []
+                chart_payload = {}
+                chart_traffic = {}
+                chart_availability = {}
+                chart_rrc = {}
+                months_seen = {}
+                
+                for r in cur.fetchall():
+                    fd = str(r[0] or '')
+                    site = str(r[1] or '')
+                    pg = float(r[2] or 0)
+                    te = float(r[3] or 0)
+                    anum = float(r[4] or 0)
+                    aden = float(r[5] or 0)
+                    rrc = float(r[6] or 0)
+                    
+                    if fd not in months_seen: months_seen[fd] = fd
+                    chart_payload.setdefault(site, {})[fd] = round(pg, 2)
+                    chart_traffic.setdefault(site, {})[fd] = round(te, 1)
+                    chart_rrc.setdefault(site, {})[fd] = round(rrc, 0)
+                    av = round(anum / aden * 100, 2) if aden > 0 else 0.0
+                    chart_availability.setdefault(site, {})[fd] = av
+
+                sorted_dates = sorted(months_seen.keys())
+                for s in list(chart_payload.keys()):
+                    chart_payload[s] = [chart_payload[s].get(d, 0) for d in sorted_dates]
+                    chart_traffic[s] = [chart_traffic[s].get(d, 0) for d in sorted_dates]
+                    chart_availability[s] = [chart_availability[s].get(d, 0) for d in sorted_dates]
+                    chart_rrc[s] = [chart_rrc[s].get(d, 0) for d in sorted_dates]
+
+                # KPIs
+                all_av = []; kpi_payload = 0; kpi_traffic = 0; kpi_rrc = 0
+                for s in sel_sites:
+                    if s in chart_payload:
+                        all_av.extend(chart_availability.get(s, []))
+                        kpi_payload += sum(chart_payload.get(s, []))
+                        kpi_traffic += sum(chart_traffic.get(s, []))
+                        kpi_rrc += sum(chart_rrc.get(s, []))
+                
+                kpi_availability = round(sum(all_av)/len(all_av), 2) if all_av else None
+
+                return jsonify({
+                    "chart_labels": sorted_dates,
+                    "chart_payload": chart_payload,
+                    "chart_traffic": chart_traffic,
+                    "chart_availability": chart_availability,
+                    "chart_rrc": chart_rrc,
+                    "kpis": {
+                        "payload": round(kpi_payload, 1),
+                        "traffic": round(kpi_traffic, 1),
+                        "availability": kpi_availability,
+                        "rrc": round(kpi_rrc, 0)
+                    }
+                })
+                
+            elif mode == "compare":
+                yw_before = request.args.get("yw_before", "")
+                yw_after = request.args.get("yw_after", "")
+                
+                if not yw_before or not yw_after:
+                    return jsonify({"error": "Missing weeks for compare"})
+                
+                if not sel_sites:
+                    sel_sites = _get_sites(sel_nsas, sel_cities)
+                    
+                params = [yw_before, yw_after, sel_sites]
+                nsa_clause = ""
+                city_clause = ""
+                if sel_nsas:
+                    nsa_clause = 'AND "NSA"=ANY(%s)'
+                    params.append(sel_nsas)
+                if sel_cities:
+                    city_clause = 'AND "KABUPATEN"=ANY(%s)'
+                    params.append(sel_cities)
+                    
+                cur.execute(f'''
+                    SELECT
+                        "KABUPATEN",
+                        "Site ID",
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_payload_mb END)/1024.0 AS pb,
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_payload_mb END)/1024.0 AS pa,
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_traffic_erl END)/1000.0 AS tb,
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_traffic_erl END)/1000.0 AS ta,
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_avail_num END) AS ab_num,
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_avail_denum END) AS ab_den,
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_avail_num END) AS aa_num,
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_avail_denum END) AS aa_den,
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_max_rrc END) AS rb,
+                        SUM(CASE WHEN "Y_W"=%s THEN sum_max_rrc END) AS ra
+                    FROM mv_traffic_payload_yw_site
+                    WHERE "Y_W" IN (%s, %s) AND "Site ID"=ANY(%s) {nsa_clause} {city_clause}
+                    GROUP BY "KABUPATEN", "Site ID"
+                    ORDER BY "KABUPATEN", "Site ID"
+                ''', [yw_before, yw_after, yw_before, yw_after, yw_before, yw_before, yw_after, yw_after, yw_before, yw_after] + [yw_before, yw_after, sel_sites] + ([sel_nsas] if sel_nsas else []) + ([sel_cities] if sel_cities else []))
+                
+                grouped = {}
+                def pct(a, b): return round((a - b) / b * 100, 1) if b and b > 0 else None
+                
+                for r in cur.fetchall():
+                    kota = str(r[0] or "—"); site = str(r[1] or "—")
+                    pb = float(r[2] or 0); pa = float(r[3] or 0)
+                    tb = float(r[4] or 0); ta = float(r[5] or 0)
+                    ab_num = float(r[6] or 0); ab_den = float(r[7] or 0)
+                    aa_num = float(r[8] or 0); aa_den = float(r[9] or 0)
+                    rb = float(r[10] or 0); ra = float(r[11] or 0)
+                    
+                    ab = round(ab_num / ab_den * 100, 2) if ab_den > 0 else 0.0
+                    aa = round(aa_num / aa_den * 100, 2) if aa_den > 0 else 0.0
+                    
+                    grouped.setdefault(kota, []).append({
+                        "site": site,
+                        "pb": round(pb, 2), "pa": round(pa, 2), "pch": pct(pa, pb),
+                        "tb": round(tb, 2), "ta": round(ta, 2), "tch": pct(ta, tb),
+                        "ab": ab, "aa": aa, "ach": pct(aa, ab),
+                        "rb": round(rb, 0), "ra": round(ra, 0), "rch": pct(ra, rb),
+                    })
+                
+                compare_table = [{"city": k, "rows": v} for k, v in grouped.items()]
+                return jsonify({"compare_table": compare_table})
+                
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

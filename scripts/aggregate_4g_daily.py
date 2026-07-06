@@ -287,6 +287,8 @@ def main():
                 end_date = max_raw_date.strftime("%Y-%m-%d")
                 aggregate_date_range(conn, start_date, end_date)
 
+
+
     conn.close()
     print("Aggregation complete!")
 

@@ -1,6 +1,6 @@
 """Coverage Simulation Routes — /coverage_simulation"""
 from flask import Blueprint, render_template, request, session, make_response
-from ._utils import login_required, _no_cache, json_response
+from ._utils import login_required, _no_cache, json_response, db_query
 import math
 
 coverage = Blueprint("coverage", __name__)

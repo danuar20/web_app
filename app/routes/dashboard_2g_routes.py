@@ -1,7 +1,7 @@
 """2G Dashboard Routes — /dashboard_2g"""
 from flask import Blueprint, render_template, request, session, flash, make_response, jsonify
 from app.db.db_webapp import get_postgres_connection, get_site_list_2g, get_site_cell_list_2g
-from ._utils import login_required, _no_cache, json_response
+from ._utils import login_required, _no_cache, json_response, db_query
 import psycopg2
 import psycopg2.extras
 import psycopg2.errors
@@ -194,281 +194,280 @@ def dashboard_2g_view():
 
     if has_trend or has_compare:
         try:
-            conn = get_postgres_connection()
-            cur = conn.cursor()
+            with db_query() as (conn, cur):
             
-            try:
-                from datetime import datetime
-                before_str = f"{datetime.strptime(before_from_date, '%Y-%m-%d').strftime('%d %b')} to {datetime.strptime(before_to_date, '%Y-%m-%d').strftime('%d %b')}" if before_from_date and before_to_date else ""
-                after_str = f"{datetime.strptime(after_from_date, '%Y-%m-%d').strftime('%d %b')} to {datetime.strptime(after_to_date, '%Y-%m-%d').strftime('%d %b')}" if after_from_date and after_to_date else ""
-            except Exception:
-                before_str = ""
-                after_str = ""
+                try:
+                    from datetime import datetime
+                    before_str = f"{datetime.strptime(before_from_date, '%Y-%m-%d').strftime('%d %b')} to {datetime.strptime(before_to_date, '%Y-%m-%d').strftime('%d %b')}" if before_from_date and before_to_date else ""
+                    after_str = f"{datetime.strptime(after_from_date, '%Y-%m-%d').strftime('%d %b')} to {datetime.strptime(after_to_date, '%Y-%m-%d').strftime('%d %b')}" if after_from_date and after_to_date else ""
+                except Exception:
+                    before_str = ""
+                    after_str = ""
 
-            try:
-                cur.execute('SELECT MAX(datehour::date) FROM "2g_kpi_zte"')
-                raw_last = cur.fetchone()
-                last_update = raw_last[0].strftime('%Y-%m-%d') if raw_last and raw_last[0] else None
-            except Exception:
-                last_update = None
+                try:
+                    cur.execute('SELECT MAX(datehour::date) FROM "2g_kpi_zte"')
+                    raw_last = cur.fetchone()
+                    last_update = raw_last[0].strftime('%Y-%m-%d') if raw_last and raw_last[0] else None
+                except Exception:
+                    last_update = None
 
-            kpi_selects = ", ".join([f"{k[6]} AS {k[0]}" for k in KPI_DEFS])
+                kpi_selects = ", ".join([f"{k[6]} AS {k[0]}" for k in KPI_DEFS])
             
-            # --- TREND DATA ---
-            if has_trend:
-                # 1. Cluster Trend
-                query_trend = f"""
-                    SELECT 
-                        TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') AS dt_label,
-                        datehour,
-                        {kpi_selects}
-                    FROM "2g_kpi_zte"
-                    WHERE date BETWEEN %s AND %s AND {where_entity}
-                    GROUP BY datehour, dt_label ORDER BY datehour
-                """
-                cur.execute(query_trend, [trend_from_date, trend_to_date, sel_sites_param])
-                rows_trend = cur.fetchall()
-                
-                # Keep original order by date
-                trend_labels = []
-                trend_map = {}
-                for r in rows_trend:
-                    if r[0] not in trend_labels:
-                        trend_labels.append(r[0])
-                    trend_map[r[0]] = r[2:]
-                
-                # We need to initialize total arrays
-                for kpi in KPI_DEFS:
-                    trend_chart_data[kpi[0]]["total"] = []
-                
-                for idx, kpi in enumerate(KPI_DEFS):
-                    kpi_id = kpi[0]
-                    for hr in trend_labels:
-                        val_row = trend_map.get(hr)
-                        val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
-                        trend_chart_data[kpi_id]["total"].append(val)
-                
-                # Site Trend
-                query_trend_site = f"""
-                    SELECT 
-                        TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') AS dt_label,
-                        datehour,
-                        {group_entity} as siteid,
-                        {kpi_selects}
-                    FROM "2g_kpi_zte"
-                    WHERE date BETWEEN %s AND %s AND {where_entity}
-                    GROUP BY datehour, dt_label, {group_entity} ORDER BY datehour
-                """
-                cur.execute(query_trend_site, [trend_from_date, trend_to_date, sel_sites_param])
-                rows_site_trend = cur.fetchall()
-                site_trend_map = defaultdict(dict)
-                for r in rows_site_trend:
-                    dt_label = r[0]
-                    site = r[2]
-                    site_trend_map[site][dt_label] = r[3:]
-                
-                for site in site_trend_map:
-                    for idx, kpi in enumerate(KPI_DEFS):
-                        kpi_id = kpi[0]
-                        for hr in trend_labels:
-                            val_row = site_trend_map[site].get(hr)
-                            val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
-                            site_trend_chart_data[kpi_id][site].append(val)
-                
-                # 2. Band Trend
-                query_trend_band = f"""
-                    SELECT 
-                        TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') AS dt_label,
-                        datehour,
-                        COALESCE("Tech", 'Unknown') AS band,
-                        {kpi_selects}
-                    FROM "2g_kpi_zte"
-                    WHERE date BETWEEN %s AND %s AND {where_entity}
-                    GROUP BY datehour, dt_label, COALESCE("Tech", 'Unknown') ORDER BY datehour
-                """
-                cur.execute(query_trend_band, [trend_from_date, trend_to_date, sel_sites_param])
-                rows_band_trend = cur.fetchall()
-                band_trend_map = defaultdict(dict)
-                for r in rows_band_trend:
-                    dt_label = r[0]
-                    band = r[2]
-                    band_trend_map[band][dt_label] = r[3:]
-                
-                for band in band_trend_map:
-                    for idx, kpi in enumerate(KPI_DEFS):
-                        kpi_id = kpi[0]
-                        for hr in trend_labels:
-                            val_row = band_trend_map[band].get(hr)
-                            val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
-                            band_trend_chart_data[kpi_id][band].append(val)
-                            
-            # --- COMPARE DATA ---
-            if has_compare:
-                def get_aggregates(from_d, to_d):
-                    # Cluster
-                    cur.execute(f"""
-                        SELECT {kpi_selects}
+                # --- TREND DATA ---
+                if has_trend:
+                    # 1. Cluster Trend
+                    query_trend = f"""
+                        SELECT 
+                            TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') AS dt_label,
+                            datehour,
+                            {kpi_selects}
                         FROM "2g_kpi_zte"
                         WHERE date BETWEEN %s AND %s AND {where_entity}
-                    """, [from_d, to_d, sel_sites_param])
-                    cluster_row = cur.fetchone()
-                    
-                    # Band
-                    cur.execute(f"""
+                        GROUP BY datehour, dt_label ORDER BY datehour
+                    """
+                    cur.execute(query_trend, [trend_from_date, trend_to_date, sel_sites_param])
+                    rows_trend = cur.fetchall()
+                
+                    # Keep original order by date
+                    trend_labels = []
+                    trend_map = {}
+                    for r in rows_trend:
+                        if r[0] not in trend_labels:
+                            trend_labels.append(r[0])
+                        trend_map[r[0]] = r[2:]
+                
+                    # We need to initialize total arrays
+                    for kpi in KPI_DEFS:
+                        trend_chart_data[kpi[0]]["total"] = []
+                
+                    for idx, kpi in enumerate(KPI_DEFS):
+                        kpi_id = kpi[0]
+                        for hr in trend_labels:
+                            val_row = trend_map.get(hr)
+                            val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
+                            trend_chart_data[kpi_id]["total"].append(val)
+                
+                    # Site Trend
+                    query_trend_site = f"""
                         SELECT 
+                            TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') AS dt_label,
+                            datehour,
+                            {group_entity} as siteid,
+                            {kpi_selects}
+                        FROM "2g_kpi_zte"
+                        WHERE date BETWEEN %s AND %s AND {where_entity}
+                        GROUP BY datehour, dt_label, {group_entity} ORDER BY datehour
+                    """
+                    cur.execute(query_trend_site, [trend_from_date, trend_to_date, sel_sites_param])
+                    rows_site_trend = cur.fetchall()
+                    site_trend_map = defaultdict(dict)
+                    for r in rows_site_trend:
+                        dt_label = r[0]
+                        site = r[2]
+                        site_trend_map[site][dt_label] = r[3:]
+                
+                    for site in site_trend_map:
+                        for idx, kpi in enumerate(KPI_DEFS):
+                            kpi_id = kpi[0]
+                            for hr in trend_labels:
+                                val_row = site_trend_map[site].get(hr)
+                                val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
+                                site_trend_chart_data[kpi_id][site].append(val)
+                
+                    # 2. Band Trend
+                    query_trend_band = f"""
+                        SELECT 
+                            TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') AS dt_label,
+                            datehour,
                             COALESCE("Tech", 'Unknown') AS band,
                             {kpi_selects}
                         FROM "2g_kpi_zte"
                         WHERE date BETWEEN %s AND %s AND {where_entity}
-                        GROUP BY COALESCE("Tech", 'Unknown')
-                    """, [from_d, to_d, sel_sites_param])
-                    band_rows = cur.fetchall()
+                        GROUP BY datehour, dt_label, COALESCE("Tech", 'Unknown') ORDER BY datehour
+                    """
+                    cur.execute(query_trend_band, [trend_from_date, trend_to_date, sel_sites_param])
+                    rows_band_trend = cur.fetchall()
+                    band_trend_map = defaultdict(dict)
+                    for r in rows_band_trend:
+                        dt_label = r[0]
+                        band = r[2]
+                        band_trend_map[band][dt_label] = r[3:]
+                
+                    for band in band_trend_map:
+                        for idx, kpi in enumerate(KPI_DEFS):
+                            kpi_id = kpi[0]
+                            for hr in trend_labels:
+                                val_row = band_trend_map[band].get(hr)
+                                val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
+                                band_trend_chart_data[kpi_id][band].append(val)
+                            
+                # --- COMPARE DATA ---
+                if has_compare:
+                    def get_aggregates(from_d, to_d):
+                        # Cluster
+                        cur.execute(f"""
+                            SELECT {kpi_selects}
+                            FROM "2g_kpi_zte"
+                            WHERE date BETWEEN %s AND %s AND {where_entity}
+                        """, [from_d, to_d, sel_sites_param])
+                        cluster_row = cur.fetchone()
                     
-                    # Sector
+                        # Band
+                        cur.execute(f"""
+                            SELECT 
+                                COALESCE("Tech", 'Unknown') AS band,
+                                {kpi_selects}
+                            FROM "2g_kpi_zte"
+                            WHERE date BETWEEN %s AND %s AND {where_entity}
+                            GROUP BY COALESCE("Tech", 'Unknown')
+                        """, [from_d, to_d, sel_sites_param])
+                        band_rows = cur.fetchall()
+                    
+                        # Sector
+                        cur.execute(f"""
+                            SELECT 
+                                siteid,
+                                RIGHT(bts::text, 1) AS sector,
+                                {kpi_selects}
+                            FROM "2g_kpi_zte"
+                            WHERE date BETWEEN %s AND %s AND {where_entity}
+                            GROUP BY siteid, RIGHT(bts::text, 1)
+                        """, [from_d, to_d, sel_sites_param])
+                        sector_rows = cur.fetchall()
+
+                        # Site
+                        cur.execute(f"""
+                            SELECT {group_entity} as siteid, {kpi_selects}
+                            FROM "2g_kpi_zte"
+                            WHERE date BETWEEN %s AND %s AND {where_entity}
+                            GROUP BY {group_entity}
+                        """, [from_d, to_d, sel_sites_param])
+                        site_rows = cur.fetchall()
+                    
+                        return cluster_row, band_rows, sector_rows, site_rows
+
+                    b_cluster, b_band, b_sector, b_site = get_aggregates(before_from_date, before_to_date)
+                    a_cluster, a_band, a_sector, a_site = get_aggregates(after_from_date, after_to_date)
+                
+                    # Process Cluster
+                    for idx, kpi in enumerate(KPI_DEFS):
+                        kpi_id, title, unit, _, _, _, _, group_name, is_lb = kpi
+                        b_val = round(float(b_cluster[idx]), 2) if b_cluster and b_cluster[idx] is not None else None
+                        a_val = round(float(a_cluster[idx]), 2) if a_cluster and a_cluster[idx] is not None else None
+                    
+                        delta = round(a_val - b_val, 2) if (b_val is not None and a_val is not None) else None
+                        delta_pct = round((delta / abs(b_val)) * 100, 1) if (delta is not None and b_val) else None
+                    
+                        cluster_compare[kpi_id] = {
+                            "before": b_val, "after": a_val, "delta": delta, "delta_pct": delta_pct,
+                            "title": title, "unit": unit, "group": group_name, "is_lower_better": is_lb
+                        }
+                
+                    # Process Band
+                    b_band_map = {r[0]: r[1:] for r in b_band}
+                    a_band_map = {r[0]: r[1:] for r in a_band}
+                    all_bands = set(list(b_band_map.keys()) + list(a_band_map.keys()))
+                    for band in all_bands:
+                        for idx, kpi in enumerate(KPI_DEFS):
+                            kpi_id = kpi[0]
+                            b_val = round(float(b_band_map[band][idx]), 2) if band in b_band_map and b_band_map[band][idx] is not None else None
+                            a_val = round(float(a_band_map[band][idx]), 2) if band in a_band_map and a_band_map[band][idx] is not None else None
+                            delta = round(a_val - b_val, 2) if (b_val is not None and a_val is not None) else None
+                            delta_pct = round((delta / abs(b_val)) * 100, 1) if (delta is not None and b_val) else None
+                            band_compare[band][kpi_id] = {"before": b_val, "after": a_val, "delta": delta, "delta_pct": delta_pct}
+
+                    # Process Sector
+                    b_sec_map = {f"{r[0]}_Sec{r[1]}": r[2:] for r in b_sector}
+                    a_sec_map = {f"{r[0]}_Sec{r[1]}": r[2:] for r in a_sector}
+                    all_sectors = set(list(b_sec_map.keys()) + list(a_sec_map.keys()))
+                    for sec in all_sectors:
+                        for idx, kpi in enumerate(KPI_DEFS):
+                            kpi_id = kpi[0]
+                            b_val = round(float(b_sec_map[sec][idx]), 2) if sec in b_sec_map and b_sec_map[sec][idx] is not None else None
+                            a_val = round(float(a_sec_map[sec][idx]), 2) if sec in a_sec_map and a_sec_map[sec][idx] is not None else None
+                            delta = round(a_val - b_val, 2) if (b_val is not None and a_val is not None) else None
+                            delta_pct = round((delta / abs(b_val)) * 100, 1) if (delta is not None and b_val) else None
+                            sector_compare[sec][kpi_id] = {"before": b_val, "after": a_val, "delta": delta, "delta_pct": delta_pct}
+
+                    # Process Site
+                    b_site_map = {r[0]: r[1:] for r in b_site}
+                    a_site_map = {r[0]: r[1:] for r in a_site}
+                    all_sites = set(list(b_site_map.keys()) + list(a_site_map.keys()))
+                    for site in all_sites:
+                        for idx, kpi in enumerate(KPI_DEFS):
+                            kpi_id = kpi[0]
+                            b_val = round(float(b_site_map[site][idx]), 2) if site in b_site_map and b_site_map[site][idx] is not None else None
+                            a_val = round(float(a_site_map[site][idx]), 2) if site in a_site_map and a_site_map[site][idx] is not None else None
+                            delta = round(a_val - b_val, 2) if (b_val is not None and a_val is not None) else None
+                            delta_pct = round((delta / abs(b_val)) * 100, 1) if (delta is not None and b_val) else None
+                            site_compare[site][kpi_id] = {"before": b_val, "after": a_val, "delta": delta, "delta_pct": delta_pct}
+
+                    # --- Compare Hourly Trend ---
+                    HR_FMT = "'HH24:00'"
                     cur.execute(f"""
-                        SELECT 
-                            siteid,
-                            RIGHT(bts::text, 1) AS sector,
-                            {kpi_selects}
+                        SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {kpi_selects}
                         FROM "2g_kpi_zte"
                         WHERE date BETWEEN %s AND %s AND {where_entity}
-                        GROUP BY siteid, RIGHT(bts::text, 1)
-                    """, [from_d, to_d, sel_sites_param])
-                    sector_rows = cur.fetchall()
+                        GROUP BY hr ORDER BY hr
+                    """, [before_from_date, before_to_date, sel_sites_param])
+                    before_hourly = cur.fetchall()
 
-                    # Site
                     cur.execute(f"""
-                        SELECT {group_entity} as siteid, {kpi_selects}
+                        SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {kpi_selects}
                         FROM "2g_kpi_zte"
                         WHERE date BETWEEN %s AND %s AND {where_entity}
-                        GROUP BY {group_entity}
-                    """, [from_d, to_d, sel_sites_param])
-                    site_rows = cur.fetchall()
-                    
-                    return cluster_row, band_rows, sector_rows, site_rows
+                        GROUP BY hr ORDER BY hr
+                    """, [after_from_date, after_to_date, sel_sites_param])
+                    after_hourly = cur.fetchall()
 
-                b_cluster, b_band, b_sector, b_site = get_aggregates(before_from_date, before_to_date)
-                a_cluster, a_band, a_sector, a_site = get_aggregates(after_from_date, after_to_date)
-                
-                # Process Cluster
-                for idx, kpi in enumerate(KPI_DEFS):
-                    kpi_id, title, unit, _, _, _, _, group_name, is_lb = kpi
-                    b_val = round(float(b_cluster[idx]), 2) if b_cluster and b_cluster[idx] is not None else None
-                    a_val = round(float(a_cluster[idx]), 2) if a_cluster and a_cluster[idx] is not None else None
-                    
-                    delta = round(a_val - b_val, 2) if (b_val is not None and a_val is not None) else None
-                    delta_pct = round((delta / abs(b_val)) * 100, 1) if (delta is not None and b_val) else None
-                    
-                    cluster_compare[kpi_id] = {
-                        "before": b_val, "after": a_val, "delta": delta, "delta_pct": delta_pct,
-                        "title": title, "unit": unit, "group": group_name, "is_lower_better": is_lb
-                    }
-                
-                # Process Band
-                b_band_map = {r[0]: r[1:] for r in b_band}
-                a_band_map = {r[0]: r[1:] for r in a_band}
-                all_bands = set(list(b_band_map.keys()) + list(a_band_map.keys()))
-                for band in all_bands:
-                    for idx, kpi in enumerate(KPI_DEFS):
-                        kpi_id = kpi[0]
-                        b_val = round(float(b_band_map[band][idx]), 2) if band in b_band_map and b_band_map[band][idx] is not None else None
-                        a_val = round(float(a_band_map[band][idx]), 2) if band in a_band_map and a_band_map[band][idx] is not None else None
-                        delta = round(a_val - b_val, 2) if (b_val is not None and a_val is not None) else None
-                        delta_pct = round((delta / abs(b_val)) * 100, 1) if (delta is not None and b_val) else None
-                        band_compare[band][kpi_id] = {"before": b_val, "after": a_val, "delta": delta, "delta_pct": delta_pct}
+                    compare_hourly_labels = sorted(list(set([r[0] for r in before_hourly] + [r[0] for r in after_hourly])))
+                    before_hourly_map = {r[0]: r[1:] for r in before_hourly}
+                    after_hourly_map = {r[0]: r[1:] for r in after_hourly}
 
-                # Process Sector
-                b_sec_map = {f"{r[0]}_Sec{r[1]}": r[2:] for r in b_sector}
-                a_sec_map = {f"{r[0]}_Sec{r[1]}": r[2:] for r in a_sector}
-                all_sectors = set(list(b_sec_map.keys()) + list(a_sec_map.keys()))
-                for sec in all_sectors:
-                    for idx, kpi in enumerate(KPI_DEFS):
-                        kpi_id = kpi[0]
-                        b_val = round(float(b_sec_map[sec][idx]), 2) if sec in b_sec_map and b_sec_map[sec][idx] is not None else None
-                        a_val = round(float(a_sec_map[sec][idx]), 2) if sec in a_sec_map and a_sec_map[sec][idx] is not None else None
-                        delta = round(a_val - b_val, 2) if (b_val is not None and a_val is not None) else None
-                        delta_pct = round((delta / abs(b_val)) * 100, 1) if (delta is not None and b_val) else None
-                        sector_compare[sec][kpi_id] = {"before": b_val, "after": a_val, "delta": delta, "delta_pct": delta_pct}
-
-                # Process Site
-                b_site_map = {r[0]: r[1:] for r in b_site}
-                a_site_map = {r[0]: r[1:] for r in a_site}
-                all_sites = set(list(b_site_map.keys()) + list(a_site_map.keys()))
-                for site in all_sites:
-                    for idx, kpi in enumerate(KPI_DEFS):
-                        kpi_id = kpi[0]
-                        b_val = round(float(b_site_map[site][idx]), 2) if site in b_site_map and b_site_map[site][idx] is not None else None
-                        a_val = round(float(a_site_map[site][idx]), 2) if site in a_site_map and a_site_map[site][idx] is not None else None
-                        delta = round(a_val - b_val, 2) if (b_val is not None and a_val is not None) else None
-                        delta_pct = round((delta / abs(b_val)) * 100, 1) if (delta is not None and b_val) else None
-                        site_compare[site][kpi_id] = {"before": b_val, "after": a_val, "delta": delta, "delta_pct": delta_pct}
-
-                # --- Compare Hourly Trend ---
-                HR_FMT = "'HH24:00'"
-                cur.execute(f"""
-                    SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {kpi_selects}
-                    FROM "2g_kpi_zte"
-                    WHERE date BETWEEN %s AND %s AND {where_entity}
-                    GROUP BY hr ORDER BY hr
-                """, [before_from_date, before_to_date, sel_sites_param])
-                before_hourly = cur.fetchall()
-
-                cur.execute(f"""
-                    SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {kpi_selects}
-                    FROM "2g_kpi_zte"
-                    WHERE date BETWEEN %s AND %s AND {where_entity}
-                    GROUP BY hr ORDER BY hr
-                """, [after_from_date, after_to_date, sel_sites_param])
-                after_hourly = cur.fetchall()
-
-                compare_hourly_labels = sorted(list(set([r[0] for r in before_hourly] + [r[0] for r in after_hourly])))
-                before_hourly_map = {r[0]: r[1:] for r in before_hourly}
-                after_hourly_map = {r[0]: r[1:] for r in after_hourly}
-
-                for idx, kpi in enumerate(KPI_DEFS):
-                    chart_id = kpi[0]
-                    compare_hourly_data[chart_id] = {"before": [], "after": []}
-                    for hr in compare_hourly_labels:
-                        b_val = before_hourly_map.get(hr)
-                        a_val = after_hourly_map.get(hr)
-                        b = round(float(b_val[idx]), 2) if b_val and b_val[idx] is not None else None
-                        a = round(float(a_val[idx]), 2) if a_val and a_val[idx] is not None else None
-                        compare_hourly_data[chart_id]["before"].append(b)
-                        compare_hourly_data[chart_id]["after"].append(a)
-                        
-                # --- Compare Hourly Trend Site Level ---
-                cur.execute(f"""
-                    SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {group_entity} as siteid, {kpi_selects}
-                    FROM "2g_kpi_zte"
-                    WHERE date BETWEEN %s AND %s AND {where_entity}
-                    GROUP BY hr, {group_entity} ORDER BY hr
-                """, [before_from_date, before_to_date, sel_sites_param])
-                before_site_hourly = cur.fetchall()
-
-                cur.execute(f"""
-                    SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {group_entity} as siteid, {kpi_selects}
-                    FROM "2g_kpi_zte"
-                    WHERE date BETWEEN %s AND %s AND {where_entity}
-                    GROUP BY hr, {group_entity} ORDER BY hr
-                """, [after_from_date, after_to_date, sel_sites_param])
-                after_site_hourly = cur.fetchall()
-
-                b_site_h_map = defaultdict(dict)
-                for r in before_site_hourly: b_site_h_map[r[1]][r[0]] = r[2:]
-                a_site_h_map = defaultdict(dict)
-                for r in after_site_hourly: a_site_h_map[r[1]][r[0]] = r[2:]
-                
-                all_sh_sites = set(list(b_site_h_map.keys()) + list(a_site_h_map.keys()))
-                for site in all_sh_sites:
                     for idx, kpi in enumerate(KPI_DEFS):
                         chart_id = kpi[0]
+                        compare_hourly_data[chart_id] = {"before": [], "after": []}
                         for hr in compare_hourly_labels:
-                            b_val = b_site_h_map[site].get(hr)
-                            a_val = a_site_h_map[site].get(hr)
+                            b_val = before_hourly_map.get(hr)
+                            a_val = after_hourly_map.get(hr)
                             b = round(float(b_val[idx]), 2) if b_val and b_val[idx] is not None else None
                             a = round(float(a_val[idx]), 2) if a_val and a_val[idx] is not None else None
-                            site_compare_hourly_data[chart_id]["before"][site].append(b)
-                            site_compare_hourly_data[chart_id]["after"][site].append(a)
+                            compare_hourly_data[chart_id]["before"].append(b)
+                            compare_hourly_data[chart_id]["after"].append(a)
+                        
+                    # --- Compare Hourly Trend Site Level ---
+                    cur.execute(f"""
+                        SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {group_entity} as siteid, {kpi_selects}
+                        FROM "2g_kpi_zte"
+                        WHERE date BETWEEN %s AND %s AND {where_entity}
+                        GROUP BY hr, {group_entity} ORDER BY hr
+                    """, [before_from_date, before_to_date, sel_sites_param])
+                    before_site_hourly = cur.fetchall()
+
+                    cur.execute(f"""
+                        SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {group_entity} as siteid, {kpi_selects}
+                        FROM "2g_kpi_zte"
+                        WHERE date BETWEEN %s AND %s AND {where_entity}
+                        GROUP BY hr, {group_entity} ORDER BY hr
+                    """, [after_from_date, after_to_date, sel_sites_param])
+                    after_site_hourly = cur.fetchall()
+
+                    b_site_h_map = defaultdict(dict)
+                    for r in before_site_hourly: b_site_h_map[r[1]][r[0]] = r[2:]
+                    a_site_h_map = defaultdict(dict)
+                    for r in after_site_hourly: a_site_h_map[r[1]][r[0]] = r[2:]
+                
+                    all_sh_sites = set(list(b_site_h_map.keys()) + list(a_site_h_map.keys()))
+                    for site in all_sh_sites:
+                        for idx, kpi in enumerate(KPI_DEFS):
+                            chart_id = kpi[0]
+                            for hr in compare_hourly_labels:
+                                b_val = b_site_h_map[site].get(hr)
+                                a_val = a_site_h_map[site].get(hr)
+                                b = round(float(b_val[idx]), 2) if b_val and b_val[idx] is not None else None
+                                a = round(float(a_val[idx]), 2) if a_val and a_val[idx] is not None else None
+                                site_compare_hourly_data[chart_id]["before"][site].append(b)
+                                site_compare_hourly_data[chart_id]["after"][site].append(a)
 
         except Exception as e:
             if conn:
@@ -492,8 +491,6 @@ def dashboard_2g_view():
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute("SELECT id, dashboard_name, chart_config FROM user_custom_charts WHERE username = %s AND dashboard_name LIKE '2G%%' ORDER BY dashboard_name", [username])
         user_charts = [dict(r) for r in cur.fetchall()]
-        cur.close()
-        conn.close()
     except Exception as e:
         print(f"Error fetching custom charts: {e}")
 
@@ -548,19 +545,16 @@ def save_custom_chart():
         return json_response({"error": "Missing dashboard name or config"}, 400)
         
     try:
-        conn = get_postgres_connection()
-        cur = conn.cursor()
+        with db_query() as (conn, cur):
         
-        cur.execute("""
-            INSERT INTO user_custom_charts (username, dashboard_name, chart_config, updated_at)
-            VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
-            ON CONFLICT (username, dashboard_name) 
-            DO UPDATE SET chart_config = EXCLUDED.chart_config, updated_at = CURRENT_TIMESTAMP
-        """, [username, dashboard_name, json.dumps(chart_config)])
-        conn.commit()
-        cur.close()
-        conn.close()
-        return json_response({"success": True, "message": "Dashboard saved successfully"})
+            cur.execute("""
+                INSERT INTO user_custom_charts (username, dashboard_name, chart_config, updated_at)
+                VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT (username, dashboard_name) 
+                DO UPDATE SET chart_config = EXCLUDED.chart_config, updated_at = CURRENT_TIMESTAMP
+            """, [username, dashboard_name, json.dumps(chart_config)])
+            conn.commit()
+            return json_response({"success": True, "message": "Dashboard saved successfully"})
     except Exception as e:
         return json_response({"error": str(e)}, 500)
 
@@ -575,13 +569,10 @@ def delete_custom_chart():
         return json_response({"error": "Missing dashboard name"}, 400)
         
     try:
-        conn = get_postgres_connection()
-        cur = conn.cursor()
-        cur.execute("DELETE FROM user_custom_charts WHERE username = %s AND dashboard_name = %s", [username, dashboard_name])
-        conn.commit()
-        cur.close()
-        conn.close()
-        return json_response({"success": True, "message": "Dashboard deleted successfully"})
+        with db_query() as (conn, cur):
+            cur.execute("DELETE FROM user_custom_charts WHERE username = %s AND dashboard_name = %s", [username, dashboard_name])
+            conn.commit()
+            return json_response({"success": True, "message": "Dashboard deleted successfully"})
     except Exception as e:
         return json_response({"error": str(e)}, 500)
 

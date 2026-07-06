@@ -1,6 +1,6 @@
 """Okumura-Hata Model Routes — /okumura_hata"""
 from flask import Blueprint, render_template, request, session, make_response
-from ._utils import login_required, _no_cache
+from ._utils import login_required, _no_cache, db_query
 import math
 
 okumura_hata = Blueprint("okumura_hata", __name__)

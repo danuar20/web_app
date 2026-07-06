@@ -1,7 +1,7 @@
 """5G KPI Hourly Sector Routes — /kpi_5g_hourly_sector (sector/cell level view)"""
 from flask import Blueprint, render_template, request, session, flash, make_response
 from app.db.db_webapp import get_postgres_connection, get_site_list_5g
-from ._utils import login_required, _no_cache, json_response
+from ._utils import login_required, _no_cache, json_response, db_query
 import psycopg2
 import psycopg2.errors
 from collections import defaultdict
@@ -13,14 +13,11 @@ kpi5g_hourly_sector = Blueprint("kpi5g_hourly_sector", __name__)
 def api_kpi_5g_hourly_sector_last_update():
     """Lightweight endpoint to get last update timestamp without full KPI query"""
     try:
-        conn = get_postgres_connection()
-        cur = conn.cursor()
-        cur.execute('SELECT MAX(datehour) FROM "5g_kpi_zte"')
-        raw = cur.fetchone()
-        cur.close()
-        conn.close()
-        last_update = raw[0].strftime('%Y-%m-%d %H:%M') if raw and raw[0] else None
-        return json_response({"last_update": last_update})
+        with db_query() as (conn, cur):
+            cur.execute('SELECT MAX(datehour) FROM "5g_kpi_zte"')
+            raw = cur.fetchone()
+            last_update = raw[0].strftime('%Y-%m-%d %H:%M') if raw and raw[0] else None
+            return json_response({"last_update": last_update})
     except Exception as e:
         return json_response({"error": str(e)}, 500)
 
@@ -107,81 +104,65 @@ def kpi_5g_hourly_sector():
         conn = None
         cur = None
         try:
-            conn = get_postgres_connection()
-            cur = conn.cursor()
+            with db_query() as (conn, cur):
 
-            try:
-                cur.execute('SELECT MAX(datehour) FROM "5g_kpi_zte"')
-                raw_last = cur.fetchone()
-                last_update = raw_last[0].strftime('%Y-%m-%d %H:%M') if raw_last and raw_last[0] else None
-            except Exception:
-                last_update = None
+                try:
+                    cur.execute('SELECT MAX(datehour) FROM "5g_kpi_zte"')
+                    raw_last = cur.fetchone()
+                    last_update = raw_last[0].strftime('%Y-%m-%d %H:%M') if raw_last and raw_last[0] else None
+                except Exception:
+                    last_update = None
 
-            kpi_selects = ", ".join([f"{k[6]} AS {k[0]}" for k in KPI_DEFS])
+                kpi_selects = ", ".join([f"{k[6]} AS {k[0]}" for k in KPI_DEFS])
 
-            query = f"""
-                SELECT
-                    datehour,
-                    siteid,
-                    cellid,
-                    CASE
-                        WHEN LENGTH(cellid::text) > 2 AND RIGHT(cellid::text, 1) = '5' THEN SUBSTRING(cellid::text FROM 2 FOR 1)
-                        WHEN LENGTH(cellid::text) > 2 THEN LEFT(cellid::text, 2)
-                        ELSE LEFT(cellid::text, 1)
-                    END AS sector,
-                    {kpi_selects}
-                FROM "5g_kpi_zte"
-                WHERE datehour::date BETWEEN %s::date AND %s::date AND siteid = ANY(%s)
-                GROUP BY datehour, siteid, cellid, sector
-                ORDER BY datehour, siteid, cellid, sector
-            """
+                query = f"""
+                    SELECT
+                        datehour,
+                        siteid,
+                        cellid,
+                        CASE
+                            WHEN LENGTH(cellid::text) > 2 AND RIGHT(cellid::text, 1) = '5' THEN SUBSTRING(cellid::text FROM 2 FOR 1)
+                            WHEN LENGTH(cellid::text) > 2 THEN LEFT(cellid::text, 2)
+                            ELSE LEFT(cellid::text, 1)
+                        END AS sector,
+                        {kpi_selects}
+                    FROM "5g_kpi_zte"
+                    WHERE datehour::date BETWEEN %s::date AND %s::date AND siteid = ANY(%s)
+                    GROUP BY datehour, siteid, cellid, sector
+                    ORDER BY datehour, siteid, cellid, sector
+                """
 
-            cur.execute(query, [from_date, to_date, sel_sites])
+                cur.execute(query, [from_date, to_date, sel_sites])
             
-            hours_seen = set()
-            for row in cur.fetchall():
-                dh = row[0].strftime("%Y-%m-%d %H:%M")
-                siteid = row[1]
-                cellid = str(row[2]).replace(".0", "") if row[2] is not None else ""
-                sector = row[3]
+                hours_seen = set()
+                for row in cur.fetchall():
+                    dh = row[0].strftime("%Y-%m-%d %H:%M")
+                    siteid = row[1]
+                    cellid = str(row[2]).replace(".0", "") if row[2] is not None else ""
+                    sector = row[3]
                 
-                legend_name = f"{siteid} S{sector} - {cellid}"
+                    legend_name = f"{siteid} S{sector} - {cellid}"
                 
-                hours_seen.add(dh)
+                    hours_seen.add(dh)
                 
-                for idx, k in enumerate(KPI_DEFS):
-                    val = row[idx+4]
-                    chart_data[k[0]][legend_name][dh] = round(float(val), 2) if val is not None else None
+                    for idx, k in enumerate(KPI_DEFS):
+                        val = row[idx+4]
+                        chart_data[k[0]][legend_name][dh] = round(float(val), 2) if val is not None else None
 
-            chart_labels = sorted(list(hours_seen))
+                chart_labels = sorted(list(hours_seen))
 
-            for k in KPI_DEFS:
-                kpi_id = k[0]
-                for leg in chart_data[kpi_id]:
-                    ordered_data = []
-                    for h in chart_labels:
-                        ordered_data.append(chart_data[kpi_id][leg].get(h, None))
-                    chart_data[kpi_id][leg] = ordered_data
-
-            cur.close()
-            conn.close()
-
+                for k in KPI_DEFS:
+                    kpi_id = k[0]
+                    for leg in chart_data[kpi_id]:
+                        ordered_data = []
+                        for h in chart_labels:
+                            ordered_data.append(chart_data[kpi_id][leg].get(h, None))
+                        chart_data[kpi_id][leg] = ordered_data
         except psycopg2.OperationalError:
-            if conn:  conn.rollback()
-            if cur:   cur.close()
-            if conn:  conn.close()
             flash("Database connection failed. Please try again.", "warning")
         except psycopg2.errors.QueryCanceled:
-            if conn:  conn.rollback()
-            if cur:   cur.close()
-            if conn:  conn.close()
             flash("Query timed out. Please try a shorter date range.", "warning")
         except Exception as e:
-            if conn:
-                try: conn.rollback()
-                except: pass
-            if cur: cur.close()
-            if conn: conn.close()
             flash(f"Error: {str(e)}", "danger")
 
     formatted_chart_data = {k: dict(v) for k, v in chart_data.items()}

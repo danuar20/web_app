@@ -17,405 +17,479 @@
 
 {% block page_content %}
 <style>
-.content-area { flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
-.chart-grid   { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+/* Modern Productivity CSS */
+.content-area { flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 20px; animation: fadeIn 0.4s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.chart-grid > .glass-card { min-width: 0; }
 @media(max-width:900px){ .chart-grid{grid-template-columns:1fr;} }
 
-/* Hierarchical table */
-.row-regional td { font-weight: 700; }
-[data-theme="dark"]  .row-regional td { background: rgba(79,172,254,0.07); }
-[data-theme="light"] .row-regional td { background: rgba(79,172,254,0.04); }
+/* Filter Bar */
+.filter-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(79, 172, 254, 0.15);
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-end;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.03);
+}
+[data-theme="dark"] .filter-card {
+    background: rgba(30, 30, 46, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+
+/* Glassmorphism Cards */
+.glass-card {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0,0,0,0.05);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.glass-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.08);
+}
+[data-theme="dark"] .glass-card {
+    background: rgba(40, 42, 54, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+/* KPIs */
+.kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.kpi-box {
+    padding: 20px; border-radius: 16px;
+    background: linear-gradient(145deg, #ffffff, #f5f7fa);
+    border: 1px solid rgba(79, 172, 254, 0.1);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    position: relative; overflow: hidden;
+}
+[data-theme="dark"] .kpi-box {
+    background: linear-gradient(145deg, #2a2d3e, #1f212e);
+    border: 1px solid rgba(255,255,255,0.03);
+}
+.kpi-box::before {
+    content: ''; position: absolute; top: -20px; right: -20px; width: 80px; height: 80px;
+    background: linear-gradient(135deg, rgba(79, 172, 254, 0.2), rgba(0, 242, 254, 0));
+    border-radius: 50%;
+}
+.kpi-icon-wrap { font-size: 24px; margin-bottom: 12px; color: #4facfe; }
+.kpi-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; }
+.kpi-value-text { font-size: 28px; font-weight: 700; margin: 8px 0; color: #1e293b; }
+[data-theme="dark"] .kpi-value-text { color: #f8fafc; }
+.kpi-unit-text { font-size: 14px; font-weight: 500; opacity: 0.6; }
+
+/* Skeleton Loader */
+.skeleton {
+    background: #e2e8f0;
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    border-radius: 4px;
+}
+[data-theme="dark"] .skeleton {
+    background: #334155;
+    background: linear-gradient(90deg, #334155 25%, #475569 50%, #334155 75%);
+    background-size: 200% 100%;
+}
+@keyframes skeleton-loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+.skeleton-text { height: 16px; margin-bottom: 8px; width: 100%; }
+.skeleton-title { height: 24px; width: 50%; margin-bottom: 16px; }
+.skeleton-chart { height: 220px; width: 100%; border-radius: 8px; }
+
+/* Table */
+.modern-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.modern-table th { 
+    background: rgba(79, 172, 254, 0.05); 
+    padding: 14px 16px; 
+    font-size: 12px; 
+    font-weight: 600; 
+    text-transform: uppercase; 
+    letter-spacing: 0.5px; 
+    text-align: left;
+    border-bottom: 2px solid rgba(79, 172, 254, 0.2);
+}
+.modern-table td { padding: 12px 16px; border-bottom: 1px solid rgba(0,0,0,0.04); font-size: 13px; }
+[data-theme="dark"] .modern-table td { border-bottom: 1px solid rgba(255,255,255,0.04); }
+.modern-table tbody tr:hover td { background: rgba(79, 172, 254, 0.04); }
+
+.row-regional td { font-weight: 700; background: rgba(79,172,254,0.02); }
 .row-nop td { font-weight: 600; }
-[data-theme="dark"]  .row-nop td { background: rgba(255,255,255,0.03); }
-[data-theme="light"] .row-nop td { background: #f8f9fb; }
-.row-to td { font-size: 12px; }
-.toggle-row { cursor: pointer; }
-.toggle-row td:first-child::before { content:"▶ "; font-size:9px; opacity:0.45; transition:transform 0.15s; display:inline-block; }
-.toggle-row.expanded td:first-child::before { transform:rotate(90deg); }
+.row-to td { font-size: 12px; opacity: 0.9; }
+
+.toggle-row { cursor: pointer; transition: background 0.2s; }
+.toggle-row td:first-child::before { 
+    content: "▶"; font-size: 10px; opacity: 0.5; display: inline-block; 
+    margin-right: 8px; transition: transform 0.2s ease;
+}
+.toggle-row.expanded td:first-child::before { transform: rotate(90deg); }
+
+.pill-pos { background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 12px; }
+.pill-neg { background: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 12px; }
+
+/* Multi-select styling */
+.dropdown-container { position: relative; min-width: 200px; }
+.dropdown-toggle { 
+    width: 100%; padding: 10px 14px; border: 1px solid rgba(79,172,254,0.2); 
+    border-radius: 8px; cursor: pointer; text-align: left; display: flex; 
+    justify-content: space-between; align-items: center; font-size: 13px;
+    background: transparent; color: inherit; transition: all 0.2s;
+}
+.dropdown-toggle:hover { border-color: #4facfe; }
+.dropdown-menu { 
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; 
+    border: 1px solid rgba(79,172,254,0.15); border-radius: 8px; 
+    box-shadow: 0 12px 32px rgba(0,0,0,0.15); z-index: 1000; display: none; 
+    flex-direction: column; background: #fff; max-height: 250px; overflow-y: auto;
+}
+[data-theme="dark"] .dropdown-menu { background: #1e1e2e; }
+.dropdown-menu label { padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 12px; transition: background 0.2s; }
+.dropdown-menu label:hover { background: rgba(79,172,254,0.1); }
 </style>
-
-
-<!-- Filter Bar Header (always visible) -->
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 4px;">
-    <div style="font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px;">
-        <i class="fas fa-filter" style="color: #4facfe;"></i> Filters
-    </div>
-    <button type="button" class="btn-xs" onclick="toggleFilters()" id="filterToggleBtn"
-        style="padding: 4px 10px; font-size: 11px;">
-        <i class="fas fa-chevron-up"></i> Hide Filters
-    </button>
-</div>
-
-<!-- Filter Bar Content (collapsible card) -->
-<div class="card" id="filterContainer" style="transition: all 0.3s ease; padding: 16px 20px; margin-bottom: 0;">
-<form method="GET" action="/productivity" id="filterForm">
-<div class="filter-bar" style="padding:0; background:transparent; border:none; gap:14px; align-items:flex-end;">
-
-    <div class="filter-group">
-        <div class="filter-label">Year Before</div>
-        <select name="year_before" class="f-select" style="width:110px" id="selYB">
-            <option value="">-- Select --</option>
-            {% for y in years_list %}
-            <option value="{{ y }}" {% if y|string == year_before|string %}selected{% endif %}>{{ y }}</option>
-            {% endfor %}
-        </select>
-    </div>
-
-    <div class="filter-group">
-        <div class="filter-label">Year After</div>
-        <select name="year_after" class="f-select" style="width:110px" id="selYA">
-            <option value="">-- Select --</option>
-            {% for y in years_list %}
-            <option value="{{ y }}" {% if y|string == year_after|string %}selected{% endif %}>{{ y }}</option>
-            {% endfor %}
-        </select>
-    </div>
-
-    {% if filter_error %}
-    <div class="filter-err"><i class="fas fa-exclamation-circle"></i> {{ filter_error }}</div>
-    {% endif %}
-
-    <button type="submit" class="btn-apply" id="btnApply">
-        <i class="fas fa-play" style="font-size:10px;margin-right:4px"></i> Show
-    </button>
-</div>
-</form>
-</div>
 
 <div class="content-area">
 
-{% if chart_labels %}
+    <!-- Modern Filter Bar -->
+    <div class="filter-card" id="filterContainer">
+        <div class="filter-group">
+            <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">Year Before</div>
+            <select name="year_before" id="selYB" class="f-select" style="padding:10px; border-radius:8px; width:120px; font-size:13px; border: 1px solid rgba(79,172,254,0.2);">
+                <option value="">-- Select --</option>
+                {% for y in years_list %}
+                <option value="{{ y }}">{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="filter-group">
+            <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">Year After</div>
+            <select name="year_after" id="selYA" class="f-select" style="padding:10px; border-radius:8px; width:120px; font-size:13px; border: 1px solid rgba(79,172,254,0.2);">
+                <option value="">-- Select --</option>
+                {% for y in years_list %}
+                <option value="{{ y }}">{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
 
-<!-- KPI CARDS -->
-<div class="kpi-grid">
-    <div class="kpi-card">
-        <span class="kpi-icon">📦</span>
-        <div class="kpi-label">Total Payload {{ year_after }}</div>
-        <div class="kpi-value">{{ "%.1f"|format(total_payload_after / 1024) }}<span class="kpi-unit"> PB</span></div>
-        {% if ytd_payload_final is not none %}
-        <div class="kpi-delta {% if ytd_payload_final>=0 %}delta-up{% else %}delta-dn{% endif %}">
-            {% if ytd_payload_final>=0 %}▲{% else %}▼{% endif %} {{ "%.1f"|format(ytd_payload_final) }}% YTD
+        <!-- NSA multi-select -->
+        <div class="filter-group">
+            <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">NSA</div>
+            <div class="dropdown-container">
+                <button type="button" class="dropdown-toggle" onclick="toggleDropdown('nsaDropdown')">
+                    <span id="nsaToggleLabel">All NSA</span> <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="dropdown-menu" id="nsaDropdown">
+                    <label style="border-bottom:1px solid rgba(128,128,128,0.1); font-weight:bold;">
+                        <input type="checkbox" id="nsaSelectAll" onchange="toggleAllInList('nsa')"> Select All
+                    </label>
+                    <div id="nsaCheckboxes">
+                        {% for n in nsas_list %}
+                        <label>
+                            <input type="checkbox" name="nsa" value="{{ n }}" onchange="updateCount('nsa')"> <span>{{ n }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
         </div>
-        {% endif %}
+
+        <button type="button" onclick="loadData()" class="btn-apply" style="padding: 10px 24px; border-radius: 8px; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 2px;">
+            <i class="fas fa-play" id="btnIcon"></i> <span id="btnText">Analyze</span>
+        </button>
     </div>
-    <div class="kpi-card">
-        <span class="kpi-icon">📶</span>
-        <div class="kpi-label">Total Traffic {{ year_after }}</div>
-        <div class="kpi-value">{{ "%.1f"|format(total_traffic_after / 1000) }}<span class="kpi-unit"> Mio Erl</span></div>
-        {% if ytd_traffic_final is not none %}
-        <div class="kpi-delta {% if ytd_traffic_final>=0 %}delta-up{% else %}delta-dn{% endif %}">
-            {% if ytd_traffic_final>=0 %}▲{% else %}▼{% endif %} {{ "%.1f"|format(ytd_traffic_final) }}% YTD
+
+    <!-- Error state -->
+    <div id="errorAlert" style="display:none; padding:16px; border-radius:8px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#ef4444; font-weight:500;">
+        <i class="fas fa-exclamation-circle" style="margin-right:8px;"></i> <span id="errorMsg"></span>
+    </div>
+
+    <!-- Data Container (Hidden Initially) -->
+    <div id="dataContainer" style="display:none; flex-direction:column; gap:20px;">
+        
+        <!-- KPIs -->
+        <div class="kpi-container">
+            <div class="kpi-box">
+                <div class="kpi-icon-wrap"><i class="fas fa-box-open"></i></div>
+                <div class="kpi-title" id="kpiYearLabel1">Total Payload</div>
+                <div class="kpi-value-text"><span id="valPayload">0</span><span class="kpi-unit-text"> PB</span></div>
+                <div id="ytdPayload" style="margin-top:8px;"></div>
+            </div>
+            <div class="kpi-box">
+                <div class="kpi-icon-wrap"><i class="fas fa-signal"></i></div>
+                <div class="kpi-title" id="kpiYearLabel2">Total Traffic</div>
+                <div class="kpi-value-text"><span id="valTraffic">0</span><span class="kpi-unit-text"> Mio Erl</span></div>
+                <div id="ytdTraffic" style="margin-top:8px;"></div>
+            </div>
+            <div class="kpi-box">
+                <div class="kpi-icon-wrap"><i class="fas fa-bolt"></i></div>
+                <div class="kpi-title" id="kpiYearLabel3">Peak Daily Payload</div>
+                <div class="kpi-value-text"><span id="valPeak">0</span><span class="kpi-unit-text"> TB</span></div>
+                <div id="peakDate" style="margin-top:8px; font-size:12px; opacity:0.8;"></div>
+            </div>
         </div>
-        {% endif %}
+
+        <!-- Charts -->
+        <div class="chart-grid">
+            <div class="glass-card">
+                <h3 style="font-size:16px; margin-bottom:4px; display:flex; align-items:center; gap:8px;"><i class="fas fa-chart-area" style="color:#8884d8;"></i> Payload Trend (TB)</h3>
+                <p style="font-size:12px; opacity:0.6; margin-bottom:16px;">Daily by day-of-year + YTD Cumulative</p>
+                <div style="height:260px; width:100%; position:relative;"><canvas id="payloadChart"></canvas></div>
+            </div>
+            <div class="glass-card">
+                <h3 style="font-size:16px; margin-bottom:4px; display:flex; align-items:center; gap:8px;"><i class="fas fa-chart-line" style="color:#ff9f40;"></i> Traffic Trend (KErl)</h3>
+                <p style="font-size:12px; opacity:0.6; margin-bottom:16px;">Daily by day-of-year + YTD Cumulative</p>
+                <div style="height:260px; width:100%; position:relative;"><canvas id="trafficChart"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="glass-card">
+            <h3 style="font-size:16px; margin-bottom:16px;"><i class="fas fa-sitemap" style="color:#4facfe;"></i> Regional Breakdown</h3>
+            <div style="overflow-x:auto;">
+                <table class="modern-table" id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>Regional / NOP / TO</th>
+                            <th>Payload <span class="lbl-yb"></span> (TB)</th>
+                            <th>Payload <span class="lbl-ya"></span> (TB)</th>
+                            <th>YTD Payload Δ</th>
+                            <th>Traffic <span class="lbl-yb"></span> (KErl)</th>
+                            <th>Traffic <span class="lbl-ya"></span> (KErl)</th>
+                            <th>YTD Traffic Δ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
-    <div class="kpi-card">
-        <span class="kpi-icon">⚡</span>
-        <div class="kpi-label">Peak Daily Payload ({{ year_after }})</div>
-        <div class="kpi-value">{{ "%.2f"|format(peak_payload_after) }}<span class="kpi-unit"> TB</span></div>
-        <div class="kpi-delta delta-neu">Highest value in period</div>
+
+    <!-- Skeletons (Shown during loading) -->
+    <div id="skeletonContainer" style="display:none; flex-direction:column; gap:20px;">
+        <div class="kpi-container">
+            <div class="kpi-box"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text" style="height:40px; width:80%;"></div><div class="skeleton skeleton-text" style="width:40%;"></div></div>
+            <div class="kpi-box"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text" style="height:40px; width:80%;"></div><div class="skeleton skeleton-text" style="width:40%;"></div></div>
+            <div class="kpi-box"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-text" style="height:40px; width:80%;"></div><div class="skeleton skeleton-text" style="width:40%;"></div></div>
+        </div>
+        <div class="chart-grid">
+            <div class="glass-card"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-chart"></div></div>
+            <div class="glass-card"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-chart"></div></div>
+        </div>
+        <div class="glass-card">
+            <div class="skeleton skeleton-title"></div>
+            <div class="skeleton skeleton-text" style="height:40px; margin-bottom:10px;"></div>
+            <div class="skeleton skeleton-text" style="height:40px; margin-bottom:10px;"></div>
+            <div class="skeleton skeleton-text" style="height:40px;"></div>
+        </div>
     </div>
-    <div class="kpi-card">
-        <span class="kpi-icon">📅</span>
-        <div class="kpi-label">Comparison</div>
-        <div class="kpi-value" style="font-size:18px">{{ year_before }}<span class="kpi-unit"> vs </span>{{ year_after }}</div>
-        <div class="kpi-delta delta-neu">up to {{ last_date_after }}</div>
-    </div>
+
 </div>
 
-<!-- CHARTS -->
-<div class="chart-grid">
-    <div class="card">
-        <div class="card-title">📈 Payload Trend</div>
-        <div class="card-sub">Daily by day-of-year: {{ year_before }} vs {{ year_after }} (until day {{ last_date_after }}) · YTD cumulative (%)</div>
-        <div class="chart-wrap" style="width:100%;height:220px"><canvas id="payloadChart"></canvas></div>
-        <div class="chart-legend">
-            <div class="legend-item"><div class="legend-line" style="background:#8884d8"></div> {{ year_before }}</div>
-            <div class="legend-item"><div class="legend-line" style="background:#4facfe"></div> {{ year_after }}</div>
-            <div class="legend-item"><div class="legend-dash" style="border-color:#00c853"></div> YTD %</div>
-        </div>
-    </div>
-    <div class="card">
-        <div class="card-title">📡 Traffic Trend</div>
-        <div class="card-sub">Daily by day-of-year: {{ year_before }} vs {{ year_after }} (until day {{ last_date_after }}) · YTD cumulative (%)</div>
-        <div class="chart-wrap" style="width:100%;height:220px"><canvas id="trafficChart"></canvas></div>
-        <div class="chart-legend">
-            <div class="legend-item"><div class="legend-line" style="background:#ff9f40"></div> {{ year_before }}</div>
-            <div class="legend-item"><div class="legend-line" style="background:#f093fb"></div> {{ year_after }}</div>
-            <div class="legend-item"><div class="legend-dash" style="border-color:#00c853"></div> YTD %</div>
-        </div>
-    </div>
-</div>
-
-<!-- TABLE -->
-<div class="table-card">
-    <div class="table-card-header">
-        <div class="table-card-title">Regional / NOP / TO Table</div>
-        <div class="live-badge"><div class="live-dot"></div> Live</div>
-    </div>
-    <div class="table-scroll">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Regional / NOP / TO</th>
-                    <th>Payload {{ year_before }} (TB)</th>
-                    <th>Payload {{ year_after }} (TB)</th>
-                    <th>YTD Payload</th>
-                    <th>Traffic {{ year_before }} (KErl)</th>
-                    <th>Traffic {{ year_after }} (KErl)</th>
-                    <th>YTD Traffic</th>
-                </tr>
-            </thead>
-            <tbody>
-            {% set ri = namespace(val=0) %}
-            {% for reg in table_rows %}
-            {% set ri.val = ri.val + 1 %}
-            <tr class="row-regional toggle-row" onclick="toggleGroup('rg{{ri.val}}',this)">
-                <td>🌐 {{ reg.label }}</td>
-                <td>{{ "%.1f"|format(reg.p_before) }}</td>
-                <td>{{ "%.1f"|format(reg.p_after) }}</td>
-                <td>{% if reg.ytd_p is not none %}<span class="{% if reg.ytd_p>=0 %}ytd-pos{% else %}ytd-neg{% endif %}">{% if reg.ytd_p>=0 %}▲{% else %}▼{% endif %} {{ "%.2f"|format(reg.ytd_p) }}%</span>{% else %}<span class="ytd-na">—</span>{% endif %}</td>
-                <td>{{ "%.0f"|format(reg.t_before) }}</td>
-                <td>{{ "%.0f"|format(reg.t_after) }}</td>
-                <td>{% if reg.ytd_t is not none %}<span class="{% if reg.ytd_t>=0 %}ytd-pos{% else %}ytd-neg{% endif %}">{% if reg.ytd_t>=0 %}▲{% else %}▼{% endif %} {{ "%.2f"|format(reg.ytd_t) }}%</span>{% else %}<span class="ytd-na">—</span>{% endif %}</td>
-            </tr>
-            {% set ni = namespace(val=0) %}
-            {% for nop in reg.children %}
-            {% set ni.val = ni.val + 1 %}
-            <tr class="row-nop toggle-row child-rg{{ri.val}}" onclick="toggleGroup('np{{ri.val}}_{{ni.val}}',this)" style="display:none">
-                <td style="padding-left:22px">📍 {{ nop.label }}</td>
-                <td>{{ "%.1f"|format(nop.p_before) }}</td>
-                <td>{{ "%.1f"|format(nop.p_after) }}</td>
-                <td>{% if nop.ytd_p is not none %}<span class="{% if nop.ytd_p>=0 %}ytd-pos{% else %}ytd-neg{% endif %}">{% if nop.ytd_p>=0 %}▲{% else %}▼{% endif %} {{ "%.2f"|format(nop.ytd_p) }}%</span>{% else %}<span class="ytd-na">—</span>{% endif %}</td>
-                <td>{{ "%.0f"|format(nop.t_before) }}</td>
-                <td>{{ "%.0f"|format(nop.t_after) }}</td>
-                <td>{% if nop.ytd_t is not none %}<span class="{% if nop.ytd_t>=0 %}ytd-pos{% else %}ytd-neg{% endif %}">{% if nop.ytd_t>=0 %}▲{% else %}▼{% endif %} {{ "%.2f"|format(nop.ytd_t) }}%</span>{% else %}<span class="ytd-na">—</span>{% endif %}</td>
-            </tr>
-            {% for to in nop.children %}
-            <tr class="row-to child-rg{{ri.val}} child-np{{ri.val}}_{{ni.val}}" style="display:none">
-                <td style="padding-left:38px">↳ {{ to.label }}</td>
-                <td>{{ "%.1f"|format(to.p_before) }}</td>
-                <td>{{ "%.1f"|format(to.p_after) }}</td>
-                <td>{% if to.ytd_p is not none %}<span class="{% if to.ytd_p>=0 %}ytd-pos{% else %}ytd-neg{% endif %}">{% if to.ytd_p>=0 %}▲{% else %}▼{% endif %} {{ "%.2f"|format(to.ytd_p) }}%</span>{% else %}<span class="ytd-na">—</span>{% endif %}</td>
-                <td>{{ "%.0f"|format(to.t_before) }}</td>
-                <td>{{ "%.0f"|format(to.t_after) }}</td>
-                <td>{% if to.ytd_t is not none %}<span class="{% if to.ytd_t>=0 %}ytd-pos{% else %}ytd-neg{% endif %}">{% if to.ytd_t>=0 %}▲{% else %}▼{% endif %} {{ "%.2f"|format(to.ytd_t) }}%</span>{% else %}<span class="ytd-na">—</span>{% endif %}</td>
-            </tr>
-            {% endfor %}
-            {% endfor %}
-            {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-
-{% else %}
-<div class="empty-state">
-    <div style="font-size:40px;margin-bottom:12px">📊</div>
-    <div style="font-size:14px">Select Year Before, Year After, then click <strong>Show</strong></div>
-</div>
-{% endif %}
-
-</div><!-- /content-area -->
 {% endblock %}
 
 {% block page_scripts %}
 <script>
-/* ── Data from Flask ── */
-var chartLabels   = {{ chart_labels    | tojson | safe }};
-var payloadBefore = {{ payload_before  | tojson | safe }};
-var payloadAfter  = {{ payload_after   | tojson | safe }};
-var payloadYTD    = {{ payload_ytd     | tojson | safe }};
-var trafficBefore = {{ traffic_before  | tojson | safe }};
-var trafficAfter  = {{ traffic_after   | tojson | safe }};
-var trafficYTD    = {{ traffic_ytd     | tojson | safe }};
-var yearBefore    = "{{ year_before }}";
-var yearAfter     = "{{ year_after }}";
-
-/* ── Cache last query state in sessionStorage ── */
-(function(){
-    var qs = window.location.search;
-    if(qs && qs.length > 1){
-        sessionStorage.setItem("productivity_last_qs", qs);
-    } else {
-        var saved = sessionStorage.getItem("productivity_last_qs");
-        if(saved && saved.length > 1 && chartLabels.length === 0){
-            /* Redirect silently to last query */
-            window.location.replace("/productivity" + saved);
-        }
+// UI Helpers
+function toggleDropdown(id){
+    document.querySelectorAll('.dropdown-menu').forEach(m => { if(m.id !== id) m.style.display='none'; });
+    const m = document.getElementById(id);
+    m.style.display = m.style.display === 'none' ? 'flex' : 'none';
+}
+document.addEventListener("click", e => {
+    if(!e.target.closest('.dropdown-container')){
+        document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display='none');
     }
-})();
+});
+function toggleAllInList(prefix){
+    const checked = document.getElementById(prefix+'SelectAll').checked;
+    document.querySelectorAll(`input[name='${prefix}']`).forEach(cb => cb.checked = checked);
+    updateCount(prefix);
+}
+function updateCount(prefix){
+    const checked = document.querySelectorAll(`input[name='${prefix}']:checked`).length;
+    const total = document.querySelectorAll(`input[name='${prefix}']`).length;
+    document.getElementById(prefix+'ToggleLabel').textContent = (checked === 0 || checked === total) ? 'All NSA' : `${checked} Selected`;
+}
+function toggleGroup(groupId, rowEl){
+    rowEl.classList.toggle("expanded");
+    const show = rowEl.classList.contains("expanded");
+    document.querySelectorAll(".child-" + groupId).forEach(r => {
+        r.style.display = show ? "" : "none";
+        if(!show) {
+            r.classList.remove("expanded");
+            if(r.classList.contains("toggle-row")){
+                Array.from(r.classList).filter(c => c.startsWith("child-")).forEach(c => {
+                    document.querySelectorAll(`[class*='child-${groupId}_']`).forEach(gr => gr.style.display = "none");
+                });
+            }
+        }
+    });
+}
 
-/* ── Chart helpers ── */
+// Chart Instances
+let payloadChart, trafficChart;
 function tc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "#b0b8c8" : "#555"; }
 function gc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "rgba(79,172,254,0.08)" : "rgba(0,0,0,0.06)"; }
 
-/* Month names for x-axis label (YYYY-MM-DD labels, show month name at day 01) */
-var MON_NAMES = {
-    "01":"Jan","02":"Feb","03":"Mar","04":"Apr","05":"Mei","06":"Jun",
-    "07":"Jul","08":"Agt","09":"Sep","10":"Okt","11":"Nov","12":"Des"
-};
-
-function chartOpts(leftLabel){
+function buildChartOpts(leftLabel) {
     return {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,   /* disable animation for snappy resize */
+        responsive: true, maintainAspectRatio: false, animation: { duration: 600, easing: 'easeOutQuart' },
         plugins: {
-            legend: { display: false },
-            tooltip: {
-                mode: 'index', intersect: false,
-                backgroundColor: 'rgba(10,10,30,0.88)',
-                titleFont: { size: 11 }, bodyFont: { size: 11 }, padding: 10,
-                callbacks: {
-                    title: function(items){
-                        /* Show full date as tooltip title */
-                        return items[0] ? items[0].label : "";
-                    },
-                    label: function(ctx){
-                        var v = ctx.raw;
-                        if(v === null || v === undefined) return null;
-                        var suf = ctx.datasetIndex === 2 ? "%" : "";
-                        return " " + ctx.dataset.label + ": " + parseFloat(v).toFixed(2) + suf;
-                    }
-                }
-            },
-            /* Decimation: auto-downsample series with > 500 points to 200 using LTTB */
-            decimation: {
-                enabled: true,
-                algorithm: 'lttb',
-                samples: 200,
-                threshold: 500
-            }
+            legend: { display: true, position: 'bottom', labels: { color: tc(), font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' } },
+            tooltip: { mode: 'index', intersect: false, backgroundColor: 'rgba(15,23,42,0.9)', titleFont: { size: 12 }, bodyFont: { size: 12 }, padding: 12, cornerRadius: 8 }
         },
         interaction: { mode: 'index', intersect: false },
         scales: {
-            x: {
-                ticks: {
-                    color: tc(),
-                    font: { size: 10 },
-                    maxRotation: 0,
-                    autoSkip: true,
-                    autoSkipPadding: 40,
-                    callback: function(val, idx){
-                        /* chartLabels are already in "DD Mon" format (01 Jan, 02 Jan, etc) */
-                        return chartLabels[idx];
-                    }
-                },
-                grid: { color: gc() }
-            },
-            y: {
-                position: 'left',
-                title: { display: true, text: leftLabel, color: tc(), font: { size: 10 } },
-                ticks: { color: tc(), font: { size: 10 } },
-                grid: { color: gc() }
-            },
-            y1: {
-                position: 'right',
-                title: { display: true, text: 'YTD kumulatif (%)', color: '#00c853', font: { size: 10 } },
-                ticks: { color: '#00c853', font: { size: 10 } },
-                grid: { drawOnChartArea: false }
-            }
+            x: { ticks: { color: tc(), font: { size: 10 }, maxRotation: 0, minRotation: 0, autoSkipPadding: 30 }, grid: { color: gc(), drawBorder: false } },
+            y: { position: 'left', title: { display: true, text: leftLabel, color: tc(), font: { size: 11 } }, ticks: { color: tc(), font: { size: 11 } }, grid: { color: gc(), drawBorder: false } },
+            y1: { position: 'right', title: { display: true, text: 'YTD Δ (%)', color: '#10b981', font: { size: 11 } }, ticks: { color: '#10b981', font: { size: 11 } }, grid: { drawOnChartArea: false } }
         }
     };
 }
 
-var payloadChart = null, trafficChart = null;
+// Format numbers
+const fmt1 = n => n !== null && n !== undefined ? parseFloat(n).toFixed(1) : "0.0";
+const fmt2 = n => n !== null && n !== undefined ? parseFloat(n).toFixed(2) : "0.00";
+const fmt0 = n => n !== null && n !== undefined ? Math.round(n).toString() : "0";
 
-function renderChart(){
-    var c1 = document.getElementById('payloadChart');
-    if(c1){
+// Fetch Data
+async function loadData() {
+    const yb = document.getElementById('selYB').value;
+    const ya = document.getElementById('selYA').value;
+    if(!yb || !ya) return;
+    
+    // Set UI states
+    document.getElementById('dataContainer').style.display = 'none';
+    document.getElementById('errorAlert').style.display = 'none';
+    document.getElementById('skeletonContainer').style.display = 'flex';
+    document.getElementById('btnIcon').className = 'fas fa-circle-notch fa-spin';
+    document.getElementById('btnText').textContent = 'Loading...';
+    
+    // Update labels
+    document.querySelectorAll('.lbl-yb').forEach(el => el.textContent = yb);
+    document.querySelectorAll('.lbl-ya').forEach(el => el.textContent = ya);
+    document.getElementById('kpiYearLabel1').textContent = `Total Payload (${ya})`;
+    document.getElementById('kpiYearLabel2').textContent = `Total Traffic (${ya})`;
+    document.getElementById('kpiYearLabel3').textContent = `Peak Daily Payload (${ya})`;
+
+    // Build URL
+    let url = `/api/productivity/trend?year_before=${yb}&year_after=${ya}`;
+    document.querySelectorAll("input[name='nsa']:checked").forEach(cb => { url += `&nsa=${encodeURIComponent(cb.value)}`; });
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if(!response.ok || data.error) throw new Error(data.error || "Failed to fetch data");
+        
+        // Populate KPIs
+        document.getElementById('valPayload').textContent = fmt1(data.total_payload_after / 1024);
+        document.getElementById('valTraffic').textContent = fmt1(data.total_traffic_after / 1000);
+        document.getElementById('valPeak').textContent = fmt2(data.peak_payload_after);
+        if(data.peak_payload_date) {
+            document.getElementById('peakDate').innerHTML = `&#10142; <span style="font-weight:600">${data.peak_payload_date}</span>`;
+        } else {
+            document.getElementById('peakDate').innerHTML = '';
+        }
+        
+        if(data.ytd_payload_final !== null) {
+            const up = data.ytd_payload_final >= 0;
+            document.getElementById('ytdPayload').innerHTML = `<span class="${up ? 'pill-pos' : 'pill-neg'}">${up?'▲':'▼'} ${fmt2(Math.abs(data.ytd_payload_final))}% YTD</span>`;
+        } else { document.getElementById('ytdPayload').innerHTML = ''; }
+        
+        if(data.ytd_traffic_final !== null) {
+            const up = data.ytd_traffic_final >= 0;
+            document.getElementById('ytdTraffic').innerHTML = `<span class="${up ? 'pill-pos' : 'pill-neg'}">${up?'▲':'▼'} ${fmt2(Math.abs(data.ytd_traffic_final))}% YTD</span>`;
+        } else { document.getElementById('ytdTraffic').innerHTML = ''; }
+
+        // Render Charts
+        const c1 = document.getElementById('payloadChart').getContext('2d');
         if(payloadChart) payloadChart.destroy();
         payloadChart = new Chart(c1, {
             type: 'line',
-            data: { labels: chartLabels, datasets: [
-                { label: yearBefore + ' (TB)', data: payloadBefore, borderColor: '#8884d8',
-                  tension: 0.3, pointRadius: 0, pointHoverRadius: 5, yAxisID: 'y', borderWidth: 1.8 },
-                { label: yearAfter  + ' (TB)', data: payloadAfter,  borderColor: '#4facfe',
-                  tension: 0.3, pointRadius: 0, pointHoverRadius: 5, yAxisID: 'y', borderWidth: 1.8 },
-                { label: 'YTD (%)',             data: payloadYTD,    borderColor: '#00c853',
-                  borderDash:[5,3], tension: 0.3, pointRadius: 0, pointHoverRadius: 5, yAxisID: 'y1', borderWidth: 1.4 }
+            data: { labels: data.chart_labels, datasets: [
+                { label: `${yb} (TB)`, data: data.payload_before, borderColor: '#8884d8', backgroundColor: 'rgba(136,132,216,0.1)', tension: 0.4, pointRadius: 0, fill: true, yAxisID: 'y' },
+                { label: `${ya} (TB)`, data: data.payload_after, borderColor: '#4facfe', backgroundColor: 'rgba(79,172,254,0.1)', tension: 0.4, pointRadius: 0, fill: true, yAxisID: 'y' },
+                { label: 'YTD Δ (%)', data: data.payload_ytd, borderColor: '#10b981', borderDash:[5,5], tension: 0.4, pointRadius: 0, yAxisID: 'y1' }
             ]},
-            options: chartOpts('TeraBytes')
+            options: buildChartOpts('TeraBytes')
         });
-        chartInstances.payloadChart = payloadChart;
-        /* Make canvas clickable to open modal */
-        c1.style.cursor = 'pointer';
-        c1.onclick = function(){ openChartModal(c1); };
-    }
-    var c2 = document.getElementById('trafficChart');
-    if(c2){
+
+        const c2 = document.getElementById('trafficChart').getContext('2d');
         if(trafficChart) trafficChart.destroy();
         trafficChart = new Chart(c2, {
             type: 'line',
-            data: { labels: chartLabels, datasets: [
-                { label: yearBefore + ' (KErl)', data: trafficBefore, borderColor: '#ff9f40',
-                  tension: 0.3, pointRadius: 0, pointHoverRadius: 5, yAxisID: 'y', borderWidth: 1.8 },
-                { label: yearAfter  + ' (KErl)', data: trafficAfter,  borderColor: '#f093fb',
-                  tension: 0.3, pointRadius: 0, pointHoverRadius: 5, yAxisID: 'y', borderWidth: 1.8 },
-                { label: 'YTD (%)',              data: trafficYTD,    borderColor: '#00c853',
-                  borderDash:[5,3], tension: 0.3, pointRadius: 0, pointHoverRadius: 5, yAxisID: 'y1', borderWidth: 1.4 }
+            data: { labels: data.chart_labels, datasets: [
+                { label: `${yb} (KErl)`, data: data.traffic_before, borderColor: '#ff9f40', backgroundColor: 'rgba(255,159,64,0.1)', tension: 0.4, pointRadius: 0, fill: true, yAxisID: 'y' },
+                { label: `${ya} (KErl)`, data: data.traffic_after, borderColor: '#f093fb', backgroundColor: 'rgba(240,147,251,0.1)', tension: 0.4, pointRadius: 0, fill: true, yAxisID: 'y' },
+                { label: 'YTD Δ (%)', data: data.traffic_ytd, borderColor: '#10b981', borderDash:[5,5], tension: 0.4, pointRadius: 0, yAxisID: 'y1' }
             ]},
-            options: chartOpts('Kilo Erlang')
+            options: buildChartOpts('Kilo Erlang')
         });
-        chartInstances.trafficChart = trafficChart;
-        /* Make canvas clickable to open modal */
-        c2.style.cursor = 'pointer';
-        c2.onclick = function(){ openChartModal(c2); };
-    }
-}
 
-/* Removed redundant window resize listener */
-
-/* ── NSA multi-select all toggle ── */
-function toggleAllNSA(){
-    var allCb = document.getElementById("nsaAll");
-    document.querySelectorAll("[name='nsa']").forEach(function(b){ b.checked = allCb.checked; });
-    msUpdateLabel("nsaDrop", "nsa", "Semua NSA");
-}
-
-/* ── Year validation ── */
-function validateYears(){
-    var yb  = document.getElementById("selYB").value;
-    var ya  = document.getElementById("selYA").value;
-    var btn = document.getElementById("btnApply");
-    if(yb && ya && yb >= ya){
-        btn.disabled = true; btn.style.opacity = "0.5";
-        btn.title = "Year Before must be smaller than Year After";
-    } else {
-        btn.disabled = false; btn.style.opacity = "1"; btn.title = "";
-    }
-}
-document.getElementById("selYB").addEventListener("change", validateYears);
-document.getElementById("selYA").addEventListener("change", validateYears);
-validateYears();
-
-/* ── Hierarchical table expand/collapse ── */
-function toggleGroup(groupId, rowEl){
-    rowEl.classList.toggle("expanded");
-    var show = rowEl.classList.contains("expanded");
-    /* Show/hide direct children */
-    document.querySelectorAll(".child-" + groupId).forEach(function(r){
-        r.style.display = show ? "" : "none";
-        /* When collapsing, also collapse grandchildren */
-        if(!show){
-            r.classList.remove("expanded");
-            /* Extract grandchild group IDs from this row's toggle */
-            if(r.classList.contains("toggle-row")){
-                /* hide its children too */
-                var gcls = Array.from(r.classList).filter(function(c){ return c.startsWith("child-"); });
-                /* we rely on grandchildren having their own child- classes */
-            }
-        }
-    });
-    /* If collapsing a NOP row, also hide its TO children */
-    if(!show){
-        /* find all rows that are children of children */
-        document.querySelectorAll("[class*='child-"+groupId+"_']").forEach(function(r){
-            r.style.display = "none";
+        // Render Table
+        const tb = document.getElementById('tableBody');
+        let html = '';
+        let ri = 0;
+        data.table_rows.forEach(reg => {
+            ri++;
+            html += `<tr class="row-regional toggle-row" onclick="toggleGroup('rg${ri}', this)">
+                <td><i class="fas fa-globe-asia" style="margin-right:6px; color:#4facfe"></i> ${reg.label}</td>
+                <td>${fmt1(reg.p_before)}</td><td>${fmt1(reg.p_after)}</td>
+                <td>${reg.ytd_p !== null ? `<span class="${reg.ytd_p>=0?'pill-pos':'pill-neg'}">${reg.ytd_p>=0?'▲':'▼'} ${fmt2(Math.abs(reg.ytd_p))}%</span>` : '—'}</td>
+                <td>${fmt0(reg.t_before)}</td><td>${fmt0(reg.t_after)}</td>
+                <td>${reg.ytd_t !== null ? `<span class="${reg.ytd_t>=0?'pill-pos':'pill-neg'}">${reg.ytd_t>=0?'▲':'▼'} ${fmt2(Math.abs(reg.ytd_t))}%</span>` : '—'}</td>
+            </tr>`;
+            let ni = 0;
+            reg.children.forEach(nop => {
+                ni++;
+                html += `<tr class="row-nop toggle-row child-rg${ri}" onclick="toggleGroup('np${ri}_${ni}', this)" style="display:none">
+                    <td style="padding-left:36px"><i class="fas fa-map-marker-alt" style="margin-right:6px; color:#f093fb"></i> ${nop.label}</td>
+                    <td>${fmt1(nop.p_before)}</td><td>${fmt1(nop.p_after)}</td>
+                    <td>${nop.ytd_p !== null ? `<span class="${nop.ytd_p>=0?'pill-pos':'pill-neg'}">${fmt2(Math.abs(nop.ytd_p))}%</span>` : '—'}</td>
+                    <td>${fmt0(nop.t_before)}</td><td>${fmt0(nop.t_after)}</td>
+                    <td>${nop.ytd_t !== null ? `<span class="${nop.ytd_t>=0?'pill-pos':'pill-neg'}">${fmt2(Math.abs(nop.ytd_t))}%</span>` : '—'}</td>
+                </tr>`;
+                nop.children.forEach(to => {
+                    html += `<tr class="row-to child-rg${ri} child-np${ri}_${ni}" style="display:none">
+                        <td style="padding-left:60px; color:#888;">↳ ${to.label}</td>
+                        <td>${fmt1(to.p_before)}</td><td>${fmt1(to.p_after)}</td>
+                        <td>${to.ytd_p !== null ? `<span style="color:${to.ytd_p>=0?'#10b981':'#ef4444'}">${to.ytd_p>=0?'▲':'▼'} ${fmt2(Math.abs(to.ytd_p))}%</span>` : '—'}</td>
+                        <td>${fmt0(to.t_before)}</td><td>${fmt0(to.t_after)}</td>
+                        <td>${to.ytd_t !== null ? `<span style="color:${to.ytd_t>=0?'#10b981':'#ef4444'}">${to.ytd_t>=0?'▲':'▼'} ${fmt2(Math.abs(to.ytd_t))}%</span>` : '—'}</td>
+                    </tr>`;
+                });
+            });
         });
+        tb.innerHTML = html;
+
+        // Show data
+        document.getElementById('skeletonContainer').style.display = 'none';
+        document.getElementById('dataContainer').style.display = 'flex';
+        
+    } catch(err) {
+        document.getElementById('skeletonContainer').style.display = 'none';
+        document.getElementById('errorAlert').style.display = 'block';
+        document.getElementById('errorMsg').textContent = err.message;
+    } finally {
+        document.getElementById('btnIcon').className = 'fas fa-sync-alt';
+        document.getElementById('btnText').textContent = 'Analyze';
     }
 }
 
-document.addEventListener("DOMContentLoaded", renderChart);
+// Auto-select years and load if none selected initially
+document.addEventListener("DOMContentLoaded", () => {
+    // Intentionally left empty as requested
+});
 </script>
 {% endblock %}

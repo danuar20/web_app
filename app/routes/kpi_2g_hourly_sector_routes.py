@@ -1,7 +1,7 @@
 """2G KPI Hourly Sector Routes — /kpi_2g_hourly_sector"""
 from flask import Blueprint, render_template, request, session, flash, make_response
 from app.db.db_webapp import get_postgres_connection, get_site_list_2g
-from ._utils import login_required, _no_cache
+from ._utils import login_required, _no_cache, db_query
 import psycopg2
 import psycopg2.errors
 from collections import defaultdict
@@ -89,90 +89,70 @@ def kpi_2g_hourly_sector_view():
         conn = None
         cur = None
         try:
-            conn = get_postgres_connection()
-            cur = conn.cursor()
+            with db_query() as (conn, cur):
 
-            try:
-                cur.execute('SELECT MAX(datehour) FROM "2g_kpi_zte"')
-                raw_last = cur.fetchone()
-                last_update = raw_last[0].strftime('%Y-%m-%d %H:%M') if raw_last and raw_last[0] else None
-            except Exception:
-                last_update = None
+                try:
+                    cur.execute('SELECT MAX(datehour) FROM "2g_kpi_zte"')
+                    raw_last = cur.fetchone()
+                    last_update = raw_last[0].strftime('%Y-%m-%d %H:%M') if raw_last and raw_last[0] else None
+                except Exception:
+                    last_update = None
 
-            kpi_selects = ", ".join([f"{k[6]} AS {k[0]}" for k in KPI_DEFS])
+                kpi_selects = ", ".join([f"{k[6]} AS {k[0]}" for k in KPI_DEFS])
             
-            query = f"""
-                SELECT
-                    datehour,
-                    siteid,
-                    bts_name,
-                    RIGHT(bts_name::text, 1) AS sector,
-                    "Tech" AS tech,
-                    {kpi_selects}
-                FROM "2g_kpi_zte"
-                WHERE datehour::date BETWEEN %s::date AND %s::date AND siteid = ANY(%s)
-                GROUP BY datehour, siteid, bts_name, sector, "Tech"
-                ORDER BY datehour, siteid, bts_name, sector, "Tech"
-            """
+                query = f"""
+                    SELECT
+                        datehour,
+                        siteid,
+                        bts_name,
+                        RIGHT(bts_name::text, 1) AS sector,
+                        "Tech" AS tech,
+                        {kpi_selects}
+                    FROM "2g_kpi_zte"
+                    WHERE datehour::date BETWEEN %s::date AND %s::date AND siteid = ANY(%s)
+                    GROUP BY datehour, siteid, bts_name, sector, "Tech"
+                    ORDER BY datehour, siteid, bts_name, sector, "Tech"
+                """
             
-            cur.execute(query, [from_date, to_date, sel_sites])
+                cur.execute(query, [from_date, to_date, sel_sites])
             
-            hours_seen = set()
-            for row in cur.fetchall():
-                dh = row[0].strftime("%Y-%m-%d %H:%M")
-                siteid = row[1]
-                bts_name = str(row[2]) if row[2] is not None else ""
-                sector = row[3]
-                tech = row[4]
+                hours_seen = set()
+                for row in cur.fetchall():
+                    dh = row[0].strftime("%Y-%m-%d %H:%M")
+                    siteid = row[1]
+                    bts_name = str(row[2]) if row[2] is not None else ""
+                    sector = row[3]
+                    tech = row[4]
                 
-                # legend format: {siteid} S{sector}-{tech}
-                tech_str = f"-{tech}" if tech else ""
-                legend_name = f"{siteid} S{sector}{tech_str}"
+                    # legend format: {siteid} S{sector}-{tech}
+                    tech_str = f"-{tech}" if tech else ""
+                    legend_name = f"{siteid} S{sector}{tech_str}"
                 
-                hours_seen.add(dh)
+                    hours_seen.add(dh)
                 
-                # Starting from index 5 are the KPIs
-                for idx, kpi in enumerate(KPI_DEFS):
-                    val = row[5 + idx]
-                    if val is not None:
-                        val = float(val)
-                    chart_data[kpi[0]][legend_name][dh] = val
+                    # Starting from index 5 are the KPIs
+                    for idx, kpi in enumerate(KPI_DEFS):
+                        val = row[5 + idx]
+                        if val is not None:
+                            val = float(val)
+                        chart_data[kpi[0]][legend_name][dh] = val
                     
-            chart_labels = sorted(list(hours_seen))
+                chart_labels = sorted(list(hours_seen))
             
-            # Convert per-hour dicts to ordered lists for chart rendering
-            formatted_chart_data = {}
-            for kpi in KPI_DEFS:
-                kpi_id = kpi[0]
-                formatted_chart_data[kpi_id] = {}
-                for legend_name, series_data in chart_data[kpi_id].items():
-                    formatted_chart_data[kpi_id][legend_name] = [series_data.get(h) for h in chart_labels]
+                # Convert per-hour dicts to ordered lists for chart rendering
+                formatted_chart_data = {}
+                for kpi in KPI_DEFS:
+                    kpi_id = kpi[0]
+                    formatted_chart_data[kpi_id] = {}
+                    for legend_name, series_data in chart_data[kpi_id].items():
+                        formatted_chart_data[kpi_id][legend_name] = [series_data.get(h) for h in chart_labels]
             
-            chart_data = formatted_chart_data
-            
-            cur.close()
-            conn.close()
-
+                chart_data = formatted_chart_data
         except psycopg2.OperationalError:
-            if conn:
-                try: conn.rollback()
-                except: pass
-            if cur: cur.close()
-            if conn: conn.close()
             flash("Database connection failed. Please try again.", "warning")
         except psycopg2.errors.QueryCanceled:
-            if conn:
-                try: conn.rollback()
-                except: pass
-            if cur: cur.close()
-            if conn: conn.close()
             flash("Query timed out. Please try a shorter date range.", "warning")
         except Exception as e:
-            if conn:
-                try: conn.rollback()
-                except: pass
-            if cur: cur.close()
-            if conn: conn.close()
             flash(f"Error: {str(e)}", "danger")
 
     return _no_cache(make_response(render_template(

@@ -2542,7 +2542,7 @@ function buildModalConfig(sourceChart, titleText){
     };
     var isDark = document.documentElement.getAttribute("data-theme") === "dark";
     baseOptions.plugins.title = {
-        display: !!titleText,
+        display: false,
         text: titleText || '',
         padding: { top: 6, bottom: 10 },
         color: isDark ? '#c8d0e0' : '#1e293b',
@@ -2654,7 +2654,7 @@ function openChartModal(chartEl){
     if(!card) return;
     var title = card.querySelector('.card-title') || card.querySelector('.dash-chart-title');
     var titleInput = card.querySelector('.chart-title-input');
-    var titleText = title ? title.textContent.trim() : (titleInput ? titleInput.value.trim() : 'Chart Preview');
+    var titleText = title ? title.textContent.replace(/\s+/g, ' ').trim() : (titleInput ? titleInput.value.replace(/\s+/g, ' ').trim() : 'Chart Preview');
     var chartId = chartEl.id;
     if(!chartId || !chartInstances[chartId]) return;
     var sourceChart = chartInstances[chartId];
@@ -2762,18 +2762,34 @@ function attachChartModalHandlers(){
 
 function downloadModalImage() {
     if(!modalChart) return;
+    var titleText = document.getElementById('modalTitle').textContent || 'Chart';
+    var isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    
+    var ratio = 1;
+    if (modalChart.canvas.clientWidth > 0) {
+        ratio = modalChart.canvas.width / modalChart.canvas.clientWidth;
+    }
+    
+    var padTop = 50 * ratio;
+    
     var tempCanvas = document.createElement('canvas');
     tempCanvas.width = modalChart.canvas.width;
-    tempCanvas.height = modalChart.canvas.height;
+    tempCanvas.height = modalChart.canvas.height + padTop;
     var ctx = tempCanvas.getContext('2d');
-    var isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    
     ctx.fillStyle = isDark ? '#1a1a2e' : '#ffffff';
     ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-    ctx.drawImage(modalChart.canvas, 0, 0);
+    
+    ctx.fillStyle = isDark ? '#c8d0e0' : '#1e293b';
+    ctx.font = 'bold ' + (16 * ratio) + 'px "Inter", "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(titleText, tempCanvas.width / 2, 32 * ratio);
+    
+    ctx.drawImage(modalChart.canvas, 0, padTop);
+    
     var a = document.createElement('a');
     a.href = tempCanvas.toDataURL('image/png');
-    var title = document.getElementById('modalTitle').textContent || 'Chart';
-    a.download = title + '.png';
+    a.download = titleText + '.png';
     a.click();
 }
 

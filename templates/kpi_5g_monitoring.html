@@ -369,7 +369,7 @@
                       {% endif %}
                   </div>
             <div class="chart-wrap" style="height:200px;position:relative;">
-                <canvas id="canvas-regional-{{ k[0] }}"></canvas>
+                <canvas id="canvas-regional-{{ k[0] }}" style="cursor:pointer" onclick="openChartModal(this)"></canvas>
             </div>
         </div>
         {% endfor %}
@@ -423,7 +423,7 @@
                           <span style="font-size:10px;opacity:.55;">({{ k[2] }})</span>
                       {% endif %}
                   </div>
-                <div class="chart-wrap" style="height:200px;position:relative;"><canvas id="canvas-nop-{{ k[0] }}"></canvas></div>
+                <div class="chart-wrap" style="height:200px;position:relative;"><canvas id="canvas-nop-{{ k[0] }}" style="cursor:pointer" onclick="openChartModal(this)"></canvas></div>
             </div>
             {% endfor %}
         </div>
@@ -477,7 +477,7 @@
                           <span style="font-size:10px;opacity:.55;">({{ k[2] }})</span>
                       {% endif %}
                   </div>
-                <div class="chart-wrap" style="height:200px;position:relative;"><canvas id="canvas-city-{{ k[0] }}"></canvas></div>
+                <div class="chart-wrap" style="height:200px;position:relative;"><canvas id="canvas-city-{{ k[0] }}" style="cursor:pointer" onclick="openChartModal(this)"></canvas></div>
             </div>
             {% endfor %}
         </div>
@@ -530,7 +530,7 @@
                           <span style="font-size:10px;opacity:.55;">({{ k[2] }})</span>
                       {% endif %}
                   </div>
-                <div class="chart-wrap" style="height:200px;position:relative;"><canvas id="canvas-subnet-{{ k[0] }}"></canvas></div>
+                <div class="chart-wrap" style="height:200px;position:relative;"><canvas id="canvas-subnet-{{ k[0] }}" style="cursor:pointer" onclick="openChartModal(this)"></canvas></div>
             </div>
             {% endfor %}
         </div>
@@ -612,7 +612,7 @@
                         <span style="font-size:10px;opacity:.55;">({{ k[2] }})</span>
                     {% endif %}
                 </div>
-                <div class="chart-wrap" style="height:200px;position:relative;"><canvas id="canvas-site-{{ k[0] }}"></canvas></div>
+                <div class="chart-wrap" style="height:200px;position:relative;"><canvas id="canvas-site-{{ k[0] }}" style="cursor:pointer" onclick="openChartModal(this)"></canvas></div>
             </div>
             {% endfor %}
         </div>
@@ -692,7 +692,7 @@
                       {% endif %}
                   </div>
                 <div class="chart-wrap" style="height:200px;position:relative;">
-                    <canvas id="canvas-sector-{{ k[0] }}"></canvas>
+                    <canvas id="canvas-sector-{{ k[0] }}" style="cursor:pointer" onclick="openChartModal(this)"></canvas>
                 </div>
             </div>
             {% endfor %}
@@ -1151,7 +1151,7 @@ function applySectorLocalFilters() {
         return `<div class="card kpi-card-sector" data-kpi="${k[0]}">
             <div class="card-title">${k[1]}${titleSuffix}${unitLabel}</div>
             <div class="chart-wrap" style="height:200px;position:relative;">
-                <canvas id="canvas-sector-${k[0]}${canvasSuffix}"></canvas>
+                <canvas id="canvas-sector-${k[0]}${canvasSuffix}" style="cursor:pointer" onclick="openChartModal(this)"></canvas>
             </div>
         </div>`;
     }
@@ -1501,7 +1501,7 @@ function renderChart(tabId, kpiDef, dims, suffix = ''){
     var c = document.getElementById(canvasId);
     if(!c) return;
 
-    var key = tabId + "::" + kpiId + suffix;
+    var key = canvasId;
     if(chartInstances[key]){ chartInstances[key].destroy(); }
 
     var ds   = buildDatasets(tabId, kpiId, dims);
@@ -1749,7 +1749,7 @@ function doExportPng(){
         
         checkedBoxes.forEach(function(cb) {
             var kpiId = cb.value;
-            var baseKey = _pngTab + "::" + kpiId;
+            var baseKey = "canvas-" + _pngTab + "-" + kpiId;
             var prefixKey = baseKey + "-";
             
             var matchingKeys = Object.keys(chartInstances).filter(function(k) {

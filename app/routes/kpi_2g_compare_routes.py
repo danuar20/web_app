@@ -1,7 +1,7 @@
 """2G KPI Hourly Compare Routes — /kpi_2g_hourly/compare (before/after comparison)"""
 from flask import Blueprint, render_template, request, session, flash, make_response
 from app.db.db_webapp import get_postgres_connection, get_site_list_2g
-from ._utils import login_required, _no_cache, json_response
+from ._utils import login_required, _no_cache, json_response, db_query
 import psycopg2
 import psycopg2.errors
 
@@ -12,14 +12,11 @@ kpi2g_compare = Blueprint("kpi2g_compare", __name__)
 def api_kpi_2g_compare_last_update():
     """Lightweight endpoint to get last update timestamp without full KPI query"""
     try:
-        conn = get_postgres_connection()
-        cur = conn.cursor()
-        cur.execute('SELECT MAX(datehour::date) FROM "2g_kpi_zte"')
-        raw = cur.fetchone()
-        cur.close()
-        conn.close()
-        last_update = raw[0].strftime('%Y-%m-%d') if raw and raw[0] else None
-        return json_response({"last_update": last_update})
+        with db_query() as (conn, cur):
+            cur.execute('SELECT MAX(datehour::date) FROM "2g_kpi_zte"')
+            raw = cur.fetchone()
+            last_update = raw[0].strftime('%Y-%m-%d') if raw and raw[0] else None
+            return json_response({"last_update": last_update})
     except Exception as e:
         return json_response({"error": str(e)}, 500)
 
@@ -115,137 +112,129 @@ def kpi_2g_hourly_compare():
         conn = None
         cur  = None
         try:
-            conn = get_postgres_connection()
-            cur  = conn.cursor()
+            with db_query() as (conn, cur):
 
-            # Get last update timestamp
-            try:
-                cur.execute('SELECT MAX(datehour::date) FROM "2g_kpi_zte"')
-                raw = cur.fetchone()
-                last_update = raw[0].strftime('%Y-%m-%d') if raw and raw[0] else None
-            except Exception:
-                last_update = None
+                # Get last update timestamp
+                try:
+                    cur.execute('SELECT MAX(datehour::date) FROM "2g_kpi_zte"')
+                    raw = cur.fetchone()
+                    last_update = raw[0].strftime('%Y-%m-%d') if raw and raw[0] else None
+                except Exception:
+                    last_update = None
 
-            HR_FMT = "'HH24:00'"
+                HR_FMT = "'HH24:00'"
 
-            # Construct dynamic select fields
-            kpi_selects = ", ".join([f"{k[6]} AS {k[0]}" for k in KPI_DEFS])
+                # Construct dynamic select fields
+                kpi_selects = ", ".join([f"{k[6]} AS {k[0]}" for k in KPI_DEFS])
             
-            # --- 1. Get Cluster Hourly Trends ---
-            cur.execute(f"""
-                SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {kpi_selects}
-                FROM "2g_kpi_zte"
-                WHERE datehour::date BETWEEN %s::date AND %s::date AND siteid = ANY(%s)
-                GROUP BY hr ORDER BY hr
-            """, [from_date_b, to_date_b, sel_sites])
-            before_hourly = cur.fetchall()
+                # --- 1. Get Cluster Hourly Trends ---
+                cur.execute(f"""
+                    SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {kpi_selects}
+                    FROM "2g_kpi_zte"
+                    WHERE datehour::date BETWEEN %s::date AND %s::date AND siteid = ANY(%s)
+                    GROUP BY hr ORDER BY hr
+                """, [from_date_b, to_date_b, sel_sites])
+                before_hourly = cur.fetchall()
 
-            cur.execute(f"""
-                SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {kpi_selects}
-                FROM "2g_kpi_zte"
-                WHERE datehour::date BETWEEN %s::date AND %s::date AND siteid = ANY(%s)
-                GROUP BY hr ORDER BY hr
-            """, [from_date_a, to_date_a, sel_sites])
-            after_hourly = cur.fetchall()
+                cur.execute(f"""
+                    SELECT TO_CHAR(datehour, {HR_FMT}) AS hr, {kpi_selects}
+                    FROM "2g_kpi_zte"
+                    WHERE datehour::date BETWEEN %s::date AND %s::date AND siteid = ANY(%s)
+                    GROUP BY hr ORDER BY hr
+                """, [from_date_a, to_date_a, sel_sites])
+                after_hourly = cur.fetchall()
 
-            # Extract labels and map hourly data
-            chart_labels = sorted(list(set([r[0] for r in before_hourly] + [r[0] for r in after_hourly])))
+                # Extract labels and map hourly data
+                chart_labels = sorted(list(set([r[0] for r in before_hourly] + [r[0] for r in after_hourly])))
             
-            before_hourly_map = {r[0]: r[1:] for r in before_hourly}
-            after_hourly_map = {r[0]: r[1:] for r in after_hourly}
+                before_hourly_map = {r[0]: r[1:] for r in before_hourly}
+                after_hourly_map = {r[0]: r[1:] for r in after_hourly}
 
-            for idx, kpi in enumerate(KPI_DEFS):
-                chart_id = kpi[0]
-                compare_data[chart_id] = {"before": [], "after": []}
-                for hr in chart_labels:
-                    b_val = before_hourly_map.get(hr)
-                    a_val = after_hourly_map.get(hr)
+                for idx, kpi in enumerate(KPI_DEFS):
+                    chart_id = kpi[0]
+                    compare_data[chart_id] = {"before": [], "after": []}
+                    for hr in chart_labels:
+                        b_val = before_hourly_map.get(hr)
+                        a_val = after_hourly_map.get(hr)
                     
-                    b = round(float(b_val[idx]), 2) if b_val and b_val[idx] is not None else None
-                    a = round(float(a_val[idx]), 2) if a_val and a_val[idx] is not None else None
+                        b = round(float(b_val[idx]), 2) if b_val and b_val[idx] is not None else None
+                        a = round(float(a_val[idx]), 2) if a_val and a_val[idx] is not None else None
                     
-                    compare_data[chart_id]["before"].append(b)
-                    compare_data[chart_id]["after"].append(a)
+                        compare_data[chart_id]["before"].append(b)
+                        compare_data[chart_id]["after"].append(a)
 
-            # --- 2. Get Site Level Aggregates ---
-            cur.execute(f"""
-                SELECT siteid, {kpi_selects}
-                FROM "2g_kpi_zte"
-                WHERE datehour::date BETWEEN %s::date AND %s::date AND siteid = ANY(%s)
-                GROUP BY siteid
-            """, [from_date_b, to_date_b, sel_sites])
-            before_sites = {r[0]: r[1:] for r in cur.fetchall()}
+                # --- 2. Get Site Level Aggregates ---
+                cur.execute(f"""
+                    SELECT siteid, {kpi_selects}
+                    FROM "2g_kpi_zte"
+                    WHERE datehour::date BETWEEN %s::date AND %s::date AND siteid = ANY(%s)
+                    GROUP BY siteid
+                """, [from_date_b, to_date_b, sel_sites])
+                before_sites = {r[0]: r[1:] for r in cur.fetchall()}
 
-            cur.execute(f"""
-                SELECT siteid, {kpi_selects}
-                FROM "2g_kpi_zte"
-                WHERE datehour::date BETWEEN %s::date AND %s::date AND siteid = ANY(%s)
-                GROUP BY siteid
-            """, [from_date_a, to_date_a, sel_sites])
-            after_sites = {r[0]: r[1:] for r in cur.fetchall()}
+                cur.execute(f"""
+                    SELECT siteid, {kpi_selects}
+                    FROM "2g_kpi_zte"
+                    WHERE datehour::date BETWEEN %s::date AND %s::date AND siteid = ANY(%s)
+                    GROUP BY siteid
+                """, [from_date_a, to_date_a, sel_sites])
+                after_sites = {r[0]: r[1:] for r in cur.fetchall()}
 
-            for site in sel_sites:
-                site_compare_table[site] = {}
-                b_row = before_sites.get(site)
-                a_row = after_sites.get(site)
+                for site in sel_sites:
+                    site_compare_table[site] = {}
+                    b_row = before_sites.get(site)
+                    a_row = after_sites.get(site)
                 
+                    for idx, kpi in enumerate(KPI_DEFS):
+                        chart_id, title, unit, y_label, y_min, y_max, sql_expr, group_name, is_lower_better = kpi
+                    
+                        b_val = round(float(b_row[idx]), 2) if b_row and b_row[idx] is not None else None
+                        a_val = round(float(a_row[idx]), 2) if a_row and a_row[idx] is not None else None
+                    
+                        if b_val is not None and a_val is not None and b_val != 0:
+                            delta = round(a_val - b_val, 2)
+                            delta_pct = round((delta / abs(b_val)) * 100, 1)
+                        else:
+                            delta = delta_pct = None
+
+                        site_compare_table[site][chart_id] = {
+                            "before": b_val, "after": a_val,
+                            "delta": delta, "delta_pct": delta_pct
+                        }
+
+                # --- 3. Get Cluster Network Aggregates ---
+                cur.execute(f"""
+                    SELECT {kpi_selects}
+                    FROM "2g_kpi_zte"
+                    WHERE datehour::date BETWEEN %s::date AND %s::date AND siteid = ANY(%s)
+                """, [from_date_b, to_date_b, sel_sites])
+                agg_before_row = cur.fetchone()
+
+                cur.execute(f"""
+                    SELECT {kpi_selects}
+                    FROM "2g_kpi_zte"
+                    WHERE datehour::date BETWEEN %s::date AND %s::date AND siteid = ANY(%s)
+                """, [from_date_a, to_date_a, sel_sites])
+                agg_after_row = cur.fetchone()
+
                 for idx, kpi in enumerate(KPI_DEFS):
                     chart_id, title, unit, y_label, y_min, y_max, sql_expr, group_name, is_lower_better = kpi
-                    
-                    b_val = round(float(b_row[idx]), 2) if b_row and b_row[idx] is not None else None
-                    a_val = round(float(a_row[idx]), 2) if a_row and a_row[idx] is not None else None
-                    
+                
+                    b_val = round(float(agg_before_row[idx]), 2) if agg_before_row and agg_before_row[idx] is not None else None
+                    a_val = round(float(agg_after_row[idx]), 2) if agg_after_row and agg_after_row[idx] is not None else None
+
                     if b_val is not None and a_val is not None and b_val != 0:
                         delta = round(a_val - b_val, 2)
                         delta_pct = round((delta / abs(b_val)) * 100, 1)
                     else:
                         delta = delta_pct = None
 
-                    site_compare_table[site][chart_id] = {
+                    agg_data[chart_id] = {
                         "before": b_val, "after": a_val,
-                        "delta": delta, "delta_pct": delta_pct
+                        "delta": delta, "delta_pct": delta_pct,
+                        "title": title, "unit": unit, "group": group_name, "is_lower_better": is_lower_better
                     }
-
-            # --- 3. Get Cluster Network Aggregates ---
-            cur.execute(f"""
-                SELECT {kpi_selects}
-                FROM "2g_kpi_zte"
-                WHERE datehour::date BETWEEN %s::date AND %s::date AND siteid = ANY(%s)
-            """, [from_date_b, to_date_b, sel_sites])
-            agg_before_row = cur.fetchone()
-
-            cur.execute(f"""
-                SELECT {kpi_selects}
-                FROM "2g_kpi_zte"
-                WHERE datehour::date BETWEEN %s::date AND %s::date AND siteid = ANY(%s)
-            """, [from_date_a, to_date_a, sel_sites])
-            agg_after_row = cur.fetchone()
-
-            for idx, kpi in enumerate(KPI_DEFS):
-                chart_id, title, unit, y_label, y_min, y_max, sql_expr, group_name, is_lower_better = kpi
-                
-                b_val = round(float(agg_before_row[idx]), 2) if agg_before_row and agg_before_row[idx] is not None else None
-                a_val = round(float(agg_after_row[idx]), 2) if agg_after_row and agg_after_row[idx] is not None else None
-
-                if b_val is not None and a_val is not None and b_val != 0:
-                    delta = round(a_val - b_val, 2)
-                    delta_pct = round((delta / abs(b_val)) * 100, 1)
-                else:
-                    delta = delta_pct = None
-
-                agg_data[chart_id] = {
-                    "before": b_val, "after": a_val,
-                    "delta": delta, "delta_pct": delta_pct,
-                    "title": title, "unit": unit, "group": group_name, "is_lower_better": is_lower_better
-                }
-
-            cur.close()
-            conn.close()
-
         except psycopg2.OperationalError:
-            if conn: conn.rollback()
-            if cur: cur.close()
-            if conn: conn.close()
             conn = None; cur = None
             flash("Database connection failed.", "warning")
         except Exception as e:
