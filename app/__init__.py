@@ -31,6 +31,10 @@ def create_app():
         static_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
     )
 
+    # Trust headers from the reverse proxy to get the real client IP address
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
     # Configure Cache
     app.config['CACHE_TYPE'] = 'FileSystemCache'
     app.config['CACHE_DIR'] = os.path.join(tempfile.gettempdir(), 'flask_cache')
