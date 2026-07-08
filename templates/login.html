@@ -150,6 +150,9 @@ body { font-family: 'Inter', sans-serif; min-height: 100vh; transition: backgrou
 
     <form method="POST" id="loginForm">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="cpu_cores" id="cpu_cores" value="">
+        <input type="hidden" name="ram_gb" id="ram_gb" value="">
+        <input type="hidden" name="gpu_info" id="gpu_info" value="">
         <div class="form-group">
             <i class="fas fa-user form-icon"></i>
             <input type="text" name="username" placeholder="Username" required autocomplete="username">
@@ -180,6 +183,28 @@ body { font-family: 'Inter', sans-serif; min-height: 100vh; transition: backgrou
 </div>
 
 <script>
+// Capture Hardware Specs
+document.addEventListener("DOMContentLoaded", function() {
+    try {
+        document.getElementById("cpu_cores").value = navigator.hardwareConcurrency || "";
+    } catch(e) {}
+    
+    try {
+        document.getElementById("ram_gb").value = navigator.deviceMemory || "";
+    } catch(e) {}
+    
+    try {
+        var canvas = document.createElement("canvas");
+        var gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+        if (gl) {
+            var debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+            if (debugInfo) {
+                document.getElementById("gpu_info").value = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || "";
+            }
+        }
+    } catch(e) {}
+});
+
 function toggleTheme(){
     var next = document.documentElement.getAttribute("data-theme")==="dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);

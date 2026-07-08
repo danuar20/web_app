@@ -1,5 +1,5 @@
 # Shared utilities for all route modules
-from flask import session, redirect, url_for, make_response, jsonify, flash
+from flask import session, redirect, url_for, make_response, jsonify, flash, request
 from functools import wraps
 from contextlib import contextmanager
 import io, csv, logging, time, psycopg2, psycopg2.errors
@@ -85,11 +85,73 @@ def handle_db_errors(f):
 
 
 def login_required(f):
-    """Decorator: redirect to /login if user has no session."""
+    """Decorator: redirect to /login if user has no session.
+
+    Also validates that the session UUID still exists and hasn't expired
+    in the user_sessions table, preventing access after an admin invalidates
+    a user's sessions or the session naturally expires server-side.
+
+    If session_id is None (e.g. migration not yet applied), the DB check is
+    skipped so users are not accidentally locked out during a partial deployment.
+    """
     @wraps(f)
     def wrapper(*args, **kwargs):
         if "username" not in session:
             return redirect(url_for("auth.login"))
+
+        session_id = session.get("session_id")
+
+        # Only validate against DB if we actually have a UUID stored
+        if session_id:
+            try:
+                from app.db.db_webapp import get_connection
+                with db_query(get_connection) as (conn, cur):
+                    cur.execute(
+                        "SELECT 1 FROM user_sessions WHERE id = %s AND expires_at > NOW()",
+                        (session_id,)
+                    )
+                    if not cur.fetchone():
+                        # Session revoked by admin, or expired server-side
+                        session.clear()
+                        flash("Your session has expired. Please log in again.", "warning")
+                        return redirect(url_for("auth.login"))
+            except Exception:
+                # If DB is unreachable, allow through to avoid lockout on DB hiccup
+                pass
+
+        return f(*args, **kwargs)
+    return wrapper
+
+
+def admin_required(f):
+    """Decorator: requires role == 'admin'. Redirects viewers with a 403 flash.
+
+    Must be stacked AFTER @login_required:
+        @blueprint.route("/admin/...")
+        @login_required
+        @admin_required
+        def my_admin_view():
+    """
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if session.get("role") != "admin":
+            flash("Access denied. Admin privileges required.", "danger")
+            return redirect(url_for("auth.home_page"))
+        return f(*args, **kwargs)
+    return wrapper
+
+
+def viewer_blocked(f):
+    """Decorator: blocks viewer role from accessing specific pages (e.g. /database).
+
+    Admin can access, viewer is redirected with a flash message.
+    Must be stacked AFTER @login_required.
+    """
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if session.get("role") == "viewer":
+            flash("Access denied. This page is not available for your role.", "danger")
+            return redirect(url_for("auth.home_page"))
         return f(*args, **kwargs)
     return wrapper
 

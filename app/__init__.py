@@ -53,7 +53,7 @@ def create_app():
     app.config['SESSION_COOKIE_SECURE']  = False
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE']  = 'Lax'
-    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)  # Session expires after 8 hours
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=3)  # Session expires after 3 hours
 
     # ── 3. CSRF PROTECTION via Flask-WTF ───────────────────────────────────────
     app.config['WTF_CSRF_ENABLED']    = True
@@ -90,13 +90,14 @@ def create_app():
 
     # ── 5. REGISTER BLUEPRINTS ─────────────────────────────────────────────────
     from .routes import (
-        auth, prod,
+        auth, prod, admin_bp,
         kpi2g_hourly_sector, kpi2g_compare, kpi2g_monitoring,
         kpi4g_daily, kpi4g_hourly, kpi4g_trend, kpi4g_compare, kpi4g_api, kpi4g_hourly_sector, kpi4g_monitoring,
         kpi5g_daily, kpi5g_hourly, kpi5g_hourly_sector, kpi5g_compare, kpi5g_monitoring,
         pl, ta4g, dashboard_2g, dashboard_4g, dashboard_5g, coverage, okumura_hata, nettilt3d
     )
     app.register_blueprint(auth)
+    app.register_blueprint(admin_bp)
     app.register_blueprint(prod)
     app.register_blueprint(kpi2g_hourly_sector)
     app.register_blueprint(kpi2g_compare)

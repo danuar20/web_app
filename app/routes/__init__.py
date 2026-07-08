@@ -105,3 +105,7 @@ okumura_hata = okumura_hata_routes.okumura_hata
 # NetTilt 3D — /nettilt3d
 from . import nettilt3d_routes
 nettilt3d = nettilt3d_routes.nettilt3d
+
+# Admin — /admin/users, /admin/users/login_logs
+from . import admin_routes
+admin_bp = admin_routes.admin_bp

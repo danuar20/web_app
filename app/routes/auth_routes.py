@@ -1,45 +1,282 @@
 from flask import Blueprint, make_response, render_template, request, redirect, url_for, session, flash, jsonify
 from werkzeug.security import check_password_hash
 from app.db.db_webapp import get_connection
-from ._utils import login_required, json_response, db_query
+from ._utils import login_required, viewer_blocked, json_response, db_query
 import psycopg2
 
 auth = Blueprint("auth", __name__)
 
-# ── Home ───────────────────────────────────────────────────────────────────────
+# ── Helpers ────────────────────────────────────────────────────────────────────
+
+def _log_login_safe(username, status, ip, ua, cpu_cores=None, ram_gb=None, gpu_info=None):
+    """Audit-log a login attempt using its OWN connection.
+
+    IMPORTANT: never pass the shared login cursor here — a failed INSERT would
+    abort the caller's transaction and prevent failed_attempts from being saved.
+    """
+    import json
+    import urllib.request
+    location = None
+    isp = None
+    
+    # Try fetching location and ISP
+    try:
+        if ip and not ip.startswith("127.") and not ip.startswith("192.168.") and not ip.startswith("10."):
+            req = urllib.request.Request(f"http://ip-api.com/json/{ip}?fields=city,country,isp")
+            with urllib.request.urlopen(req, timeout=2) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode('utf-8'))
+                    if data.get("city") and data.get("country"):
+                        location = f"{data['city']}, {data['country']}"
+                    isp = data.get("isp")
+    except Exception:
+        pass
+        
+    # Convert hardware stats from string to int safely
+    try:
+        cpu_cores = int(cpu_cores) if cpu_cores else None
+    except ValueError:
+        cpu_cores = None
+        
+    try:
+        ram_gb = int(ram_gb) if ram_gb else None
+    except ValueError:
+        ram_gb = None
+
+    try:
+        with db_query(get_connection) as (conn, cur):
+            cur.execute(
+                "INSERT INTO login_logs (username, ip_address, user_agent, status, location, isp, cpu_cores, ram_gb, gpu_info)"
+                " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (username, ip, ua, status, location, isp, cpu_cores, ram_gb, gpu_info)
+            )
+            conn.commit()
+    except Exception:
+        pass  # Logging must never break the login flow
+
+
+def _create_session_safe(user_id, ip, ua):
+    """Insert a session row using its OWN connection; UUID generated in Python.
+
+    Generates the UUID in Python (uuid.uuid4) to avoid relying on
+    gen_random_uuid() which requires pgcrypto on older PostgreSQL versions.
+    Returns the UUID string, or None if the insert fails.
+    """
+    import uuid
+    from datetime import datetime, timezone, timedelta
+    session_uuid = str(uuid.uuid4())
+    expires = datetime.now(timezone.utc) + timedelta(hours=3)
+    try:
+        with db_query(get_connection) as (conn, cur):
+            cur.execute(
+                "INSERT INTO user_sessions (id, user_id, ip_address, user_agent, expires_at)"
+                " VALUES (%s, %s, %s, %s, %s)",
+                (session_uuid, user_id, ip, ua, expires)
+            )
+            conn.commit()
+        return session_uuid
+    except Exception:
+        import logging
+        logging.getLogger(__name__).error(
+            "Failed to create user_sessions row for user_id=%s — "
+            "is migrate_security.sql applied?", user_id
+        )
+        return None
+
+
+# ── Home redirect ───────────────────────────────────────────────────────────────
 @auth.route("/")
 def home():
     return redirect(url_for("auth.login", v=2))
 
+
 # ── Login ──────────────────────────────────────────────────────────────────────
 @auth.route("/login", methods=["GET", "POST"])
 def login():
-    error = None
+    # If already logged in, redirect to home
+    if request.method == "GET" and "username" in session and "session_id" in session:
+        return redirect(url_for("auth.home_page", v=2))
+
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
 
         if not username or not password:
             flash("Username and password are required.", "danger")
-            return render_template("login.html", error=error)
+            return render_template("login.html")
 
         try:
+            ip = request.remote_addr or "unknown"
+            ua = request.headers.get("User-Agent", "unknown")[:500]
+            
+            cpu_cores = request.form.get("cpu_cores")
+            ram_gb = request.form.get("ram_gb")
+            gpu_info = request.form.get("gpu_info")
+
+            # ── Step 1: Read user (read-only, no commit needed) ─────────────
+            user = None
             with db_query(get_connection) as (conn, cur):
-                cur.execute("SELECT * FROM users WHERE username=%s", (username,))
+                cur.execute(
+                    "SELECT id, username, password, role, is_active,"
+                    "       failed_attempts, locked_until, max_session"
+                    " FROM users WHERE username = %s",
+                    (username,)
+                )
                 user = cur.fetchone()
 
-                if user and check_password_hash(user[2], password):
-                    session["username"] = username
-                    session.permanent = True  # remember me
-                    return redirect(url_for("auth.home_page", v=2))
+            if user is None:
+                _log_login_safe(username, "FAILED_PASSWORD", ip, ua, cpu_cores, ram_gb, gpu_info)
+                flash("Wrong username or password!", "danger")
+                return render_template("login.html")
+
+            (user_id, db_username, db_password, role,
+             is_active, failed_attempts, locked_until, max_session) = user
+
+            # ── Step 2: Check is_active ─────────────────────────────────────
+            if not is_active:
+                _log_login_safe(db_username, "INACTIVE", ip, ua, cpu_cores, ram_gb, gpu_info)
+                flash("Your account has been disabled. Please contact admin.", "danger")
+                return render_template("login.html")
+
+            # ── Step 3: Check lock (compare in Python, no extra query) ───────
+            if locked_until is not None:
+                from datetime import timezone, datetime as dt_cls
+                now_utc = dt_cls.now(timezone.utc)
+                # Ensure locked_until is timezone-aware for comparison
+                lu = locked_until if locked_until.tzinfo else locked_until.replace(tzinfo=timezone.utc)
+                if lu > now_utc:
+                    _log_login_safe(db_username, "LOCKED", ip, ua, cpu_cores, ram_gb, gpu_info)
+                    flash(
+                        f"User {db_username} Locked, please contact admin or try again later!",
+                        "danger"
+                    )
+                    return render_template("login.html")
                 else:
-                    flash("Wrong username or password!", "danger")
+                    # Lock has naturally expired — reset (independent commit)
+                    try:
+                        with db_query(get_connection) as (conn, cur):
+                            cur.execute(
+                                "UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = %s",
+                                (user_id,)
+                            )
+                            conn.commit()
+                    except Exception:
+                        pass
+                    failed_attempts = 0
+
+            # ── Step 4: Verify password ─────────────────────────────────────
+            if not check_password_hash(db_password, password):
+                new_attempts = failed_attempts + 1
+                # Each write is its own transaction — logging can NEVER abort this commit
+                try:
+                    with db_query(get_connection) as (conn, cur):
+                        if new_attempts >= 3:
+                            cur.execute(
+                                "UPDATE users SET failed_attempts = %s,"
+                                " locked_until = NOW() + INTERVAL '5 minutes'"
+                                " WHERE id = %s",
+                                (new_attempts, user_id)
+                            )
+                        else:
+                            cur.execute(
+                                "UPDATE users SET failed_attempts = %s WHERE id = %s",
+                                (new_attempts, user_id)
+                            )
+                        conn.commit()  # Committed independently — safe from log failures
+                except Exception:
+                    pass
+                _log_login_safe(db_username, "FAILED_PASSWORD", ip, ua, cpu_cores, ram_gb, gpu_info)
+
+                if new_attempts >= 3:
+                    flash(
+                        f"User {db_username} Locked, please contact admin or try again later!",
+                        "danger"
+                    )
+                else:
+                    remaining = 3 - new_attempts
+                    flash(
+                        f"Wrong password! {remaining} attempt(s) remaining before account is locked.",
+                        "danger"
+                    )
+                return render_template("login.html")
+
+            # ── Step 5: Password correct — cleanup old ghost sessions ────────
+            # If the user closed the browser (e.g. incognito) and lost their cookie without logging out,
+            # their old session is still in the DB. We delete any sessions from the exact same device (IP + UA)
+            # BEFORE checking the max_session limit so they don't get unfairly blocked.
+            try:
+                with db_query(get_connection) as (conn, cur):
+                    cur.execute(
+                        "DELETE FROM user_sessions WHERE user_id = %s AND ip_address = %s AND user_agent = %s",
+                        (user_id, ip, ua)
+                    )
+                    conn.commit()
+            except Exception:
+                pass
+
+            # ── Step 5b: Check concurrent session limit ──────────────────────
+            active_count = 0
+            try:
+                with db_query(get_connection) as (conn, cur):
+                    cur.execute(
+                        "SELECT COUNT(*) FROM user_sessions"
+                        " WHERE user_id = %s AND expires_at > NOW()",
+                        (user_id,)
+                    )
+                    active_count = cur.fetchone()[0]
+            except Exception:
+                pass  # If user_sessions missing, skip limit check
+
+            if active_count >= max_session:
+                _log_login_safe(db_username, "SESSION_LIMIT", ip, ua, cpu_cores, ram_gb, gpu_info)
+                flash("Maximum User session reached.", "warning")
+                return render_template("login.html")
+
+            # ── Step 6: Reset failed_attempts (independent commit) ───────────
+            try:
+                with db_query(get_connection) as (conn, cur):
+                    cur.execute(
+                        "UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = %s",
+                        (user_id,)
+                    )
+                    conn.commit()
+            except Exception:
+                pass
+
+            # ── Step 7: Create DB session (independent commit, Python UUID) ──
+            # Prevent orphaned sessions: kill old session if they logged in over an existing one
+            old_session_id = session.get("session_id")
+            if old_session_id:
+                try:
+                    with db_query(get_connection) as (conn, cur):
+                        cur.execute("DELETE FROM user_sessions WHERE id = %s", (old_session_id,))
+                        conn.commit()
+                except Exception:
+                    pass
+
+            session_id = _create_session_safe(user_id, ip, ua)
+
+            # ── Step 8: Log success ──────────────────────────────────────────
+            _log_login_safe(db_username, "SUCCESS", ip, ua, cpu_cores, ram_gb, gpu_info)
+
+            session.clear()
+            session["username"]   = db_username
+            session["user_id"]    = user_id
+            session["role"]       = role
+            session["session_id"] = session_id
+            session.permanent     = True
+
+            return redirect(url_for("auth.home_page", v=2))
+
         except psycopg2.OperationalError:
             flash("Server offline, please try again later.", "warning")
-        except Exception:
+        except Exception as e:
+            import traceback, logging
+            logging.getLogger(__name__).error("Login Exception: %s\n%s", e, traceback.format_exc())
             flash("System error: Connection to server timeout", "danger")
 
-    return render_template("login.html", error=error)
+    return render_template("login.html")
+
 
 # ── Home ───────────────────────────────────────────────────────────────────────
 @auth.route("/home")
@@ -49,9 +286,11 @@ def home_page():
     from datetime import datetime
     response = make_response(render_template("home.html",
         username=session["username"],
+        role=session.get("role", "viewer"),
         now=datetime.now().strftime("%d %b %Y %H:%M"),
     ))
     return _no_cache(response)
+
 
 # ── Home API (async data) ─────────────────────────────────────────────────────
 @auth.route("/api/home")
@@ -195,46 +434,51 @@ def api_home():
     cache.set("api_home", summary, timeout=300)
     return json_response(summary)
 
+
 # ── Database Status Page ──────────────────────────────────────────────────────
 @auth.route("/database/<db_type>")
 @login_required
+@viewer_blocked
 def database_page(db_type):
     from ._utils import _no_cache
     if db_type != "postgres":
         return redirect(url_for("auth.home_page"))
-        
+
     response = make_response(render_template("database.html",
         username=session["username"],
+        role=session.get("role", "viewer"),
         db_type=db_type
     ))
     return _no_cache(response)
 
+
 @auth.route("/api/database_status/<db_type>")
 @login_required
+@viewer_blocked
 def api_database_status(db_type):
     from app import cache
     from app.db.db_webapp import get_postgres_connection
     from ._utils import json_response
     import datetime, time
-    
+
     if db_type != "postgres":
         return json_response({"error": "Invalid db type"})
-        
+
     cache_key = f"api_database_status_{db_type}"
     cached_data = cache.get(cache_key)
     if cached_data:
         return json_response(cached_data)
-    
+
     today = datetime.date.today()
     date_list = [(today - datetime.timedelta(days=i)) for i in range(13, -1, -1)]
     date_strs = [d.strftime("%Y-%m-%d") for d in date_list]
     date_labels = [d.strftime("%d %b") for d in date_list]
-    
+
     result = {
         "labels": date_labels,
         db_type: []
     }
-    
+
     if db_type == "postgres":
         # ── POSTGRES DB ──
         pg_tables = [
@@ -251,40 +495,40 @@ def api_database_status(db_type):
             ("2G_pl_hy", "Date"),
             ("4G_pl_hy", "date"),
         ]
-        
+
         import concurrent.futures
-        
+
         def fetch_pg_tbl(tbl_info):
             tbl, d_col = tbl_info
             try:
                 conn = get_postgres_connection()
                 cur = conn.cursor()
                 cur.execute("SET statement_timeout = '60s'")
-                
+
                 cur.execute(f'SELECT MIN("{d_col}"), MAX("{d_col}") FROM "{tbl}"')
                 row = cur.fetchone()
                 min_date = row[0] if row else None
                 max_date = row[1] if row else None
-                
+
                 min_str = min_date.strftime("%Y-%m-%d") if min_date else "No Data"
                 max_str = max_date.strftime("%Y-%m-%d") if max_date else "No Data"
-                
+
                 # Calculate the 14-day window relative to today
                 ref_date = datetime.date.today()
-                
+
                 tbl_date_list = [(ref_date - datetime.timedelta(days=i)) for i in range(13, -1, -1)]
                 tbl_date_strs = [d.strftime("%Y-%m-%d") for d in tbl_date_list]
                 tbl_labels = [d.strftime("%d %b") for d in tbl_date_list]
-                
+
                 cur.execute(f'''
-                    SELECT "{d_col}"::date, COUNT(*) 
-                    FROM "{tbl}" 
-                    WHERE "{d_col}" >= %s 
+                    SELECT "{d_col}"::date, COUNT(*)
+                    FROM "{tbl}"
+                    WHERE "{d_col}" >= %s
                     GROUP BY "{d_col}"::date
                 ''', [tbl_date_list[0]])
                 counts = {r[0].strftime("%Y-%m-%d"): r[1] for r in cur.fetchall()}
                 history = [counts.get(d, 0) for d in tbl_date_strs]
-                
+
                 cur.close()
                 conn.close()
                 return {
@@ -299,11 +543,12 @@ def api_database_status(db_type):
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             results = list(executor.map(fetch_pg_tbl, pg_tables))
-            
+
         result["postgres"] = results
 
     cache.set(cache_key, result, timeout=3600)
     return json_response(result)
+
 
 # ── Health check ───────────────────────────────────────────────────────────────
 @auth.route("/health")
@@ -338,6 +583,7 @@ def health_check():
 
     return json_response(status, code)
 
+
 # ── API: cities by NSA ────────────────────────────────────────────────────────
 @auth.route("/api/cities")
 @login_required
@@ -357,6 +603,7 @@ def api_cities():
             return jsonify({"cities": cities})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 # ── API: sites by city ────────────────────────────────────────────────────────
 @auth.route("/api/sites")
@@ -379,8 +626,18 @@ def api_sites():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 # ── Logout ─────────────────────────────────────────────────────────────────────
 @auth.route("/logout")
 def logout():
-    session.pop("username", None)
+    """Delete the server-side session row then clear Flask session."""
+    session_id = session.get("session_id")
+    if session_id:
+        try:
+            with db_query(get_connection) as (conn, cur):
+                cur.execute("DELETE FROM user_sessions WHERE id = %s", (session_id,))
+                conn.commit()
+        except Exception:
+            pass
+    session.clear()
     return redirect(url_for("auth.login"))

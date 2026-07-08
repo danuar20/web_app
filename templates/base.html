@@ -321,7 +321,7 @@ body { background: var(--bg-main); color: var(--text-main); }
     justify-content: space-between;
     padding: 0 20px;
     height: 52px;
-    position: sticky; top: 0; z-index: 40;
+    position: sticky; top: 0; z-index: 999;
     gap: 12px; flex-shrink: 0;
 }
 [data-theme="dark"]  .topbar {
@@ -1668,17 +1668,18 @@ body.mobile-view .sidebar .nav-link {
           <span class="sub-item-dot"></span> Site Level
         </a>
       </div>
+      {% if session.get('role') == 'admin' %}
       <div class="menu-item {% block nav_database %}{% endblock %}" onclick="toggleSub('subDB', this)">
         <div class="menu-dot" style="background:#ff5252"></div>
         <span class="menu-item-label">Database</span>
         <i class="fas fa-chevron-right menu-arrow"></i>
       </div>
       <div class="sub-menu {% block subDB_open %}{% endblock %}" id="subDB">
-
         <a href="/database/postgres" class="sub-item {% block nav_db_postgres %}{% endblock %}">
           <span class="sub-item-dot"></span> Postgres DB
         </a>
       </div>
+      {% endif %}
     </div>
 
     <div class="menu-section">
@@ -1815,8 +1816,18 @@ body.mobile-view .sidebar .nav-link {
         <a href="/okumura_hata" class="sub-item {% block nav_okumura %}{% endblock %}"><span class="sub-item-dot"></span> Okumura-Hata Model</a>
         <a href="/nettilt3d" class="sub-item {% block nav_nettilt3d %}{% endblock %}"><span class="sub-item-dot"></span> NetTilt 3D</a>
       </div>
-
     </div>
+    
+    {% if session.get('role') == 'admin' %}
+    <div class="menu-section">
+      <div class="menu-section-label">Administration</div>
+      <a href="/admin/users" class="menu-item {% block nav_admin_users %}{% endblock %}">
+        <div class="menu-dot" style="background:#ff5252"></div>
+        <span class="menu-item-label">User Management</span>
+      </a>
+    </div>
+    {% endif %}
+
   </aside>
 
   <!-- Sidebar Overlay for Mobile -->

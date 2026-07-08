@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+<script>
+(function(){
+    var theme = "light";
+    try { theme = localStorage.getItem("theme"); } catch(e){}
+    if(theme !== "dark" && theme !== "light") theme = "light";
+    document.documentElement.setAttribute("data-theme", theme);
+})();
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetKPI Monitor — Admin Panel</title>
+<link rel="icon" type="image/png" href="https://raw.githubusercontent.com/danuar20/image/main/NetMonitor.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    transition: background 0.3s, color 0.3s;
+}
+
+/* ── Themes ── */
+[data-theme="dark"]  body { background: #0d0d1a; color: #c8d0e0; }
+[data-theme="light"] body { background: #f0f2f8; color: #1e2235; }
+
+/* ── Top Nav ── */
+.topnav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; height: 56px;
+    backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 100;
+}
+[data-theme="dark"]  .topnav { background: rgba(18,18,40,0.95); border-bottom: 1px solid rgba(79,172,254,0.1); }
+[data-theme="light"] .topnav { background: #fff; border-bottom: 1px solid rgba(0,0,0,0.08); box-shadow: 0 1px 8px rgba(0,0,0,0.06); }
+
+.topnav-brand {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 1.05rem; font-weight: 700;
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    text-decoration: none;
+}
+.topnav-right { display: flex; align-items: center; gap: 10px; }
+
+.badge-role {
+    padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 600;
+    letter-spacing: 0.5px; text-transform: uppercase;
+}
+.badge-role.admin { background: rgba(79,172,254,0.15); color: #4facfe; border: 1px solid rgba(79,172,254,0.3); }
+
+.nav-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 8px; border: none;
+    font-size: 0.85rem; font-weight: 500; cursor: pointer;
+    text-decoration: none; transition: all 0.2s;
+    font-family: inherit;
+}
+[data-theme="dark"]  .nav-btn { background: rgba(30,30,60,0.6); color: #c8d0e0; border: 1px solid rgba(79,172,254,0.12); }
+[data-theme="light"] .nav-btn { background: #f0f2f8; color: #1e2235; border: 1px solid rgba(0,0,0,0.08); }
+.nav-btn:hover { background: rgba(79,172,254,0.15); color: #4facfe; border-color: #4facfe; }
+.nav-btn.danger:hover { background: rgba(255,82,82,0.15); color: #ff5252; border-color: rgba(255,82,82,0.4); }
+
+.theme-btn {
+    width: 34px; height: 34px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; border: none; font-size: 15px; transition: all 0.2s;
+}
+[data-theme="dark"]  .theme-btn { background: rgba(30,30,58,0.5); color: #ffd166; border: 1px solid rgba(79,172,254,0.15); }
+[data-theme="light"] .theme-btn { background: #f5f6fa; color: #555; border: 1px solid rgba(0,0,0,0.08); }
+.theme-btn:hover { background: rgba(79,172,254,0.15); border-color: #4facfe; transform: scale(1.1); }
+
+/* ── Page wrapper ── */
+.page-wrap { max-width: 1280px; margin: 0 auto; padding: 24px 20px; }
+
+/* ── Page Header ── */
+.page-header { margin-bottom: 24px; }
+.page-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+.page-title i { color: #4facfe; }
+.page-subtitle { margin-top: 4px; font-size: 0.88rem; opacity: 0.65; }
+
+/* ── Tab nav ── */
+.tab-nav { display: flex; gap: 8px; margin-bottom: 20px; }
+.tab-btn {
+    padding: 8px 18px; border-radius: 8px; border: none;
+    font-size: 0.88rem; font-weight: 500; cursor: pointer;
+    text-decoration: none; transition: all 0.2s; font-family: inherit;
+    display: flex; align-items: center; gap: 6px;
+}
+[data-theme="dark"]  .tab-btn { background: rgba(30,30,60,0.5); color: #c8d0e0; border: 1px solid rgba(79,172,254,0.1); }
+[data-theme="light"] .tab-btn { background: #fff; color: #1e2235; border: 1px solid rgba(0,0,0,0.1); }
+.tab-btn.active, .tab-btn:hover { background: rgba(79,172,254,0.15); color: #4facfe; border-color: #4facfe; }
+
+/* ── Flash messages ── */
+.flash-wrap { margin-bottom: 16px; }
+.alert {
+    padding: 10px 16px; border-radius: 10px; font-size: 0.875rem;
+    display: flex; align-items: center; gap: 8px; border: 1px solid;
+    animation: fadeSlide 0.4s ease;
+}
+@keyframes fadeSlide { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+[data-theme="dark"]  .alert-success { background: rgba(80,220,120,0.1); border-color: rgba(80,220,120,0.25); color: #50dc78; }
+[data-theme="dark"]  .alert-danger  { background: rgba(255,82,82,0.1);  border-color: rgba(255,82,82,0.25);  color: #ff5252; }
+[data-theme="dark"]  .alert-warning { background: rgba(255,193,7,0.1);  border-color: rgba(255,193,7,0.25);  color: #ffd166; }
+[data-theme="light"] .alert-success { background: #e8faf0; border-color: #a8e6c0; color: #1a8a45; }
+[data-theme="light"] .alert-danger  { background: #ffe5e5; border-color: #ffb3b3; color: #c0392b; }
+[data-theme="light"] .alert-warning { background: #fff8e1; border-color: #ffe082; color: #856404; }
+
+/* ── Card ── */
+.card {
+    border-radius: 16px; overflow: hidden;
+    transition: background 0.3s, border-color 0.3s;
+}
+[data-theme="dark"]  .card { background: rgba(22,22,44,0.85); border: 1px solid rgba(79,172,254,0.1); }
+[data-theme="light"] .card { background: #fff; border: 1px solid rgba(0,0,0,0.07); box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+
+/* ── Table ── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+thead th {
+    padding: 12px 14px; text-align: left; font-weight: 600;
+    font-size: 0.78rem; letter-spacing: 0.5px; text-transform: uppercase;
+    white-space: nowrap;
+}
+[data-theme="dark"]  thead th { background: rgba(79,172,254,0.06); color: #7a8aaa; border-bottom: 1px solid rgba(79,172,254,0.12); }
+[data-theme="light"] thead th { background: #f7f9fc; color: #6b7a99; border-bottom: 1px solid rgba(0,0,0,0.07); }
+
+tbody tr { transition: background 0.15s; }
+[data-theme="dark"]  tbody tr:hover { background: rgba(79,172,254,0.04); }
+[data-theme="light"] tbody tr:hover { background: #f7f9fc; }
+[data-theme="dark"]  tbody tr + tr { border-top: 1px solid rgba(79,172,254,0.06); }
+[data-theme="light"] tbody tr + tr { border-top: 1px solid rgba(0,0,0,0.05); }
+
+td { padding: 12px 14px; vertical-align: middle; }
+
+/* ── Badges / pills ── */
+.pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 600;
+    letter-spacing: 0.3px; white-space: nowrap;
+}
+.pill-green  { background: rgba(80,220,120,0.12); color: #50dc78; border: 1px solid rgba(80,220,120,0.25); }
+.pill-red    { background: rgba(255,82,82,0.12);  color: #ff5252; border: 1px solid rgba(255,82,82,0.25); }
+.pill-orange { background: rgba(255,140,0,0.12);  color: #ff8c00; border: 1px solid rgba(255,140,0,0.25); }
+.pill-blue   { background: rgba(79,172,254,0.12); color: #4facfe; border: 1px solid rgba(79,172,254,0.25); }
+.pill-gray   { background: rgba(150,160,180,0.12); color: #8899aa; border: 1px solid rgba(150,160,180,0.2); }
+
+[data-theme="light"] .pill-green  { background: #e4faed; color: #1a8a45; border-color: #a8e6c0; }
+[data-theme="light"] .pill-red    { background: #ffe5e5; color: #c0392b; border-color: #ffb3b3; }
+[data-theme="light"] .pill-orange { background: #fff3e0; color: #e65100; border-color: #ffcc80; }
+[data-theme="light"] .pill-blue   { background: #e3f2fd; color: #1565c0; border-color: #90caf9; }
+[data-theme="light"] .pill-gray   { background: #f0f2f5; color: #5a6a85; border-color: #d0d8e8; }
+
+/* ── Action buttons ── */
+.action-group { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.btn-action {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 11px; border-radius: 7px; border: none;
+    font-size: 0.78rem; font-weight: 500; cursor: pointer;
+    transition: all 0.18s; font-family: inherit; white-space: nowrap;
+}
+.btn-green  { background: rgba(80,220,120,0.12);  color: #50dc78; border: 1px solid rgba(80,220,120,0.2); }
+.btn-red    { background: rgba(255,82,82,0.12);   color: #ff5252; border: 1px solid rgba(255,82,82,0.2); }
+.btn-orange { background: rgba(255,140,0,0.12);   color: #ff8c00; border: 1px solid rgba(255,140,0,0.2); }
+.btn-purple { background: rgba(168,85,247,0.12);  color: #a855f7; border: 1px solid rgba(168,85,247,0.2); }
+.btn-action:hover { filter: brightness(1.2); transform: translateY(-1px); }
+
+[data-theme="light"] .btn-green  { background: #e4faed; color: #1a8a45; border-color: #a8e6c0; }
+[data-theme="light"] .btn-red    { background: #ffe5e5; color: #c0392b; border-color: #ffb3b3; }
+[data-theme="light"] .btn-orange { background: #fff3e0; color: #e65100; border-color: #ffcc80; }
+[data-theme="light"] .btn-purple { background: #f5edff; color: #7c3aed; border-color: #d8b4fe; }
+
+/* ── Max session inline form ── */
+.max-sess-form { display: flex; align-items: center; gap: 4px; }
+.max-sess-form input[type="number"] {
+    width: 60px; padding: 4px 8px; border-radius: 6px;
+    font-size: 0.82rem; font-family: inherit; text-align: center;
+}
+[data-theme="dark"]  .max-sess-form input { background: rgba(30,30,60,0.8); border: 1px solid rgba(79,172,254,0.2); color: #c8d0e0; }
+[data-theme="light"] .max-sess-form input { background: #f0f2f8; border: 1px solid rgba(0,0,0,0.12); color: #1e2235; }
+.max-sess-form input:focus { outline: none; border-color: #4facfe; }
+
+/* ── Log table status ── */
+.log-success { color: #50dc78; font-weight: 600; }
+.log-failed  { color: #ff5252; font-weight: 600; }
+.log-locked  { color: #ff8c00; font-weight: 600; }
+.log-inactive{ color: #8899aa; font-weight: 600; }
+.log-limit   { color: #a855f7; font-weight: 600; }
+[data-theme="light"] .log-success  { color: #1a8a45; }
+[data-theme="light"] .log-failed   { color: #c0392b; }
+[data-theme="light"] .log-locked   { color: #e65100; }
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+    .action-group { flex-direction: column; }
+    .page-title { font-size: 1.2rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- Top Navigation -->
+<nav class="topnav">
+    <a href="/home" class="topnav-brand">
+        <i class="fas fa-network-wired"></i>
+        NetKPI Monitor
+    </a>
+    <div class="topnav-right">
+        <span class="badge-role admin"><i class="fas fa-crown"></i> Admin</span>
+        <a href="/home" class="nav-btn"><i class="fas fa-home"></i> Home</a>
+        <a href="/admin/users/login_logs" class="nav-btn"><i class="fas fa-scroll"></i> Logs</a>
+        <a href="/logout" class="nav-btn danger"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">
+            <i class="fas fa-sun" id="themeIcon"></i>
+        </button>
+    </div>
+</nav>
+
+<!-- Page Content -->
+<div class="page-wrap">
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-wrap">
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">
+            {% if category == 'success' %}<i class="fas fa-check-circle"></i>
+            {% elif category == 'danger' %}<i class="fas fa-times-circle"></i>
+            {% elif category == 'warning' %}<i class="fas fa-exclamation-triangle"></i>
+            {% endif %}
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <!-- Header -->
+    <div class="page-header">
+        <h1 class="page-title">
+            <i class="fas fa-users-cog"></i>
+            {% if view == 'logs' %}Login Audit Logs{% else %}User Management{% endif %}
+        </h1>
+        <p class="page-subtitle">
+            {% if view == 'logs' %}
+            Last 200 login attempts — monitor authentication activity
+            {% else %}
+            Manage user accounts, roles, locks, and active sessions
+            {% endif %}
+        </p>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="tab-nav">
+        <a href="/admin/users" class="tab-btn {% if view != 'logs' %}active{% endif %}">
+            <i class="fas fa-users"></i> Users
+        </a>
+        <a href="/admin/users/login_logs" class="tab-btn {% if view == 'logs' %}active{% endif %}">
+            <i class="fas fa-scroll"></i> Login Logs
+        </a>
+    </div>
+
+    <!-- ── USERS TABLE ─────────────────────────────────────────────────────── -->
+    {% if view != 'logs' and users is not none %}
+    <div class="card">
+        <div class="table-wrap">
+            <table id="usersTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Lock</th>
+                        <th>Failed</th>
+                        <th>Sessions</th>
+                        <th>Max Sessions</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for u in users %}
+                <tr>
+                    <td style="opacity:0.5">{{ u.id }}</td>
+
+                    <!-- Username -->
+                    <td>
+                        <span style="font-weight:600">{{ u.username }}</span>
+                        {% if u.username == username %}
+                        <span class="pill pill-blue" style="margin-left:6px;font-size:0.68rem">You</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Role -->
+                    <td>
+                        {% if u.role == 'admin' %}
+                        <span class="pill pill-blue"><i class="fas fa-crown"></i> Admin</span>
+                        {% else %}
+                        <span class="pill pill-gray"><i class="fas fa-eye"></i> Viewer</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Active status -->
+                    <td>
+                        {% if u.is_active %}
+                        <span class="pill pill-green"><i class="fas fa-circle" style="font-size:0.5rem"></i> Active</span>
+                        {% else %}
+                        <span class="pill pill-red"><i class="fas fa-ban"></i> Blocked</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Lock status -->
+                    <td>
+                        {% if u.is_locked %}
+                        <span class="pill pill-orange" title="Locked until: {{ u.locked_until }}">
+                            <i class="fas fa-lock"></i> Locked
+                        </span>
+                        {% else %}
+                        <span class="pill pill-gray"><i class="fas fa-lock-open"></i> Open</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Failed attempts -->
+                    <td>
+                        <span {% if u.failed_attempts > 0 %}style="color:#ff8c00;font-weight:600"{% endif %}>
+                            {{ u.failed_attempts }}/3
+                        </span>
+                    </td>
+
+                    <!-- Active sessions -->
+                    <td>
+                        <span {% if u.active_sessions >= u.max_session %}style="color:#ff5252;font-weight:600"{% endif %}>
+                            {{ u.active_sessions }}
+                        </span>
+                    </td>
+
+                    <!-- Max sessions -->
+                    <td>
+                        <form method="POST" action="/admin/users/{{ u.id }}/update_max_session" class="max-sess-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="number" name="max_session" value="{{ u.max_session }}" min="1" max="50">
+                            <button type="submit" class="btn-action btn-purple" title="Save max sessions">
+                                <i class="fas fa-save"></i>
+                            </button>
+                        </form>
+                    </td>
+
+                    <!-- Actions -->
+                    <td>
+                        <div class="action-group">
+                            <!-- Block / Unblock -->
+                            <form method="POST" action="/admin/users/{{ u.id }}/toggle_active" style="display:inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                {% if u.is_active %}
+                                <button type="submit" class="btn-action btn-red"
+                                    onclick="return confirm('Block user {{ u.username }}?')"
+                                    title="Block this user">
+                                    <i class="fas fa-ban"></i> Block
+                                </button>
+                                {% else %}
+                                <button type="submit" class="btn-action btn-green"
+                                    onclick="return confirm('Unblock user {{ u.username }}?')"
+                                    title="Unblock this user">
+                                    <i class="fas fa-check"></i> Unblock
+                                </button>
+                                {% endif %}
+                            </form>
+
+                            <!-- Unlock (reset failed attempts) -->
+                            {% if u.is_locked or u.failed_attempts > 0 %}
+                            <form method="POST" action="/admin/users/{{ u.id }}/unlock" style="display:inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn-action btn-orange"
+                                    title="Reset lock and failed attempts">
+                                    <i class="fas fa-unlock"></i> Unlock
+                                </button>
+                            </form>
+                            {% endif %}
+
+                            <!-- Kill sessions -->
+                            {% if u.active_sessions > 0 %}
+                            <form method="POST" action="/admin/users/{{ u.id }}/kill_sessions" style="display:inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn-action btn-red"
+                                    onclick="return confirm('Terminate all {{ u.active_sessions }} session(s) for {{ u.username }}?')"
+                                    title="Terminate all active sessions">
+                                    <i class="fas fa-plug"></i> Kill Sessions ({{ u.active_sessions }})
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ── LOGIN LOGS TABLE ──────────────────────────────────────────────────── -->
+    {% if view == 'logs' and logs is not none %}
+    <div class="card">
+        <div class="table-wrap">
+            <table id="logsTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Username</th>
+                        <th>Location & ISP</th>
+                        <th>Device Specs</th>
+                        <th>IP Address</th>
+                        <th>User Agent</th>
+                        <th>Status</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td style="opacity:0.45">{{ loop.index }}</td>
+                    <td style="font-weight:600">{{ log.username }}</td>
+                    <td>
+                        <div style="font-size:0.82rem; font-weight:600; color:#4facfe;">{{ log.location }}</div>
+                        <div style="font-size:0.75rem; opacity:0.7;">{{ log.isp }}</div>
+                    </td>
+                    <td>
+                        <div style="font-size:0.8rem;">
+                            <i class="fas fa-microchip" title="CPU Cores"></i> {{ log.cpu_cores }} &nbsp;|&nbsp; 
+                            <i class="fas fa-memory" title="RAM (GB)"></i> {{ log.ram_gb }}GB
+                        </div>
+                        <div style="font-size:0.75rem; opacity:0.7;" title="{{ log.gpu_info }}"><i class="fas fa-tv" title="GPU"></i> {{ log.gpu_info }}</div>
+                    </td>
+                    <td><code style="font-size:0.82rem">{{ log.ip_address }}</code></td>
+                    <td style="font-size:0.78rem;opacity:0.75;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                        title="{{ log.user_agent }}">{{ log.user_agent }}</td>
+                    <td>
+                        {% if log.status == 'SUCCESS' %}
+                        <span class="log-success"><i class="fas fa-check-circle"></i> SUCCESS</span>
+                        {% elif log.status == 'FAILED_PASSWORD' %}
+                        <span class="log-failed"><i class="fas fa-times-circle"></i> FAILED</span>
+                        {% elif log.status == 'LOCKED' %}
+                        <span class="log-locked"><i class="fas fa-lock"></i> LOCKED</span>
+                        {% elif log.status == 'INACTIVE' %}
+                        <span class="log-inactive"><i class="fas fa-ban"></i> INACTIVE</span>
+                        {% elif log.status == 'SESSION_LIMIT' %}
+                        <span class="log-limit"><i class="fas fa-user-slash"></i> SESSION_LIMIT</span>
+                        {% else %}
+                        <span>{{ log.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:0.82rem;white-space:nowrap">{{ log.attempted_at }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div><!-- /page-wrap -->
+
+<script>
+// ── Theme toggle ──────────────────────────────────────────────────────────────
+function updateThemeIcon(){
+    var t = document.documentElement.getAttribute("data-theme");
+    var ic = document.getElementById("themeIcon");
+    if(ic){ ic.className = t === "dark" ? "fas fa-sun" : "fas fa-moon"; }
+}
+function toggleTheme(){
+    var next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("theme", next); } catch(e){}
+    updateThemeIcon();
+}
+updateThemeIcon();
+
+// ── Auto-dismiss flash messages after 5 seconds ───────────────────────────────
+setTimeout(function(){
+    document.querySelectorAll(".flash-wrap .alert").forEach(function(el){
+        el.style.transition = "opacity 0.5s";
+        el.style.opacity = "0";
+        setTimeout(function(){ el.remove(); }, 500);
+    });
+}, 5000);
+</script>
+</body>
+</html>
