@@ -19,19 +19,19 @@ def _get_dropdown_data():
     try:
         with db_query() as (conn, cur):
             # Years
-            cur.execute('SELECT DISTINCT "Year by Date" FROM traffic_payload WHERE "Year by Date" IS NOT NULL ORDER BY "Year by Date"')
+            cur.execute('SELECT DISTINCT "Year by Date" FROM mv_traffic_payload_daily_city WHERE "Year by Date" IS NOT NULL ORDER BY "Year by Date"')
             years = [r[0] for r in cur.fetchall()]
             
             # NSAs (exclude bad data like SORONG RAJA AMPAT)
-            cur.execute('SELECT DISTINCT "NSA" FROM traffic_payload WHERE "NSA" IS NOT NULL AND "NSA" NOT ILIKE \'%SORONG RAJA AMPAT%\' ORDER BY "NSA"')
+            cur.execute('SELECT DISTINCT "NSA" FROM mv_traffic_payload_daily_city WHERE "NSA" IS NOT NULL AND "NSA" NOT ILIKE \'%SORONG RAJA AMPAT%\' ORDER BY "NSA"')
             nsas = [r[0] for r in cur.fetchall()]
             
             # YW (Year Week) - latest 104 weeks
-            cur.execute('SELECT DISTINCT "Y_W" FROM traffic_payload WHERE "Y_W" IS NOT NULL ORDER BY "Y_W" DESC LIMIT 104')
+            cur.execute('SELECT DISTINCT "Y_W" FROM mv_traffic_payload_yw_city WHERE "Y_W" IS NOT NULL ORDER BY "Y_W" DESC LIMIT 104')
             yw = [r[0] for r in cur.fetchall()]
             
             # Cities (Recent 30 days)
-            cur.execute('SELECT DISTINCT "KABUPATEN" FROM traffic_payload WHERE "KABUPATEN" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "KABUPATEN"')
+            cur.execute('SELECT DISTINCT "KABUPATEN" FROM mv_traffic_payload_daily_city WHERE "KABUPATEN" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "KABUPATEN"')
             cities = [r[0] for r in cur.fetchall()]
             
             _prod_cache["years"] = years

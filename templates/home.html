@@ -715,7 +715,7 @@
 
     <!-- ═══ WELCOME BANNER ═══ -->
     <div class="welcome-banner">
-        <div class="wb-icon">👋</div>
+        <div class="wb-icon"><i class="fas fa-hand-sparkles"></i></div>
         <div class="wb-content">
             <div class="wb-title">Welcome back, {{ username }}!</div>
             <div class="wb-sub">Network KPI Monitor v3.3 — {{ now }}</div>
@@ -724,7 +724,7 @@
 
     <!-- ═══ DATABASE STATUS ═══ -->
     <div>
-        <div class="dash-section-title">🗄️ Database Status</div>
+        <div class="dash-section-title"><i class="fas fa-server"></i> Database Status</div>
         <div class="db-status-grid" id="dashDbGrid">
             <!-- Skeleton -->
             <div class="db-status-card">
@@ -753,62 +753,62 @@
 
     <!-- ═══ QUICK ACCESS ═══ -->
     <div>
-        <div class="dash-section-title">⚡ Quick Access</div>
+        <div class="dash-section-title"><i class="fas fa-bolt"></i> Quick Access</div>
         <div class="dash-quick-grid">
             <a href="/productivity" class="dash-quick-link">
-                <div class="dash-quick-icon">📈</div>
+                <div class="dash-quick-icon"><i class="fas fa-chart-line"></i></div>
                 <div class="dash-quick-text">
                     <div class="dash-quick-label">Productivity</div>
                     <div class="dash-quick-desc">Trend YoY</div>
                 </div>
             </a>
             <a href="/kpi_2g_monitoring" class="dash-quick-link">
-                <div class="dash-quick-icon">📻</div>
+                <div class="dash-quick-icon"><i class="fas fa-broadcast-tower"></i></div>
                 <div class="dash-quick-text">
                     <div class="dash-quick-label">2G Monitoring</div>
                     <div class="dash-quick-desc">Monitoring 2G performance</div>
                 </div>
             </a>
             <a href="/kpi_4g_monitoring" class="dash-quick-link">
-                <div class="dash-quick-icon">📶</div>
+                <div class="dash-quick-icon"><i class="fas fa-signal"></i></div>
                 <div class="dash-quick-text">
                     <div class="dash-quick-label">4G Monitoring</div>
                     <div class="dash-quick-desc">Monitoring 4G performance</div>
                 </div>
             </a>
             <a href="/kpi_5g_monitoring" class="dash-quick-link">
-                <div class="dash-quick-icon">🚀</div>
+                <div class="dash-quick-icon"><i class="fas fa-rocket"></i></div>
                 <div class="dash-quick-text">
                     <div class="dash-quick-label">5G Monitoring</div>
                     <div class="dash-quick-desc">Monitoring 5G performance</div>
                 </div>
             </a>
             <a href="/dashboard_4g" class="dash-quick-link">
-                <div class="dash-quick-icon">📊</div>
+                <div class="dash-quick-icon"><i class="fas fa-chart-bar"></i></div>
                 <div class="dash-quick-text">
                     <div class="dash-quick-label">Dashboard 4G</div>
                     <div class="dash-quick-desc">4G Network Dashboard</div>
                 </div>
             </a>
-            <a href="/ta_4g" class="dash-quick-link">
-                <div class="dash-quick-icon">📐</div>
+            <a href="/ta_4g_new" class="dash-quick-link">
+                <div class="dash-quick-icon"><i class="fas fa-clock"></i></div>
                 <div class="dash-quick-text">
-                    <div class="dash-quick-label">TA 4G</div>
-                    <div class="dash-quick-desc">Timing Advance</div>
+                    <div class="dash-quick-label">Timing Advance</div>
+                    <div class="dash-quick-desc">Timing Advance 4G</div>
                 </div>
             </a>
             <a href="/pl_monitoring" class="dash-quick-link">
-                <div class="dash-quick-icon">📡</div>
+                <div class="dash-quick-icon"><i class="fas fa-network-wired"></i></div>
                 <div class="dash-quick-text">
                     <div class="dash-quick-label">PL 2G/4G</div>
                     <div class="dash-quick-desc">Packet Loss 2G & 4G</div>
                 </div>
             </a>
-            <a href="/pl_4g" class="dash-quick-link">
-                <div class="dash-quick-icon">📡</div>
+            <a href="/coverage_simulation" class="dash-quick-link">
+                <div class="dash-quick-icon"><i class="fas fa-globe"></i></div>
                 <div class="dash-quick-text">
-                    <div class="dash-quick-label">PL 4G</div>
-                    <div class="dash-quick-desc">Packet Loss</div>
+                    <div class="dash-quick-label">Coverage Simulation</div>
+                    <div class="dash-quick-desc">Kathrein-calculator</div>
                 </div>
             </a>
         </div>
@@ -816,7 +816,7 @@
 
     <!-- ═══ NETWORK OVERVIEW ═══ -->
     <div>
-        <div class="dash-section-title">📊 Network Overview</div>
+        <div class="dash-section-title"><i class="fas fa-network-wired"></i> Network Overview</div>
         <div class="dash-kpi-grid" id="dashKpiGrid">
             <!-- Skeleton -->
             <div class="dash-kpi-card">
@@ -839,7 +839,7 @@
 
     <!-- ═══ 30-DAY PRODUCTIVITY TREND ═══ -->
     <div>
-        <div class="dash-section-title">📈 30-Day Productivity Trend</div>
+        <div class="dash-section-title"><i class="fas fa-chart-line"></i> 30-Day Productivity Trend</div>
         <div class="dash-chart-grid" id="dashChartGrid">
             <!-- Skeleton -->
             <div class="dash-chart-card">
@@ -866,9 +866,9 @@
 
     /* ── Chart colors per Tech ── */
     var TECH_COLORS = {
-        "2G": { border: "#f6c90e", bg: "rgba(246,201,14,0.7)" },
-        "4G": { border: "#4facfe", bg: "rgba(79,172,254,0.7)" },
-        "5G": { border: "#a78bfa", bg: "rgba(167,139,250,0.7)" },
+        "2G": { border: "#00f2fe", bg: "rgba(0, 242, 254, 0.7)" }, // Cyan
+        "4G": { border: "#4facfe", bg: "rgba(79, 172, 254, 0.7)" }, // Blue
+        "5G": { border: "#0250c5", bg: "rgba(2, 80, 197, 0.7)" }, // Deep Blue
     };
 
     function buildDatasets(techData) {
@@ -924,9 +924,9 @@
         if (pg.last_ta4g) taSub.push('TA: ' + pg.last_ta4g);
         if (!taSub.length) taSub.push('No data');
 
-        return card('🐘', 'pg', 'Hourly KPI', pgSub.join(' · '), pg.status)
-            + card('📦', 'pz', 'Productivity & Daily KPI', plSub.join(' · '), pg.status)
-            + card('📡', 'wa', 'Packet Loss & TA', taSub.join(' · '), pg.status);
+        return card('<i class="fas fa-database"></i>', 'pg', 'Hourly KPI', pgSub.join(' · '), pg.status)
+            + card('<i class="fas fa-box"></i>', 'pz', 'Productivity & Daily KPI', plSub.join(' · '), pg.status)
+            + card('<i class="fas fa-satellite-dish"></i>', 'wa', 'Packet Loss & TA', taSub.join(' · '), pg.status);
     }
 
     /* ── KPI cards ── */
@@ -952,9 +952,9 @@
                 var grid = document.getElementById('dashKpiGrid');
                 if (grid) {
                     grid.innerHTML =
-                        kpiCard('📻', '2G Sites', fmtNum(d.postgres_db.site_count_2g), ' sites', d.postgres_db.last_update_2g ? 'Last data: ' + d.postgres_db.last_update_2g : '') +
-                        kpiCard('📡', '4G Sites', fmtNum(d.postgres_db.site_count_4g), ' sites', d.postgres_db.last_update_4g ? 'Last data: ' + d.postgres_db.last_update_4g : '') +
-                        kpiCard('🚀', '5G Sites', fmtNum(d.postgres_db.site_count_5g), ' sites', d.postgres_db.last_update_5g ? 'Last data: ' + d.postgres_db.last_update_5g : '');
+                        kpiCard('<i class="fas fa-broadcast-tower"></i>', '2G Sites', fmtNum(d.postgres_db.site_count_2g), ' sites', d.postgres_db.last_update_2g ? 'Last data: ' + d.postgres_db.last_update_2g : '') +
+                        kpiCard('<i class="fas fa-signal"></i>', '4G Sites', fmtNum(d.postgres_db.site_count_4g), ' sites', d.postgres_db.last_update_4g ? 'Last data: ' + d.postgres_db.last_update_4g : '') +
+                        kpiCard('<i class="fas fa-rocket"></i>', '5G Sites', fmtNum(d.postgres_db.site_count_5g), ' sites', d.postgres_db.last_update_5g ? 'Last data: ' + d.postgres_db.last_update_5g : '');
                 }
 
                 var cgrid = document.getElementById('dashChartGrid');
@@ -969,12 +969,12 @@
 
                     cgrid.innerHTML = `
                     <div class="dash-chart-card" onclick="openChartModal(this.querySelector('canvas'))">
-                        <div class="dash-chart-title">📦 Payload Trend</div>
+                        <div class="dash-chart-title"><i class="fas fa-hdd"></i> Payload Trend</div>
                         <div class="dash-chart-sub">Stacked per Technology (TB/day) — last 30 days</div>
                         <div style="height:240px;position:relative;"><canvas id="cPayload" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas></div>
                     </div>
                     <div class="dash-chart-card" onclick="openChartModal(this.querySelector('canvas'))">
-                        <div class="dash-chart-title">🚀 Traffic Trend</div>
+                        <div class="dash-chart-title"><i class="fas fa-tachometer-alt"></i> Traffic Trend</div>
                         <div class="dash-chart-sub">Stacked per Technology (KErl) — last 30 days</div>
                         <div style="height:240px;position:relative;"><canvas id="cTraffic" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas></div>
                     </div>`;
