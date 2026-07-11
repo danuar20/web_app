@@ -1,7 +1,7 @@
 """4G KPI Hourly Sector Routes — /kpi_4g_hourly_sector"""
 from flask import Blueprint, render_template, request, session, flash, make_response
 from app.db.db_webapp import get_postgres_connection, get_site_list_4g
-from ._utils import login_required, _no_cache, json_response, db_query
+from ._utils import viewer_blocked, login_required, _no_cache, json_response, db_query
 import psycopg2
 import psycopg2.errors
 from collections import defaultdict
@@ -52,6 +52,7 @@ KPI_GROUPS = ["Productivity","Availability","User","Accessibility","Retainabilit
 
 @kpi4g_hourly_sector.route("/kpi_4g_hourly_sector")
 @login_required
+@viewer_blocked
 def kpi_4g_hourly_sector_view():
     from_date = request.args.get("from_date", "")
     to_date   = request.args.get("to_date",   "")

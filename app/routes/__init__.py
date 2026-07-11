@@ -50,13 +50,11 @@ kpi4g_compare = kpi_4g_compare_routes.kpi4g_compare
 from . import kpi_4g_api_routes
 kpi4g_api = kpi_4g_api_routes.kpi4g_api
 
-# Packet Loss — /pl_2g, /pl_4g, /api/pl_4g, /export/pl_2g, /export/pl_4g
-from . import packet_loss_routes
-pl = packet_loss_routes.pl
 
-# TA 4G — /ta_4g
-from . import ta_4g_routes
-ta4g = ta_4g_routes.ta4g
+
+# TA 4G New — /ta_4g_new
+from . import ta_4g_new_routes
+ta4g_new = ta_4g_new_routes.ta4g_new
 
 # Dashboard 4G — /dashboard_4g
 from . import dashboard_4g_routes
@@ -109,3 +107,6 @@ nettilt3d = nettilt3d_routes.nettilt3d
 # Admin — /admin/users, /admin/users/login_logs
 from . import admin_routes
 admin_bp = admin_routes.admin_bp
+# PL Monitoring — /pl_monitoring
+from . import pl_monitoring_routes
+pl_monitoring = pl_monitoring_routes.pl_monitoring

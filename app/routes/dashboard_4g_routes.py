@@ -536,10 +536,11 @@ def dashboard_4g_view():
     user_charts = []
     username = session.get("username", "User")
     try:
-        conn = get_postgres_connection()
-        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        cur.execute("SELECT id, dashboard_name, chart_config FROM user_custom_charts WHERE username = %s ORDER BY dashboard_name", [username])
-        user_charts = [dict(r) for r in cur.fetchall()]
+        from contextlib import closing
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor(cursor_factory=psycopg2.extras.DictCursor)) as cur:
+                cur.execute("SELECT id, dashboard_name, chart_config FROM user_custom_charts WHERE username = %s AND dashboard_name LIKE '4G%%' ORDER BY dashboard_name", [username])
+                user_charts = [dict(r) for r in cur.fetchall()]
     except Exception as e:
         print(f"Error fetching custom charts: {e}")
 
@@ -587,7 +588,9 @@ def dashboard_4g_view():
 def save_custom_chart():
     username = session.get("username", "User")
     data = request.get_json()
-    dashboard_name = data.get("dashboard_name")
+    dashboard_name = data.get("dashboard_name", "").strip()
+    if dashboard_name and not dashboard_name.upper().startswith("4G"):
+        dashboard_name = f"4G - {dashboard_name}"
     chart_config = data.get("chart_config")
     
     if not dashboard_name or not chart_config:
@@ -612,7 +615,9 @@ def save_custom_chart():
 def delete_custom_chart():
     username = session.get("username", "User")
     data = request.get_json()
-    dashboard_name = data.get("dashboard_name")
+    dashboard_name = data.get("dashboard_name", "").strip()
+    if dashboard_name and not dashboard_name.upper().startswith("4G"):
+        dashboard_name = f"4G - {dashboard_name}"
     
     if not dashboard_name:
         return json_response({"error": "Missing dashboard name"}, 400)

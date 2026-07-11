@@ -1,7 +1,7 @@
 """4G KPI Daily Routes — /kpi_4g_daily"""
 from flask import Blueprint, render_template, request, session, make_response, flash
 from app.db.db_webapp import get_postgres_connection
-from ._utils import login_required, _no_cache, csv_response, validate_date_params, db_query
+from ._utils import viewer_blocked, login_required, _no_cache, csv_response, validate_date_params, db_query
 import psycopg2
 import psycopg2.errors
 
@@ -78,6 +78,7 @@ ALL_KPIS = BASE_KPIS + [
 
 @kpi4g_daily.route("/kpi_4g_daily")
 @login_required
+@viewer_blocked
 def kpi_4g_daily():
     from_date = request.args.get("from_date", "")
     to_date   = request.args.get("to_date",   "")
@@ -204,6 +205,7 @@ def kpi_4g_daily():
 
 @kpi4g_daily.route("/export/kpi_4g_daily")
 @login_required
+@viewer_blocked
 def export_kpi_4g_daily():
     from_date = request.args.get("from_date", "")
     to_date   = request.args.get("to_date",   "")

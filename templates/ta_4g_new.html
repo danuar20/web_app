@@ -1,0 +1,1117 @@
+{% extends "base.html" %}
+
+{% block nav_ta %}active{% endblock %}
+{% block page_title %}TA 4G New — Monitoring & Comparison{% endblock %}
+{% block page_sub %}Distribution of Timing Advance (Actual vs Compare){% endblock %}
+
+{% block page_content %}
+<style>
+/* Modern styling matching Productivity Site Level */
+.content-area { flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 20px; animation: fadeIn 0.4s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.filter-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(79, 172, 254, 0.15);
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-end;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.03);
+    position: relative;
+    z-index: 90;
+}
+.top-filter-card {
+    z-index: 105; /* prevent site ID dropdown overlap */
+}
+[data-theme="dark"] .filter-card {
+    background: rgba(30, 30, 46, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+
+.glass-card {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0,0,0,0.05);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.glass-card:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,0.08); }
+[data-theme="dark"] .glass-card {
+    background: rgba(40, 42, 54, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+.tabs-container { display: flex; gap: 12px; margin-bottom: 8px; border-bottom: 2px solid rgba(79,172,254,0.1); }
+.tab-btn { 
+    background: transparent; border: none; padding: 12px 20px; color: inherit; 
+    font-size: 14px; font-weight: 600; cursor: pointer; position: relative; 
+    transition: color 0.3s; opacity: 0.6;
+}
+.tab-btn:hover, .tab-btn.active { opacity: 1; color: #4facfe; }
+.tab-btn.active::after { 
+    content: ''; position: absolute; bottom: -2px; left: 0; right: 0; 
+    height: 3px; background: #4facfe; border-radius: 3px 3px 0 0; 
+}
+.tab-content { display: none; }
+.tab-content.active { display: flex; flex-direction: column; gap: 20px; }
+
+.filter-group { display: flex; flex-direction: column; }
+.filter-label { font-size: 11px; font-weight: 700; margin-bottom: 8px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px; }
+.f-input { padding: 9px 12px; border-radius: 8px; border: 1px solid rgba(79,172,254,0.2); font-family: inherit; background: transparent; color: inherit; font-size: 13px; }
+[data-theme="dark"] .f-input { background: rgba(0,0,0,0.1); }
+
+.dropdown-container { position: relative; min-width: 180px; }
+.dropdown-toggle { 
+    width: 100%; padding: 10px 14px; border: 1px solid rgba(79,172,254,0.2); 
+    border-radius: 8px; cursor: pointer; text-align: left; display: flex; 
+    justify-content: space-between; align-items: center; font-size: 13px;
+    background: transparent; color: inherit; transition: all 0.2s;
+}
+.dropdown-toggle:hover { border-color: #4facfe; }
+.dropdown-menu { 
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; 
+    border: 1px solid rgba(79,172,254,0.15); border-radius: 8px; 
+    box-shadow: 0 12px 32px rgba(0,0,0,0.15); z-index: 1000; display: none; 
+    flex-direction: column; background: #fff; max-height: 250px; overflow-y: auto;
+}
+[data-theme="dark"] .dropdown-menu { background: #1e1e2e; }
+.dropdown-menu label { padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 0; }
+.dropdown-menu label:hover { background: rgba(79,172,254,0.1); }
+.dropdown-search { width: calc(100% - 16px); margin: 8px; padding: 8px; border: 1px solid rgba(79,172,254,0.3); border-radius: 6px; font-size: 12px; background: transparent; color: inherit; }
+
+.modern-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.modern-table th { 
+    background: rgba(79, 172, 254, 0.05); padding: 12px 16px; font-size: 11px; 
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; text-align: left;
+    border-bottom: 2px solid rgba(79, 172, 254, 0.2); white-space: nowrap;
+}
+.modern-table td { padding: 12px 16px; border-bottom: 1px solid rgba(0,0,0,0.04); font-size: 12px; white-space: nowrap;}
+[data-theme="dark"] .modern-table td { border-bottom: 1px solid rgba(255,255,255,0.04); }
+.modern-table tbody tr:hover td { background: rgba(79, 172, 254, 0.04); }
+
+.pill-pos { background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 8px; border-radius: 6px; font-weight: 600; }
+.pill-neg { background: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 4px 8px; border-radius: 6px; font-weight: 600; }
+.pill-warn { background: rgba(245, 158, 11, 0.15); color: #f59e0b; padding: 4px 8px; border-radius: 6px; font-weight: 600; }
+.pill-gray { background: transparent; padding: 2px 6px; border-radius: 4px; font-weight: 600; font-size: 11px; }
+
+.chart-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.chart-row-flex { display: flex; gap: 16px; }
+.chart-row-flex > div { flex: 1; min-width: 0; }
+
+.btn-primary { background: #4facfe; border: none; color: white; padding: 10px 24px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; transition: transform 0.2s, background 0.2s; display: flex; align-items: center; gap: 8px; }
+.btn-primary:hover { background: #00f2fe; transform: translateY(-1px); }
+.spinner { border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 3px solid #fff; width: 16px; height: 16px; animation: spin 1s linear infinite; display: none; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* Action Bar Styles */
+.action-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; margin-bottom: 4px; transition: opacity 0.2s; }
+.view-toggle-group { display: flex; background: rgba(79,172,254,0.05); border-radius: 8px; padding: 4px; border: 1px solid rgba(79,172,254,0.15); }
+.view-btn { background: transparent; border: none; padding: 6px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; color: inherit; opacity: 0.6; transition: all 0.2s; }
+.view-btn.active { background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.05); opacity: 1; color: #4facfe; }
+[data-theme="dark"] .view-btn.active { background: #2a2c3c; }
+
+.right-actions { display: flex; align-items: center; gap: 16px; }
+.charts-row-selector { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; opacity: 0.8; }
+.row-btn { background: transparent; border: 1px solid rgba(79,172,254,0.2); padding: 4px 10px; border-radius: 6px; cursor: pointer; color: inherit; font-size: 12px; transition: all 0.2s; }
+.row-btn.active { background: #e0f2fe; border-color: #4facfe; color: #0284c7; }
+[data-theme="dark"] .row-btn.active { background: rgba(79,172,254,0.2); color: #7dd3fc; }
+
+.export-btn { padding: 6px 16px; border-radius: 6px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; color: white; transition: opacity 0.2s; }
+.export-btn:hover { opacity: 0.9; }
+.export-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-png { background: #8b5cf6; }
+.btn-csv { background: #10b981; }
+
+</style>
+
+<div class="content-area">
+
+    <!-- Tabs -->
+    <div class="tabs-container">
+        <button class="tab-btn active" onclick="switchTab('actual', this)"><i class="fas fa-chart-bar" style="margin-right:6px"></i> Actual TA</button>
+        <button class="tab-btn" onclick="switchTab('compare', this)"><i class="fas fa-balance-scale" style="margin-right:6px"></i> Comparison TA</button>
+    </div>
+
+    <!-- ACTUAL TAB -->
+    <div id="tab-actual" class="tab-content active">
+        <!-- Top Filters -->
+        <div class="filter-card top-filter-card">
+            <div class="filter-group">
+                <div class="filter-label">From Date</div>
+                <input type="date" id="actFrom" class="f-input" value="{{ from_date }}">
+            </div>
+            <div class="filter-group">
+                <div class="filter-label">To Date</div>
+                <input type="date" id="actTo" class="f-input" value="{{ to_date }}">
+            </div>
+            <div class="filter-group">
+                <div class="filter-label">Site ID</div>
+                <div class="dropdown-container">
+                    <button type="button" class="dropdown-toggle" onclick="toggleDropdown('actSiteDrop')">
+                        <span id="actSiteLbl">0 Selected</span> <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="dropdown-menu" id="actSiteDrop">
+                        <input type="text" class="dropdown-search" onkeyup="filterList(this, 'actSiteList')" placeholder="Search Site...">
+                        <label style="border-bottom:1px solid rgba(128,128,128,0.1); font-weight:bold;">
+                            <input type="checkbox" onchange="toggleAll(this, 'actSiteList', 'actSiteLbl', 'Site')"> Select All
+                        </label>
+                        <div id="actSiteList">
+                            {% for s in sites_list %}
+                            <label><input type="checkbox" value="{{ s }}" onchange="updateLbl('actSiteList', 'actSiteLbl', 'Site')"> <span>{{ s }}</span></label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button class="btn-primary" onclick="fetchData('actual')">
+                <span>Generate</span>
+                <div class="spinner" id="actSpinner"></div>
+            </button>
+        </div>
+        
+        <!-- Dynamic Content Area -->
+        <div id="actDynamicArea" style="display:none; flex-direction:column; gap:16px; transition: all 0.3s ease;">
+            
+            <!-- Controls wrapper to remove gap -->
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <!-- Action Bar -->
+                <div class="action-bar" id="actActionBar">
+                    <div class="view-toggle-group">
+                        <button class="view-btn active" id="actViewChartBtn" onclick="switchContentView('actual', 'chart')">Chart</button>
+                        <button class="view-btn" id="actViewTableBtn" onclick="switchContentView('actual', 'table')">Table</button>
+                    </div>
+                    <div class="right-actions">
+                        <div class="charts-row-selector" id="actRowSelector">
+                            <span>Charts / Row:</span>
+                            <button class="row-btn" onclick="setChartRow(1, 'actual', this)">1</button>
+                            <button class="row-btn" onclick="setChartRow(2, 'actual', this)">2</button>
+                            <button class="row-btn active" onclick="setChartRow(3, 'actual', this)">3</button>
+                        </div>
+                        <button class="export-btn btn-png" onclick="exportPNG('actual', event)"><i class="fas fa-camera"></i> Export PNG</button>
+                        <button class="export-btn btn-csv" onclick="exportCSV('actTable', 'Actual_TA.csv')"><i class="fas fa-file-csv"></i> Export CSV</button>
+                    </div>
+                </div>
+                
+                <!-- Secondary Filters -->
+                <div class="filter-card" id="actChartFilters">
+                    <div class="filter-group">
+                        <div class="filter-label">Sector</div>
+                        <div class="dropdown-container">
+                            <button type="button" class="dropdown-toggle" onclick="toggleDropdown('actSecDrop')">
+                                <span id="actSecLbl">All Sectors</span> <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="dropdown-menu" id="actSecDrop">
+                                <label style="border-bottom:1px solid rgba(128,128,128,0.1); font-weight:bold;">
+                                    <input type="checkbox" id="actSecCbAll" checked onchange="toggleAll(this, 'actSecList', 'actSecLbl', 'Sector', true)"> Select All
+                                </label>
+                                <div id="actSecList"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <div class="filter-label">Band</div>
+                        <div class="dropdown-container">
+                            <button type="button" class="dropdown-toggle" onclick="toggleDropdown('actBandDrop')">
+                                <span id="actBandLbl">All Bands</span> <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="dropdown-menu" id="actBandDrop">
+                                <label style="border-bottom:1px solid rgba(128,128,128,0.1); font-weight:bold;">
+                                    <input type="checkbox" id="actBandCbAll" checked onchange="toggleAll(this, 'actBandList', 'actBandLbl', 'Band', true)"> Select All
+                                </label>
+                                <div id="actBandList"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <div class="filter-label">Threshold (%)</div>
+                        <input type="number" id="actThreshold" class="f-input th-input" style="width:100px;" value="90" min="0" max="100">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <div class="filter-label">Chart View</div>
+                        <select id="actChartViewType" class="f-input" onchange="renderCharts('actual')">
+                            <option value="all" selected>All</option>
+                            <option value="dist">TA Distribution</option>
+                            <option value="pct">Cumulative % TA</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Chart Container -->
+            <div id="actChartsContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
+            
+            <!-- Table Container -->
+            <div class="glass-card" id="actTableContainer" style="display:none; padding:0; overflow:hidden;">
+                <div style="padding:16px 20px; border-bottom:1px solid rgba(128,128,128,0.1); display:flex; justify-content:space-between; align-items:center;">
+                    <h3 style="margin:0; font-size:14px;">TA Analysis <span style="font-size:11px; font-weight:normal; opacity:0.7; margin-left:12px;">(Status criteria: Normal &lt; 1.092km, Borderline &lt; 3.198km, Overshoot &gt;= 3.198km)</span></h3>
+                    <input type="text" id="actSearch" class="f-input" placeholder="Search Site ID..." onkeyup="searchTable('actTable', this.value)" style="padding:6px 12px; font-size:12px; width:150px;">
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="modern-table" id="actTable">
+                        <thead><tr><th>Site ID</th><th>Sector</th><th>Band</th><th>Total Samples</th><th>Samples < <span class="th-val">90</span>%</th><th>Dominant Band</th><th>Distance (km)</th><th>Status</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- COMPARE TAB -->
+    <div id="tab-compare" class="tab-content">
+        <!-- Top Filters -->
+        <div class="filter-card top-filter-card">
+            <div class="filter-group">
+                <div class="filter-label">Before From</div>
+                <input type="date" id="compBFrom" class="f-input" value="{{ before_from }}">
+            </div>
+            <div class="filter-group">
+                <div class="filter-label">Before To</div>
+                <input type="date" id="compBTo" class="f-input" value="{{ before_to }}">
+            </div>
+            <div class="filter-group">
+                <div class="filter-label">After From</div>
+                <input type="date" id="compAFrom" class="f-input" value="{{ after_from }}">
+            </div>
+            <div class="filter-group">
+                <div class="filter-label">After To</div>
+                <input type="date" id="compATo" class="f-input" value="{{ after_to }}">
+            </div>
+            <div class="filter-group">
+                <div class="filter-label">Site ID</div>
+                <div class="dropdown-container">
+                    <button type="button" class="dropdown-toggle" onclick="toggleDropdown('compSiteDrop')">
+                        <span id="compSiteLbl">0 Selected</span> <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="dropdown-menu" id="compSiteDrop">
+                        <input type="text" class="dropdown-search" onkeyup="filterList(this, 'compSiteList')" placeholder="Search Site...">
+                        <label style="border-bottom:1px solid rgba(128,128,128,0.1); font-weight:bold;">
+                            <input type="checkbox" onchange="toggleAll(this, 'compSiteList', 'compSiteLbl', 'Site')"> Select All
+                        </label>
+                        <div id="compSiteList">
+                            {% for s in sites_list %}
+                            <label><input type="checkbox" value="{{ s }}" onchange="updateLbl('compSiteList', 'compSiteLbl', 'Site')"> <span>{{ s }}</span></label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button class="btn-primary" onclick="fetchData('compare')">
+                <span>Generate</span>
+                <div class="spinner" id="compSpinner"></div>
+            </button>
+        </div>
+        
+        <!-- Dynamic Content Area -->
+        <div id="compDynamicArea" style="display:none; flex-direction:column; gap:16px; transition: all 0.3s ease;">
+            
+            <!-- Controls wrapper to remove gap -->
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <!-- Action Bar -->
+                <div class="action-bar" id="compActionBar">
+                    <div class="view-toggle-group">
+                        <button class="view-btn active" id="compViewChartBtn" onclick="switchContentView('compare', 'chart')">Chart</button>
+                        <button class="view-btn" id="compViewTableBtn" onclick="switchContentView('compare', 'table')">Table</button>
+                    </div>
+                    <div class="right-actions">
+                        <button class="export-btn btn-png" onclick="exportPNG('compare', event)"><i class="fas fa-camera"></i> Export PNG</button>
+                        <button class="export-btn btn-csv" onclick="exportCSV('compTable', 'Comparison_TA.csv')"><i class="fas fa-file-csv"></i> Export CSV</button>
+                    </div>
+                </div>
+                
+                <!-- Secondary Filters -->
+                <div class="filter-card" id="compChartFilters">
+                    <div class="filter-group">
+                        <div class="filter-label">Sector</div>
+                        <div class="dropdown-container">
+                            <button type="button" class="dropdown-toggle" onclick="toggleDropdown('compSecDrop')">
+                                <span id="compSecLbl">All Sectors</span> <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="dropdown-menu" id="compSecDrop">
+                                <label style="border-bottom:1px solid rgba(128,128,128,0.1); font-weight:bold;">
+                                    <input type="checkbox" id="compSecCbAll" checked onchange="toggleAll(this, 'compSecList', 'compSecLbl', 'Sector', true)"> Select All
+                                </label>
+                                <div id="compSecList"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <div class="filter-label">Band</div>
+                        <div class="dropdown-container">
+                            <button type="button" class="dropdown-toggle" onclick="toggleDropdown('compBandDrop')">
+                                <span id="compBandLbl">All Bands</span> <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <div class="dropdown-menu" id="compBandDrop">
+                                <label style="border-bottom:1px solid rgba(128,128,128,0.1); font-weight:bold;">
+                                    <input type="checkbox" id="compBandCbAll" checked onchange="toggleAll(this, 'compBandList', 'compBandLbl', 'Band', true)"> Select All
+                                </label>
+                                <div id="compBandList"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <div class="filter-label">Threshold (%)</div>
+                        <input type="number" id="compThreshold" class="f-input th-input" style="width:100px;" value="90" min="0" max="100">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <div class="filter-label">Chart View</div>
+                        <select id="compChartViewType" class="f-input" onchange="renderCharts('compare')">
+                            <option value="all" selected>All</option>
+                            <option value="dist">TA Distribution</option>
+                            <option value="pct">Cumulative % TA</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Chart Container -->
+            <div id="compChartsContainer" style="display:flex; flex-direction:column; gap:16px;"></div>
+            
+            <!-- Table Container -->
+            <div class="glass-card" id="compTableContainer" style="display:none; padding:0; overflow:hidden;">
+                <div style="padding:16px 20px; border-bottom:1px solid rgba(128,128,128,0.1); display:flex; justify-content:space-between; align-items:center;">
+                    <h3 style="margin:0; font-size:14px;">TA Analysis (Compare) <span style="font-size:11px; font-weight:normal; opacity:0.7; margin-left:12px;">(Status criteria: Normal &lt; 1.092km, Borderline &lt; 3.198km, Overshoot &gt;= 3.198km)</span></h3>
+                    <input type="text" id="compSearch" class="f-input" placeholder="Search Site ID..." onkeyup="searchTable('compTable', this.value)" style="padding:6px 12px; font-size:12px; width:150px;">
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="modern-table" id="compTable">
+                        <thead><tr><th>Site ID</th><th>Sector</th><th>Band</th><th>Period</th><th>Total Samples</th><th>Samples < <span class="th-val">90</span>%</th><th>Dominant Band</th><th>Distance (km)</th><th>Status</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- html2canvas for Export PNG -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<!-- Pass constant data -->
+<script>
+    const CSRF_TOKEN = "{{ csrf_token() }}";
+    const TA_LABELS = {{ ta_labels|tojson|safe }};
+    const BAND_COLOR_MAP = {
+        "L700": "#f093fb",
+        "L900": "#ff5555",
+        "L1800": "#4facfe",
+        "L2100": "#00c853",
+        "L2300_1": "#a78bfa",
+        "L2300_2": "#ff9f40",
+        "L2300_3": "#f6c90e"
+    };
+    const FALLBACK_COLORS = ["#90a4ae", "#4db6ac", "#ff8a65", "#ba68c8", "#aed581"];
+    let ACT_DATA = null;
+    let COMP_BEFORE = null;
+    let COMP_AFTER = null;
+    
+    // Store active chart instances separate by tab
+    let actPageCharts = [];
+    let compPageCharts = [];
+    
+    // Current rows layout state for actual tab
+    let actCurrentRows = 3;
+</script>
+
+<script>
+// --- UI Helpers ---
+function switchTab(tabId, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + tabId).classList.add('active');
+}
+
+function switchContentView(tab, view) {
+    let btnChart = document.getElementById(tab === 'actual' ? 'actViewChartBtn' : 'compViewChartBtn');
+    let btnTable = document.getElementById(tab === 'actual' ? 'actViewTableBtn' : 'compViewTableBtn');
+    let filters = document.getElementById(tab === 'actual' ? 'actChartFilters' : 'compChartFilters');
+    let chartCont = document.getElementById(tab === 'actual' ? 'actChartsContainer' : 'compChartsContainer');
+    let tableCont = document.getElementById(tab === 'actual' ? 'actTableContainer' : 'compTableContainer');
+    let rowSel = document.getElementById('actRowSelector');
+    
+    // Get Export PNG button for this tab
+    let pngBtn = tab === 'actual'
+        ? document.querySelector('#actActionBar .btn-png')
+        : document.querySelector('#compActionBar .btn-png');
+
+    if(view === 'chart') {
+        btnChart.classList.add('active');
+        btnTable.classList.remove('active');
+        filters.style.display = 'flex';
+        chartCont.style.display = 'flex';
+        tableCont.style.display = 'none';
+        if(tab === 'actual') rowSel.style.display = 'flex';
+        // Enable PNG export — charts are visible
+        if(pngBtn) { pngBtn.disabled = false; pngBtn.title = ''; }
+    } else {
+        btnTable.classList.add('active');
+        btnChart.classList.remove('active');
+        filters.style.display = 'flex';
+        chartCont.style.display = 'none';
+        tableCont.style.display = 'block';
+        if(tab === 'actual') rowSel.style.display = 'none';
+        // Disable PNG export — no charts visible to capture
+        if(pngBtn) { pngBtn.disabled = true; pngBtn.title = 'Switch to Chart view to export PNG'; }
+    }
+}
+
+function setChartRow(rows, tab, btnEl) {
+    if(tab === 'actual') actCurrentRows = rows;
+    
+    let parent = btnEl.closest('.charts-row-selector');
+    parent.querySelectorAll('.row-btn').forEach(b => b.classList.remove('active'));
+    btnEl.classList.add('active');
+    
+    renderCharts(tab);
+}
+
+function toggleDropdown(id) {
+    let el = document.getElementById(id);
+    let isVisible = el.style.display === 'flex';
+    document.querySelectorAll('.dropdown-menu').forEach(d => d.style.display = 'none');
+    el.style.display = isVisible ? 'none' : 'flex';
+}
+window.addEventListener('click', function(e){
+    if(!e.target.closest('.dropdown-container')) {
+        document.querySelectorAll('.dropdown-menu').forEach(d => d.style.display = 'none');
+    }
+});
+function filterList(inp, listId) {
+    let v = inp.value.toLowerCase();
+    document.querySelectorAll(`#${listId} label`).forEach(lbl => {
+        let text = lbl.querySelector('span').innerText.toLowerCase();
+        lbl.style.display = text.indexOf(v) > -1 ? 'flex' : 'none';
+    });
+}
+function searchTable(tableId, query) {
+    let v = query.toLowerCase();
+    let rows = document.querySelectorAll(`#${tableId} tbody tr`);
+    rows.forEach(tr => {
+        let siteIdCell = tr.cells[0].innerText.toLowerCase();
+        tr.style.display = siteIdCell.indexOf(v) > -1 ? '' : 'none';
+    });
+}
+function toggleAll(cb, listId, lblId, prefix, reRender=false) {
+    document.querySelectorAll(`#${listId} input[type="checkbox"]`).forEach(i => i.checked = cb.checked);
+    updateLbl(listId, lblId, prefix, reRender);
+}
+function updateLbl(listId, lblId, prefix, reRender=false) {
+    let checkboxes = document.querySelectorAll(`#${listId} input[type="checkbox"]`);
+    let checkedBoxes = document.querySelectorAll(`#${listId} input[type="checkbox"]:checked`);
+    let c = checkedBoxes.length;
+    let total = checkboxes.length;
+    document.getElementById(lblId).innerText = c === total ? `All ${prefix}s` : `${c} Selected`;
+    if(reRender) {
+        if(listId.startsWith('act')) { renderCharts('actual'); buildAnalysisTable('actual'); }
+        if(listId.startsWith('comp')) { renderCharts('compare'); buildAnalysisTable('compare'); }
+    }
+}
+function getCheckedValues(listId) {
+    return Array.from(document.querySelectorAll(`#${listId} input[type="checkbox"]:checked`)).map(cb => cb.value);
+}
+
+// LOW: Thresholds are independent per tab — do NOT sync between tabs
+document.getElementById('actThreshold').addEventListener('input', function() {
+    document.querySelectorAll('.th-val').forEach(el => el.innerText = this.value);
+    if(ACT_DATA) { renderCharts('actual'); buildAnalysisTable('actual'); }
+});
+document.getElementById('compThreshold').addEventListener('input', function() {
+    if(COMP_BEFORE || COMP_AFTER) { renderCharts('compare'); buildAnalysisTable('compare'); }
+});
+
+function exportCSV(tableId, filename) {
+    let table = document.getElementById(tableId);
+    let rows = table.querySelectorAll('tr');
+    let csv = [];
+    for(let i=0; i<rows.length; i++) {
+        if(rows[i].style.display === 'none') continue;
+        let row = [], cols = rows[i].querySelectorAll('td, th');
+        for(let j=0; j<cols.length; j++) {
+            row.push('"' + cols[j].innerText.replace(/"/g, '""') + '"');
+        }
+        csv.push(row.join(','));
+    }
+    let csvFile = new Blob([csv.join('\n')], {type: 'text/csv'});
+    let a = document.createElement('a');
+    a.download = filename;
+    a.href = window.URL.createObjectURL(csvFile);
+    a.click();
+}
+
+function exportPNG(tab, event) {
+    // Capture ONLY the charts container to maintain exactly the CSS styling seen on the page 
+    // with a transparent background around the cards!
+    let container = document.getElementById(tab === 'actual' ? 'actChartsContainer' : 'compChartsContainer');
+    if(!container || container.innerHTML.trim() === '') return alert("No charts available to export.");
+    
+    let btn = event.currentTarget;
+    let oldHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+    btn.disabled = true;
+    
+    // Slight delay to allow UI to update the button state
+    setTimeout(() => {
+        html2canvas(container, {
+            scale: 2,
+            backgroundColor: null // strictly transparent background!
+        }).then(canvas => {
+            let a = document.createElement('a');
+            a.download = 'TA_Analysis_' + tab + '.png';
+            a.href = canvas.toDataURL('image/png');
+            a.click();
+            
+            btn.innerHTML = oldHtml;
+            btn.disabled = false;
+        }).catch(err => {
+            alert("Error exporting PNG: " + err);
+            btn.innerHTML = oldHtml;
+            btn.disabled = false;
+        });
+    }, 100);
+}
+
+// --- Custom Modal Interceptor ---
+function openCustomChartModal(canvas) {
+    if(typeof openChartModal !== 'function') return;
+    
+    // Extract title from original chart instance
+    let chartId = canvas.id;
+    let actualTitle = "Chart Preview";
+    if(chartInstances && chartInstances[chartId]) {
+        let sc = chartInstances[chartId];
+        if(sc.options && sc.options.plugins && sc.options.plugins.title) {
+            actualTitle = sc.options.plugins.title.text;
+        }
+    }
+    
+    openChartModal(canvas); // Create the modalChart using base.html logic
+    
+    if (typeof modalChart !== 'undefined' && modalChart) {
+        // Restore specific properties lost during JSON stringify in base.html
+        modalChart.data.datasets.forEach(ds => {
+            if(ds.label === 'ThresholdLineHidden') {
+                ds.borderDash = [5, 5]; // Restore dashed line pattern
+                ds.borderWidth = 1.5;
+            }
+        });
+        
+        // Ensure legends are standard filled rectangles and hide ThresholdLineHidden
+        if (modalChart.options.plugins && modalChart.options.plugins.legend) {
+            modalChart.options.plugins.legend.labels.usePointStyle = false; // standard rectangle
+            modalChart.options.plugins.legend.labels.filter = function(item, chart) {
+                return item.text !== 'ThresholdLineHidden';
+            };
+        }
+        if (modalChart.options.plugins && modalChart.options.plugins.tooltip) {
+            modalChart.options.plugins.tooltip.filter = function(tooltipItem) {
+                return tooltipItem.dataset.label !== 'ThresholdLineHidden';
+            };
+        }
+        
+        // Update the modal title to match the chart's actual title
+        let titleEl = document.getElementById('modalTitle');
+        if (titleEl && actualTitle) {
+            titleEl.innerText = actualTitle;
+        }
+        
+        modalChart.update();
+    }
+}
+
+// --- Dynamic Filter Builders ---
+function rebuildDynamicFilters(tab, dataObj) {
+    let sectors = new Set();
+    let bands = new Set();
+    
+    for(let secKey in dataObj) {
+        let parts = secKey.split("_S");
+        let sec = parts.length > 1 ? parts[1] : "Unknown";
+        sectors.add(sec);
+        for(let b in dataObj[secKey]) {
+            bands.add(b);
+        }
+    }
+    
+    let sortedSecs = Array.from(sectors).sort((a,b) => parseInt(a) - parseInt(b));
+    let sortedBands = Array.from(bands).sort((a,b) => a.length === b.length ? a.localeCompare(b) : a.length - b.length);
+    
+    let secListId = tab === 'actual' ? 'actSecList' : 'compSecList';
+    let bandListId = tab === 'actual' ? 'actBandList' : 'compBandList';
+    let secLblId = tab === 'actual' ? 'actSecLbl' : 'compSecLbl';
+    let bandLblId = tab === 'actual' ? 'actBandLbl' : 'compBandLbl';
+    
+    let secListEl = document.getElementById(secListId);
+    let bandListEl = document.getElementById(bandListId);
+    secListEl.innerHTML = ''; bandListEl.innerHTML = '';
+    
+    sortedSecs.forEach(sec => {
+        let lbl = document.createElement('label');
+        lbl.innerHTML = `<input type="checkbox" checked value="${sec}" onchange="updateLbl('${secListId}', '${secLblId}', 'Sector', true)"> <span>${sec}</span>`;
+        secListEl.appendChild(lbl);
+    });
+    
+    sortedBands.forEach(b => {
+        let lbl = document.createElement('label');
+        lbl.innerHTML = `<input type="checkbox" checked value="${b}" onchange="updateLbl('${bandListId}', '${bandLblId}', 'Band', true)"> <span>${b}</span>`;
+        bandListEl.appendChild(lbl);
+    });
+    
+    document.getElementById(tab==='actual'?'actSecCbAll':'compSecCbAll').checked = true;
+    document.getElementById(tab==='actual'?'actBandCbAll':'compBandCbAll').checked = true;
+    updateLbl(secListId, secLblId, 'Sector', false);
+    updateLbl(bandListId, bandLblId, 'Band', false);
+    
+    document.getElementById(tab === 'actual' ? 'actDynamicArea' : 'compDynamicArea').style.display = 'flex';
+}
+
+// --- Data Fetching ---
+async function fetchData(tab) {
+    let sites = getCheckedValues(tab === 'actual' ? 'actSiteList' : 'compSiteList');
+    if(sites.length === 0) { alert("Please select at least one Site ID."); return; }
+    
+    let btn = tab === 'actual' ? document.getElementById('actSpinner') : document.getElementById('compSpinner');
+    btn.style.display = 'inline-block';
+    
+    let payload = { tab: tab, site: sites };
+    if(tab === 'actual') {
+        payload.from_date = document.getElementById('actFrom').value;
+        payload.to_date = document.getElementById('actTo').value;
+    } else {
+        payload.before_from = document.getElementById('compBFrom').value;
+        payload.before_to = document.getElementById('compBTo').value;
+        payload.after_from = document.getElementById('compAFrom').value;
+        payload.after_to = document.getElementById('compATo').value;
+    }
+    
+    try {
+        let res = await fetch('/api/ta_4g_query', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+            body: JSON.stringify(payload)
+        });
+        
+        let data = await res.json();
+        if(data.error) throw new Error(data.error);
+        
+        if(tab === 'actual') {
+            ACT_DATA = data.actual_data;
+            rebuildDynamicFilters('actual', ACT_DATA);
+        } else {
+            COMP_BEFORE = data.before_data;
+            COMP_AFTER = data.after_data;
+            let merged = {};
+            for(let k in COMP_BEFORE) merged[k] = COMP_BEFORE[k];
+            for(let k in COMP_AFTER) merged[k] = COMP_AFTER[k];
+            rebuildDynamicFilters('compare', merged);
+        }
+        renderCharts(tab);
+        buildAnalysisTable(tab);
+        switchContentView(tab, 'chart');
+        
+    } catch(err) {
+        alert("Failed to fetch data: " + err.message);
+    } finally {
+        btn.style.display = 'none';
+    }
+}
+
+// --- Chart Rendering ---
+function tc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "#b0b8c8" : "#555"; }
+function gc(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"; }
+
+function hexToRgba(hex, alpha) {
+    var c;
+    if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
+        c= hex.substring(1).split('');
+        if(c.length== 3){
+            c= [c[0], c[0], c[1], c[1], c[2], c[2]];
+        }
+        c= '0x'+c.join('');
+        return 'rgba('+[(c>>16)&255, (c>>8)&255, c&255].join(',')+','+alpha+')';
+    }
+    return 'rgba(0,0,0,'+alpha+')';
+}
+
+// BUG #3 FIX: Removed dead variable `i` that was incremented but never used
+function getBandColor(band) {
+    for(let b of Object.keys(BAND_COLOR_MAP)) {
+        if(band === b) return BAND_COLOR_MAP[b];
+    }
+    return FALLBACK_COLORS[band.length % FALLBACK_COLORS.length];
+}
+
+function buildDatasetsActual(bandsObj, selectedBands, thresholdId) {
+    let dist = [], pct = [];
+    let thresh = parseFloat(document.getElementById(thresholdId).value) || 90;
+    
+    let sortedBands = Object.keys(bandsObj).sort((a,b) => a.length === b.length ? a.localeCompare(b) : a.length - b.length);
+    
+    for(let band of sortedBands) {
+        if(!selectedBands.includes(band)) continue;
+        let c = getBandColor(band);
+        let vals = bandsObj[band].ta_vals;
+        let tot = bandsObj[band].total || 1; 
+        
+        let pctData = [];
+        let cum = 0;
+        for(let v of vals) {
+            cum += v;
+            pctData.push((cum/tot)*100);
+        }
+        
+        dist.push({
+            label: band, data: vals,
+            backgroundColor: hexToRgba(c, 0.5), borderColor: c,
+            borderWidth: 1, barPercentage: 0.9, categoryPercentage: 0.8
+        });
+        
+        pct.push({
+            label: band, data: pctData,
+            borderColor: c, backgroundColor: c, // fill style fallback
+            borderWidth: 2, tension: 0.1, pointRadius: 1
+        });
+    }
+    
+    pct.push({
+        label: "ThresholdLineHidden", 
+        data: Array(15).fill(thresh),
+        borderColor: '#ef4444', borderDash: [5, 5],
+        borderWidth: 1.5, pointRadius: 0, fill: false,
+        pointStyle: 'rect', hoverRadius: 0
+    });
+    
+    return { dist, pct };
+}
+
+function createChartConfig(title, labels, datasets, type='bar') {
+    return {
+        type: type,
+        data: { labels: labels, datasets: datasets },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { 
+                    display: true, position: 'bottom', 
+                    labels: { 
+                        color: tc(), font: { size: 10 }, boxWidth: 12, padding: 8,
+                        filter: function(item, chart) {
+                            return item.text !== 'ThresholdLineHidden';
+                        }
+                    }
+                },
+                title: { 
+                    display: true, 
+                    text: title, 
+                    color: tc(), 
+                    font: { size: 12 },
+                    padding: { bottom: 25 }
+                },
+                tooltip: {
+                    filter: function(tooltipItem) {
+                        return tooltipItem.dataset.label !== 'ThresholdLineHidden';
+                    }
+                }
+            },
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                x: { ticks: { color: tc(), font: { size: 9 }, maxRotation: 45, minRotation: 45 }, grid: { display: false } },
+                y: { ticks: { color: tc(), font: { size: 10 } }, grid: { color: gc() } }
+            }
+        }
+    };
+}
+
+function renderCharts(tab) {
+    let container = document.getElementById(tab === 'actual' ? 'actChartsContainer' : 'compChartsContainer');
+    container.innerHTML = '';
+    
+    let secListId = tab === 'actual' ? 'actSecList' : 'compSecList';
+    let bandListId = tab === 'actual' ? 'actBandList' : 'compBandList';
+    let thresholdId = tab === 'actual' ? 'actThreshold' : 'compThreshold';
+    let viewType = document.getElementById(tab === 'actual' ? 'actChartViewType' : 'compChartViewType').value;
+    
+    let selSecs = getCheckedValues(secListId);
+    let selBands = getCheckedValues(bandListId);
+    
+    let activePageCharts = tab === 'actual' ? actPageCharts : compPageCharts;
+    activePageCharts.forEach(c => c.destroy());
+    if(tab === 'actual') actPageCharts = []; else compPageCharts = [];
+    
+    if(tab === 'actual') {
+        let cols = actCurrentRows;
+        let currentFlex = null;
+        let count = 0;
+        
+        let sortedKeys = Object.keys(ACT_DATA).sort((a,b) => {
+            let nA = parseInt(a.split("_S")[1]); let nB = parseInt(b.split("_S")[1]);
+            return nA - nB;
+        });
+        
+        for(let secKey of sortedKeys) {
+            let parts = secKey.split("_S");
+            let secNum = parts.length > 1 ? parts[1] : "";
+            if(!selSecs.includes(secNum)) continue;
+            
+            let ds = buildDatasetsActual(ACT_DATA[secKey], selBands, thresholdId);
+            if(ds.dist.length === 0) continue;
+            
+            if(count % cols === 0) {
+                currentFlex = document.createElement('div');
+                currentFlex.className = 'chart-row-flex';
+                container.appendChild(currentFlex);
+            }
+            count++;
+            
+            let colDiv = document.createElement('div');
+            // BUG #1 FIX: Removed dead hidden <h3> element that was never used
+            let distCard = document.createElement('div');
+            distCard.className = 'glass-card chart-row';
+            
+            // Container 1: Distribution
+            if(viewType === 'all' || viewType === 'dist') {
+                let distWrap = document.createElement('div');
+                distWrap.style.height = '280px';
+                let cDist = document.createElement('canvas');
+                cDist.id = 'act_dist_' + count;
+                cDist.style.cursor = 'pointer';
+                cDist.onclick = function() { openCustomChartModal(this); };
+                distWrap.appendChild(cDist);
+                distCard.appendChild(distWrap);
+                
+                let chartDist = new Chart(cDist, createChartConfig("TA Distribution " + secKey, TA_LABELS, ds.dist, 'bar'));
+                actPageCharts.push(chartDist);
+                chartInstances[cDist.id] = chartDist;
+            }
+            
+            // Container 2: Cumulative %
+            if(viewType === 'all' || viewType === 'pct') {
+                let pctWrap = document.createElement('div');
+                pctWrap.style.height = '280px';
+                if(viewType === 'all') {
+                    pctWrap.style.marginTop = '15px';
+                    pctWrap.style.paddingTop = '15px';
+                    pctWrap.style.borderTop = '1px solid rgba(128,128,128,0.2)';
+                }
+                let cPct = document.createElement('canvas');
+                cPct.id = 'act_pct_' + count;
+                cPct.style.cursor = 'pointer';
+                cPct.onclick = function() { openCustomChartModal(this); };
+                pctWrap.appendChild(cPct);
+                distCard.appendChild(pctWrap);
+                
+                let pctCfg = createChartConfig("Cumulative % TA " + secKey, TA_LABELS, ds.pct, 'line');
+                pctCfg.options.scales.y.max = 100;
+                pctCfg.options.scales.y.min = 0;
+                let chartPct = new Chart(cPct, pctCfg);
+                actPageCharts.push(chartPct);
+                chartInstances[cPct.id] = chartPct;
+            }
+            
+            colDiv.appendChild(distCard);
+            currentFlex.appendChild(colDiv);
+        }
+        
+    } else {
+        let allKeys = new Set([...Object.keys(COMP_BEFORE || {}), ...Object.keys(COMP_AFTER || {})]);
+        let sortedKeys = Array.from(allKeys).sort((a,b) => parseInt(a.split("_S")[1]) - parseInt(b.split("_S")[1]));
+        
+        for(let secKey of sortedKeys) {
+            let parts = secKey.split("_S");
+            let secNum = parts.length > 1 ? parts[1] : "";
+            if(!selSecs.includes(secNum)) continue;
+            
+            let bef = COMP_BEFORE[secKey] || {};
+            let aft = COMP_AFTER[secKey] || {};
+            let dsBef = buildDatasetsActual(bef, selBands, thresholdId);
+            let dsAft = buildDatasetsActual(aft, selBands, thresholdId);
+            
+            if(dsBef.dist.length === 0 && dsAft.dist.length === 0) continue;
+            
+            let flexRow = document.createElement('div');
+            flexRow.className = 'chart-row-flex';
+            flexRow.style.marginBottom = '20px';
+            
+            // Before Card — BUG #1 FIX: Removed dead hidden <h3> elements
+            let bCard = document.createElement('div');
+            bCard.className = 'glass-card chart-row';
+            
+            if(viewType === 'all' || viewType === 'dist') {
+                let bDistWrap = document.createElement('div'); bDistWrap.style.height = '280px';
+                let bDistC = document.createElement('canvas'); bDistC.id = 'b_dist_' + secKey; bDistC.style.cursor='pointer'; bDistC.onclick=function(){openCustomChartModal(this);};
+                bDistWrap.appendChild(bDistC); bCard.appendChild(bDistWrap);
+                let cbD = new Chart(bDistC, createChartConfig("TA Distribution " + secKey + " (Before)", TA_LABELS, dsBef.dist, 'bar'));
+                compPageCharts.push(cbD); chartInstances[bDistC.id] = cbD;
+            }
+            if(viewType === 'all' || viewType === 'pct') {
+                let bPctWrap = document.createElement('div'); bPctWrap.style.height = '280px'; 
+                if(viewType==='all'){ bPctWrap.style.marginTop = '15px'; bPctWrap.style.paddingTop = '15px'; bPctWrap.style.borderTop = '1px solid rgba(128,128,128,0.2)'; }
+                let bPctC = document.createElement('canvas'); bPctC.id = 'b_pct_' + secKey; bPctC.style.cursor='pointer'; bPctC.onclick=function(){openCustomChartModal(this);};
+                bPctWrap.appendChild(bPctC); bCard.appendChild(bPctWrap);
+                let pctBCfg = createChartConfig("Cumulative % TA " + secKey + " (Before)", TA_LABELS, dsBef.pct, 'line');
+                pctBCfg.options.scales.y.max = 100; pctBCfg.options.scales.y.min = 0;
+                let cbP = new Chart(bPctC, pctBCfg);
+                compPageCharts.push(cbP); chartInstances[bPctC.id] = cbP;
+            }
+            flexRow.appendChild(bCard);
+            
+            // After Card — BUG #1 FIX: Removed dead hidden <h3> elements
+            let aCard = document.createElement('div');
+            aCard.className = 'glass-card chart-row';
+            
+            if(viewType === 'all' || viewType === 'dist') {
+                let aDistWrap = document.createElement('div'); aDistWrap.style.height = '280px';
+                let aDistC = document.createElement('canvas'); aDistC.id = 'a_dist_' + secKey; aDistC.style.cursor='pointer'; aDistC.onclick=function(){openCustomChartModal(this);};
+                aDistWrap.appendChild(aDistC); aCard.appendChild(aDistWrap);
+                let caD = new Chart(aDistC, createChartConfig("TA Distribution " + secKey + " (After)", TA_LABELS, dsAft.dist, 'bar'));
+                compPageCharts.push(caD); chartInstances[aDistC.id] = caD;
+            }
+            if(viewType === 'all' || viewType === 'pct') {
+                let aPctWrap = document.createElement('div'); aPctWrap.style.height = '280px'; 
+                if(viewType==='all'){ aPctWrap.style.marginTop = '15px'; aPctWrap.style.paddingTop = '15px'; aPctWrap.style.borderTop = '1px solid rgba(128,128,128,0.2)'; }
+                let aPctC = document.createElement('canvas'); aPctC.id = 'a_pct_' + secKey; aPctC.style.cursor='pointer'; aPctC.onclick=function(){openCustomChartModal(this);};
+                aPctWrap.appendChild(aPctC); aCard.appendChild(aPctWrap);
+                let pctACfg = createChartConfig("Cumulative % TA " + secKey + " (After)", TA_LABELS, dsAft.pct, 'line');
+                pctACfg.options.scales.y.max = 100; pctACfg.options.scales.y.min = 0;
+                let caP = new Chart(aPctC, pctACfg);
+                compPageCharts.push(caP); chartInstances[aPctC.id] = caP;
+            }
+            flexRow.appendChild(aCard);
+            
+            container.appendChild(flexRow);
+        }
+    }
+}
+
+// --- Analysis Table ---
+function extractMaxDistance(bucketLabel) {
+    if(!bucketLabel) return 0;
+    if(bucketLabel.includes(">")) return 10.140;
+    let parts = bucketLabel.split("-");
+    if(parts.length===2) return parseFloat(parts[1]);
+    return 0;
+}
+
+function getStatusByDistance(dist) {
+    if(dist < 1.092) return '<span class="pill-pos">Normal</span>';
+    if(dist < 3.198) return '<span class="pill-warn">Borderline</span>';
+    return '<span class="pill-neg">Overshoot</span>';
+}
+
+// BUG #2 FIX: samplesInThresh now correctly uses the cumulative count AT the threshold bucket,
+// rather than accumulating all samples every iteration (which always equalled total).
+function calculateAnalysisRows(dataObj, selSecs, selBands, period, thresholdId) {
+    let rows = [];
+    let thresh = parseFloat(document.getElementById(thresholdId).value) || 90;
+    
+    for(let secKey in dataObj) {
+        let parts = secKey.split("_S");
+        let site = parts[0];
+        let sec = parts.length > 1 ? parts[1] : "";
+        if(!selSecs.includes(sec)) continue;
+        
+        let bands = dataObj[secKey];
+        let domBand = "-";
+        let maxT = -1;
+        for(let b in bands) {
+            if(!selBands.includes(b)) continue;
+            if(bands[b].total > maxT) { maxT = bands[b].total; domBand = b; }
+        }
+        
+        let sortedBands = Object.keys(bands).sort((a,b) => a.length === b.length ? a.localeCompare(b) : a.length - b.length);
+        
+        for(let b of sortedBands) {
+            if(!selBands.includes(b)) continue;
+            let tot = bands[b].total;
+            let vals = bands[b].ta_vals;
+            let cum = 0;
+            let samplesInThresh = 0; // Will hold the cumulative count AT the threshold bucket
+            let bucketIndex = 0;
+            let thresholdReached = false;
+            
+            for(let i=0; i<vals.length; i++) {
+                cum += vals[i];
+                let pct = (cum / (tot||1)) * 100;
+                if(pct >= thresh && !thresholdReached) {
+                    // Fix: samplesInThresh = cumulative count up to and including this bucket
+                    samplesInThresh = cum;
+                    bucketIndex = i;
+                    thresholdReached = true;
+                    break;
+                }
+                if(i === vals.length - 1) {
+                    // Threshold not reached even at last bucket — use full cumulative
+                    samplesInThresh = cum;
+                    bucketIndex = i;
+                }
+            }
+            
+            let distStr = TA_LABELS[bucketIndex];
+            let maxDist = extractMaxDistance(distStr);
+            let statusHtml = getStatusByDistance(maxDist);
+            
+            rows.push({
+                site: site, sec: sec, band: b, period: period,
+                tot: tot, inThresh: samplesInThresh, dom: b === domBand,
+                distance: maxDist.toFixed(3), status: statusHtml
+            });
+        }
+    }
+    return rows.sort((a,b) => parseInt(a.sec) - parseInt(b.sec));
+}
+
+function buildAnalysisTable(tab) {
+    let secListId = tab === 'actual' ? 'actSecList' : 'compSecList';
+    let bandListId = tab === 'actual' ? 'actBandList' : 'compBandList';
+    let thresholdId = tab === 'actual' ? 'actThreshold' : 'compThreshold';
+    let selSecs = getCheckedValues(secListId);
+    let selBands = getCheckedValues(bandListId);
+
+    let tbId = tab === 'actual' ? 'actTable' : 'compTable';
+    let tbody = document.querySelector(`#${tbId} tbody`);
+    tbody.innerHTML = '';
+    
+    let rows = [];
+    if(tab === 'actual') {
+        if(!ACT_DATA) return;
+        rows = calculateAnalysisRows(ACT_DATA, selSecs, selBands, "", thresholdId);
+    } else {
+        if(!COMP_BEFORE && !COMP_AFTER) return;
+        if(COMP_BEFORE) rows = rows.concat(calculateAnalysisRows(COMP_BEFORE, selSecs, selBands, "Before", thresholdId));
+        if(COMP_AFTER) rows = rows.concat(calculateAnalysisRows(COMP_AFTER, selSecs, selBands, "After", thresholdId));
+    }
+    
+    rows.forEach(r => {
+        let tr = document.createElement('tr');
+        let html = `<td>${r.site}</td><td>${r.sec}</td><td><span class="pill-gray" style="border:1px solid ${getBandColor(r.band)}; padding: 2px 6px; border-radius:4px; font-weight:600;">${r.band}</span></td>`;
+        if(tab === 'compare') html += `<td>${r.period}</td>`;
+        
+        let pct = r.tot > 0 ? (r.inThresh / r.tot * 100).toFixed(1) : 0;
+        
+        html += `
+            <td>${r.tot.toLocaleString()}</td>
+            <td>${r.inThresh.toLocaleString()} <span style="opacity:0.6; font-size:10px">(${pct}%)</span></td>
+            <td>${r.dom ? '<span class="pill-pos"><i class="fas fa-star"></i> Yes</span>' : '<span style="opacity:0.4">No</span>'}</td>
+            <td><strong>${r.distance}</strong> km</td>
+            <td>${r.status}</td>
+        `;
+        tr.innerHTML = html;
+        tbody.appendChild(tr);
+    });
+}
+</script>
+
+{% endblock %}

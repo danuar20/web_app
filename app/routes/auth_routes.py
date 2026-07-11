@@ -501,43 +501,42 @@ def api_database_status(db_type):
         def fetch_pg_tbl(tbl_info):
             tbl, d_col = tbl_info
             try:
-                conn = get_postgres_connection()
-                cur = conn.cursor()
-                cur.execute("SET statement_timeout = '60s'")
-
-                cur.execute(f'SELECT MIN("{d_col}"), MAX("{d_col}") FROM "{tbl}"')
-                row = cur.fetchone()
-                min_date = row[0] if row else None
-                max_date = row[1] if row else None
-
-                min_str = min_date.strftime("%Y-%m-%d") if min_date else "No Data"
-                max_str = max_date.strftime("%Y-%m-%d") if max_date else "No Data"
-
-                # Calculate the 14-day window relative to today
-                ref_date = datetime.date.today()
-
-                tbl_date_list = [(ref_date - datetime.timedelta(days=i)) for i in range(13, -1, -1)]
-                tbl_date_strs = [d.strftime("%Y-%m-%d") for d in tbl_date_list]
-                tbl_labels = [d.strftime("%d %b") for d in tbl_date_list]
-
-                cur.execute(f'''
-                    SELECT "{d_col}"::date, COUNT(*)
-                    FROM "{tbl}"
-                    WHERE "{d_col}" >= %s
-                    GROUP BY "{d_col}"::date
-                ''', [tbl_date_list[0]])
-                counts = {r[0].strftime("%Y-%m-%d"): r[1] for r in cur.fetchall()}
-                history = [counts.get(d, 0) for d in tbl_date_strs]
-
-                cur.close()
-                conn.close()
-                return {
-                    "table": tbl,
-                    "min_date": min_str,
-                    "max_date": max_str,
-                    "labels": tbl_labels,
-                    "history": history
-                }
+                from contextlib import closing
+                with closing(get_postgres_connection()) as conn:
+                    with closing(conn.cursor()) as cur:
+                        cur.execute("SET statement_timeout = '60s'")
+        
+                        cur.execute(f'SELECT MIN("{d_col}"), MAX("{d_col}") FROM "{tbl}"')
+                        row = cur.fetchone()
+                        min_date = row[0] if row else None
+                        max_date = row[1] if row else None
+        
+                        min_str = min_date.strftime("%Y-%m-%d") if min_date else "No Data"
+                        max_str = max_date.strftime("%Y-%m-%d") if max_date else "No Data"
+        
+                        # Calculate the 14-day window relative to today
+                        ref_date = datetime.date.today()
+        
+                        tbl_date_list = [(ref_date - datetime.timedelta(days=i)) for i in range(13, -1, -1)]
+                        tbl_date_strs = [d.strftime("%Y-%m-%d") for d in tbl_date_list]
+                        tbl_labels = [d.strftime("%d %b") for d in tbl_date_list]
+        
+                        cur.execute(f'''
+                            SELECT "{d_col}"::date, COUNT(*)
+                            FROM "{tbl}"
+                            WHERE "{d_col}" >= %s
+                            GROUP BY "{d_col}"::date
+                        ''', [tbl_date_list[0]])
+                        counts = {r[0].strftime("%Y-%m-%d"): r[1] for r in cur.fetchall()}
+                        history = [counts.get(d, 0) for d in tbl_date_strs]
+        
+                        return {
+                            "table": tbl,
+                            "min_date": min_str,
+                            "max_date": max_str,
+                            "labels": tbl_labels,
+                            "history": history
+                        }
             except Exception as e:
                 return {"table": tbl, "min_date": "Error", "max_date": "Error", "labels": [], "history": [0]*14}
 

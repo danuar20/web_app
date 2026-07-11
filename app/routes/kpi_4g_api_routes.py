@@ -1,7 +1,7 @@
 """4G KPI API & Export Routes — /api/kpi_4g_hourly, /export/kpi_4g_hourly"""
 from flask import Blueprint, request
 from app.db.db_webapp import get_postgres_connection, get_site_list_4g
-from ._utils import login_required, json_response, csv_response, validate_date_params, db_query
+from ._utils import viewer_blocked, login_required, json_response, csv_response, validate_date_params, db_query
 import psycopg2
 import psycopg2.errors
 
@@ -10,6 +10,7 @@ kpi4g_api = Blueprint("kpi4g_api", __name__)
 # ── API: 4G KPI Hourly (JSON) ──────────────────────────────────────────────────
 @kpi4g_api.route("/api/kpi_4g_hourly")
 @login_required
+@viewer_blocked
 def api_kpi_4g_hourly():
     from_date = request.args.get("from_date", "")
     to_date   = request.args.get("to_date",   "")
@@ -101,6 +102,7 @@ def api_kpi_4g_hourly():
 # ── Export: 4G KPI Hourly (CSV) ─────────────────────────────────────────────────
 @kpi4g_api.route("/export/kpi_4g_hourly")
 @login_required
+@viewer_blocked
 def export_kpi_4g_hourly():
     from_date = request.args.get("from_date", "")
     to_date   = request.args.get("to_date",   "")

@@ -1,7 +1,7 @@
 """4G KPI Hourly Compare Routes — /kpi_4g_hourly/compare (before/after comparison)"""
 from flask import Blueprint, render_template, request, session, flash, make_response
 from app.db.db_webapp import get_postgres_connection, get_site_list_4g
-from ._utils import login_required, _no_cache, json_response, db_query
+from ._utils import viewer_blocked, login_required, _no_cache, json_response, db_query
 import psycopg2
 import psycopg2.errors
 
@@ -11,6 +11,7 @@ kpi4g_compare = Blueprint("kpi4g_compare", __name__)
 # ── Get last update timestamp (async endpoint) ────────────────────────────────
 @kpi4g_compare.route("/api/kpi_4g_hourly/compare/last_update")
 @login_required
+@viewer_blocked
 def api_kpi_4g_compare_last_update():
     """Lightweight endpoint to get last update timestamp without full KPI query"""
     try:
@@ -26,6 +27,7 @@ def api_kpi_4g_compare_last_update():
 # ── 4G KPI Hourly Comparison ────────────────────────────────────────────────
 @kpi4g_compare.route("/kpi_4g_hourly/compare")
 @login_required
+@viewer_blocked
 def kpi_4g_hourly_compare():
     from_date_b = request.args.get("from_date_before", "")
     to_date_b   = request.args.get("to_date_before",   "")

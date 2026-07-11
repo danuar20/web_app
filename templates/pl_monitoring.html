@@ -1,10 +1,8 @@
 {% extends "base.html" %}
 
-{% block nav_monitoring %}active{% endblock %}
-{% block sub_monitoring_open %}open{% endblock %}
-{% block nav_5g_monitoring %}active{% endblock %}
-{% block page_title %}5G Monitoring{% endblock %}
-{% block page_sub %}Daily KPI trend — Regional / NOP / City / Subnet / Site{% endblock %}
+{% block nav_packet_loss %}active{% endblock %}
+{% block page_title %}Packet Loss Monitoring (2G/4G){% endblock %}
+{% block page_sub %}Daily KPI trend — Regional / NOP / City / Cluster / Site{% endblock %}
 
 {% block topbar_chips %}
 <div class="info-chip"><i class="fas fa-chart-area" style="margin-right:4px"></i>Daily Aggregated</div>
@@ -240,11 +238,15 @@
 </div>
 
 <div class="card" id="filterContainer" style="padding:16px 20px;">
-<form method="GET" action="/kpi_5g_monitoring" id="monForm" onsubmit="showOverlay()">
+<form method="GET" action="/pl_monitoring" id="monForm" onsubmit="showOverlay()">
     <input type="hidden" name="submitted" value="1">
+            
 
     <!-- Date range + actions row -->
     <div class="filter-bar" style="padding:0;background:transparent;border:none;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+        
+
+
         <div class="filter-group">
             <div class="filter-label">Date From</div>
             <input type="date" name="from_date" class="f-input" value="{{ from_date }}" id="fFrom" required>
@@ -275,6 +277,7 @@
                 </span>
             </div>
             <div class="kpi-select-actions">
+                
                 <button type="button" class="btn-kpi-action" onclick="kpiSelectAll(true)">All</button>
                 <button type="button" class="btn-kpi-action" onclick="kpiSelectAll(false)">None</button>
             </div>
@@ -305,15 +308,12 @@
     <button class="mon-tab" id="tabBtn-city" onclick="switchTab('city', this)">
         <i class="fas fa-city" style="margin-right:6px;"></i>City
     </button>
-    <button class="mon-tab" id="tabBtn-subnet" onclick="switchTab('subnet', this)">
-        <i class="fas fa-server" style="margin-right:6px;"></i>Subnet
+    <button class="mon-tab" id="tabBtn-cluster" onclick="switchTab('cluster', this)">
+        <i class="fas fa-server" style="margin-right:6px;"></i>Cluster
     </button>
     
     <button class="mon-tab" id="tabBtn-site" onclick="switchTab('site', this)">
         <i class="fas fa-broadcast-tower" style="margin-right:6px;"></i>Site
-    </button>
-    <button class="mon-tab" id="tabBtn-sector" onclick="switchTab('sector', this)">
-        <i class="fas fa-satellite-dish" style="margin-right:6px;"></i>Sector
     </button>
 </div>
 
@@ -344,6 +344,9 @@
         <div class="view-btns">
             <button class="view-btn active" onclick="setTabView('regional','chart',this)">Chart</button>
             <button class="view-btn" onclick="setTabView('regional','table',this)">Table</button>
+            <div style="width:1px;height:24px;background:rgba(79,172,254,0.3);margin:0 4px;"></div>
+            <button class="view-btn tech-btn active" onclick="switchTechView('4G')">4G</button>
+            <button class="view-btn tech-btn" onclick="switchTechView('2G')">2G</button>
         </div>
         <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
             <div class="row-controls" style="display:flex; align-items:center; gap:6px;">
@@ -399,6 +402,9 @@
             <div class="view-btns">
                 <button class="view-btn active" onclick="setTabView('nop','chart',this)">Chart</button>
                 <button class="view-btn" onclick="setTabView('nop','table',this)">Table</button>
+                <div style="width:1px;height:24px;background:rgba(79,172,254,0.3);margin:0 4px;"></div>
+                <button class="view-btn tech-btn active" onclick="switchTechView('4G')">4G</button>
+                <button class="view-btn tech-btn" onclick="switchTechView('2G')">2G</button>
             </div>
             <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
                 <div class="row-controls" style="display:flex; align-items:center; gap:6px;">
@@ -453,6 +459,9 @@
             <div class="view-btns">
                 <button class="view-btn active" onclick="setTabView('city','chart',this)">Chart</button>
                 <button class="view-btn" onclick="setTabView('city','table',this)">Table</button>
+                <div style="width:1px;height:24px;background:rgba(79,172,254,0.3);margin:0 4px;"></div>
+                <button class="view-btn tech-btn active" onclick="switchTechView('4G')">4G</button>
+                <button class="view-btn tech-btn" onclick="switchTechView('2G')">2G</button>
             </div>
             <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
                 <div class="row-controls" style="display:flex; align-items:center; gap:6px;">
@@ -491,38 +500,41 @@
     </div>
 </div>
 
-<!-- TAB: Subnet -->
-<div class="mon-tab-panel card" id="tabPanel-subnet" style="border-radius:0 8px 8px 8px; padding:14px 16px;">
+<!-- TAB: Cluster -->
+<div class="mon-tab-panel card" id="tabPanel-cluster" style="border-radius:0 8px 8px 8px; padding:14px 16px;">
     <div class="sub-filter-bar">
-        {{ render_ms('subnet_subnet', 'Filter Subnet', 'Select Subnet...') }}
+        {{ render_ms('cluster_cluster', 'Filter Cluster', 'Select Cluster...') }}
     </div>
-    <div class="tab-empty-state" id="emptyState-subnet">
+    <div class="tab-empty-state" id="emptyState-cluster">
         <i class="fas fa-server"></i>
-        <h3>No Subnet Selected</h3>
-        <p>Please select one or more Subnets to view the data.</p>
+        <h3>No Cluster Selected</h3>
+        <p>Please select one or more Clusters to view the data.</p>
     </div>
-    <div id="dataContainer-subnet" style="display:none;">
+    <div id="dataContainer-cluster" style="display:none;">
         <div class="view-mode-bar">
             <div class="view-btns">
-                <button class="view-btn active" onclick="setTabView('subnet','chart',this)">Chart</button>
-                <button class="view-btn" onclick="setTabView('subnet','table',this)">Table</button>
+                <button class="view-btn active" onclick="setTabView('cluster','chart',this)">Chart</button>
+                <button class="view-btn" onclick="setTabView('cluster','table',this)">Table</button>
+                <div style="width:1px;height:24px;background:rgba(79,172,254,0.3);margin:0 4px;"></div>
+                <button class="view-btn tech-btn active" onclick="switchTechView('4G')">4G</button>
+                <button class="view-btn tech-btn" onclick="switchTechView('2G')">2G</button>
             </div>
             <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
                 <div class="row-controls" style="display:flex; align-items:center; gap:6px;">
                     <span style="font-size:11px; font-weight:600; opacity:0.7;">Charts / Row:</span>
                     <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
-                        <button class="row-btn chartGrid-subnet-row-btn" style="background:transparent;" onclick="setGridColLocal(1, 'chartGrid-subnet')">1</button>
-                        <button class="row-btn chartGrid-subnet-row-btn" style="background:transparent;" onclick="setGridColLocal(2, 'chartGrid-subnet')">2</button>
-                        <button class="row-btn chartGrid-subnet-row-btn active" style="background:rgba(79,172,254,0.3);" onclick="setGridColLocal(3, 'chartGrid-subnet')">3</button>
+                        <button class="row-btn chartGrid-cluster-row-btn" style="background:transparent;" onclick="setGridColLocal(1, 'chartGrid-cluster')">1</button>
+                        <button class="row-btn chartGrid-cluster-row-btn" style="background:transparent;" onclick="setGridColLocal(2, 'chartGrid-cluster')">2</button>
+                        <button class="row-btn chartGrid-cluster-row-btn active" style="background:rgba(79,172,254,0.3);" onclick="setGridColLocal(3, 'chartGrid-cluster')">3</button>
                     </div>
                 </div>
                 <div class="export-btns">
-                    <button class="btn-export btn-export-png" onclick="openPngModal('subnet')"><i class="fas fa-camera"></i> Export PNG</button>
-                    <button class="btn-export btn-export-csv" onclick="openCsvModal('subnet')"><i class="fas fa-file-csv"></i> Export CSV</button>
+                    <button class="btn-export btn-export-png" onclick="openPngModal('cluster')"><i class="fas fa-camera"></i> Export PNG</button>
+                    <button class="btn-export btn-export-csv" onclick="openCsvModal('cluster')"><i class="fas fa-file-csv"></i> Export CSV</button>
                 </div>
             </div>
         </div>
-        <div class="chart-grid" id="chartGrid-subnet">
+        <div class="chart-grid" id="chartGrid-cluster">
             {% for k in kpi_defs %}
             <div class="card">
                 <div class="card-title">{{ k[1] }}
@@ -530,14 +542,14 @@
                           <span style="font-size:10px;opacity:.55;">({{ k[2] }})</span>
                       {% endif %}
                   </div>
-                <div class="chart-wrap" style="height:200px;position:relative;"><canvas id="canvas-subnet-{{ k[0] }}" style="cursor:pointer" onclick="openChartModal(this)"></canvas></div>
+                <div class="chart-wrap" style="height:200px;position:relative;"><canvas id="canvas-cluster-{{ k[0] }}" style="cursor:pointer" onclick="openChartModal(this)"></canvas></div>
             </div>
             {% endfor %}
         </div>
-        <div id="tableView-subnet" style="display:none;">
+        <div id="tableView-cluster" style="display:none;">
             <div class="table-wrap">
-                <table class="data-table mon-data-table" id="dataTable-subnet">
-                    <thead id="tableHead-subnet"></thead><tbody id="tableBody-subnet"></tbody>
+                <table class="data-table mon-data-table" id="dataTable-cluster">
+                    <thead id="tableHead-cluster"></thead><tbody id="tableBody-cluster"></tbody>
                 </table>
             </div>
         </div>
@@ -552,15 +564,15 @@
                 <input type="radio" name="siteFilterType" value="city" checked onchange="toggleSiteFilterMode()"> Filter by City
             </label>
             <label style="cursor:pointer; display:flex; align-items:center; gap:4px;">
-                <input type="radio" name="siteFilterType" value="subnet" onchange="toggleSiteFilterMode()"> Filter by Subnet
+                <input type="radio" name="siteFilterType" value="cluster" onchange="toggleSiteFilterMode()"> Filter by Cluster
             </label>
         </div>
         <div style="display:flex; align-items:center; gap:12px; width:100%;">
             <div id="siteFilterCityWrapper" style="display:block;">
                 {{ render_ms('site_city', 'Filter City', 'Select City...') }}
             </div>
-            <div id="siteFilterSubnetWrapper" style="display:none;">
-                {{ render_ms('site_subnet', 'Filter Subnet', 'Select Subnet...') }}
+            <div id="siteFilterClusterWrapper" style="display:none;">
+                {{ render_ms('site_cluster', 'Filter Cluster', 'Select Cluster...') }}
             </div>
             {{ render_ms('site_site', 'Select Sites', 'Select Sites...') }}
         </div>
@@ -576,6 +588,9 @@
             <div class="view-btns">
                 <button class="view-btn active" onclick="setTabView('site','chart',this)">Chart</button>
                 <button class="view-btn" onclick="setTabView('site','table',this)">Table</button>
+                <div style="width:1px;height:24px;background:rgba(79,172,254,0.3);margin:0 4px;"></div>
+                <button class="view-btn tech-btn active" onclick="switchTechView('4G')">4G</button>
+                <button class="view-btn tech-btn" onclick="switchTechView('2G')">2G</button>
             </div>
             <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
                 <div class="granularity-controls" style="display:flex; align-items:center; gap:6px;">
@@ -626,88 +641,6 @@
     </div>
 </div>
 
-<!-- TAB: Sector -->
-<div class="mon-tab-panel card" id="tabPanel-sector" style="border-radius:0 8px 8px 8px; padding:14px 16px;">
-    <div class="view-mode-bar">
-        <div class="view-btns">
-            <button class="view-btn active" onclick="setTabView('sector','chart',this)">Chart</button>
-            <button class="view-btn" onclick="setTabView('sector','table',this)">Table</button>
-        </div>
-        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-            <div class="granularity-controls" style="display:flex; align-items:center; gap:6px;">
-                <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
-                    <button class="row-btn chartGrid-sector-gran-btn active" style="background:rgba(79,172,254,0.3);" onclick="setGranularity('sector', 'daily', this)">Daily</button>
-                    <button class="row-btn chartGrid-sector-gran-btn" style="background:transparent;" onclick="setGranularity('sector', 'hourly', this)">Hourly</button>
-                </div>
-            </div>
-            <div class="mode-controls" style="display:flex; align-items:center; gap:6px;">
-                <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
-                    <button class="row-btn chartGrid-sector-mode-btn active" style="background:rgba(79,172,254,0.3);" onclick="setSectorMode('combined', this)">Combined</button>
-                    <button class="row-btn chartGrid-sector-mode-btn" style="background:transparent;" onclick="setSectorMode('split', this)">Split by Sector</button>
-                </div>
-            </div>
-            <div class="grid-controls" style="display:flex; align-items:center; gap:6px;">
-                <span style="font-size:11px; font-weight:600; opacity:0.7;">Charts / Row:</span>
-                <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
-                    <button class="row-btn chartGrid-sector-row-btn" style="background:transparent;" onclick="setGridColLocal(1, 'chartGrid-sector')">1</button>
-                    <button class="row-btn chartGrid-sector-row-btn" style="background:transparent;" onclick="setGridColLocal(2, 'chartGrid-sector')">2</button>
-                    <button class="row-btn chartGrid-sector-row-btn active" style="background:rgba(79,172,254,0.3);" onclick="setGridColLocal(3, 'chartGrid-sector')">3</button>
-                </div>
-            </div>
-            <div class="export-btns">
-                <button class="btn-export btn-export-png" onclick="openPngModal('sector')"><i class="fas fa-camera"></i> Export PNG</button>
-                <button class="btn-export btn-export-csv" onclick="openCsvModal('sector')"><i class="fas fa-file-csv"></i> Export CSV</button>
-            </div>
-        </div>
-    </div>
-    
-    <div class="sub-filter-bar">
-        <div style="flex:1; min-width:200px;">
-                        {{ render_ms('sector_site', 'Select Sites', 'Select Sites...') }}
-        </div>
-        <div style="flex:1; min-width:150px;">
-                        {{ render_ms('sector_sector', 'Filter Sector', 'Select Sectors...') }}
-        </div>
-        <div style="flex:1; min-width:150px;">
-                        {{ render_ms('sector_band', 'Filter Band', 'Select Bands...') }}
-        </div>
-        <div style="flex:1; min-width:150px;">
-                        {{ render_ms('sector_kpi', 'Filter KPI', 'Select KPIs...') }}
-        </div>
-    </div>
-    
-    <div class="tab-empty-state" id="emptyState-sector">
-        <i class="fas fa-satellite-dish"></i>
-        <h3>No Site Selected</h3>
-        <p>Please select one or more Sites to view the sector data.</p>
-    </div>
-    
-    <div id="dataContainer-sector" style="display:none;">
-        <div class="chart-grid" id="chartGrid-sector">
-            {% for k in kpi_defs %}
-            <div class="card kpi-card-sector" id="card-sector-{{ k[0] }}" data-kpi="{{ k[0] }}">
-                <div class="card-title">{{ k[1] }}
-                      {% if k[2] %}
-                          <span style="font-size:10px;opacity:.55;">({{ k[2] }})</span>
-                      {% endif %}
-                  </div>
-                <div class="chart-wrap" style="height:200px;position:relative;">
-                    <canvas id="canvas-sector-{{ k[0] }}" style="cursor:pointer" onclick="openChartModal(this)"></canvas>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-        <div id="tableView-sector" style="display:none;">
-            <div class="table-wrap">
-                <table class="data-table mon-data-table" id="dataTable-sector">
-                    <thead id="tableHead-sector"></thead>
-                    <tbody id="tableBody-sector"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-
 {% else %}
 <!-- Empty state before first query -->
 <div class="card">
@@ -725,6 +658,27 @@
 
 {% block page_scripts %}
 <script>
+
+    const BAND_COLORS = {
+        "L700": "#f093fb",
+        "L900": "#ff5555",
+        "L1800": "#4facfe",
+        "L2100": "#00c853",
+        "L2300_1": "#a78bfa",
+        "L2300_2": "#ff9f40",
+        "L2300_3": "#f6c90e"
+    };
+
+    const DEFAULT_KPIS = [
+        "payloadChart", "dlPayloadChart", "ulPayloadChart", "volteTrafficChart", 
+        "rrcChart", "activeUserChart", "availChart", "cssrChart", "erabSrChart", 
+        "rrcSrChart", "s1SrChart", "sdrChart", "erabDropChart", "ifhoChart", 
+        "dlPrbChart", "ulPrbChart", "dlThpChart", "ulThpChart", "seChart", 
+        "cqiChart", "csfbChart"
+    ];
+
+
+
 /* ═══════════════════════════════════════════════════════════════
    DATA FROM SERVER
    ═══════════════════════════════════════════════════════════════ */
@@ -735,32 +689,34 @@ var KPI_DEFS      = {{ kpi_defs | tojson | safe }};
 
 
 
+var CURRENT_TECH = "4G";
+var ALL_DATA = {{ all_data | tojson | safe }};
+
+// Dynamically reference the current tech's data
 var TAB_DATA = {
-    regional: {{ regional_data | tojson | safe }},
-    nop:      {{ nop_data      | tojson | safe }},
-    city:     {{ city_data     | tojson | safe }},
-    subnet:   {{ subnet_data   | tojson | safe }},
-    site:     {{ site_data     | tojson | safe }},
-    sector:   {}
+    get regional() { return ALL_DATA[CURRENT_TECH]['regional']; },
+    get nop() { return ALL_DATA[CURRENT_TECH]['nop']; },
+    get city() { return ALL_DATA[CURRENT_TECH]['city']; },
+    get cluster() { return ALL_DATA[CURRENT_TECH]['cluster']; },
+    site: {}, // populated on demand
 };
 
 var TAB_DIMS = {
     regional: {{ regional_dims | tojson | safe }},
     nop:      {{ nop_dims      | tojson | safe }},
     city:     {{ city_dims     | tojson | safe }},
-    subnet:   {{ subnet_dims   | tojson | safe }},
-    site:     {{ site_dims     | tojson | safe }},
-    sector:   []
-};
+    cluster:   {{ cluster_dims   | tojson | safe }},
+    site:     [],
+    };
 
 var NSA_CITY_MAP    = {{ nsa_city_map    | tojson | safe }};
-var CITY_SUBNET_MAP = {{ city_subnet_map | tojson | safe }};
-var MAP_SUBNET_CITY = {{ subnet_city_map | tojson | safe }};
+var CITY_CLUSTER_MAP = {{ city_cluster_map | tojson | safe }};
+var MAP_CLUSTER_CITY = {{ cluster_city_map | tojson | safe }};
 var CITY_SITE_MAP   = {{ city_site_map   | tojson | safe }};
-var SUBNET_SITE_MAP = {{ subnet_site_map | tojson | safe }};
+var CLUSTER_SITE_MAP = {{ cluster_site_map | tojson | safe }};
 
 /* Selected dimensions per tab */
-var activeFilterDims = { regional:["Regional"], nop:[], city:[], subnet:[], site:[], sector:[] };
+var activeFilterDims = { regional:["Regional"], nop:[], city:[], cluster:[], site:[] };
 
 /* ═══════════════════════════════════════════════════════════════
    MULTI-SELECT LOGIC
@@ -776,8 +732,8 @@ function initMsOptions(id, optionsList, defaultChecked = false) {
     var html = "";
     optionsList.forEach(function(opt) {
         var checkedAttr = defaultChecked ? "checked" : "";
-        html += `<div class="ms-item" onclick="toggleMsItem('${id}', '${opt}')">
-                    <input type="checkbox" id="chk-${id}-${opt}" value="${opt}" ${checkedAttr}>
+        html += `<div class="ms-item" onclick="toggleMsItem('${id}', '${opt}', event)">
+                    <input type="checkbox" id="chk-${id}-${opt}" value="${opt}" ${checkedAttr} onchange="toggleMsItem('${id}', '${opt}', null)">
                     <span>${opt}</span>
                  </div>`;
     });
@@ -798,20 +754,15 @@ function toggleMsMenu(id) {
     menu.style.display = menu.style.display === "flex" ? "none" : "flex";
 }
 
-function toggleMsItem(id, value) {
+function toggleMsItem(id, value, event) {
+    if (event && event.target.tagName === 'INPUT') return; // let checkbox handle its own state if clicked directly
     var chk = document.getElementById(`chk-${id}-${value}`);
-    chk.checked = !chk.checked;
+    if (event) chk.checked = !chk.checked;
     
-    if (id === 'sector_site' && chk.checked) {
-        msSelections[id] = [value];
-        var allChks = document.querySelectorAll(`#ms-list-${id} input[type='checkbox']`);
-        allChks.forEach(function(c) {
-            if (c !== chk) c.checked = false;
-        });
+    if(chk.checked) {
+        if(!msSelections[id].includes(value)) msSelections[id].push(value);
     } else {
-        var idx = msSelections[id].indexOf(value);
-        if(chk.checked && idx === -1) msSelections[id].push(value);
-        else if(!chk.checked && idx !== -1) msSelections[id].splice(idx, 1);
+        msSelections[id] = msSelections[id].filter(v => v !== value);
     }
     
     updateMsLabel(id);
@@ -819,8 +770,7 @@ function toggleMsItem(id, value) {
 }
 
 function msSelectAll(id, checkAll) {
-    if (id === 'sector_site' && checkAll) return;
-      if (id === 'sector_site' && checkAll) return; // Only allow clear all for sector_site
+
     msSelections[id] = [];
     document.querySelectorAll(`#ms-list-${id} .ms-item`).forEach(function(item) {
         if(item.style.display !== "none") {
@@ -903,9 +853,9 @@ function triggerMsChange(id) {
         activeFilterDims.city = msSelections[id];
         updateTabDisplay("city");
     }
-    else if(id === "subnet_subnet") {
-        activeFilterDims.subnet = msSelections[id];
-        updateTabDisplay("subnet");
+    else if(id === "cluster_cluster") {
+        activeFilterDims.cluster = msSelections[id];
+        updateTabDisplay("cluster");
     }
     else if(id === "site_city") {
         // Cascade to Site
@@ -925,9 +875,9 @@ function triggerMsChange(id) {
             activeFilterDims.site = msSelections["site_site"];
         }
     }
-    else if(id === "site_subnet") {
-        var selSubnets = msSelections[id];
-        if(selSubnets.length === 0) {
+    else if(id === "site_cluster") {
+        var selClusters = msSelections[id];
+        if(selClusters.length === 0) {
             setMsDisabled("site_site", true);
             msSelections["site_site"] = [];
             updateMsLabel("site_site");
@@ -935,8 +885,8 @@ function triggerMsChange(id) {
         } else {
             setMsDisabled("site_site", false);
             var validSites = new Set();
-            selSubnets.forEach(sub => {
-                if(SUBNET_SITE_MAP[sub]) SUBNET_SITE_MAP[sub].forEach(s => validSites.add(s));
+            selClusters.forEach(sub => {
+                if(CLUSTER_SITE_MAP[sub]) CLUSTER_SITE_MAP[sub].forEach(s => validSites.add(s));
             });
             initMsOptions("site_site", Array.from(validSites).sort());
             activeFilterDims.site = msSelections["site_site"];
@@ -945,13 +895,6 @@ function triggerMsChange(id) {
     else if(id === "site_site") {
         activeFilterDims.site = msSelections[id];
         updateTabDisplay("site");
-    }
-    else if(id === "sector_site") {
-        activeFilterDims.sector = msSelections[id];
-        updateTabDisplay("sector");
-    }
-    else if(id === "sector_kpi" || id === "sector_sector" || id === "sector_band") {
-        applySectorLocalFilters();
     }
 }
 
@@ -963,40 +906,24 @@ function toggleSiteFilterMode() {
     
     if (mode === 'city') {
         document.getElementById('siteFilterCityWrapper').style.display = 'block';
-        document.getElementById('siteFilterSubnetWrapper').style.display = 'none';
+        document.getElementById('siteFilterClusterWrapper').style.display = 'none';
         triggerMsChange('site_city');
     } else {
         document.getElementById('siteFilterCityWrapper').style.display = 'none';
-        document.getElementById('siteFilterSubnetWrapper').style.display = 'block';
-        triggerMsChange('site_subnet');
+        document.getElementById('siteFilterClusterWrapper').style.display = 'block';
+        triggerMsChange('site_cluster');
     }
 }
 
-var CURRENT_GRANULARITY = { regional: 'daily', nop: 'daily', city: 'daily', subnet: 'daily', site: 'daily', sector: 'daily' };
-var HOURLY_DATA = { regional: null, nop: null, city: null, subnet: null, site: null, sector: null };
-var HOURLY_LABELS = { regional: null, nop: null, city: null, subnet: null, site: null, sector: null };
+var CURRENT_GRANULARITY = { regional: 'daily', nop: 'daily', city: 'daily', cluster: 'daily', site: 'daily'};
+var HOURLY_DATA = { regional: null, nop: null, city: null, cluster: null, site: null };
+var HOURLY_LABELS = { regional: null, nop: null, city: null, cluster: null, site: null };
 
 var SITE_MODE = 'per_site'; // 'per_site' or 'cluster'
-var SECTOR_CHART_MODE = 'combined'; // combined | split
-
-function setSectorMode(mode, btn) {
-    if (SECTOR_CHART_MODE === mode) return;
-    SECTOR_CHART_MODE = mode;
-    var btns = document.querySelectorAll('.chartGrid-sector-mode-btn');
-    btns.forEach(function(b){
-        b.classList.remove('active');
-        b.style.background = 'transparent';
-    });
-    btn.classList.add('active');
-    btn.style.background = 'rgba(79,172,254,0.3)';
-    applySectorLocalFilters();
-}
 
 var CLUSTER_DAILY_DATA = null;
 var CLUSTER_DAILY_LABELS = null;
-var CLUSTER_HOURLY_DATA = null;
-var SECTOR_API_DATA = null;
-var CLUSTER_HOURLY_LABELS = null;
+var CLUSTER_HOURLY_DATA = null;var CLUSTER_HOURLY_LABELS = null;
 var SITE_DAILY_LABELS = null;
 
 function setSiteMode(mode, btn) {
@@ -1014,201 +941,19 @@ function setSiteMode(mode, btn) {
 }
 
 
-function fetchSectorData(dims) {
-    if (dims.length === 0) {
-        document.getElementById("emptyState-sector").style.display = "block";
-        document.getElementById("dataContainer-sector").style.display = "none";
-        return;
-    }
-    document.getElementById("emptyState-sector").style.display = "none";
-    document.getElementById("dataContainer-sector").style.display = "block";
-    
-    // Check if we already have the exact same sites cached in SECTOR_API_DATA
-    // This is simple: just check if the dims string matches the last fetched
-    var dimsStr = dims.sort().join(',');
-    if (SECTOR_API_DATA && SECTOR_API_DATA._dims === dimsStr) {
-        applySectorLocalFilters();
-        return;
-    }
-    
-    var loading = document.getElementById("loadingOverlay");
-    if(loading) loading.style.display = "flex";
-    
-    fetch('/api/kpi_5g_monitoring/sector_data', {
-        method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token() }}'
-        },
-        body: JSON.stringify({
-            from_date: "{{ from_date }}",
-            to_date: "{{ to_date }}",
-            sites: dims,
-            kpis: KPI_DEFS.map(k => k[0])
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if(loading) loading.style.display = "none";
-        if (data.error) {
-            alert("Error: " + data.error);
-            return;
-        }
-        SECTOR_API_DATA = data;
-        SECTOR_API_DATA._dims = dimsStr;
-        
-        // Extract unique sectors and bands from legends dynamically
-        var uniqueSectors = new Set();
-        var uniqueBands = new Set();
-        (data.daily.legends || []).forEach(leg => {
-            var parts = leg.split(" S");
-            if (parts.length > 1) {
-                var p2 = parts[1].split("|");
-                uniqueSectors.add(p2[0]);
-                if (p2.length > 1) {
-                    uniqueBands.add(p2[1].split("-")[0]);
-                }
-            }
-        });
-        var sortedSectors = Array.from(uniqueSectors).sort((a,b) => parseInt(a)-parseInt(b));
-        if (sortedSectors.length > 0) {
-            initMsOptions('sector_sector', sortedSectors, true);
-        }
-        var sortedBands = Array.from(uniqueBands).sort(function(a, b) {
-            if (a.length !== b.length) return a.length - b.length;
-            return a.localeCompare(b);
-        });
-        if (sortedBands.length > 0) {
-            initMsOptions('sector_band', sortedBands, true);
-        }
-        
-        applySectorLocalFilters();
-    })
-    .catch(err => {
-        if(loading) loading.style.display = "none";
-        alert("Failed to fetch sector data.");
-        console.error(err);
-    });
-}
-
-function applySectorLocalFilters() {
-    if (!SECTOR_API_DATA) return;
-    
-    var isHourly = CURRENT_GRANULARITY['sector'] === 'hourly';
-    var sourceData = isHourly ? SECTOR_API_DATA.hourly : SECTOR_API_DATA.daily;
-    
-    if (!sourceData) return;
-    
-    var selSectors = msSelections['sector_sector'] || [];
-    var selBands = msSelections['sector_band'] || [];
-    var selKpis = msSelections['sector_kpi'] || [];
-    if (selKpis.length === 0) selKpis = KPI_DEFS.map(k => k[0]); // Default to all if empty
-    
-    // Filter the legend keys
-    var validLegends = sourceData.legends.filter(leg => {
-        // Legend format: {siteid} S{sector}|{band}-{cell}
-        var parts = leg.split(" S");
-        if (parts.length < 2) return true; // keep if format differs
-        var p2 = parts[1].split("|");
-        var legSec = p2[0];
-        var legBand = p2.length > 1 ? p2[1].split("-")[0] : "";
-        
-        if (selSectors.length > 0 && !selSectors.includes(legSec)) return false;
-        if (selBands.length > 0 && !selBands.includes(legBand)) return false;
-        return true;
-    });
-    
-    // Update TAB_DATA['sector'] to only include validLegends
-    TAB_DATA['sector'] = {};
-    for (var k in sourceData.data) {
-        TAB_DATA['sector'][k] = {};
-        validLegends.forEach(leg => {
-            TAB_DATA['sector'][k][leg] = sourceData.data[k][leg];
-        });
-    }
-    
-    // Determine active labels
-    var labels = sourceData.labels;
-    if (isHourly) {
-        HOURLY_LABELS['sector'] = labels;
-        HOURLY_DATA['sector'] = TAB_DATA['sector']; // for buildDatasets logic
-    } else {
-        SECTOR_DAILY_LABELS = labels;
-        // TAB_DATA['sector'] is already set above
-    }
-    
-    // Dynamically build chart grid
-    var kpisToRender = KPI_DEFS.filter(k => selKpis.includes(k[0]));
-    var grid = document.getElementById("chartGrid-sector");
-    var html = "";
-    var chartCalls = [];
-    
-    function buildCardHtml(k, titleSuffix, canvasSuffix) {
-        var unitLabel = "";
-        
-        if (k[2]) unitLabel = ' <span style="font-size:10px;opacity:.55;">(' + k[2] + ')</span>';
-        
-        return `<div class="card kpi-card-sector" data-kpi="${k[0]}">
-            <div class="card-title">${k[1]}${titleSuffix}${unitLabel}</div>
-            <div class="chart-wrap" style="height:200px;position:relative;">
-                <canvas id="canvas-sector-${k[0]}${canvasSuffix}" style="cursor:pointer" onclick="openChartModal(this)"></canvas>
-            </div>
-        </div>`;
-    }
-    
-    kpisToRender.forEach(function(k){
-        if (SECTOR_CHART_MODE === 'combined') {
-            html += buildCardHtml(k, "", "");
-            chartCalls.push({ kpi: k, dims: validLegends, suffix: "" });
-        } else {
-            // Group valid legends by base sector (e.g., "AGA002 S1")
-            var groupedSectors = {};
-            validLegends.forEach(function(leg){
-                var secBase = leg.split("|")[0];
-                
-                if (!groupedSectors[secBase]) groupedSectors[secBase] = [];
-                groupedSectors[secBase].push(leg);
-            });
-            
-            Object.keys(groupedSectors).forEach(function(secBase){
-                var safeSecBase = secBase.replace(/[^a-zA-Z0-9_-]/g, "_");
-                html += buildCardHtml(k, " - " + secBase, "-" + safeSecBase);
-                chartCalls.push({ kpi: k, dims: groupedSectors[secBase], suffix: "-" + safeSecBase });
-            });
-        }
-    });
-    
-    // Clean up old chart instances to prevent memory leaks and PNG export bugs
-    Object.keys(chartInstances).forEach(function(key) {
-        if (key.startsWith('sector::')) {
-            if (chartInstances[key]) chartInstances[key].destroy();
-            delete chartInstances[key];
-        }
-    });
-    
-    grid.innerHTML = html;
-    setTimeout(function(){
-        chartCalls.forEach(function(call){
-            renderChart('sector', call.kpi, call.dims, call.suffix);
-        });
-    }, 50);
-    
-    var tv = document.getElementById("tableView-sector");
-    if(tv && tv.style.display !== "none") buildTable('sector', validLegends);
-}
-
 
 function fetchClusterData(granularity, dims) {
     var loading = document.getElementById("loadingOverlay");
     if(loading) loading.style.display = "flex";
     
-    fetch('/api/kpi_5g_monitoring/site_cluster', {
+    fetch('/api/pl_monitoring/site_cluster', {
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json',
             'X-CSRFToken': '{{ csrf_token() }}'
         },
-        body: JSON.stringify({
+        body: JSON.stringify({ 
+            tech: CURRENT_TECH,
             from_date: "{{ from_date }}",
             to_date: "{{ to_date }}",
             sites: dims,
@@ -1260,13 +1005,14 @@ function fetchHourlyData(tabId, dims) {
     var loading = document.getElementById("loadingOverlay");
     if(loading) loading.style.display = "flex";
     
-    fetch('/api/kpi_5g_monitoring/hourly', {
+    fetch('/api/pl_monitoring/hourly', {
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json',
             'X-CSRFToken': '{{ csrf_token() }}'
         },
-        body: JSON.stringify({
+        body: JSON.stringify({ 
+            tech: CURRENT_TECH,
             from_date: "{{ from_date }}",
             to_date: "{{ to_date }}",
             tab: tabId,
@@ -1314,13 +1060,14 @@ function fetchSiteDailyData(dims) {
     var loading = document.getElementById("loadingOverlay");
     if(loading) loading.style.display = "flex";
     
-    fetch('/api/kpi_5g_monitoring/hourly', {
+    fetch('/api/pl_monitoring/hourly', {
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json',
             'X-CSRFToken': '{{ csrf_token() }}'
         },
-        body: JSON.stringify({
+        body: JSON.stringify({ 
+            tech: CURRENT_TECH,
             from_date: "{{ from_date }}",
             to_date: "{{ to_date }}",
             tab: 'site',
@@ -1368,12 +1115,7 @@ function updateTabDisplay(tabId) {
         if(emptyState) emptyState.style.display = "none";
         
         var isHourly = CURRENT_GRANULARITY[tabId] === 'hourly';
-        
-        
-    if (tabId === 'sector') {
-        fetchSectorData(dims);
-        return;
-    }
+
 
     if (tabId === 'site' && SITE_MODE === 'cluster') {
             fetchClusterData(isHourly ? 'hourly' : 'daily', dims);
@@ -1467,23 +1209,12 @@ function buildDatasets(tabId, kpiId, dims){
             var arr = kpiData[d] || [];
             
             var legendLabel = d;
-            if (tabId === 'sector') {
-                if (SECTOR_CHART_MODE === 'combined') {
-                    legendLabel = d.replace('|', ' ');
-                } else {
-                    var parts = d.split('|');
-                    if (parts.length > 1) {
-                        legendLabel = parts[1].split('-')[0];
-                    }
-                }
-            } else if (tabId === 'subnet') {
-                legendLabel = d;
-            }
-            
+            var finalColor = COLORS[i % COLORS.length];
+
             return {
                 label: legendLabel,
                 data:  arr,
-                borderColor: COLORS[i % COLORS.length],
+                borderColor: finalColor,
                 backgroundColor: "transparent",
                 tension: 0.22, pointRadius: 0, pointHoverRadius: 5, borderWidth: 1.8
             };
@@ -1515,8 +1246,6 @@ function renderChart(tabId, kpiDef, dims, suffix = ''){
     } else {
         if (tabId === 'site' && !isHourly) {
             labels = SITE_DAILY_LABELS || [];
-        } else if (tabId === 'sector' && !isHourly) {
-            labels = SECTOR_DAILY_LABELS || [];
         } else {
             labels = isHourly ? (HOURLY_LABELS[tabId] || []) : CHART_LABELS;
         }
@@ -1540,15 +1269,12 @@ function buildTable(tabId, dims){
     var tbody = document.getElementById("tableBody-"+tabId);
     if(!thead||!tbody) return;
 
-    var dimLabel = {regional:"Group",nop:"NOP",city:"City",subnet:"Subnet",site:"Site",sector:"Sector Legend"}[tabId]||"Group";
+    var dimLabel = {regional:"Group",nop:"NOP",city:"City",cluster:"Cluster",site:"Site"}[tabId]||"Group";
     
     var isCluster = tabId === 'site' && SITE_MODE === 'cluster';
     if (isCluster) dims = ['Cluster'];
     
-    var hdrs = ["Date"];
-    if (tabId === 'sector') {
-        hdrs.push("Sector", "Band", "Cell");
-    } else {
+    var hdrs = ["Date"]; {
         hdrs.push(dimLabel);
     }
     hdrs = hdrs.concat(KPI_DEFS.map(function(k){ 
@@ -1568,37 +1294,19 @@ function buildTable(tabId, dims){
         data = isHourly ? HOURLY_DATA[tabId] || {} : TAB_DATA[tabId] || {};
         if (tabId === 'site' && !isHourly) {
             labels = SITE_DAILY_LABELS || [];
-        } else if (tabId === 'sector' && !isHourly) {
-            labels = SECTOR_DAILY_LABELS || [];
         } else {
             labels = isHourly ? (HOURLY_LABELS[tabId] || []) : CHART_LABELS;
         }
     }
     
     // Auto-calculate dims for sector tab from the filtered data object
-    if(tabId === 'sector') {
-        var anyKpi = Object.keys(data)[0];
-        dims = anyKpi && data[anyKpi] ? Object.keys(data[anyKpi]) : [];
-    }
+
     
     var rows = "";
     labels.forEach(function(day){
         dims.forEach(function(dim){
             var rowHtml = "<tr><td>"+day+"</td>";
-            if (tabId === 'sector') {
-                var secBase = dim;
-                var bandStr = "";
-                var cellStr = "";
-                var parts = dim.split("|");
-                if (parts.length > 1) {
-                    secBase = parts[0];
-                    cellStr = parts[1];
-                    bandStr = cellStr.split("-")[0];
-                }
-                rowHtml += "<td>"+secBase+"</td><td>"+bandStr+"</td><td>"+cellStr+"</td>";
-            } else {
-                rowHtml += "<td>"+dim+"</td>";
-            }
+            rowHtml += "<td>"+dim+"</td>";
             KPI_DEFS.forEach(function(k){
                 var arr = (data[k[0]]||{})[dim]||[];
                 var idx = labels.indexOf(day);
@@ -1612,6 +1320,46 @@ function buildTable(tabId, dims){
     tbody.innerHTML = rows;
 }
 
+
+/* ── Dual Tech Toggle ── */
+function switchTechView(tech) {
+    if (CURRENT_TECH === tech) return;
+    CURRENT_TECH = tech;
+    
+    // Update all tech-btn buttons visually
+    document.querySelectorAll('.tech-btn').forEach(btn => {
+        if (btn.innerText.trim() === tech) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    
+    // For 2G, Tx and Rx Packets should be zeroed or we could just render them as normal 
+    // since the backend now returns 0s for them for 2G. No special handling needed in render!
+    
+    // Clear site-level cached data to force a re-fetch for the new tech
+    TAB_DATA.site = {};
+    if (typeof HOURLY_DATA !== 'undefined') HOURLY_DATA = {};
+    
+    // Determine which tab is active and re-render it
+    var activeTab = document.querySelector('.mon-tab-panel.active');
+    if (activeTab) {
+        var tabId = activeTab.id.replace('tabPanel-', '');
+        
+        // If it's site tab, we might need to clear or fetch data for the new tech
+        if (tabId === 'site') {
+            updateTabDisplay('site'); // triggers fetch for the current tech based on mode
+        } else {
+            renderTabCharts(tabId, activeFilterDims[tabId]);
+            // If table view is active, update it
+            if (document.getElementById(`tableView-${tabId}`).style.display !== 'none') {
+                buildTable(tabId, activeFilterDims[tabId]);
+            }
+        }
+    }
+}
+
 /* ── Chart / Table view toggle ── */
 function setTabView(tabId, view, btn){
     var cg = document.getElementById("chartGrid-"+tabId);
@@ -1619,15 +1367,12 @@ function setTabView(tabId, view, btn){
     if(cg) cg.style.display = view==="chart" ? "" : "none";
     if(tv) tv.style.display  = view==="table" ? ""  : "none";
 
-    document.querySelectorAll("#tabPanel-"+tabId+" .view-btn").forEach(function(b){ b.classList.remove("active"); });
+    // Only clear active state from the Chart/Table buttons, not the Tech toggles
+    document.querySelectorAll("#tabPanel-"+tabId+" .view-btn:not(.tech-btn)").forEach(function(b){ b.classList.remove("active"); });
     if(btn) btn.classList.add("active");
 
     if(view==="table"){
-        if (tabId === 'sector') {
-            applySectorLocalFilters();
-        } else {
-            buildTable(tabId, activeFilterDims[tabId]);
-        }
+        buildTable(tabId, activeFilterDims[tabId]);
     }
 }
 
@@ -1832,7 +1577,7 @@ function doExportPng(){
         
         var a = document.createElement('a');
         a.href = tempCanvas.toDataURL('image/png');
-        a.download = "5G_Monitoring_" + _pngTab.toUpperCase() + "_Charts.png";
+        a.download = "PL_Monitoring_" + _pngTab.toUpperCase() + "_Charts.png";
         a.click();
         
         if (cgWasHidden) cg.style.display = "none";
@@ -1895,27 +1640,17 @@ function doExportCsv(){
         data = isHourly ? HOURLY_DATA[tabId] || {} : TAB_DATA[tabId] || {};
         if (tabId === 'site' && !isHourly) {
             labels = SITE_DAILY_LABELS || [];
-        } else if (tabId === 'sector' && !isHourly) {
-            labels = SECTOR_DAILY_LABELS || [];
         } else {
             labels = isHourly ? (HOURLY_LABELS[tabId] || []) : CHART_LABELS;
         }
     }
-        if(tabId === 'sector') {
-        var anyKpi = Object.keys(data)[0];
-        dims = anyKpi && data[anyKpi] ? Object.keys(data[anyKpi]) : [];
-        if(dims.length === 0) { alert("No data available to export. Please select filters first."); return; }
-    }
-    var dimLabel = {regional:"Group",nop:"NOP",city:"City",subnet:"Subnet",site:"Site",sector:"Sector Legend"}[tabId]||"Group";
+
+    var dimLabel = {regional:"Group",nop:"NOP",city:"City",cluster:"Cluster",site:"Site"}[tabId]||"Group";
 
     /* Build header row */
     var kdefsFiltered = KPI_DEFS.filter(function(k){ return selKpis.indexOf(k[0])>=0; });
     var hdrs = ["Date"];
-    if (tabId === 'sector') {
-        hdrs.push("Sector", "Band", "Cell");
-    } else {
-        hdrs.push(dimLabel);
-    }
+    hdrs.push(dimLabel);
     hdrs = hdrs.concat(kdefsFiltered.map(function(k){ 
         var unit = k[2];
         return k[1]+(unit?" ("+unit+")":""); 
@@ -1925,20 +1660,7 @@ function doExportCsv(){
     labels.forEach(function(day){
         dims.forEach(function(dim){
             var row = [day];
-            if (tabId === 'sector') {
-                var secBase = dim;
-                var bandStr = "";
-                var cellStr = "";
-                var parts = dim.split("|");
-                if (parts.length > 1) {
-                    secBase = parts[0];
-                    cellStr = parts[1];
-                    bandStr = cellStr.split("-")[0];
-                }
-                row.push('"' + secBase + '"', '"' + bandStr + '"', '"' + cellStr + '"');
-            } else {
-                row.push('"' + dim + '"');
-            }
+            row.push('"' + dim + '"');
             kdefsFiltered.forEach(function(k){
                 var arr = (data[k[0]]||{})[dim]||[];
                 var idx = labels.indexOf(day);
@@ -1954,7 +1676,7 @@ function doExportCsv(){
     var url  = URL.createObjectURL(blob);
     var a    = document.createElement("a");
     a.href = url;
-    a.download = "5g_monitoring_" + tabId + "_" + (new Date().toISOString().slice(0,10)) + ".csv";
+    a.download = "PL_Monitoring_" + tabId + "_" + (new Date().toISOString().slice(0,10)) + ".csv";
     a.click();
     URL.revokeObjectURL(url);
 }
@@ -1975,35 +1697,10 @@ document.addEventListener("DOMContentLoaded", function(){
     setMsDisabled('city_city', true);
     // Default site filters
     initMsOptions('site_city', Object.keys(CITY_SITE_MAP).sort());
-    initMsOptions('site_subnet', Object.keys(SUBNET_SITE_MAP).sort());
+    initMsOptions('site_cluster', Object.keys(CLUSTER_SITE_MAP).sort());
     setMsDisabled('site_site', true);
     
-    initMsOptions('subnet_subnet', Object.keys(MAP_SUBNET_CITY).sort());
-    
-    // Populate sector_site with ALL sites
-    var allSitesSet = new Set();
-    Object.values(CITY_SITE_MAP).forEach(sites => sites.forEach(s => allSitesSet.add(s)));
-    initMsOptions('sector_site', Array.from(allSitesSet).sort());
-    // Populate sector_sector and sector_band
-    var sectorOpts = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
-    initMsOptions('sector_sector', sectorOpts, true);
-    
-    var bandOpts = ["L700", "L900", "L1800", "L2100", "L2300_1", "L2300_2", "L2300_3"];
-    initMsOptions('sector_band', bandOpts, true);
-    // Populate sector_kpi
-    var kpiListEl = document.getElementById("ms-list-sector_kpi");
-    if(kpiListEl) {
-        msSelections['sector_kpi'] = KPI_DEFS.map(k => k[0]); // Select all by default
-        var html = "";
-        KPI_DEFS.forEach(function(k) {
-            html += `<div class="ms-item" onclick="toggleMsItem('sector_kpi', '${k[0]}')">
-                        <input type="checkbox" id="chk-sector_kpi-${k[0]}" value="${k[0]}" checked>
-                        <span>${k[1]}</span>
-                     </div>`;
-        });
-        kpiListEl.innerHTML = html;
-        updateMsLabel('sector_kpi');
-    }
+    initMsOptions('cluster_cluster', Object.keys(MAP_CLUSTER_CITY).sort());
 
     // Render regional charts
     renderTabCharts("regional", ["Regional"]);

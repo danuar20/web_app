@@ -1,7 +1,7 @@
 """4G KPI Hourly Trend Routes — /kpi_4g_hourly/trend (cluster aggregation)"""
 from flask import Blueprint, render_template, request, session, flash, make_response
 from app.db.db_webapp import get_postgres_connection, get_site_list_4g
-from ._utils import login_required, _no_cache, json_response, db_query
+from ._utils import viewer_blocked, login_required, _no_cache, json_response, db_query
 import psycopg2
 import psycopg2.errors
 
@@ -11,6 +11,7 @@ kpi4g_trend = Blueprint("kpi4g_trend", __name__)
 # ── Get last update timestamp (async endpoint) ────────────────────────────────
 @kpi4g_trend.route("/api/kpi_4g_hourly/trend/last_update")
 @login_required
+@viewer_blocked
 def api_kpi_4g_trend_last_update():
     """Lightweight endpoint to get last update timestamp without full KPI query"""
     try:
@@ -26,6 +27,7 @@ def api_kpi_4g_trend_last_update():
 # ── 4G KPI Hourly Trend (Multi-Site comparison) ────────────────────────────────
 @kpi4g_trend.route("/kpi_4g_hourly/trend")
 @login_required
+@viewer_blocked
 def kpi_4g_hourly_trend():
     from_date = request.args.get("from_date", "")
     to_date   = request.args.get("to_date",   "")

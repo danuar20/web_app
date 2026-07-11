@@ -1,7 +1,7 @@
 """5G KPI Daily Routes — /kpi_5g_daily (main view per-site)"""
 from flask import Blueprint, render_template, request, session, flash, make_response
 from app.db.db_webapp import get_postgres_connection, get_site_list_5g
-from ._utils import login_required, _no_cache, json_response, db_query
+from ._utils import viewer_blocked, login_required, _no_cache, json_response, db_query
 import psycopg2
 import psycopg2.errors
 
@@ -11,6 +11,7 @@ kpi5g_daily = Blueprint("kpi5g_daily", __name__)
 # ── Get last update timestamp (async endpoint) ────────────────────────────────
 @kpi5g_daily.route("/api/kpi_5g_daily/last_update")
 @login_required
+@viewer_blocked
 def api_kpi_5g_daily_last_update():
     """Lightweight endpoint to get last update timestamp without full KPI query"""
     try:
@@ -26,6 +27,7 @@ def api_kpi_5g_daily_last_update():
 # ── 5G KPI Daily (main page) ─────────────────────────────────────────────────
 @kpi5g_daily.route("/kpi_5g_daily")
 @login_required
+@viewer_blocked
 def kpi_5g_daily():
     from_date = request.args.get("from_date", "")
     to_date   = request.args.get("to_date",   "")

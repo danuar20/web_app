@@ -1,7 +1,7 @@
 """4G KPI Hourly Routes — /kpi_4g_hourly (main view per-site)"""
 from flask import Blueprint, render_template, request, session, flash, make_response
 from app.db.db_webapp import get_postgres_connection, get_site_list_4g
-from ._utils import login_required, _no_cache, json_response, db_query
+from ._utils import viewer_blocked, login_required, _no_cache, json_response, db_query
 import psycopg2
 import psycopg2.errors
 
@@ -11,6 +11,7 @@ kpi4g_hourly = Blueprint("kpi4g_hourly", __name__)
 # ── Get last update timestamp (async endpoint) ────────────────────────────────
 @kpi4g_hourly.route("/api/kpi_4g_hourly/last_update")
 @login_required
+@viewer_blocked
 def api_kpi_4g_hourly_last_update():
     """Lightweight endpoint to get last update timestamp without full KPI query"""
     try:
@@ -26,6 +27,7 @@ def api_kpi_4g_hourly_last_update():
 # ── 4G KPI Hourly (main page) ──────────────────────────────────────────────────
 @kpi4g_hourly.route("/kpi_4g_hourly")
 @login_required
+@viewer_blocked
 def kpi_4g_hourly():
     from_date = request.args.get("from_date", "")
     to_date   = request.args.get("to_date",   "")

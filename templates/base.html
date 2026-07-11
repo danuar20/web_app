@@ -116,13 +116,13 @@ a { text-decoration: none; }
 [data-theme="dark"] {
     --bg-main: #0d0d1a;
     --text-main: #c8d0e0;
-    --bg-sidebar: #13132a;
-    --border-sidebar: rgba(79,172,254,0.08);
+    --bg-sidebar: rgba(19, 19, 42, 0.75);
+    --border-sidebar: rgba(79,172,254,0.1);
 }
 [data-theme="light"] {
     --bg-main: #f0f2f8;
     --text-main: #1e293b;
-    --bg-sidebar: #fff;
+    --bg-sidebar: rgba(255, 255, 255, 0.85);
     --border-sidebar: rgba(0,0,0,0.07);
 }
 
@@ -141,13 +141,31 @@ body { background: var(--bg-main); color: var(--text-main); }
     height: 100vh;
     position: sticky;
     top: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    transition: width 0.28s cubic-bezier(0.4,0,0.2,1), background 0.3s ease;
-    z-index: 50;
+    overflow: hidden;
+    transition: width 0.28s cubic-bezier(0.4,0,0.2,1), margin 0.28s cubic-bezier(0.4,0,0.2,1), background 0.3s ease;
+    z-index: 1000;
     background: var(--bg-sidebar);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border-right: 1px solid var(--border-sidebar);
 }
+.sidebar.collapsed:hover {
+    width: 220px;
+    margin-right: -162px;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.15);
+}
+.sidebar-menu-scroll {
+    flex-grow: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+}
+/* hide scrollbar for sleek look but keep functionality */
+.sidebar-menu-scroll::-webkit-scrollbar { width: 4px; }
+.sidebar-menu-scroll::-webkit-scrollbar-track { background: transparent; }
+.sidebar-menu-scroll::-webkit-scrollbar-thumb { background: rgba(79,172,254,0.3); border-radius: 4px; }
+
 .sidebar.collapsed { width: 58px; }
 .sidebar.mobile-hidden { display: none; }
 [data-theme="light"] .sidebar { box-shadow: 2px 0 12px rgba(0,0,0,0.05); }
@@ -163,6 +181,9 @@ body { background: var(--bg-main); color: var(--text-main); }
     overflow: hidden;
     flex-shrink: 0;
 }
+[data-theme="dark"] .sidebar-logo { background: linear-gradient(180deg, rgba(79,172,254,0.06) 0%, transparent 100%); }
+[data-theme="light"] .sidebar-logo { background: linear-gradient(180deg, rgba(79,172,254,0.03) 0%, transparent 100%); }
+
 .logo-icon {
     width: 30px; height: 30px;
     border-radius: 8px;
@@ -172,7 +193,7 @@ body { background: var(--bg-main); color: var(--text-main); }
     box-shadow: 0 2px 10px rgba(79,172,254,0.3);
 }
 .sidebar-brand-wrap { overflow: hidden; transition: opacity 0.2s, width 0.28s; }
-.sidebar.collapsed .sidebar-brand-wrap { opacity: 0; width: 0; }
+.sidebar.collapsed:not(:hover) .sidebar-brand-wrap { opacity: 0; width: 0; }
 .sidebar-brand     { font-size: 13px; font-weight: 700; line-height: 1.3; }
 [data-theme="dark"] .sidebar-brand { color: rgba(200,208,224,0.9); }
 .sidebar-brand-sub { font-size: 10px; }
@@ -182,97 +203,117 @@ body { background: var(--bg-main); color: var(--text-main); }
 /* ── SIDEBAR TOGGLE BUTTON ── */
 .sidebar-toggle-wrap {
     display: flex;
-    justify-content: flex-end;
-    padding: 8px 10px 4px;
+    justify-content: flex-start;
+    padding: 10px 15px;
+    margin-top: auto;
     flex-shrink: 0;
+    position: sticky;
+    bottom: 0;
+    border-top: 1px solid var(--border-sidebar);
+    background: var(--bg-sidebar);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 10;
 }
 .sidebar-toggle {
-    width: 32px; height: 32px;
-    border-radius: 10px;
+    width: 100%; height: 36px;
+    border-radius: 8px;
     border: none;
     cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 14px;
+    display: flex; align-items: center; justify-content: flex-start;
+    padding: 0 12px;
+    gap: 10px;
+    font-size: 13px; font-weight: 500;
     transition: all 0.24s cubic-bezier(0.4, 0, 0.2, 1);
     flex-shrink: 0;
-    position: relative;
+    white-space: nowrap;
     overflow: hidden;
 }
-[data-theme="dark"]  .sidebar-toggle { 
-    background: rgba(255,255,255,0.08); 
-    color: rgba(255,255,255,0.7);
+.sidebar.collapsed .sidebar-toggle-wrap {
+    padding: 10px 11px;
 }
-[data-theme="light"] .sidebar-toggle { 
-    background: rgba(0,0,0,0.05); 
-    color: #555;
+.sidebar.collapsed:not(:hover) .sidebar-toggle {
+    width: 36px; padding: 0; justify-content: center;
 }
-.sidebar-toggle:hover { 
-    background: rgba(79,172,254,0.2); 
-    color: #4facfe;
-    transform: scale(1.08);
-}
-.sidebar-toggle:active {
-    transform: scale(0.96);
-}
-.sidebar-toggle i {
-    transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-    display: inline-block;
-}
-.sidebar.collapsed .sidebar-toggle i {
-    transform: rotate(180deg);
-}
+[data-theme="dark"]  .sidebar-toggle { background: rgba(255,255,255,0.05); color: rgba(200,208,224,0.7); }
+[data-theme="light"] .sidebar-toggle { background: rgba(0,0,0,0.03); color: #555; }
+.sidebar-toggle:hover { background: rgba(79,172,254,0.1); color: #4facfe; transform: translateY(-1px); }
+.sidebar-toggle:active { transform: translateY(1px); }
+.sidebar-toggle-text { opacity: 1; transition: opacity 0.2s; }
+.sidebar.collapsed:not(:hover) .sidebar-toggle-text { display: none; }
+.sidebar-toggle i { transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1); display: inline-block; }
 
 /* menu sections */
-.menu-section { padding: 10px 8px 2px; flex-shrink: 0; }
+.menu-section { padding: 14px 8px 2px; flex-shrink: 0; }
 .menu-section-label {
-    font-size: 10px; font-weight: 600; opacity: 0.35;
+    font-size: 10px; font-weight: 600; opacity: 0.45;
     letter-spacing: 0.8px; text-transform: uppercase;
-    padding: 0 8px 6px;
+    padding: 6px 8px 8px;
     white-space: nowrap; overflow: hidden;
     transition: opacity 0.2s;
+    border-top: 1px solid rgba(79,172,254,0.1);
+    margin-top: 4px;
 }
+.menu-section:first-child .menu-section-label { border-top: none; margin-top: 0; padding-top: 0; }
 [data-theme="dark"] .menu-section-label { color: rgba(79,172,254,0.5); }
-.sidebar.collapsed .menu-section-label { opacity: 0; }
+.sidebar.collapsed:not(:hover) .menu-section-label { opacity: 0; }
 
 /* menu items */
 .menu-item {
-    display: flex; align-items: center; gap: 9px;
-    padding: 8px 9px;
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px;
     border-radius: 8px;
     font-size: 13px;
-    margin-bottom: 1px;
+    margin-bottom: 2px;
     cursor: pointer;
     white-space: nowrap;
     overflow: hidden;
-    transition: background 0.15s, color 0.15s;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
-[data-theme="dark"]  .menu-item { color: rgba(200,208,224,0.55); }
+[data-theme="dark"]  .menu-item { color: rgba(200,208,224,0.65); }
 [data-theme="light"] .menu-item { color: #555; }
-.menu-item:hover  { background: rgba(79,172,254,0.1); color: #4facfe; }
-.menu-item.active { background: rgba(79,172,254,0.15); color: #4facfe; font-weight: 600; }
+.menu-item:hover  { 
+    background: rgba(79,172,254,0.1); 
+    color: #4facfe; 
+    transform: translateX(4px);
+}
+.menu-item.active { 
+    background: linear-gradient(90deg, rgba(79,172,254,0.15) 0%, rgba(79,172,254,0.02) 100%); 
+    color: #4facfe; 
+    font-weight: 600; 
+    border-left: 3px solid #4facfe; 
+    padding-left: 9px;
+}
 
-.menu-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.menu-item-label { transition: opacity 0.2s, width 0.28s; overflow: hidden; }
-.sidebar.collapsed .menu-item-label { opacity: 0; width: 0; }
+.menu-icon { width: 16px; height: 16px; display: flex; justify-content: center; align-items: center; font-size: 14px; flex-shrink: 0; opacity: 0.85; transition: opacity 0.3s, color 0.3s, transform 0.3s; }
+.menu-item:hover .menu-icon, .menu-item.active .menu-icon { opacity: 1; color: #4facfe; transform: scale(1.1); }
+.menu-item-label { transition: opacity 0.2s, width 0.28s; overflow: hidden; flex-grow: 1; }
+.sidebar.collapsed:not(:hover) .menu-item-label { opacity: 0; width: 0; }
 
 .menu-arrow { margin-left: auto; font-size: 9px; transition: transform 0.22s; flex-shrink: 0; color: inherit; }
 .menu-arrow { margin-left: auto; font-size: 9px; flex-shrink: 0; color: inherit; }
 .menu-item.sub-open .menu-arrow { transform: rotate(90deg); }
-.sidebar.collapsed .menu-arrow { display: none; }
+.sidebar.collapsed:not(:hover) .menu-arrow { display: none; }
 
 /* sub-menu */
 .sub-menu {
-    display: none;
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
+    overflow: hidden;
     padding-left: 36px;
     margin-top: 0;
+    transition: max-height 0.35s ease, opacity 0.25s ease, padding 0.3s ease, margin 0.3s ease;
 }
 .sub-menu.open {
-    display: block;
+    max-height: 500px;
+    opacity: 1;
+    pointer-events: auto;
     padding-top: 5px;
     padding-bottom: 5px;
     margin-top: 2px;
 }
-.sidebar.collapsed .sub-menu { display: none; }
+.sidebar.collapsed:not(:hover) .sub-menu { display: none !important; }
 
 .sub-item {
     display: flex; align-items: center; gap: 7px;
@@ -295,7 +336,7 @@ body { background: var(--bg-main); color: var(--text-main); }
     flex-shrink: 0;
     transition: opacity 0.2s, background 0.3s ease, border-color 0.3s ease;
 }
-.sidebar.collapsed .sidebar-quickstats { display: none; }
+.sidebar.collapsed:not(:hover) .sidebar-quickstats { display: none; }
 [data-theme="dark"]  .sidebar-quickstats { background: rgba(30,30,58,0.6); border: 1px solid rgba(79,172,254,0.12); }
 [data-theme="light"] .sidebar-quickstats { background: rgba(79,172,254,0.06); border: 1px solid rgba(79,172,254,0.2); }
 .qs-row { display: flex; align-items: center; justify-content: space-between; padding: 3px 0; }
@@ -369,8 +410,6 @@ body.mobile-view .hamburger-btn {
     color: #555;
     box-shadow: 0 1px 4px rgba(0,0,0,0.07);
 }
-[data-theme="light"] .theme-toggle-btn::after { content: "☀️"; }
-[data-theme="dark"]  .theme-toggle-btn::after { content: "🌙"; }
 .theme-toggle-btn:hover {
     background: rgba(79,172,254,0.15);
     border-color: #4facfe;
@@ -1635,25 +1674,21 @@ body.mobile-view .sidebar .nav-link {
 
       <div class="sidebar-brand-wrap">
         <div class="sidebar-brand">NetKPI</div>
-        <div class="sidebar-brand-sub">Monitor v3.2</div>
+        <div class="sidebar-brand-sub">Monitor v3.3</div>
       </div>
     </div>
 
-    <!-- Toggle button row -->
-    <div class="sidebar-toggle-wrap">
-      <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Minimize / Maximize sidebar">
-        <i class="fas fa-chevron-left" id="toggleIcon"></i>
-      </button>
-    </div>
 
+
+    <div class="sidebar-menu-scroll">
     <div class="menu-section">
       <div class="menu-section-label">Overview</div>
       <a href="/home" class="menu-item {% block nav_home %}{% endblock %}">
-        <div class="menu-dot" style="background:#4facfe"></div>
+        <div class="menu-icon"><i class="fas fa-home"></i></div>
         <span class="menu-item-label">Home</span>
       </a>
       <div class="menu-item {% block nav_productivity %}{% endblock %}" onclick="toggleSub('subProd', this)">
-        <div class="menu-dot" style="background:#00c853"></div>
+        <div class="menu-icon"><i class="fas fa-chart-line"></i></div>
         <span class="menu-item-label">Productivity</span>
         <i class="fas fa-chevron-right menu-arrow"></i>
       </div>
@@ -1670,7 +1705,7 @@ body.mobile-view .sidebar .nav-link {
       </div>
       {% if session.get('role') == 'admin' %}
       <div class="menu-item {% block nav_database %}{% endblock %}" onclick="toggleSub('subDB', this)">
-        <div class="menu-dot" style="background:#ff5252"></div>
+        <div class="menu-icon"><i class="fas fa-circle"></i></div>
         <span class="menu-item-label">Database</span>
         <i class="fas fa-chevron-right menu-arrow"></i>
       </div>
@@ -1686,7 +1721,7 @@ body.mobile-view .sidebar .nav-link {
       <div class="menu-section-label">Network KPI</div>
 
       <div class="menu-item {% block nav_monitoring %}{% endblock %}" onclick="toggleSub('sub_monitoring', this)">
-        <div class="menu-dot" style="background:#00c6ff"></div>
+        <div class="menu-icon"><i class="fas fa-tv"></i></div>
         <span class="menu-item-label">Monitoring KPI</span>
         <i class="fas fa-chevron-right menu-arrow"></i>
       </div>
@@ -1700,10 +1735,11 @@ body.mobile-view .sidebar .nav-link {
         <a href="/kpi_5g_monitoring" class="sub-item {% block nav_5g_monitoring %}{% endblock %}">
           <span class="sub-item-dot"></span> 5G Monitoring
         </a>
+
       </div>
 
       <div class="menu-item {% block nav_dashboard %}{% endblock %}" onclick="toggleSub('subDashboard', this)">
-        <div class="menu-dot" style="background:#00bcd4"></div>
+        <div class="menu-icon"><i class="fas fa-tachometer-alt"></i></div>
         <span class="menu-item-label">Dashboard</span>
         <i class="fas fa-chevron-right menu-arrow"></i>
       </div>
@@ -1721,8 +1757,9 @@ body.mobile-view .sidebar .nav-link {
 
 
 
+      {% if session.get('role') != 'viewer' %}
       <div class="menu-item {% block nav_2g %}{% endblock %}" onclick="toggleSub('sub2g', this)">
-        <div class="menu-dot" style="background:#f6c90e"></div>
+        <div class="menu-icon"><i class="fas fa-signal"></i></div>
         <span class="menu-item-label">2G KPI</span>
         <i class="fas fa-chevron-right menu-arrow"></i>
       </div>
@@ -1738,7 +1775,7 @@ body.mobile-view .sidebar .nav-link {
       </div>
 
       <div class="menu-item {% block nav_4g %}{% endblock %}" onclick="toggleSub('sub4g', this)">
-        <div class="menu-dot" style="background:#4facfe"></div>
+        <div class="menu-icon"><i class="fas fa-broadcast-tower"></i></div>
         <span class="menu-item-label">4G KPI</span>
         <i class="fas fa-chevron-right menu-arrow"></i>
       </div>
@@ -1761,7 +1798,7 @@ body.mobile-view .sidebar .nav-link {
       </div>
 
       <div class="menu-item {% block nav_5g %}{% endblock %}" onclick="toggleSub('sub5g', this)">
-        <div class="menu-dot" style="background:#a78bfa"></div>
+        <div class="menu-icon"><i class="fas fa-wifi"></i></div>
         <span class="menu-item-label">5G KPI</span>
         <i class="fas fa-chevron-right menu-arrow"></i>
       </div>
@@ -1779,6 +1816,7 @@ body.mobile-view .sidebar .nav-link {
           <span class="sub-item-dot"></span> 5G Hourly Compare
         </a>
       </div>
+      {% endif %}
       
 
     </div>
@@ -1786,28 +1824,18 @@ body.mobile-view .sidebar .nav-link {
     <div class="menu-section">
       <div class="menu-section-label">Others</div>
 
-      <div class="menu-item {% block nav_ta %}{% endblock %}" onclick="toggleSub('subTA', this)">
-        <div class="menu-dot" style="background:#f093fb"></div>
+      <a href="/ta_4g_new" class="menu-item {% block nav_ta %}{% endblock %}">
+        <div class="menu-icon"><i class="fas fa-clock"></i></div>
         <span class="menu-item-label">Timing Advance</span>
-        <i class="fas fa-chevron-right menu-arrow"></i>
-      </div>
-      <div class="sub-menu {% block subTA_open %}{% endblock %}" id="subTA">
-        <a href="#" class="sub-item"><span class="sub-item-dot"></span> TA 2G</a>
-        <a href="/ta_4g" class="sub-item {% block nav_ta_4g %}{% endblock %}"><span class="sub-item-dot"></span> TA 4G</a>
-      </div>
+      </a>
 
-      <div class="menu-item {% block nav_packet_loss %}{% endblock %}" onclick="toggleSub('subpacket', this)">
-        <div class="menu-dot" style="background:#ff9f40"></div>
+      <a href="/pl_monitoring" class="menu-item {% block nav_packet_loss %}{% endblock %}">
+        <div class="menu-icon"><i class="fas fa-network-wired"></i></div>
         <span class="menu-item-label">Packet Loss</span>
-        <i class="fas fa-chevron-right menu-arrow"></i>
-      </div>
-      <div class="sub-menu {% block subpacket_open %}{% endblock %}" id="subpacket">
-        <a href="/pl_2g" class="sub-item {% block nav_pl_2g %}{% endblock %}"><span class="sub-item-dot"></span> PL 2G</a>
-        <a href="/pl_4g" class="sub-item {% block nav_pl_4g %}{% endblock %}"><span class="sub-item-dot"></span> PL 4G</a>
-      </div>
+      </a>
 
       <div class="menu-item {% block nav_coverage %}{% endblock %}" onclick="toggleSub('subcoverage', this)">
-        <div class="menu-dot" style="background:#00c853"></div>
+        <div class="menu-icon"><i class="fas fa-globe"></i></div>
         <span class="menu-item-label">Coverage</span>
         <i class="fas fa-chevron-right menu-arrow"></i>
       </div>
@@ -1822,11 +1850,21 @@ body.mobile-view .sidebar .nav-link {
     <div class="menu-section">
       <div class="menu-section-label">Administration</div>
       <a href="/admin/users" class="menu-item {% block nav_admin_users %}{% endblock %}">
-        <div class="menu-dot" style="background:#ff5252"></div>
+        <div class="menu-icon"><i class="fas fa-users-cog"></i></div>
         <span class="menu-item-label">User Management</span>
       </a>
     </div>
     {% endif %}
+
+
+    </div>
+    <!-- Toggle button row -->
+    <div class="sidebar-toggle-wrap">
+      <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Collapse sidebar">
+        <i class="fas fa-outdent" id="toggleIcon"></i>
+        <span class="sidebar-toggle-text" id="toggleText">Collapse sidebar</span>
+      </button>
+    </div>
 
   </aside>
 
@@ -1847,7 +1885,7 @@ body.mobile-view .sidebar .nav-link {
       </div>
       <div class="topbar-right">
         {% block topbar_chips %}{% endblock %}
-        <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeBtn" title="Toggle light/dark"></button>
+        <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeBtn" title="Toggle light/dark"><i class="fas fa-moon" id="themeIcon"></i></button>
         <button class="sidebar-toggle-btn" onclick="toggleViewMode()" id="sidebarToggleBtn" title="Toggle sidebar">
           <svg class="view-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <!-- Monitor screen -->
@@ -2086,7 +2124,7 @@ body.mobile-view .sidebar .nav-link {
       display: none;
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);
-      z-index: 999; align-items: center; justify-content: center;
+      z-index: 8000; align-items: center; justify-content: center;
       opacity: 0; transition: opacity 0.24s ease-in-out;
     }
     .chart-modal-overlay.open {
@@ -2234,14 +2272,21 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 /* ── Theme ── */
+function updateThemeIcon(){
+    var t = document.documentElement.getAttribute("data-theme");
+    var ic = document.getElementById("themeIcon");
+    if(ic){ ic.className = t === "dark" ? "fas fa-sun" : "fas fa-moon"; }
+}
 function toggleTheme(){
     var next = document.documentElement.getAttribute("data-theme")==="dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);
     try { localStorage.setItem("theme", next); } catch(e){}
+    updateThemeIcon();
     setTimeout(function(){ 
         if(typeof updateAllChartsTheme === "function") updateAllChartsTheme();
     }, 80);
 }
+window.addEventListener("DOMContentLoaded", updateThemeIcon);
 
 function updateAllChartsTheme(){
     if (typeof Chart === 'undefined' || !Chart.instances) return;
@@ -2541,9 +2586,14 @@ document.addEventListener("click", function(){
 function toggleSidebar(){
     var sb = document.getElementById("sidebar");
     var ic = document.getElementById("toggleIcon");
+    var txt = document.getElementById("toggleText");
     var collapsed = sb.classList.toggle("collapsed");
-    ic.className = collapsed ? "fas fa-bars" : "fas fa-chevron-left";
-    ic.style.transform = collapsed ? "rotate(0deg)" : "rotate(180deg)";
+    if(ic) {
+        ic.className = collapsed ? "fas fa-indent" : "fas fa-outdent";
+        ic.style.transform = "rotate(0deg)";
+    }
+    if(txt) txt.textContent = collapsed ? "Expand sidebar" : "Collapse sidebar";
+    document.getElementById("sidebarToggle").title = collapsed ? "Expand sidebar" : "Collapse sidebar";
     localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0");
     /* Directly resize every chart after transition */
     setTimeout(function(){
@@ -2965,9 +3015,13 @@ function closeAllSheets(){
 (function(){
     if(localStorage.getItem("sidebarCollapsed")==="1"){
         var sb = document.getElementById("sidebar");
-        sb.classList.add("collapsed");
+        if (sb) sb.classList.add("collapsed");
         var ic = document.getElementById("toggleIcon");
-        if(ic) ic.className = "fas fa-chevron-right";
+        if(ic) { ic.className = "fas fa-indent"; ic.style.transform = "rotate(0deg)"; }
+        var txt = document.getElementById("toggleText");
+        if(txt) txt.textContent = "Expand sidebar";
+        var btn = document.getElementById("sidebarToggle");
+        if(btn) btn.title = "Expand sidebar";
     }
 })();
 
@@ -2980,12 +3034,16 @@ function closeAllSheets(){
         if(e.matches){
             sb.classList.add("collapsed");
             var ic = document.getElementById("toggleIcon");
-            if(ic) ic.className = "fas fa-bars";
+            if(ic) { ic.className = "fas fa-indent"; ic.style.transform = "rotate(0deg)"; }
+            var txt = document.getElementById("toggleText");
+            if(txt) txt.textContent = "Expand sidebar";
         } else {
             if(localStorage.getItem("sidebarCollapsed") !== "1"){
                 sb.classList.remove("collapsed");
                 var ic = document.getElementById("toggleIcon");
-                if(ic) ic.className = "fas fa-chevron-left";
+                if(ic) { ic.className = "fas fa-outdent"; ic.style.transform = "rotate(0deg)"; }
+                var txt = document.getElementById("toggleText");
+                if(txt) txt.textContent = "Collapse sidebar";
             }
         }
         /* Re-render charts after layout change */
@@ -3005,14 +3063,25 @@ function closeAllSheets(){
 /* ── Auto-detect mobile view ── */
 (function(){
     var mqMobile = window.matchMedia("(max-width: 768px)");
-    function handleMobileChange(e){
-        applyViewMode(e.matches ? "mobile" : "desktop");
-    }
+    
     if(mqMobile.addEventListener){
-        mqMobile.addEventListener("change", handleMobileChange);
+        mqMobile.addEventListener("change", function(e){
+            var settings = {};
+            try { settings = JSON.parse(localStorage.getItem("appSettings") || "{}"); } catch(e){}
+            if(!settings.viewMode) {
+                applyViewMode(e.matches ? "mobile" : "desktop");
+            }
+        });
     }
+    
     // Apply immediately on load
-    handleMobileChange(mqMobile);
+    var initSettings = {};
+    try { initSettings = JSON.parse(localStorage.getItem("appSettings") || "{}"); } catch(e){}
+    if(initSettings.viewMode) {
+        applyViewMode(initSettings.viewMode);
+    } else {
+        applyViewMode(mqMobile.matches ? "mobile" : "desktop");
+    }
 })();
 
 /* ── Mobile sidebar: auto-close when a nav link is clicked ── */
