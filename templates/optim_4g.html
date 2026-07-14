@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+{% block nav_optim %}active{% endblock %}
+{% block subOptim_open %}open{% endblock %}
+{% block nav_optim_4g %}active{% endblock %}
+
+{% block page_content %}
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#faf7f2;--surface:#ffffff;--surface2:#f3efe8;
+  --border:#e2d9cc;--text:#2c2418;--muted:#8a7d6b;
+  --red:#c0392b;--amber:#b7770d;--blue:#1a5fa8;--green:#1e7e34;
+  --accent:#1a5fa8;
+}
+.optim-container {
+    font-family:'IBM Plex Sans',sans-serif;
+    color:var(--text);
+    background:var(--bg);
+    padding: 24px;
+    border-radius: 8px;
+    min-height: calc(100vh - 100px);
+}
+
+.report-header {
+    padding: 24px 32px 16px;
+    background:#fff;
+    border:1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+.report-header::before{content:'';position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(26,95,168,0.06) 0%,transparent 70%);pointer-events:none;}
+.badge{display:inline-flex;align-items:center;gap:6px;background:rgba(26,95,168,0.08);border:1px solid rgba(26,95,168,0.3);color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;margin-bottom:14px;letter-spacing:.05em;}
+.badge-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+
+h1{font-size:24px;font-weight:300;letter-spacing:-0.5px;line-height:1.2;margin-bottom:6px; margin-top:0;}
+h1 span{font-weight:600;color:var(--accent);}
+
+.filter-bar {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+.filter-group { display: flex; flex-direction: column; gap: 4px; }
+.filter-group label { font-size: 11px; font-family:'IBM Plex Mono',monospace; color:var(--muted); font-weight: 600; text-transform: uppercase;}
+.filter-group input, .filter-group select { 
+    padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; 
+    font-size: 13px; font-family: inherit; background: var(--surface2);
+    min-width: 140px;
+}
+.btn-process {
+    background: var(--accent); color: white; border: none; border-radius: 6px;
+    padding: 9px 24px; font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: background 0.2s;
+}
+.btn-process:hover { background: #13467a; }
+
+/* Level Tabs */
+.level-tabs {
+    display: flex; gap: 8px; margin-bottom: 24px;
+}
+.ltab {
+    padding: 8px 24px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--muted);
+    font-weight: 600;
+    transition: all 0.2s;
+}
+.ltab.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+    box-shadow: 0 4px 12px rgba(26,95,168,0.2);
+}
+
+.selector-row {
+    margin-bottom: 24px;
+    display: none; /* Shown based on tab */
+    align-items: center;
+    gap: 12px;
+}
+.selector-row select {
+    padding: 8px 16px; border: 1px solid var(--border); border-radius: 6px; 
+    font-size: 14px; background: #fff; font-weight: 500;
+    min-width: 200px;
+}
+
+/* KPI CARDS */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px; margin-bottom:32px;}
+.kpi-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);}
+.kpi-label{font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
+.kpi-value{font-size:28px;font-weight:600;line-height:1;}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:6px; font-family:'IBM Plex Mono',monospace;}
+
+.section-title{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* RANKING GRIDS */
+.ranking-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+.ranking-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+}
+.action-table{width:100%;border-collapse:collapse;}
+.action-table th{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:10px 14px;text-align:left;background:var(--surface2);border-bottom:1px solid var(--border);}
+.action-table td{padding:10px 14px;font-size:13px;border-bottom:1px solid rgba(226,217,204,0.5);vertical-align:middle;}
+.action-table tr:last-child td{border-bottom:none;}
+.action-table tr:hover td{background:rgba(0,0,0,0.02);}
+
+.val-bad { color: var(--red); font-weight: 500; font-family:'IBM Plex Mono',monospace;}
+.val-warn { color: var(--amber); font-weight: 500; font-family:'IBM Plex Mono',monospace;}
+.val-good { color: var(--green); font-weight: 500; font-family:'IBM Plex Mono',monospace;}
+
+.entity-name { font-weight: 500; color: var(--text); }
+.entity-sub { font-size: 11px; color: var(--muted); font-family:'IBM Plex Mono',monospace; }
+
+.empty-state {
+    padding: 60px;
+    text-align: center;
+    color: var(--muted);
+    background: #fff;
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+}
+.empty-state i { font-size: 32px; margin-bottom: 16px; opacity: 0.5; }
+</style>
+
+<div class="optim-container">
+    <div class="report-header">
+        <div class="badge"><span class="badge-dot"></span>4G OPTIMIZATION</div>
+        <h1>Radio Network <span>Analysis Dashboard</span></h1>
+        
+        <form method="GET" action="/optim_4g">
+            <div class="filter-bar">
+                <div class="filter-group">
+                    <label>From Date</label>
+                    <input type="date" name="from_date" value="{{ from_date }}" required>
+                </div>
+                <div class="filter-group">
+                    <label>To Date</label>
+                    <input type="date" name="to_date" value="{{ to_date }}" required>
+                </div>
+                <input type="hidden" name="submitted" value="1">
+                <button type="submit" class="btn-process"><i class="fas fa-play" style="margin-right:6px;"></i> Process</button>
+            </div>
+        </form>
+    </div>
+
+    {% if not submitted %}
+        <div class="empty-state">
+            <i class="fas fa-search-chart"></i>
+            <h3>Select a date range and click Process to begin analysis.</h3>
+        </div>
+    {% elif data_payload_json == "{}" or not data_payload_json %}
+        <div class="empty-state">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h3>No data found for the selected period.</h3>
+        </div>
+    {% else %}
+        <!-- Level Switcher -->
+        <div class="level-tabs">
+            <div class="ltab active" data-level="regional" onclick="setLevel('regional')">REGIONAL</div>
+            <div class="ltab" data-level="nop" onclick="setLevel('nop')">NOP</div>
+            <div class="ltab" data-level="city" onclick="setLevel('city')">CITY</div>
+        </div>
+
+        <div class="selector-row" id="selectorRow">
+            <select id="entitySelector" onchange="renderDashboard()"></select>
+        </div>
+
+        <!-- Dashboard Content -->
+        <div class="section-title" id="dashboardTitle">Cluster KPI Summary</div>
+        
+        <div class="kpi-grid">
+            <!-- Rendered by JS -->
+            <div id="kpiCards"></div>
+        </div>
+
+        <div class="ranking-grid">
+            <div class="ranking-card">
+                <div class="section-title">Worst Performers — PRB Utilization</div>
+                <table class="action-table">
+                    <thead><tr><th>Entity</th><th>PRB Util</th><th>CQI</th></tr></thead>
+                    <tbody id="prbTableBody"></tbody>
+                </table>
+            </div>
+            <div class="ranking-card">
+                <div class="section-title">Worst Performers — Packet Loss</div>
+                <table class="action-table">
+                    <thead><tr><th>Entity</th><th>Packet Loss</th><th>DL Thpt</th></tr></thead>
+                    <tbody id="plTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+    let payload = {{ data_payload_json|safe }};
+    let currentLevel = 'regional'; // regional, nop, city
+    
+    function setLevel(lvl) {
+        currentLevel = lvl;
+        document.querySelectorAll('.ltab').forEach(e => e.classList.remove('active'));
+        document.querySelector(`.ltab[data-level="${lvl}"]`).classList.add('active');
+        
+        const row = document.getElementById('selectorRow');
+        const sel = document.getElementById('entitySelector');
+        sel.innerHTML = '';
+        
+        if(lvl === 'regional') {
+            row.style.display = 'none';
+        } else if(lvl === 'nop') {
+            row.style.display = 'flex';
+            const nops = Object.keys(payload.nop).sort();
+            nops.forEach(n => {
+                sel.add(new Option(n, n));
+            });
+        } else if(lvl === 'city') {
+            row.style.display = 'flex';
+            const cities = Object.keys(payload.city).sort();
+            cities.forEach(c => {
+                const nop = payload.city[c].nop;
+                sel.add(new Option(`${c} (${nop})`, c));
+            });
+        }
+        renderDashboard();
+    }
+    
+    function getColorCode(metric, val) {
+        if(val === null || val === undefined) return '';
+        if(metric === 'dl_prb') return val > 80 ? 'val-bad' : (val > 65 ? 'val-warn' : 'val-good');
+        if(metric === 'pl') return val > 0.5 ? 'val-bad' : (val > 0.1 ? 'val-warn' : 'val-good');
+        if(metric === 'dl_thp') return val < 2.0 ? 'val-bad' : (val < 5.0 ? 'val-warn' : 'val-good');
+        if(metric === 'cqi') return val < 7.0 ? 'val-bad' : (val < 9.0 ? 'val-warn' : 'val-good');
+        if(metric === 'bad_rsrp') return val > 15 ? 'val-bad' : (val > 10 ? 'val-warn' : 'val-good');
+        return '';
+    }
+    
+    function renderCard(title, val, unit, metricCode) {
+        let displayVal = (val === null || val === undefined) ? '-' : val + unit;
+        let cClass = getColorCode(metricCode, val);
+        let bColor = 'var(--accent)';
+        if(cClass === 'val-bad') bColor = 'var(--red)';
+        if(cClass === 'val-warn') bColor = 'var(--amber)';
+        if(cClass === 'val-good') bColor = 'var(--green)';
+        
+        return `
+        <div class="kpi-card" style="border-top:3px solid ${bColor}">
+            <div class="kpi-label">${title}</div>
+            <div class="kpi-value ${cClass}">${displayVal}</div>
+        </div>`;
+    }
+    
+    function renderDashboard() {
+        if(!payload.regional) return;
+        
+        let dataNode = payload.regional;
+        let title = "Regional Aggregation";
+        
+        if(currentLevel === 'nop') {
+            const sel = document.getElementById('entitySelector').value;
+            if(sel && payload.nop[sel]) { dataNode = payload.nop[sel]; title = "NOP: " + sel; }
+        } else if (currentLevel === 'city') {
+            const sel = document.getElementById('entitySelector').value;
+            if(sel && payload.city[sel]) { dataNode = payload.city[sel]; title = "City: " + sel; }
+        }
+        
+        document.getElementById('dashboardTitle').textContent = `${title} — KPI Summary`;
+        
+        // Cards
+        let html = '';
+        html += renderCard('DL PRB Util', dataNode.dl_prb, '%', 'dl_prb');
+        html += renderCard('Packet Loss', dataNode.pl, '%', 'pl');
+        html += renderCard('DL Throughput', dataNode.dl_thp, ' Mbps', 'dl_thp');
+        html += renderCard('Avg CQI', dataNode.cqi, '', 'cqi');
+        html += renderCard('Bad RSRP Ratio', dataNode.bad_rsrp, '%', 'bad_rsrp');
+        html += renderCard('Service Drop Rate', dataNode.sdr, '%', 'sdr');
+        html += renderCard('RRC Setup SR', dataNode.rrc, '%', 'rrc');
+        html += renderCard('Spectral Eff', dataNode.se, '', 'se');
+        
+        document.querySelector('.kpi-grid').innerHTML = html;
+        
+        // Rankings
+        let entities = [];
+        if(currentLevel === 'regional') {
+            // Rank NOPs
+            entities = Object.keys(payload.nop).map(k => ({name: k, sub: 'NOP', data: payload.nop[k]}));
+        } else if(currentLevel === 'nop') {
+            // Rank Cities in NOP
+            const selNop = document.getElementById('entitySelector').value;
+            entities = Object.keys(payload.city).filter(k => payload.city[k].nop === selNop)
+                        .map(k => ({name: k, sub: 'City', data: payload.city[k]}));
+        } else if(currentLevel === 'city') {
+            // Rank Sites in City
+            const selCity = document.getElementById('entitySelector').value;
+            entities = Object.keys(payload.site).filter(k => payload.site[k].city === selCity)
+                        .map(k => ({name: k, sub: payload.site[k].nop, data: payload.site[k]}));
+        }
+        
+        // Render PRB Table (Top 10 Worst)
+        let prbSorted = [...entities].filter(e => e.data.dl_prb !== null).sort((a,b) => b.data.dl_prb - a.data.dl_prb).slice(0, 10);
+        let prbHtml = '';
+        prbSorted.forEach(e => {
+            prbHtml += `<tr>
+                <td><div class="entity-name">${e.name}</div><div class="entity-sub">${e.sub}</div></td>
+                <td class="${getColorCode('dl_prb', e.data.dl_prb)}">${e.data.dl_prb}%</td>
+                <td class="${getColorCode('cqi', e.data.cqi)}">${e.data.cqi || '-'}</td>
+            </tr>`;
+        });
+        if(prbSorted.length===0) prbHtml = '<tr><td colspan="3">No data available</td></tr>';
+        document.getElementById('prbTableBody').innerHTML = prbHtml;
+        
+        // Render PL Table (Top 10 Worst)
+        let plSorted = [...entities].filter(e => e.data.pl !== null).sort((a,b) => b.data.pl - a.data.pl).slice(0, 10);
+        let plHtml = '';
+        plSorted.forEach(e => {
+            plHtml += `<tr>
+                <td><div class="entity-name">${e.name}</div><div class="entity-sub">${e.sub}</div></td>
+                <td class="${getColorCode('pl', e.data.pl)}">${e.data.pl}%</td>
+                <td class="${getColorCode('dl_thp', e.data.dl_thp)}">${e.data.dl_thp ? e.data.dl_thp+' Mbps' : '-'}</td>
+            </tr>`;
+        });
+        if(plSorted.length===0) plHtml = '<tr><td colspan="3">No data available</td></tr>';
+        document.getElementById('plTableBody').innerHTML = plHtml;
+    }
+    
+    // Init
+    if(payload && payload.regional) {
+        setLevel('regional');
+    }
+</script>
+{% endblock %}

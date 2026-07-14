@@ -549,11 +549,11 @@ def api_kpi_4g_monitoring_sector_data():
                     TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') as dt_label,
                     siteid,
                     CASE
-                        WHEN LENGTH(cellid::text) > 2 AND RIGHT(cellid::text, 1) = '5' THEN SUBSTRING(cellid::text FROM 2 FOR 1)
-                        WHEN LENGTH(cellid::text) > 2 THEN LEFT(cellid::text, 2)
-                        ELSE LEFT(cellid::text, 1)
+                        WHEN LENGTH(cell::text) > 2 AND RIGHT(cell::text, 1) = '5' THEN SUBSTRING(cell::text FROM 2 FOR 1)
+                        WHEN LENGTH(cell::text) > 2 THEN LEFT(cell::text, 2)
+                        ELSE LEFT(cell::text, 1)
                     END AS sector,
-                    CASE RIGHT(cellid::text, 1)
+                    CASE RIGHT(cell::text, 1)
                         WHEN '1' THEN 'L1800'
                         WHEN '2' THEN 'L900'
                         WHEN '3' THEN 'L2100'
@@ -563,12 +563,12 @@ def api_kpi_4g_monitoring_sector_data():
                         WHEN '7' THEN 'L700'
                         ELSE 'Unknown'
                     END AS band,
-                    cellid::text AS tech,
+                    cell::text AS tech,
                     {kpi_selects}
                 FROM "4g_kpi_zte"
                 WHERE datehour >= %s::date AND datehour < (%s::date + interval '1 day')
                   AND siteid = ANY(%s)
-                GROUP BY datehour, siteid, cellid, sector, band, tech
+                GROUP BY datehour, siteid, cell, sector, band, tech
                 ORDER BY datehour
             '''
             cur.execute(sql_hourly, [from_date, to_date, sites])
@@ -579,11 +579,11 @@ def api_kpi_4g_monitoring_sector_data():
                     TO_CHAR(date, 'YYYY-MM-DD') as dt_label,
                     siteid,
                     CASE
-                        WHEN LENGTH(cellid::text) > 2 AND RIGHT(cellid::text, 1) = '5' THEN SUBSTRING(cellid::text FROM 2 FOR 1)
-                        WHEN LENGTH(cellid::text) > 2 THEN LEFT(cellid::text, 2)
-                        ELSE LEFT(cellid::text, 1)
+                        WHEN LENGTH(cell::text) > 2 AND RIGHT(cell::text, 1) = '5' THEN SUBSTRING(cell::text FROM 2 FOR 1)
+                        WHEN LENGTH(cell::text) > 2 THEN LEFT(cell::text, 2)
+                        ELSE LEFT(cell::text, 1)
                     END AS sector,
-                    CASE RIGHT(cellid::text, 1)
+                    CASE RIGHT(cell::text, 1)
                         WHEN '1' THEN 'L1800'
                         WHEN '2' THEN 'L900'
                         WHEN '3' THEN 'L2100'
@@ -593,12 +593,12 @@ def api_kpi_4g_monitoring_sector_data():
                         WHEN '7' THEN 'L700'
                         ELSE 'Unknown'
                     END AS band,
-                    cellid::text AS tech,
+                    cell::text AS tech,
                     {kpi_selects}
                 FROM "4g_kpi_zte"
                 WHERE datehour >= %s::date AND datehour < (%s::date + interval '1 day')
                   AND siteid = ANY(%s)
-                GROUP BY date, siteid, cellid, sector, band, tech
+                GROUP BY date, siteid, cell, sector, band, tech
                 ORDER BY date
             '''
             cur.execute(sql_daily, [from_date, to_date, sites])

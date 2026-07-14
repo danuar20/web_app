@@ -1818,6 +1818,24 @@ body.mobile-view .sidebar .nav-link {
       </div>
       {% endif %}
       
+      {% if session.get('role') != 'viewer' %}
+      <div class="menu-item {% block nav_optim %}{% endblock %}" onclick="toggleSub('subOptim', this)">
+        <div class="menu-icon"><i class="fas fa-chart-pie"></i></div>
+        <span class="menu-item-label">Optim Analysis</span>
+        <i class="fas fa-chevron-right menu-arrow"></i>
+      </div>
+      <div class="sub-menu {% block subOptim_open %}{% endblock %}" id="subOptim">
+        <a href="/optim_2g" class="sub-item {% block nav_optim_2g %}{% endblock %}">
+          <span class="sub-item-dot"></span> 2G Analysis
+        </a>
+        <a href="/optim_4g" class="sub-item {% block nav_optim_4g %}{% endblock %}">
+          <span class="sub-item-dot"></span> 4G Analysis
+        </a>
+        <a href="/optim_5g" class="sub-item {% block nav_optim_5g %}{% endblock %}">
+          <span class="sub-item-dot"></span> 5G Analysis
+        </a>
+      </div>
+      {% endif %}
 
     </div>
 

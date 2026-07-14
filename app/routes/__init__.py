@@ -110,3 +110,7 @@ admin_bp = admin_routes.admin_bp
 # PL Monitoring — /pl_monitoring
 from . import pl_monitoring_routes
 pl_monitoring = pl_monitoring_routes.pl_monitoring
+
+# Optim 4G
+from . import optim_4g_routes
+optim_4g = optim_4g_routes.optim_4g
