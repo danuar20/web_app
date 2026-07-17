@@ -1180,7 +1180,7 @@ function applySectorLocalFilters() {
     
     // Clean up old chart instances to prevent memory leaks and PNG export bugs
     Object.keys(chartInstances).forEach(function(key) {
-        if (key.startsWith('sector::')) {
+        if (key.startsWith('canvas-sector-')) {
             if (chartInstances[key]) chartInstances[key].destroy();
             delete chartInstances[key];
         }

@@ -82,7 +82,6 @@ def pl_monitoring_main():
         kpi_names = "-".join(sorted([k[0] for k in kpi_defs]))
         cache_key = f"both_pl_data_{from_date}_{to_date}_{kpi_names}"
 
-    from app import cache
     cached_data = cache.get(cache_key) if cache_key else None
     
     if cached_data:
@@ -593,7 +592,6 @@ def api_pl_monitoring_site_cluster():
             })
         
     except Exception as e:
-        import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 

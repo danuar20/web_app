@@ -159,6 +159,52 @@
       border-color: #4facfe;
       box-shadow: 0 0 0 0.25rem rgba(79,172,254,0.25);
   }
+
+/* ── BDBH Toggle Button ── */
+.btn-bdbh {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1.5px solid rgba(251,146,60,0.35);
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+[data-theme="dark"]  .btn-bdbh          { background: rgba(30,30,60,.6);          color: rgba(200,208,224,.55); }
+[data-theme="light"] .btn-bdbh          { background: rgba(0,0,0,.04);             color: rgba(30,41,59,.5); }
+[data-theme="dark"]  .btn-bdbh.bdbh-on  { background: rgba(251,146,60,.18);        color: #fb923c; border-color: #fb923c; box-shadow: 0 0 12px rgba(251,146,60,.35); }
+[data-theme="light"] .btn-bdbh.bdbh-on  { background: rgba(251,146,60,.12);        color: #ea580c; border-color: #ea580c; box-shadow: 0 0 10px rgba(234,88,12,.2); }
+.btn-bdbh:hover { opacity: 0.85; }
+.bdbh-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: rgba(200,208,224,0.3);
+    transition: background 0.2s;
+}
+.btn-bdbh.bdbh-on .bdbh-dot {
+    background: #fb923c;
+    animation: bdbh-pulse 1.4s infinite;
+}
+@keyframes bdbh-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(251,146,60,0.6); }
+    50%       { box-shadow: 0 0 0 4px rgba(251,146,60,0); }
+}
+.bdbh-badge {
+    display: none;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(251,146,60,.25);
+    color: #fb923c;
+    font-weight: 700;
+    letter-spacing: .4px;
+}
+.btn-bdbh.bdbh-on .bdbh-badge { display: inline-block; }
 </style>
 
 <!-- ═══════════════════ LOADING OVERLAY ═══════════════════ -->
@@ -635,6 +681,12 @@
             <button class="view-btn" onclick="setTabView('sector','table',this)">Table</button>
         </div>
         <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <!-- BDBH Toggle — placed before Daily|Hourly -->
+            <button class="btn-bdbh" id="btnBdbhToggle" onclick="toggleBdbh()" title="Toggle BDBH (Busy Day Busy Hour) data source">
+                <span class="bdbh-dot"></span>
+                BDBH
+                <span class="bdbh-badge">ON</span>
+            </button>
             <div class="granularity-controls" style="display:flex; align-items:center; gap:6px;">
                 <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
                     <button class="row-btn chartGrid-sector-gran-btn active" style="background:rgba(79,172,254,0.3);" onclick="setGranularity('sector', 'daily', this)">Daily</button>
@@ -1006,6 +1058,30 @@ var HOURLY_LABELS = { regional: null, nop: null, city: null, subnet: null, site:
 var SITE_MODE = 'per_site'; // 'per_site' or 'cluster'
 var SECTOR_CHART_MODE = 'combined'; // combined | split
 
+/* ── BDBH State ── */
+var SECTOR_BDBH_ACTIVE = false;
+
+function toggleBdbh() {
+    SECTOR_BDBH_ACTIVE = !SECTOR_BDBH_ACTIVE;
+    var btn = document.getElementById('btnBdbhToggle');
+    if (btn) {
+        if (SECTOR_BDBH_ACTIVE) {
+            btn.classList.add('bdbh-on');
+            btn.title = 'BDBH Active — click to deactivate';
+        } else {
+            btn.classList.remove('bdbh-on');
+            btn.title = 'Toggle BDBH (Busy Day Busy Hour) data source';
+        }
+    }
+    // Clear cached sector data to force re-fetch from correct source
+    SECTOR_API_DATA = null;
+    // Re-trigger sector data load if a site is already selected
+    var dims = activeFilterDims['sector'];
+    if (dims && dims.length > 0) {
+        fetchSectorData(dims);
+    }
+}
+
 function setSectorMode(mode, btn) {
     if (SECTOR_CHART_MODE === mode) return;
     SECTOR_CHART_MODE = mode;
@@ -1060,8 +1136,12 @@ function fetchSectorData(dims) {
     
     var loading = document.getElementById("loadingOverlay");
     if(loading) loading.style.display = "flex";
+
+    var sectorEndpoint = SECTOR_BDBH_ACTIVE
+        ? '/api/kpi_4g_monitoring/sector_data_bdbh'
+        : '/api/kpi_4g_monitoring/sector_data';
     
-    fetch('/api/kpi_4g_monitoring/sector_data', {
+    fetch(sectorEndpoint, {
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json',
@@ -1212,7 +1292,7 @@ function applySectorLocalFilters() {
     
     // Clean up old chart instances to prevent memory leaks and PNG export bugs
     Object.keys(chartInstances).forEach(function(key) {
-        if (key.startsWith('sector::')) {
+        if (key.startsWith('canvas-sector-')) {
             if (chartInstances[key]) chartInstances[key].destroy();
             delete chartInstances[key];
         }
@@ -1516,11 +1596,16 @@ function buildDatasets(tabId, kpiId, dims){
                 legendLabel = d;
             }
             
+            var bgCol = "transparent";
+            if (tabId === 'sector' && typeof SECTOR_BDBH_ACTIVE !== 'undefined' && SECTOR_BDBH_ACTIVE && CURRENT_GRANULARITY[tabId] === 'hourly') {
+                bgCol = finalColor;
+            }
+            
             return {
                 label: legendLabel,
                 data:  arr,
                 borderColor: finalColor,
-                backgroundColor: "transparent",
+                backgroundColor: bgCol,
                 tension: 0.22, pointRadius: 0, pointHoverRadius: 5, borderWidth: 1.8
             };
         });
@@ -1558,8 +1643,13 @@ function renderChart(tabId, kpiDef, dims, suffix = ''){
         }
     }
     
+    var cType = "line";
+    if (tabId === 'sector' && typeof SECTOR_BDBH_ACTIVE !== 'undefined' && SECTOR_BDBH_ACTIVE && isHourly) {
+        cType = "bar";
+    }
+    
     chartInstances[key] = new Chart(c, {
-        type:"line",
+        type: cType,
         data:{ labels: labels, datasets: ds },
         options: opts
     });

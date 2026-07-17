@@ -1393,19 +1393,60 @@
     function downloadCSV(tableId) {
         let table = document.getElementById(tableId);
         if (!table) return;
-        let rows = table.querySelectorAll('tr');
-        let csv = [];
-        for (let i = 0; i < rows.length; i++) {
-            let row = [], cols = rows[i].querySelectorAll('td, th');
-            for (let j = 0; j < cols.length; j++) {
-                let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, ' ').replace(/"/g, '""');
-                csv.push('"' + data + '"');
-            }
-            csv.push(row.join(','));
+
+        function quote(value) {
+            return '"' + String(value).replace(/(\r\n|\n|\r)/gm, ' ').replace(/"/g, '""') + '"';
         }
-        let csvFile = new Blob([csv.join('\n')], { type: "text/csv" });
+
+        let csv = [];
+        if (tableId === 'siteTable' || tableId === 'sectorTable') {
+            const headerRows = table.querySelectorAll('thead tr');
+            let siteLabel = 'Site';
+            let kpiNames = [];
+            if (headerRows.length >= 2) {
+                const firstRowThs = headerRows[0].querySelectorAll('th');
+                if (firstRowThs.length) {
+                    siteLabel = firstRowThs[0].innerText.trim();
+                }
+                for (let i = 1; i < firstRowThs.length; i++) {
+                    const th = firstRowThs[i];
+                    const text = th.innerText.trim().replace(/(\r\n|\n|\r)/gm, ' ');
+                    const colspan = parseInt(th.getAttribute('colspan') || '1', 10);
+                    const count = Math.max(1, Math.floor(colspan / 4));
+                    for (let j = 0; j < count; j++) {
+                        kpiNames.push(text);
+                    }
+                }
+            }
+            csv.push([quote(siteLabel), quote('KPI'), quote('Before'), quote('After'), quote('Delta'), quote('%')].join(','));
+            table.querySelectorAll('tbody tr').forEach(row => {
+                const cols = row.querySelectorAll('td');
+                if (cols.length === 0) return;
+                const site = cols[0].innerText.trim();
+                let colIndex = 1;
+                kpiNames.forEach(kpi => {
+                    const before = cols[colIndex] ? cols[colIndex].innerText.trim() : '';
+                    const after = cols[colIndex + 1] ? cols[colIndex + 1].innerText.trim() : '';
+                    const delta = cols[colIndex + 2] ? cols[colIndex + 2].innerText.trim() : '';
+                    const pct = cols[colIndex + 3] ? cols[colIndex + 3].innerText.trim() : '';
+                    colIndex += 4;
+                    csv.push([quote(site), quote(kpi), quote(before), quote(after), quote(delta), quote(pct)].join(','));
+                });
+            });
+        } else {
+            let rows = table.querySelectorAll('tr');
+            for (let i = 0; i < rows.length; i++) {
+                let row = [], cols = rows[i].querySelectorAll('td, th');
+                for (let j = 0; j < cols.length; j++) {
+                    let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, ' ').replace(/"/g, '""');
+                    row.push('"' + data + '"');
+                }
+                csv.push(row.join(','));
+            }
+        }
+        let csvFile = new Blob([csv.join('\n')], { type: "text/csv;charset=utf-8;" });
         let dlLink = document.createElement("a");
-        dlLink.download = "dashboard_2g_export.csv";
+        dlLink.download = tableId === 'siteTable' ? "site_level_compare.csv" : "dashboard_2g_export.csv";
         dlLink.href = window.URL.createObjectURL(csvFile);
         dlLink.style.display = "none";
         document.body.appendChild(dlLink);
@@ -2514,5 +2555,8 @@
         }
     });
 
-    </script>
+        document.addEventListener('DOMContentLoaded', () => {
+        if (typeof updateKpiCount === 'function') updateKpiCount();
+    });
+</script>
 {% endblock %}

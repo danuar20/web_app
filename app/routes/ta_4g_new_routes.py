@@ -6,6 +6,10 @@ from flask import Blueprint, render_template, request, session, make_response, j
 from ._utils import login_required, _no_cache, db_query
 import psycopg2
 import datetime
+import traceback
+import logging
+
+logger = logging.getLogger(__name__)
 
 ta4g_new = Blueprint("ta4g_new", __name__)
 
@@ -186,7 +190,7 @@ def ta_4g_new_page():
     except psycopg2.OperationalError:
         session["flash"] = ("Database connection failed.", "warning")
     except Exception as e:
-        import traceback; traceback.print_exc()
+        logger.error("TA 4G route error: %s\n%s", e, traceback.format_exc())
         session["flash"] = ("Error: " + str(e), "danger")
 
     return _no_cache(make_response(render_template(

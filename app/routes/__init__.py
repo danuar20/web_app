@@ -26,6 +26,26 @@ kpi2g_compare = kpi_2g_compare_routes.kpi2g_compare
 from . import kpi_2g_monitoring_routes
 kpi2g_monitoring = kpi_2g_monitoring_routes.kpi2g_monitoring
 
+# 4G Monitoring — /kpi_4g_monitoring (import before dashboards that depend on it)
+from . import kpi_4g_monitoring_routes
+kpi4g_monitoring = kpi_4g_monitoring_routes.kpi4g_monitoring
+
+# 5G Monitoring — /kpi_5g_monitoring (import before dashboards that depend on it)
+from . import kpi_5g_monitoring_routes
+kpi5g_monitoring = kpi_5g_monitoring_routes.kpi5g_monitoring
+
+# Dashboard 4G — /dashboard_4g
+from . import dashboard_4g_routes
+dashboard_4g = dashboard_4g_routes.dashboard_4g
+
+# Dashboard 2G — /dashboard_2g
+from . import dashboard_2g_routes
+dashboard_2g = dashboard_2g_routes.dashboard_2g
+
+# Dashboard 5G — /dashboard_5g
+from . import dashboard_5g_routes
+dashboard_5g = dashboard_5g_routes.dashboard_5g
+
 # 4G KPI Daily — /kpi_4g_daily
 from . import kpi_4g_daily_routes
 kpi4g_daily = kpi_4g_daily_routes.kpi4g_daily
@@ -50,23 +70,9 @@ kpi4g_compare = kpi_4g_compare_routes.kpi4g_compare
 from . import kpi_4g_api_routes
 kpi4g_api = kpi_4g_api_routes.kpi4g_api
 
-
-
 # TA 4G New — /ta_4g_new
 from . import ta_4g_new_routes
 ta4g_new = ta_4g_new_routes.ta4g_new
-
-# Dashboard 4G — /dashboard_4g
-from . import dashboard_4g_routes
-dashboard_4g = dashboard_4g_routes.dashboard_4g
-
-# Dashboard 2G — /dashboard_2g
-from . import dashboard_2g_routes
-dashboard_2g = dashboard_2g_routes.dashboard_2g
-
-# Dashboard 5G — /dashboard_5g
-from . import dashboard_5g_routes
-dashboard_5g = dashboard_5g_routes.dashboard_5g
 
 # 5G KPI Daily — /kpi_5g_daily (per-site view)
 from . import kpi_5g_daily_routes
@@ -84,14 +90,6 @@ kpi5g_hourly_sector = kpi_5g_hourly_sector_routes.kpi5g_hourly_sector
 from . import kpi_5g_compare_routes
 kpi5g_compare = kpi_5g_compare_routes.kpi5g_compare
 
-# 5G Monitoring — /kpi_5g_monitoring
-from . import kpi_5g_monitoring_routes
-kpi5g_monitoring = kpi_5g_monitoring_routes.kpi5g_monitoring
-
-# 4G Monitoring — /kpi_4g_monitoring
-from . import kpi_4g_monitoring_routes
-kpi4g_monitoring = kpi_4g_monitoring_routes.kpi4g_monitoring
-
 # Coverage Simulation — /coverage_simulation
 from . import coverage_routes
 coverage = coverage_routes.coverage
@@ -107,6 +105,7 @@ nettilt3d = nettilt3d_routes.nettilt3d
 # Admin — /admin/users, /admin/users/login_logs
 from . import admin_routes
 admin_bp = admin_routes.admin_bp
+
 # PL Monitoring — /pl_monitoring
 from . import pl_monitoring_routes
 pl_monitoring = pl_monitoring_routes.pl_monitoring

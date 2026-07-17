@@ -33,6 +33,8 @@
         window.KPI_ALERT_ENABLED = settings.kpiAlertEnabled !== false;
         window.AUTO_REFRESH_INTERVAL = parseInt(settings.autoRefresh || "0", 10) * 1000;
         window.KPI_THRESHOLDS = settings.kpiThresholds || {};
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
     });
 
     /* ── KPI Breach Sound Manager (Web Audio API) ── */
@@ -686,15 +688,24 @@ body.mobile-view .hamburger-btn {
 }
 .btn-apply:hover { opacity: 0.88; box-shadow: 0 4px 16px rgba(79,172,254,0.35); transform: translateY(-1px); }
 .btn-apply:active { transform: translateY(0); }
-.btn-reset {
-    padding: 6px 14px; border-radius: 8px; cursor: pointer;
-    background: transparent; color: inherit; font-size: 12px; font-weight: 500;
-    transition: border-color 0.18s, color 0.18s; align-self: flex-end;
-}
-[data-theme="dark"]  .btn-reset { border: 1px solid rgba(79,172,254,0.15); color: rgba(200,208,224,0.6); }
-[data-theme="light"] .btn-reset { border: 1px solid rgba(0,0,0,0.12); color: #666; }
-.btn-reset:hover { border-color: #4facfe; color: #4facfe; }
-.filter-err { font-size: 12px; color: #ff5252; display: flex; align-items: center; gap: 5px; align-self: flex-end; }
+    .btn-export-outline {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        cursor: pointer;
+        position: relative;
+        z-index: 1001;
+        pointer-events: auto;
+        transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+    }
+    .btn-export-outline:hover {
+        background: rgba(79,172,254,0.08);
+    }
+    .btn-export-outline:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+    }
 
 /* table view toggle */
 .view-toggle { display: flex; gap: 6px; align-items: center; margin-left: auto; }
@@ -2558,6 +2569,10 @@ function closeSettingsPopup(){
         sessionStorage.removeItem(SETTINGS_STAGED_KEY);
     }
     document.getElementById("settingsOverlay").classList.remove("open");
+    if(!document.getElementById('chartModalOverlay').classList.contains('open')){
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+    }
 }
 
 // ESC key closes settings popup
@@ -2578,12 +2593,16 @@ document.addEventListener("keydown", function(e){
 })();
 
 /* ── Account dropdown ── */
-document.getElementById("accountChip").addEventListener("click", function(e){
-    e.stopPropagation();
-    document.getElementById("accountDropdown").classList.toggle("open");
-});
+var _accountChip = document.getElementById("accountChip");
+var _accountDropdown = document.getElementById("accountDropdown");
+if(_accountChip){
+    _accountChip.addEventListener("click", function(e){
+        e.stopPropagation();
+        if(_accountDropdown) _accountDropdown.classList.toggle("open");
+    });
+}
 document.addEventListener("click", function(){
-    document.getElementById("accountDropdown").classList.remove("open");
+    if(_accountDropdown) _accountDropdown.classList.remove("open");
     document.querySelectorAll(".ms-dropdown").forEach(function(d){ d.classList.remove("open"); });
 });
 
@@ -3132,17 +3151,58 @@ function toggleFilters() {
 function exportTableCSV(tableId, filename) {
     const table = document.getElementById(tableId);
     if (!table) return;
+
+    const quote = value => '"' + String(value ?? '').replace(/(\r\n|\n|\r)/gm, ' ').replace(/▼\s*/g, '-').replace(/▲\s*/g, '').replace(/\s\s/g, ' ').trim().replace(/"/g, '""') + '"';
     let csv = [];
     const rows = table.querySelectorAll('tr');
-    for (let i = 0; i < rows.length; i++) {
-        let row = [], cols = rows[i].querySelectorAll('td, th');
-        for (let j = 0; j < cols.length; j++) {
-            let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, ' ').replace(/(\s\s)/gm, ' ').trim();
-            data = data.replace(/"/g, '""');
-            row.push('"' + data + '"');
+
+    if (tableId === 'compareTable') {
+        let currentGroup = '';
+        let groupTitle = 'Group';
+        let headerWritten = false;
+
+        rows.forEach(rowEl => {
+            const ths = rowEl.querySelectorAll('th');
+            const tds = rowEl.querySelectorAll('td');
+            const cells = rowEl.querySelectorAll('td, th');
+
+            if (cells.length === 1 && cells[0].hasAttribute('colspan')) {
+                const text = cells[0].innerText.replace(/(\r\n|\n|\r)/gm, ' ').trim();
+                const parts = text.split(':');
+                if (parts.length > 1) {
+                    groupTitle = parts[0].trim();
+                    currentGroup = parts.slice(1).join(':').trim();
+                } else {
+                    currentGroup = text;
+                }
+                return;
+            }
+
+            if (ths.length > 0 && !headerWritten) {
+                let row = [quote(groupTitle)];
+                ths.forEach(th => row.push(quote(th.innerText)));
+                csv.push(row.join(','));
+                headerWritten = true;
+                return;
+            }
+
+            if (tds.length > 0) {
+                let row = [quote(currentGroup)];
+                tds.forEach(td => row.push(quote(td.innerText)));
+                csv.push(row.join(','));
+            }
+        });
+    } else {
+        for (let i = 0; i < rows.length; i++) {
+            let row = [], cols = rows[i].querySelectorAll('td, th');
+            for (let j = 0; j < cols.length; j++) {
+                let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, ' ').replace(/"/g, '""');
+                row.push('"' + data + '"');
+            }
+            csv.push(row.join(','));
         }
-        csv.push(row.join(','));
     }
+
     const blob = new Blob(['\ufeff' + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

@@ -1,6 +1,9 @@
 from flask import Blueprint, make_response, render_template, request, redirect, url_for, session, flash, jsonify
 from app.db.db_webapp import get_connection
-from ._utils import login_required, admin_required, json_response, db_query
+from ._utils import login_required, admin_required, json_response, db_query, _no_cache
+import logging
+
+logger = logging.getLogger(__name__)
 
 admin_bp = Blueprint("admin_bp", __name__, url_prefix="/admin")
 
@@ -10,7 +13,6 @@ admin_bp = Blueprint("admin_bp", __name__, url_prefix="/admin")
 @login_required
 @admin_required
 def user_list():
-    from ._utils import _no_cache
     try:
         with db_query(get_connection) as (conn, cur):
             # Get users with their active session counts
@@ -197,7 +199,6 @@ def update_max_session(user_id):
 @login_required
 @admin_required
 def login_logs():
-    from ._utils import _no_cache
     try:
         with db_query(get_connection) as (conn, cur):
             cur.execute("""

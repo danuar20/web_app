@@ -1,8 +1,19 @@
 from flask import Blueprint, make_response, render_template, request, redirect, url_for, session, flash, jsonify
 from werkzeug.security import check_password_hash
-from app.db.db_webapp import get_connection
-from ._utils import login_required, viewer_blocked, json_response, db_query
+from app.db.db_webapp import get_connection, get_postgres_connection
+from ._utils import login_required, viewer_blocked, json_response, db_query, _no_cache
 import psycopg2
+import json
+import uuid
+import logging
+import traceback
+import urllib.request
+import datetime as _dt_mod
+from datetime import datetime, timezone, timedelta
+from contextlib import closing
+import concurrent.futures
+
+logger = logging.getLogger(__name__)
 
 auth = Blueprint("auth", __name__)
 
@@ -421,7 +432,7 @@ def api_home():
                 summary["trend_payload"] = payload_by_tech
                 summary["trend_traffic"] = traffic_by_tech
         except Exception as e:
-            pass
+            logger.error("api_home trend query failed: %s", e, exc_info=True)
 
     # ── Webapp DB ──
     try:

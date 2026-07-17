@@ -157,7 +157,7 @@
 
     <!-- Filter Bar for Trend -->
     <div class="filter-card" id="filterCardTrend">
-        <div style="display:contents">
+        <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end; width:100%;">
             <div class="filter-group">
                 <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">From Date</div>
                 <input type="date" id="tFromDate" class="f-input" style="padding:9px 12px; border-radius:8px; border: 1px solid rgba(79,172,254,0.2); font-family:inherit;">
@@ -207,12 +207,20 @@
             <button type="button" onclick="loadDataTrend()" class="btn-apply" style="padding: 10px 24px; border-radius: 8px; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom:2px;">
                 <i class="fas fa-play" id="tBtnIcon"></i> <span id="tBtnText">Analyze Trend</span>
             </button>
+            <div style="display:flex; gap:10px; margin-left:auto; border-left:1px solid rgba(128,128,128,0.2); padding-left:16px; align-items:center;">
+                <button type="button" id="tBtnExportPng" onclick="openPngModal('trend')" class="btn-export-outline" style="display:none; padding: 6px 12px; border-radius: 6px; font-weight: 600; align-items: center; gap: 6px; font-size:12px; border:1px solid currentColor; background:transparent; cursor:pointer;">
+                    <i class="fas fa-camera"></i> Export PNG
+                </button>
+                <button type="button" id="tBtnExportCsv" onclick="exportDataCSV('trend')" class="btn-export-outline" style="display:none; padding: 6px 12px; border-radius: 6px; font-weight: 600; align-items: center; gap: 6px; font-size:12px; border:1px solid currentColor; background:transparent; cursor:pointer;">
+                    <i class="fas fa-file-csv"></i> Export CSV
+                </button>
+            </div>
         </div>
     </div>
 
     <!-- Filter Bar for Compare -->
     <div class="filter-card" id="filterCardCompare" style="display:none;">
-        <div style="display:contents">
+        <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end; width:100%;">
             <div class="filter-group">
                 <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">Week Before</div>
                 <select id="cWb" class="f-select" style="padding:10px; border-radius:8px; border: 1px solid rgba(79,172,254,0.2);">
@@ -268,6 +276,14 @@
             <button type="button" onclick="loadDataCompare()" class="btn-apply" style="padding: 10px 24px; border-radius: 8px; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom:2px;">
                 <i class="fas fa-balance-scale" id="cBtnIcon"></i> <span id="cBtnText">Compare</span>
             </button>
+            <div style="display:flex; gap:10px; margin-left:auto; border-left:1px solid rgba(128,128,128,0.2); padding-left:16px; align-items:center;">
+                <button type="button" id="cBtnExportPng" onclick="event.stopPropagation(); openPngModal('compare')" class="btn-export-outline" style="display:none; padding: 6px 12px; border-radius: 6px; font-weight: 600; align-items: center; gap: 6px; font-size:12px; border:1px solid currentColor; background:transparent; cursor:pointer;">
+                    <i class="fas fa-camera"></i> Export PNG
+                </button>
+                <button type="button" id="cBtnExportCsv" onclick="event.stopPropagation(); exportDataCSV('compare')" class="btn-export-outline" style="display:none; padding: 6px 12px; border-radius: 6px; font-weight: 600; align-items: center; gap: 6px; font-size:12px; border:1px solid currentColor; background:transparent; cursor:pointer;">
+                    <i class="fas fa-file-csv"></i> Export CSV
+                </button>
+            </div>
         </div>
     </div>
 
@@ -314,7 +330,7 @@
                 </div>
             </div>
             
-            <div class="chart-grid">
+            <div class="chart-grid" id="tChartGrid">
                 <div class="glass-card">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
                         <h3 style="font-size:15px; margin:0;"><i class="fas fa-box-open" style="color:#4facfe;"></i> Payload (TB)</h3>
@@ -363,42 +379,44 @@
             <div class="glass-card"><div class="skeleton" style="height:40px; width:100%; margin-bottom:8px;"></div><div class="skeleton" style="height:200px; width:100%;"></div></div>
         </div>
         
+        <!-- Compare Data -->
         <div id="cData" style="display:none; flex-direction:column; gap:20px;">
-            <!-- Top / Bottom Charts -->
-            <div class="chart-grid">
-                <div class="glass-card">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
-                        <h3 style="font-size:15px; margin:0;"><i class="fas fa-arrow-up" style="color:#10b981;"></i> Top 10 Growth (Payload Δ%)</h3>
-                        <button type="button" class="chart-action-btn" onclick="openChartModal(document.getElementById('cTop'))"><i class="fas fa-expand"></i></button>
+            <div style="display:block">
+                <div class="chart-grid" id="cChartGrid">
+                    <div class="glass-card">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                            <h3 style="font-size:15px; margin:0;"><i class="fas fa-arrow-up" style="color:#10b981;"></i> Top 10 Growth (Payload Δ%)</h3>
+                            <button type="button" class="chart-action-btn" onclick="openChartModal(document.getElementById('cTop'))"><i class="fas fa-expand"></i></button>
+                        </div>
+                        <div style="height:260px; width:100%; position:relative;"><canvas id="cTop"></canvas></div>
                     </div>
-                    <div style="height:260px; width:100%; position:relative;"><canvas id="cTop"></canvas></div>
-                </div>
-                <div class="glass-card">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
-                        <h3 style="font-size:15px; margin:0;"><i class="fas fa-arrow-down" style="color:#ef4444;"></i> Bottom 10 Decline (Payload Δ%)</h3>
-                        <button type="button" class="chart-action-btn" onclick="openChartModal(document.getElementById('cBot'))"><i class="fas fa-expand"></i></button>
+                    <div class="glass-card">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                            <h3 style="font-size:15px; margin:0;"><i class="fas fa-arrow-down" style="color:#ef4444;"></i> Bottom 10 Decline (Payload Δ%)</h3>
+                            <button type="button" class="chart-action-btn" onclick="openChartModal(document.getElementById('cBot'))"><i class="fas fa-expand"></i></button>
+                        </div>
+                        <div style="height:260px; width:100%; position:relative;"><canvas id="cBot"></canvas></div>
                     </div>
-                    <div style="height:260px; width:100%; position:relative;"><canvas id="cBot"></canvas></div>
                 </div>
             </div>
             
-            <div class="glass-card" style="padding:0; overflow:hidden;">
+            <div class="glass-card" style="padding:0; overflow:hidden; display:block;">
                 <div style="padding:16px 20px; border-bottom:1px solid rgba(0,0,0,0.05); background:rgba(79,172,254,0.05); display:flex; justify-content:space-between; align-items:center;">
                     <h3 style="font-size:15px; margin:0;"><i class="fas fa-table" style="color:#4facfe;"></i> Detailed Comparison Table</h3>
                     <div style="display:flex; gap:10px; align-items:center;">
                         <input type="text" id="cSearch" onkeyup="filterTable('cTableBody', this.value)" placeholder="Search..." class="f-input" style="padding:4px 8px; font-size:11px;">
-                        <button type="button" class="modal-action-btn" onclick="exportTableCSV('compareTable', 'City_Compare')"><i class="fas fa-file-csv"></i> CSV</button>
+                        <button type="button" class="modal-action-btn" onclick="event.stopPropagation(); exportTableCSV('compareTable', 'City_Compare')"><i class="fas fa-file-csv"></i> CSV</button>
                     </div>
                 </div>
                 <div style="overflow-x:auto;">
                     <table class="modern-table" id="compareTable">
-                        <thead>
+                        <thead id="compareTableHead">
                             <tr>
                                 <th>KABUPATEN</th>
-                                <th>Payload W1</th><th>Payload W2</th><th>P Δ%</th>
-                                <th>Traffic W1</th><th>Traffic W2</th><th>T Δ%</th>
-                                <th>Avail W1</th><th>Avail W2</th><th>A Δ%</th>
-                                <th>RRC W1</th><th>RRC W2</th><th>R Δ%</th>
+                                <th>Payload W1</th><th>Payload W2</th><th>P Δ</th><th>P Δ%</th>
+                                <th>Traffic W1</th><th>Traffic W2</th><th>T Δ</th><th>T Δ%</th>
+                                <th>Avail W1</th><th>Avail W2</th><th>A Δ</th><th>A Δ%</th>
+                                <th>RRC W1</th><th>RRC W2</th><th>R Δ</th><th>R Δ%</th>
                             </tr>
                         </thead>
                         <tbody id="cTableBody"></tbody>
@@ -420,6 +438,7 @@
 
 {% block page_scripts %}
 <script>
+var chartInstances = {};
 // --- UI Switching ---
 function switchTab(tabId, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -560,6 +579,8 @@ async function loadDataTrend() {
         document.getElementById('tk3').textContent = fmt(data.kpis.availability, 2);
         document.getElementById('tk4').textContent = Math.round(data.kpis.rrc).toLocaleString();
 
+        window.trendExportData = data; // Save for CSV export
+
         // Render Charts
         ['cPayload', 'cTraffic', 'cAvail', 'cRrc'].forEach(id => { if(charts[id]) charts[id].destroy(); });
         
@@ -576,6 +597,8 @@ async function loadDataTrend() {
 
         document.getElementById('tSkeleton').style.display = 'none';
         document.getElementById('tData').style.display = 'flex';
+        document.getElementById('tBtnExportPng').style.display = 'flex';
+        document.getElementById('tBtnExportCsv').style.display = 'flex';
 
     } catch(err) {
         document.getElementById('tSkeleton').style.display = 'none';
@@ -606,20 +629,37 @@ async function loadDataCompare() {
         const data = await res.json();
         if(data.error) throw new Error(data.error);
 
+        window.compareExportData = data; // Save for custom CSV export
+        
         let allRows = [];
         data.compare_table.forEach(g => { allRows = allRows.concat(g.rows); });
         
+        // Render Headers dynamically
+        document.getElementById('compareTableHead').innerHTML = `
+            <tr>
+                <th>KABUPATEN</th>
+                <th>Payload ${wb}</th><th>Payload ${wa}</th><th>P Δ</th><th>P Δ%</th>
+                <th>Traffic ${wb}</th><th>Traffic ${wa}</th><th>T Δ</th><th>T Δ%</th>
+                <th>Avail ${wb}</th><th>Avail ${wa}</th><th>A Δ</th><th>A Δ%</th>
+                <th>RRC ${wb}</th><th>RRC ${wa}</th><th>R Δ</th><th>R Δ%</th>
+            </tr>
+        `;
+
         // Render Table
         let html = '';
         data.compare_table.forEach(nsaGrp => {
-            html += `<tr style="background:rgba(79,172,254,0.05)"><td colspan="13" style="font-weight:700; color:#4facfe;">NSA: ${nsaGrp.nsa}</td></tr>`;
+            html += `<tr style="background:rgba(79,172,254,0.05)"><td colspan="17" style="font-weight:700; color:#4facfe;">NSA: ${nsaGrp.nsa}</td></tr>`;
             nsaGrp.rows.forEach(r => {
+                const deltaP = r.pa !== null && r.pb !== null ? r.pa - r.pb : null;
+                const deltaT = r.ta !== null && r.tb !== null ? r.ta - r.tb : null;
+                const deltaA = r.aa !== null && r.ab !== null ? r.aa - r.ab : null;
+                const deltaR = r.ra !== null && r.rb !== null ? r.ra - r.rb : null;
                 html += `<tr>
                     <td style="font-weight:600">${r.kota}</td>
-                    <td>${fmt(r.pb,2)}</td><td>${fmt(r.pa,2)}</td><td>${getPill(r.pch)}</td>
-                    <td>${fmt(r.tb,2)}</td><td>${fmt(r.ta,2)}</td><td>${getPill(r.tch)}</td>
-                    <td>${fmt(r.ab,2)}</td><td>${fmt(r.aa,2)}</td><td>${getPill(r.ach)}</td>
-                    <td>${fmt(r.rb,0)}</td><td>${fmt(r.ra,0)}</td><td>${getPill(r.rch)}</td>
+                    <td>${fmt(r.pb,2)}</td><td>${fmt(r.pa,2)}</td><td>${fmt(deltaP,2)}</td><td>${getPill(r.pch)}</td>
+                    <td>${fmt(r.tb,2)}</td><td>${fmt(r.ta,2)}</td><td>${fmt(deltaT,2)}</td><td>${getPill(r.tch)}</td>
+                    <td>${fmt(r.ab,2)}</td><td>${fmt(r.aa,2)}</td><td>${fmt(deltaA,2)}</td><td>${getPill(r.ach)}</td>
+                    <td>${fmt(r.rb,0)}</td><td>${fmt(r.ra,0)}</td><td>${fmt(deltaR,0)}</td><td>${getPill(r.rch)}</td>
                 </tr>`;
             });
         });
@@ -673,6 +713,8 @@ async function loadDataCompare() {
                     }
                 }]
             });
+            window.chartInstances = window.chartInstances || {};
+            window.chartInstances[id] = charts[id];
         };
         
         renderBar('cTop', top10, false);
@@ -680,6 +722,8 @@ async function loadDataCompare() {
 
         document.getElementById('cSkeleton').style.display = 'none';
         document.getElementById('cData').style.display = 'flex';
+        document.getElementById('cBtnExportPng').style.display = 'flex';
+        document.getElementById('cBtnExportCsv').style.display = 'flex';
 
     } catch(err) {
         document.getElementById('cSkeleton').style.display = 'none';
@@ -689,5 +733,187 @@ async function loadDataCompare() {
         document.getElementById('cBtnIcon').className = 'fas fa-balance-scale';
     }
 }
+
+// --- EXPORT SCRIPTS ---
+async function doExportPng(tab) {
+    const btnId = tab === 'trend' ? 'tBtnExportPng' : 'cBtnExportPng';
+    const btn = document.getElementById(btnId);
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+    btn.disabled = true;
+
+    setTimeout(() => {
+        try {
+            let chartsToExport = [];
+            let titles = [];
+            if (tab === 'trend') {
+                chartsToExport = ['cPayload', 'cTraffic', 'cAvail', 'cRrc'];
+                titles = ['Payload Trend (TB)', 'Traffic Trend (KErl)', 'Availability (%)', 'RRC Users'];
+            } else {
+                chartsToExport = ['cTop', 'cBot'];
+                titles = ['Top 10 Growth (Payload Δ%)', 'Bottom 10 Decline (Payload Δ%)'];
+            }
+            
+            var dpr = window.devicePixelRatio || 1;
+            var cardPad = 16 * dpr;
+            var titleHeight = 36 * dpr;
+            var gridPad = 20 * dpr;
+            var cols = 2;
+            
+            var renderItems = [];
+            var sampleChart = null;
+            
+            for(let i=0; i<chartsToExport.length; i++) {
+                let chart = chartInstances[chartsToExport[i]];
+                if (!chart || !chart.canvas) continue;
+                if (!sampleChart) sampleChart = chart;
+                
+                var cWidth = chart.canvas.width;
+                var cHeight = chart.canvas.height;
+                var cardWidth = cWidth + (cardPad * 2);
+                var cardHeight = cHeight + titleHeight + (cardPad * 2);
+                
+                renderItems.push({
+                    chart: chart,
+                    title: titles[i],
+                    cardWidth: cardWidth,
+                    cardHeight: cardHeight
+                });
+            }
+            
+            if(!sampleChart) {
+                alert("No valid charts found to export.");
+                return;
+            }
+            
+            var rows = Math.ceil(renderItems.length / cols);
+            var totalWidth = cols * renderItems[0].cardWidth + (cols + 1) * gridPad;
+            var totalHeight = gridPad + (rows * renderItems[0].cardHeight) + (rows * gridPad);
+            
+            var tempCanvas = document.createElement('canvas');
+            tempCanvas.width = totalWidth;
+            tempCanvas.height = totalHeight;
+            var ctx = tempCanvas.getContext('2d');
+            
+            var isDark = document.documentElement.getAttribute("data-theme") === "dark";
+            
+            ctx.clearRect(0, 0, totalWidth, totalHeight);
+            
+            renderItems.forEach(function(item, idx) {
+                var col = idx % cols;
+                var row = Math.floor(idx / cols);
+                var cx = gridPad + col * (item.cardWidth + gridPad);
+                var cy = gridPad + row * (item.cardHeight + gridPad);
+                
+                ctx.fillStyle = isDark ? '#282a36' : '#ffffff';
+                ctx.beginPath();
+                ctx.roundRect(cx, cy, item.cardWidth, item.cardHeight, 12 * dpr);
+                ctx.fill();
+                
+                ctx.strokeStyle = isDark ? 'rgba(79,172,254,0.2)' : 'rgba(0,0,0,0.1)';
+                ctx.lineWidth = 1 * dpr;
+                ctx.stroke();
+                
+                ctx.font = "600 " + (16 * dpr) + "px sans-serif";
+                ctx.fillStyle = isDark ? '#ffffff' : '#1e293b';
+                ctx.textAlign = "left";
+                ctx.fillText(item.title, cx + cardPad, cy + cardPad + (16 * dpr));
+                
+                ctx.drawImage(item.chart.canvas, cx + cardPad, cy + titleHeight + cardPad);
+            });
+            
+            var a = document.createElement('a');
+            a.href = tempCanvas.toDataURL('image/png');
+            a.download = `City_Level_${tab.toUpperCase()}_Charts.png`;
+            a.click();
+            
+        } catch(e) { 
+            console.error('Export PNG failed', e); 
+        } finally {
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+        }
+    }, 50);
+}
+
+function openPngModal(tab) { doExportPng(tab); }
+
+function exportDataCSV(tab) {
+    const btnId = tab === 'trend' ? 'tBtnExportCsv' : 'cBtnExportCsv';
+    const btn = document.getElementById(btnId);
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+    btn.disabled = true;
+
+    const quote = value => '"' + String(value ?? '').replace(/(\r\n|\n|\r)/gm, ' ').replace(/"/g, '""') + '"';
+
+    setTimeout(() => {
+        try {
+            if (tab === 'compare') {
+                if (!window.compareExportData) return;
+                const wb = document.getElementById('cWb').value || 'W1';
+                const wa = document.getElementById('cWa').value || 'W2';
+                const d = window.compareExportData;
+                let allRows = [];
+                d.compare_table.forEach(g => { 
+                    g.rows.forEach(r => r.group = g.nsa);
+                    allRows = allRows.concat(g.rows); 
+                });
+                const validRows = allRows.filter(r => r.pch !== null);
+                validRows.sort((a,b) => b.pch - a.pch);
+                const top10 = validRows.filter(r => r.pch > 0).slice(0, 10);
+                const botRows = validRows.filter(r => r.pch < 0);
+                const bot10 = botRows.slice(Math.max(0, botRows.length - 10)).sort((a,b) => a.pch - b.pch);
+
+                let lines = [`Category,Group,City,Payload ${wb} (TB),Payload ${wa} (TB),Payload Delta (TB),Payload Growth (%),Traffic ${wb} (KErl),Traffic ${wa} (KErl),Traffic Delta (KErl),Traffic Growth (%)`];
+                top10.forEach(r => {
+                    const deltaP = r.pa !== null && r.pb !== null ? r.pa - r.pb : 0;
+                    const deltaT = r.ta !== null && r.tb !== null ? r.ta - r.tb : 0;
+                    lines.push(`"Top 10 Growth","${r.group}","${r.kota}",${(r.pb||0).toFixed(2)},${(r.pa||0).toFixed(2)},${deltaP.toFixed(2)},${(r.pch||0).toFixed(2)},${(r.tb||0).toFixed(2)},${(r.ta||0).toFixed(2)},${deltaT.toFixed(2)},${(r.tch||0).toFixed(2)}`);
+                });
+                bot10.forEach(r => {
+                    const deltaP = r.pa !== null && r.pb !== null ? r.pa - r.pb : 0;
+                    const deltaT = r.ta !== null && r.tb !== null ? r.ta - r.tb : 0;
+                    lines.push(`"Bottom 10 Decline","${r.group}","${r.kota}",${(r.pb||0).toFixed(2)},${(r.pa||0).toFixed(2)},${deltaP.toFixed(2)},${(r.pch||0).toFixed(2)},${(r.tb||0).toFixed(2)},${(r.ta||0).toFixed(2)},${deltaT.toFixed(2)},${(r.tch||0).toFixed(2)}`);
+                });
+                
+                const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'City_TopBottom10_Payload_Traffic.csv';
+                a.click();
+                URL.revokeObjectURL(url);
+                return;
+            } else {
+                if (!window.trendExportData) return;
+                const d = window.trendExportData;
+                let lines = ["Date,City,Payload (TB),Traffic (KErl),Availability (%),RRC Users"];
+                const keys = Object.keys(d.chart_payload || {});
+                for (let i = 0; i < d.chart_labels.length; i++) {
+                    const date = d.chart_labels[i];
+                    for (let k of keys) {
+                        const p = d.chart_payload[k] ? d.chart_payload[k][i] : 0;
+                        const t = d.chart_traffic[k] ? d.chart_traffic[k][i] : 0;
+                        const a = d.chart_availability[k] ? d.chart_availability[k][i] : 0;
+                        const r = d.chart_rrc[k] ? d.chart_rrc[k][i] : 0;
+                        lines.push(`"${date}","${k}",${p ?? 0},${t ?? 0},${a ?? 0},${r ?? 0}`);
+                    }
+                }
+                const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'City_Level_Trend.csv';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        } finally {
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+        }
+    }, 50);
+}
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 {% endblock %}

@@ -159,7 +159,6 @@ def kpi_2g_monitoring():
         kpi_names = "-".join(sorted([k[0] for k in kpi_defs]))
         cache_key = f"2g_mon_data_{from_date}_{to_date}_{kpi_names}"
 
-    from app import cache
     cached_data = cache.get(cache_key) if cache_key else None
     
     if cached_data:
@@ -624,7 +623,6 @@ def api_kpi_2g_site_cluster():
             })
         
     except Exception as e:
-        import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
     finally:
@@ -739,7 +737,6 @@ def api_kpi_2g_sector_data():
             })
         
     except Exception as e:
-        import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
     finally:

@@ -69,7 +69,8 @@ def patch_db(monkeypatch):
 
     for attr in ("get_connection", "get_postgres_connection", "get_pumaz_connection"):
         for mod in ("app.db.db_webapp", "app.db.db_pumaz"):
-            if attr in sys.modules[mod].__dict__:
+            module = sys.modules.get(mod)
+            if module is not None and attr in module.__dict__:
                 monkeypatch.setattr(f"{mod}.{attr}", raise_error)
 
 

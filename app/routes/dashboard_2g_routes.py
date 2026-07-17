@@ -7,6 +7,11 @@ import psycopg2.extras
 import psycopg2.errors
 from collections import defaultdict
 import json
+import logging
+from contextlib import closing
+from .kpi_2g_monitoring_routes import DEFAULT_KPIS
+
+logger = logging.getLogger(__name__)
 
 dashboard_2g = Blueprint("dashboard_2g", __name__)
 
@@ -156,7 +161,7 @@ def dashboard_2g_view():
     sel_kpis = request.args.getlist("kpi")
     if not sel_kpis:
         # Default KPIs
-        sel_kpis = ["payloadChart", "tchTrafficChart", "availChart", "cssrChart", "hosrChart", "tchDropChart", "tchBlkChart", "sdcchBlkChart"]
+        sel_kpis = DEFAULT_KPIS
         
     KPI_DEFS = [k for k in ALL_KPI_DEFS if k[0] in sel_kpis]
 
@@ -487,13 +492,12 @@ def dashboard_2g_view():
     user_charts = []
     username = session.get("username", "User")
     try:
-        from contextlib import closing
         with closing(get_postgres_connection()) as conn:
             with closing(conn.cursor(cursor_factory=psycopg2.extras.DictCursor)) as cur:
                 cur.execute("SELECT id, dashboard_name, chart_config FROM user_custom_charts WHERE username = %s AND dashboard_name LIKE '2G%%' ORDER BY dashboard_name", [username])
                 user_charts = [dict(r) for r in cur.fetchall()]
     except Exception as e:
-        print(f"Error fetching custom charts: {e}")
+        logger.error("Error fetching custom charts: %s", e)
 
     return _no_cache(make_response(render_template(
         "dashboard_2g.html",

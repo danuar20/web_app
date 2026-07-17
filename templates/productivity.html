@@ -207,6 +207,14 @@
         <button type="button" onclick="loadData()" class="btn-apply" style="padding: 10px 24px; border-radius: 8px; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 2px;">
             <i class="fas fa-play" id="btnIcon"></i> <span id="btnText">Analyze</span>
         </button>
+        <div style="display:flex; gap:10px; margin-left:auto; border-left:1px solid rgba(128,128,128,0.2); padding-left:16px; align-items:center;">
+            <button type="button" id="btnExportPng" onclick="doExportPng()" class="btn-export-outline" style="display:none; padding: 6px 12px; border-radius: 6px; font-weight: 600; align-items: center; gap: 6px; font-size:12px; border:1px solid currentColor; background:transparent; cursor:pointer;">
+                <i class="fas fa-camera"></i> Export PNG
+            </button>
+            <button type="button" id="btnExportCsv" onclick="exportDataCSV()" class="btn-export-outline" style="display:none; padding: 6px 12px; border-radius: 6px; font-weight: 600; align-items: center; gap: 6px; font-size:12px; border:1px solid currentColor; background:transparent; cursor:pointer;">
+                <i class="fas fa-file-csv"></i> Export CSV
+            </button>
+        </div>
     </div>
 
     <!-- Error state -->
@@ -240,7 +248,7 @@
         </div>
 
         <!-- Charts -->
-        <div class="chart-grid">
+        <div class="chart-grid" id="chartGrid">
             <div class="glass-card">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
                     <div>
@@ -321,6 +329,7 @@
 
 {% block page_scripts %}
 <script>
+var chartInstances = {};
 // UI Helpers
 function toggleDropdown(id){
     document.querySelectorAll('.dropdown-menu').forEach(m => { if(m.id !== id) m.style.display='none'; });
@@ -414,6 +423,8 @@ async function loadData() {
         
         if(!response.ok || data.error) throw new Error(data.error || "Failed to fetch data");
         
+        window.trendExportData = data;
+        
         // Populate KPIs
         document.getElementById('valPayload').textContent = fmt1(data.total_payload_after / 1024);
         document.getElementById('valTraffic').textContent = fmt1(data.total_traffic_after / 1000);
@@ -502,6 +513,8 @@ async function loadData() {
         // Show data
         document.getElementById('skeletonContainer').style.display = 'none';
         document.getElementById('dataContainer').style.display = 'flex';
+        document.getElementById('btnExportPng').style.display = 'flex';
+        document.getElementById('btnExportCsv').style.display = 'flex';
         
     } catch(err) {
         document.getElementById('skeletonContainer').style.display = 'none';
@@ -517,5 +530,137 @@ async function loadData() {
 document.addEventListener("DOMContentLoaded", () => {
     // Intentionally left empty as requested
 });
+
+// --- EXPORT SCRIPTS ---
+function doExportPng() {
+    const btn = document.getElementById('btnExportPng');
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+    btn.disabled = true;
+
+    setTimeout(() => {
+        try {
+            let chartsToExport = ['payloadChart', 'trafficChart'];
+            let titles = ['Payload Trend (TB)', 'Traffic Trend (KErl)'];
+            
+            var dpr = window.devicePixelRatio || 1;
+            var cardPad = 16 * dpr;
+            var titleHeight = 36 * dpr;
+            var gridPad = 20 * dpr;
+            var cols = 2;
+            
+            var renderItems = [];
+            var sampleChart = null;
+            
+            for(let i=0; i<chartsToExport.length; i++) {
+                let chart = chartInstances[chartsToExport[i]];
+                if (!chart || !chart.canvas) continue;
+                if (!sampleChart) sampleChart = chart;
+                
+                var cWidth = chart.canvas.width;
+                var cHeight = chart.canvas.height;
+                var cardWidth = cWidth + (cardPad * 2);
+                var cardHeight = cHeight + titleHeight + (cardPad * 2);
+                
+                renderItems.push({
+                    chart: chart,
+                    title: titles[i],
+                    cardWidth: cardWidth,
+                    cardHeight: cardHeight
+                });
+            }
+            
+            if(!sampleChart) {
+                alert("No valid charts found to export.");
+                return;
+            }
+            
+            var rows = Math.ceil(renderItems.length / cols);
+            var totalWidth = cols * renderItems[0].cardWidth + (cols + 1) * gridPad;
+            var totalHeight = gridPad + (rows * renderItems[0].cardHeight) + (rows * gridPad);
+            
+            var tempCanvas = document.createElement('canvas');
+            tempCanvas.width = totalWidth;
+            tempCanvas.height = totalHeight;
+            var ctx = tempCanvas.getContext('2d');
+            
+            var isDark = document.documentElement.getAttribute("data-theme") === "dark";
+            
+            ctx.clearRect(0, 0, totalWidth, totalHeight);
+            
+            renderItems.forEach(function(item, idx) {
+                var col = idx % cols;
+                var row = Math.floor(idx / cols);
+                var cx = gridPad + col * (item.cardWidth + gridPad);
+                var cy = gridPad + row * (item.cardHeight + gridPad);
+                
+                ctx.fillStyle = isDark ? '#282a36' : '#ffffff';
+                ctx.beginPath();
+                ctx.roundRect(cx, cy, item.cardWidth, item.cardHeight, 12 * dpr);
+                ctx.fill();
+                
+                ctx.strokeStyle = isDark ? 'rgba(79,172,254,0.2)' : 'rgba(0,0,0,0.1)';
+                ctx.lineWidth = 1 * dpr;
+                ctx.stroke();
+                
+                ctx.font = "600 " + (16 * dpr) + "px sans-serif";
+                ctx.fillStyle = isDark ? '#ffffff' : '#1e293b';
+                ctx.textAlign = "left";
+                ctx.fillText(item.title, cx + cardPad, cy + cardPad + (16 * dpr));
+                
+                ctx.drawImage(item.chart.canvas, cx + cardPad, cy + titleHeight + cardPad);
+            });
+            
+            var a = document.createElement('a');
+            a.href = tempCanvas.toDataURL('image/png');
+            a.download = `Productivity_Trend_Charts.png`;
+            a.click();
+            
+        } catch(e) { 
+            console.error('Export PNG failed', e); 
+        } finally {
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+        }
+    }, 50);
+}
+
+function exportDataCSV() {
+    const btn = document.getElementById('btnExportCsv');
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+    btn.disabled = true;
+
+    setTimeout(() => {
+        try {
+            if(!window.trendExportData) return;
+            const d = window.trendExportData;
+            const yb = document.getElementById('selYB').value;
+            const ya = document.getElementById('selYA').value;
+            let lines = [`Date,Payload ${yb} (TB),Payload ${ya} (TB),Payload YoY (%),Traffic ${yb} (KErl),Traffic ${ya} (KErl),Traffic YoY (%)`];
+            for (let i = 0; i < d.chart_labels.length; i++) {
+                const date = d.chart_labels[i];
+                const pb = d.payload_before[i] !== null ? d.payload_before[i] : '';
+                const pa = d.payload_after[i] !== null ? d.payload_after[i] : '';
+                const yp = d.payload_ytd[i] !== null ? d.payload_ytd[i] : '';
+                const tb = d.traffic_before[i] !== null ? d.traffic_before[i] : '';
+                const ta = d.traffic_after[i] !== null ? d.traffic_after[i] : '';
+                const yt = d.traffic_ytd[i] !== null ? d.traffic_ytd[i] : '';
+                lines.push(`"${date}",${pb},${pa},${yp},${tb},${ta},${yt}`);
+            }
+            const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Productivity_Trend_YoY.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        } finally {
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+        }
+    }, 50);
+}
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 {% endblock %}

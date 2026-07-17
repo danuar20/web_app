@@ -52,18 +52,18 @@ ALL_KPI_DEFS = [
     ("agg8Chart", "Agg8", "%", None, None, 'CASE WHEN SUM(denum_agg8) > 0 THEN ROUND((SUM(num_agg8) / SUM(denum_agg8) * 100.0)::numeric, 2) ELSE NULL END', False),
     ("dlCceFailChart", "DL CCE Failure", "%", None, None, 'CASE WHEN SUM("DL_CCE_Failure_Denum") > 0 THEN ROUND((SUM("DL_CCE_Failure_Num") / SUM("DL_CCE_Failure_Denum") * 100.0)::numeric, 2) ELSE NULL END', True),
     ("ulCceFailChart", "UL CCE Failure", "%", None, None, 'CASE WHEN SUM("UL_CCE_Failure_Denum") > 0 THEN ROUND((SUM("UL_CCE_Failure_Num") / SUM("UL_CCE_Failure_Denum") * 100.0)::numeric, 2) ELSE NULL END', True),
-    ("badRsrpChart", "Bad RSRP", "%", None, None, 'CASE WHEN SUM(denum_rsrp_dbm) > 0 THEN ROUND((SUM(num_rsrp_dbm) / SUM(denum_rsrp_dbm) * 100.0)::numeric, 2) ELSE NULL END', True),
-    ("goodRsrpChart", "Good RSRP", "%", None, None, 'CASE WHEN SUM("Good_RSRP (>-105) Ratio Denum") > 0 THEN ROUND((SUM("Good_RSRP (>-105) Ratio Num") / SUM("Good_RSRP (>-105) Ratio Denum") * 100.0)::numeric, 2) ELSE NULL END', False),
+    ("badRsrpChart", "Bad RSRP (<-105)", "%", None, None, 'CASE WHEN SUM(denum_rsrp_dbm) > 0 THEN ROUND((SUM(num_rsrp_dbm) / SUM(denum_rsrp_dbm) * 100.0)::numeric, 2) ELSE NULL END', True),
+    ("goodRsrpChart", "Good RSRP (>-105)", "%", None, None, 'CASE WHEN SUM("Good_RSRP (>-105) Ratio Denum") > 0 THEN ROUND((SUM("Good_RSRP (>-105) Ratio Num") / SUM("Good_RSRP (>-105) Ratio Denum") * 100.0)::numeric, 2) ELSE NULL END', False),
     ("bsrAttemptChart", "BSR Attempt", "", None, None, 'SUM("Number of Outgoing HO Preparation Attempts(based UL Service)")', False),
     ("bsrSrChart", "BSR SR", "%", None, None, 'CASE WHEN SUM("Number of Outgoing HO Preparation Attempts(based UL Service)") > 0 THEN ROUND((SUM("Number of Outgoing HO Success(based UL Service)") / SUM("Number of Outgoing HO Preparation Attempts(based UL Service)") * 100.0)::numeric, 2) ELSE NULL END', False),
     ("avgCpuChart", "Avg CPU Util", "%", None, None, 'ROUND((AVG(average_cpu_utilization) * 100.0)::numeric, 2)', False),
     ("peakCpuChart", "Peak CPU Util", "%", None, None, 'ROUND((AVG(peak_cpu_utilization) * 100.0)::numeric, 2)', False),
-    ("avgRsrpChart", "Avg RSRP", "dB", None, None, 'ROUND(AVG(avg_rsrp_dbm)::numeric, 0)', False),
+    ("avgRsrpChart", "Avg RSRP", "dBm", None, None, 'ROUND(AVG(avg_rsrp_dbm)::numeric, 0)', False),
     ("avgRsrqChart", "Avg RSRQ", "dB", None, None, 'ROUND(AVG("Average of RSRQ Value of Serving Cell(period measurement)(dB)")::numeric, 0)', False),
-    ("avgRssiChart", "Avg Rssi", "dB", None, None, 'ROUND(AVG(avg_cell_rssi)::numeric, 0)', False),
-    ("avgNiChart", "Avg Ni", "dB", None, None, 'ROUND(AVG(average_ni_of_carrier)::numeric, 0)', False),
-    ("avgPucchChart", "Avg Pucch", "dB", None, None, 'ROUND(AVG(pucch_avg_ni_of_carrier)::numeric, 0)', False),
-    ("avgPuschChart", "Avg Pusch", "dB", None, None, 'ROUND(AVG(pusch_avg_ni_of_carrier)::numeric, 0)', False),
+    ("avgRssiChart", "Avg Rssi", "dBm", None, None, 'ROUND(AVG(avg_cell_rssi)::numeric, 0)', False),
+    ("avgNiChart", "Avg Ni", "dBm", None, None, 'ROUND(AVG(average_ni_of_carrier)::numeric, 0)', False),
+    ("avgPucchChart", "Avg Pucch Ni", "dBm", None, None, 'ROUND(AVG(pucch_avg_ni_of_carrier)::numeric, 0)', False),
+    ("avgPuschChart", "Avg Pusch Ni", "dBm", None, None, 'ROUND(AVG(pusch_avg_ni_of_carrier)::numeric, 0)', False),
     ("ulBlerChart", "UL Bler", "%", None, None, 'ROUND((AVG(cell_uplink_init_bler) * 100.0)::numeric, 2)', True),
     ("dlBlerChart", "DL Bler", "%", None, None, 'ROUND((AVG(cell_downlink_init_bler) * 100.0)::numeric, 2)', True),
     ("pagingDiscardedChart", "Paging Discarded", "%", None, None, 'CASE WHEN SUM(number_of_paging_records_received_by_the_enodeb) > 0 THEN ROUND((SUM(number_of_paging_records_discarded_at_the_enodeb) / SUM(number_of_paging_records_received_by_the_enodeb) * 100.0)::numeric, 2) ELSE NULL END', True),
@@ -124,7 +124,6 @@ def kpi_4g_monitoring():
         kpi_names = "-".join(sorted([k[0] for k in kpi_defs]))
         cache_key = f"4g_mon_data_{from_date}_{to_date}_{kpi_names}"
 
-    from app import cache
     cached_data = cache.get(cache_key) if cache_key else None
     
     if cached_data:
@@ -513,7 +512,6 @@ def api_kpi_4g_monitoring_site_cluster():
             })
         
     except Exception as e:
-        import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
     finally:
@@ -647,9 +645,211 @@ def api_kpi_4g_monitoring_sector_data():
             })
         
     except Exception as e:
-        import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
     finally:
         if cur: cur.close()
+        if conn: conn.close()
+
+
+# ── BDBH KPI Definitions (measKpiBdbh4G) ────────────────────────────────────────
+# Only KPIs that have a valid mapping in measKpiBdbh4G are included here.
+# (chart_id, sql_expr)  — chart_id must match ALL_KPI_DEFS
+BDBH_KPI_EXPR = {
+    "payloadChart":        'ROUND((SUM("4G Payload (MByte) NFJ") / 1024.0)::numeric, 3)',
+    "dlPayloadChart":      'ROUND((SUM("DL Traffic Volume (MByte) AMQ") / 1024.0)::numeric, 3)',
+    "ulPayloadChart":      'ROUND((SUM("UL Traffic Volume (MByte) AMQ") / 1024.0)::numeric, 3)',
+    "dlPayloadCaChart":    'ROUND((SUM("DL Payload CA_(MByte) AMQ") / 1024.0)::numeric, 3)',
+    "ulPayloadCaChart":    'ROUND((SUM("UL Payload CA_(MByte) AMQ") / 1024.0)::numeric, 3)',
+    "volteTrafficChart":   'SUM("[VoLTE]_Traffic (Erl)")',
+    "rrcChart":            'SUM("Max RRC Connection User")',
+    "activeUserChart":     'SUM("New Active Users rnp")',
+    "availChart":          'CASE WHEN SUM("Cell Availability Denum 4G AMQ") > 0 THEN ROUND((SUM("Cell Availability Num 4G AMQ") / SUM("Cell Availability Denum 4G AMQ") * 100.0)::numeric, 2) ELSE NULL END',
+    "cssrChart":           'CASE WHEN SUM("Denum CSSR AMQ") > 0 THEN ROUND((SUM("Num CSSR AMQ") / SUM("Denum CSSR AMQ") * 100.0)::numeric, 2) ELSE NULL END',
+    "erabSrChart":         'CASE WHEN SUM("Denum E-RAB Setup SR AMQ") > 0 THEN ROUND((SUM("Num E-RAB Setup SR AMQ") / SUM("Denum E-RAB Setup SR AMQ") * 100.0)::numeric, 2) ELSE NULL END',
+    "rrcSrChart":          'CASE WHEN SUM("Denum RRC Setup SR AMQ") > 0 THEN ROUND((SUM("Num RRC Setup SR AMQ") / SUM("Denum RRC Setup SR AMQ") * 100.0)::numeric, 2) ELSE NULL END',
+    "srvcc2gChart":        'CASE WHEN SUM("[VoLTE]_SRVCC_Handover SR (LTE->GSM)_denum") > 0 THEN ROUND((SUM("[VoLTE]_SRVCC_Handover SR (LTE->GSM)_num") / SUM("[VoLTE]_SRVCC_Handover SR (LTE->GSM)_denum") * 100.0)::numeric, 2) ELSE NULL END',
+    "s1SrChart":           'CASE WHEN SUM("KPI Denum S1 Signaling SR") > 0 THEN ROUND((SUM("KPI Num S1 Signaling SR") / SUM("KPI Denum S1 Signaling SR") * 100.0)::numeric, 2) ELSE NULL END',
+    "sdrChart":            'CASE WHEN SUM("Denum Service Drop Rate AMQ") > 0 THEN ROUND((SUM("Num Service Drop Rate AMQ") / SUM("Denum Service Drop Rate AMQ") * 100.0)::numeric, 2) ELSE NULL END',
+    "erabDropChart":       'CASE WHEN SUM("Denum E-RAB Drop AMQ") > 0 THEN ROUND((SUM("Num E-RAB Drop AMQ") / SUM("Denum E-RAB Drop AMQ") * 100.0)::numeric, 2) ELSE NULL END',
+    "volteDropChart":      'CASE WHEN SUM("[VoLTE]_Call Drop Rate_MME (%%)_denum") > 0 THEN ROUND((SUM("[VoLTE]_Call Drop Rate_MME (%%)_num") / SUM("[VoLTE]_Call Drop Rate_MME (%%)_denum") * 100.0)::numeric, 2) ELSE NULL END',
+    "ifhoChart":           'CASE WHEN SUM("Denum IFHO SR AMQ") > 0 THEN ROUND((SUM("Num IFHO SR AMQ") / SUM("Denum IFHO SR AMQ") * 100.0)::numeric, 2) ELSE NULL END',
+    "dlPrbChart":          'CASE WHEN SUM("DL PRB Utilization Denum") > 0 THEN ROUND((SUM("DL PRB Utilization Num") / SUM("DL PRB Utilization Denum") * 100.0)::numeric, 2) ELSE NULL END',
+    "ulPrbChart":          'CASE WHEN SUM("UL PRB Utilization Denum") > 0 THEN ROUND((SUM("UL PRB Utilization Num") / SUM("UL PRB Utilization Denum") * 100.0)::numeric, 2) ELSE NULL END',
+    "dlThpChart":          'CASE WHEN SUM("User DL Throughput Denum") > 0 THEN ROUND((SUM("User DL Throughput Num") / SUM("User DL Throughput Denum") / 1000.0)::numeric, 2) ELSE NULL END',
+    "ulThpChart":          'CASE WHEN SUM("User UL Throughput Denum") > 0 THEN ROUND((SUM("User UL Throughput Num") / SUM("User UL Throughput Denum") / 1000.0)::numeric, 2) ELSE NULL END',
+    "seChart":             'CASE WHEN SUM("SE_New v2_TI_Denum") > 0 THEN ROUND((SUM("SE_New v2_TI_Num") / SUM("SE_New v2_TI_Denum"))::numeric, 2) ELSE NULL END',
+    "cqiChart":            'CASE WHEN SUM("Denum Average CQI") > 0 THEN ROUND((SUM("Num Average CQI") / SUM("Denum Average CQI"))::numeric, 2) ELSE NULL END',
+    "dlMcsAvgChart":       'ROUND(AVG("DL Average MCS[CMCC]")::numeric, 2)',
+    "ulMcsAvgChart":       'ROUND(AVG("UL Average MCS[CMCC]")::numeric, 2)',
+    "agg8Chart":           'CASE WHEN SUM("Denum AGG8") > 0 THEN ROUND((SUM("Num AGG8") / SUM("Denum AGG8") * 100.0)::numeric, 2) ELSE NULL END',
+    "avgRssiChart":        'ROUND(AVG("Average Cell RSSI(dBm)")::numeric, 0)',
+    "avgNiChart":          'ROUND(AVG("Average NI of Carrier(dBm)")::numeric, 0)',
+    "avgPucchChart":       'ROUND(AVG("PUCCH Average NI of Carrier(dBm)")::numeric, 0)',
+    "avgPuschChart":       'ROUND(AVG("PUSCH Average NI of Carrier(dBm)")::numeric, 0)',
+    "ulBlerChart":         'ROUND((AVG("[LTE]Cell Uplink Init BLER") * 100.0)::numeric, 2)',
+    "dlBlerChart":         'ROUND((AVG("[LTE]Cell Downlink Init BLER") * 100.0)::numeric, 2)',
+    "procDelayChart":      'CASE WHEN SUM("Packet_Processing_Delay_Denum") > 0 THEN ROUND((SUM("Packet_Processing_Delay_Num") / SUM("Packet_Processing_Delay_Denum"))::numeric, 2) ELSE NULL END',
+    "csfbChart":           'CASE WHEN SUM("Denum CSFB SR AMQ") > 0 THEN ROUND((SUM("Num CSFB SR AMQ") / SUM("Denum CSFB SR AMQ") * 100.0)::numeric, 2) ELSE NULL END',
+    "badRsrpChart":        'CASE WHEN SUM("Denum RSRP<-105dBm") > 0 THEN ROUND((SUM("Num RSRP<-105dBm") / SUM("Denum RSRP<-105dBm") * 100.0)::numeric, 2) ELSE NULL END',
+    "avgCpuChart":         'ROUND((AVG("Average CPU Utilization Rate of the Baseband Control-Plane(%%)"))::numeric, 2)',
+    "peakCpuChart":        'ROUND((AVG("Peak CPU Utilization Rate of the Baseband Control-Plane(%%)"))::numeric, 2)',
+}
+
+
+@kpi4g_monitoring.route('/api/kpi_4g_monitoring/sector_data_bdbh', methods=['POST'])
+@login_required
+@cache.cached(timeout=21600, make_cache_key=make_post_cache_key)
+def api_kpi_4g_monitoring_sector_data_bdbh():
+    """
+    Sector data endpoint using measKpiBdbh4G table.
+    Field mapping:
+      4g_kpi_zte.date      → measKpiBdbh4G."Date"
+      4g_kpi_zte.datehour  → measKpiBdbh4G."Time"
+      4g_kpi_zte.cell      → measKpiBdbh4G."Cell ID"
+      4g_kpi_zte.siteid    → SUBSTRING(measKpiBdbh4G."ME Name", 3, 6)
+    """
+    import traceback
+    req = request.json
+    from_date = req.get('from_date')
+    to_date   = req.get('to_date')
+    sites     = req.get('sites', [])
+    sel_kpis  = req.get('kpis', [])
+
+    if not sites:
+        return jsonify({'error': 'No sites selected'}), 400
+
+    # Build KPI defs filtered to those requested AND available in BDBH
+    kpi_defs_bdbh = []
+    for k in ALL_KPI_DEFS:
+        if k[0] in sel_kpis and k[0] in BDBH_KPI_EXPR:
+            kpi_defs_bdbh.append(k)
+
+    if not kpi_defs_bdbh:
+        kpi_defs_bdbh = [k for k in ALL_KPI_DEFS if k[0] in BDBH_KPI_EXPR]
+
+    conn = None
+    cur  = None
+    try:
+        with db_query() as (conn, cur):
+
+            # Build SELECT expressions using BDBH column names
+            kpi_selects_hourly = ",\n            ".join(
+                [f'{BDBH_KPI_EXPR[k[0]]} AS {k[0]}' for k in kpi_defs_bdbh]
+            )
+
+            # --- Hourly query (grouped by "Time") ---
+            sql_hourly = f'''
+                SELECT
+                    TO_CHAR("Time", 'YYYY-MM-DD HH24:MI') as dt_label,
+                    SUBSTRING("ME Name", 3, 6) AS siteid,
+                    CASE
+                        WHEN LENGTH("Cell ID"::text) > 2 AND RIGHT("Cell ID"::text, 1) = '5' THEN SUBSTRING("Cell ID"::text FROM 2 FOR 1)
+                        WHEN LENGTH("Cell ID"::text) > 2 THEN LEFT("Cell ID"::text, 2)
+                        ELSE LEFT("Cell ID"::text, 1)
+                    END AS sector,
+                    CASE RIGHT("Cell ID"::text, 1)
+                        WHEN '1' THEN 'L1800'
+                        WHEN '2' THEN 'L900'
+                        WHEN '3' THEN 'L2100'
+                        WHEN '4' THEN 'L2300_1'
+                        WHEN '5' THEN 'L2300_2'
+                        WHEN '6' THEN 'L2300_3'
+                        WHEN '7' THEN 'L700'
+                        ELSE 'Unknown'
+                    END AS band,
+                    "Cell ID"::text AS tech,
+                    {kpi_selects_hourly}
+                FROM "measKpiBdbh4G"
+                WHERE "Date" >= %s::date AND "Date" <= %s::date
+                  AND SUBSTRING("ME Name", 3, 6) = ANY(%s)
+                GROUP BY "Time", siteid, "Cell ID", sector, band, tech
+                ORDER BY "Time"
+            '''
+            cur.execute(sql_hourly, [from_date, to_date, sites])
+            rows_hourly = cur.fetchall()
+
+            # --- Daily query (grouped by "Date") ---
+            sql_daily = f'''
+                SELECT
+                    TO_CHAR("Date", 'YYYY-MM-DD') as dt_label,
+                    SUBSTRING("ME Name", 3, 6) AS siteid,
+                    CASE
+                        WHEN LENGTH("Cell ID"::text) > 2 AND RIGHT("Cell ID"::text, 1) = '5' THEN SUBSTRING("Cell ID"::text FROM 2 FOR 1)
+                        WHEN LENGTH("Cell ID"::text) > 2 THEN LEFT("Cell ID"::text, 2)
+                        ELSE LEFT("Cell ID"::text, 1)
+                    END AS sector,
+                    CASE RIGHT("Cell ID"::text, 1)
+                        WHEN '1' THEN 'L1800'
+                        WHEN '2' THEN 'L900'
+                        WHEN '3' THEN 'L2100'
+                        WHEN '4' THEN 'L2300_1'
+                        WHEN '5' THEN 'L2300_2'
+                        WHEN '6' THEN 'L2300_3'
+                        WHEN '7' THEN 'L700'
+                        ELSE 'Unknown'
+                    END AS band,
+                    "Cell ID"::text AS tech,
+                    {kpi_selects_hourly}
+                FROM "measKpiBdbh4G"
+                WHERE "Date" >= %s::date AND "Date" <= %s::date
+                  AND SUBSTRING("ME Name", 3, 6) = ANY(%s)
+                GROUP BY "Date", siteid, "Cell ID", sector, band, tech
+                ORDER BY "Date"
+            '''
+            cur.execute(sql_daily, [from_date, to_date, sites])
+            rows_daily = cur.fetchall()
+
+            def process_rows(rows):
+                labels_set = set()
+                raw_map = {}
+
+                for r in rows:
+                    dt_label    = r[0]
+                    siteid      = r[1]
+                    sector      = r[2]
+                    band        = r[3]
+                    tech        = r[4]
+
+                    legend_name = f"{siteid} S{sector}|{band}-{tech}"
+
+                    labels_set.add(dt_label)
+                    if dt_label not in raw_map:
+                        raw_map[dt_label] = {}
+                    if legend_name not in raw_map[dt_label]:
+                        raw_map[dt_label][legend_name] = {}
+
+                    for idx, k in enumerate(kpi_defs_bdbh):
+                        val = r[5 + idx]
+                        raw_map[dt_label][legend_name][k[0]] = round(float(val), 2) if val is not None else None
+
+                labels = sorted(list(labels_set))
+
+                all_legends = set()
+                for dt in raw_map:
+                    for leg in raw_map[dt]:
+                        all_legends.add(leg)
+                all_legends = sorted(list(all_legends))
+
+                res_data = {}
+                for k in kpi_defs_bdbh:
+                    res_data[k[0]] = {}
+                    for leg in all_legends:
+                        res_data[k[0]][leg] = [
+                            raw_map.get(dt, {}).get(leg, {}).get(k[0], None)
+                            for dt in labels
+                        ]
+
+                return {"labels": labels, "data": res_data, "legends": all_legends}
+
+            return jsonify({
+                "hourly": process_rows(rows_hourly),
+                "daily":  process_rows(rows_daily)
+            })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if cur:  cur.close()
         if conn: conn.close()

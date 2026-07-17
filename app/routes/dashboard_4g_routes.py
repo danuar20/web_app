@@ -7,6 +7,11 @@ import psycopg2.extras
 import psycopg2.errors
 from collections import defaultdict
 import json
+import logging
+from contextlib import closing
+from .kpi_4g_monitoring_routes import DEFAULT_KPIS
+
+logger = logging.getLogger(__name__)
 
 dashboard_4g = Blueprint("dashboard_4g", __name__)
 
@@ -16,7 +21,7 @@ ALL_KPI_DEFS = [
     # --- Productivity ---
     ("payloadChart",   "4G Payload",             "GB",             "4G Payload (GB)",  None, None,
      'SUM("4g_payload_mb")/1024.0',             "Productivity", False),
-    ("volteChart",     "VoLTE Traffic",         "Erl",            "VoLTE (Erl)",  None, None,
+    ("volteTrafficChart",     "VoLTE Traffic",         "Erl",            "VoLTE (Erl)",  None, None,
      "SUM(volte_traffic)",                "Productivity", False),
     ("dlPayloadChart", "DL Payload",            "GB",     "DL Payload (GB)", None, None,
      'ROUND((SUM(dl_traffic_volume) / 1024.0)::numeric, 3)', "Productivity", False),
@@ -32,7 +37,7 @@ ALL_KPI_DEFS = [
      'CASE WHEN SUM(avail_denum)>0 THEN ROUND((SUM(avail_num)/SUM(avail_denum)*100)::numeric,2) ELSE NULL END',    "Availability", False),
 
     # --- User ---
-    ("maxRrcChart",    "Max RRC User",          "Users",          "Max RRC Users",  None, None,
+    ("rrcChart",    "Max RRC User",          "Users",          "Max RRC Users",  None, None,
      "SUM(max_rrc_conn_user)",            "User", False),
     ("activeUserChart","Active User",           "Users",          "Active Users",  None, None,
      "SUM(new_active_users)",            "User", False),
@@ -96,13 +101,13 @@ ALL_KPI_DEFS = [
      'CASE WHEN SUM("DL_CCE_Failure_Denum") > 0 THEN ROUND((SUM("DL_CCE_Failure_Num") / SUM("DL_CCE_Failure_Denum") * 100.0)::numeric, 2) ELSE NULL END', "Quality", True),
     ("ulCceFailChart", "UL CCE Failure",        "%",      "UL CCE Failure (%)", 0, None,
      'CASE WHEN SUM("UL_CCE_Failure_Denum") > 0 THEN ROUND((SUM("UL_CCE_Failure_Num") / SUM("UL_CCE_Failure_Denum") * 100.0)::numeric, 2) ELSE NULL END', "Quality", True),
-    ("avgRssiChart",   "Avg Rssi",              "dB",     "Avg Rssi (dB)", None, None,
+    ("avgRssiChart",   "Avg Rssi",              "dBm",     "Avg Rssi (dBm)", None, None,
      'ROUND(AVG(avg_cell_rssi)::numeric, 0)', "Quality", False),
-    ("avgNiChart",     "Avg Ni",                "dB",     "Avg Ni (dB)", None, None,
+    ("avgNiChart",     "Avg Ni",                "dBm",     "Avg Ni (dBm)", None, None,
      'ROUND(AVG(average_ni_of_carrier)::numeric, 0)', "Quality", False),
-    ("avgPucchChart",  "Avg Pucch",             "dB",     "Avg Pucch (dB)", None, None,
+    ("avgPucchChart",  "Avg Pucch Ni",             "dBm",     "Avg Pucch Ni (dBm)", None, None,
      'ROUND(AVG(pucch_avg_ni_of_carrier)::numeric, 0)', "Quality", False),
-    ("avgPuschChart",  "Avg Pusch",             "dB",     "Avg Pusch (dB)", None, None,
+    ("avgPuschChart",  "Avg Pusch Ni",             "dBm",     "Avg Pusch Ni (dBm)", None, None,
      'ROUND(AVG(pusch_avg_ni_of_carrier)::numeric, 0)', "Quality", False),
     ("ulBlerChart",    "UL Bler",               "%",      "UL Bler (%)", 0, None,
      'ROUND((AVG(cell_uplink_init_bler) * 100.0)::numeric, 2)', "Quality", True),
@@ -114,11 +119,11 @@ ALL_KPI_DEFS = [
      'CASE WHEN SUM(csfb_denum)>0 THEN ROUND((SUM(csfb_num)/SUM(csfb_denum)*100)::numeric,2) ELSE NULL END', "Quality", False),
 
     # --- Coverage ---
-    ("badRsrpChart",   "Bad RSRP",              "%",      "Bad RSRP (%)", 0, None,
+    ("badRsrpChart",   "Bad RSRP (<-105)",              "%",      "Bad RSRP (<-105) (%)", 0, None,
      'CASE WHEN SUM(denum_rsrp_dbm) > 0 THEN ROUND((SUM(num_rsrp_dbm) / SUM(denum_rsrp_dbm) * 100.0)::numeric, 2) ELSE NULL END', "Coverage", True),
-    ("goodRsrpChart",  "Good RSRP",             "%",      "Good RSRP (%)", None, 100,
+    ("goodRsrpChart",  "Good RSRP (>-105)",             "%",      "Good RSRP (>-105) (%)", None, 100,
      'CASE WHEN SUM("Good_RSRP (>-105) Ratio Denum") > 0 THEN ROUND((SUM("Good_RSRP (>-105) Ratio Num") / SUM("Good_RSRP (>-105) Ratio Denum") * 100.0)::numeric, 2) ELSE NULL END', "Coverage", False),
-    ("avgRsrpChart",   "Avg RSRP",              "dB",     "Avg RSRP (dB)", None, None,
+    ("avgRsrpChart",   "Avg RSRP",              "dBm",     "Avg RSRP (dBm)", None, None,
      'ROUND(AVG(avg_rsrp_dbm)::numeric, 0)', "Coverage", False),
     ("avgRsrqChart",   "Avg RSRQ",              "dB",     "Avg RSRQ (dB)", None, None,
      'ROUND(AVG("Average of RSRQ Value of Serving Cell(period measurement)(dB)")::numeric, 0)', "Coverage", False),
@@ -130,7 +135,7 @@ ALL_KPI_DEFS = [
      'ROUND((AVG(peak_cpu_utilization) * 100.0)::numeric, 2)', "Hardware", False),
 ]
 
-KPI_GROUPS = ["Productivity","Availability","User","Accessibility","Retainability","Capacity","Integrity","Mobility","Quality","Hardware","Others"]
+KPI_GROUPS = ["Productivity","Availability","User","Accessibility","Retainability","Capacity","Integrity","Mobility","Quality","Coverage","Hardware","Others"]
 
 
 @dashboard_4g.route("/dashboard_4g")
@@ -183,7 +188,7 @@ def dashboard_4g_view():
     sel_kpis = request.args.getlist("kpi")
     if not sel_kpis:
         # Default to some standard KPIs if none selected
-        sel_kpis = ["payloadChart", "cssrChart", "dlPrbChart", "dlThpChart", "rrcSrChart", "erabSrChart", "callSetupChart", "sdrChart", "erabDropChart", "serviceDropChart", "ulPrbChart", "ulThpChart", "packetLossChart"]
+        sel_kpis = DEFAULT_KPIS
         
     KPI_DEFS = [k for k in ALL_KPI_DEFS if k[0] in sel_kpis]
 
@@ -536,13 +541,12 @@ def dashboard_4g_view():
     user_charts = []
     username = session.get("username", "User")
     try:
-        from contextlib import closing
         with closing(get_postgres_connection()) as conn:
             with closing(conn.cursor(cursor_factory=psycopg2.extras.DictCursor)) as cur:
                 cur.execute("SELECT id, dashboard_name, chart_config FROM user_custom_charts WHERE username = %s AND dashboard_name LIKE '4G%%' ORDER BY dashboard_name", [username])
                 user_charts = [dict(r) for r in cur.fetchall()]
     except Exception as e:
-        print(f"Error fetching custom charts: {e}")
+        logger.error("Error fetching custom charts: %s", e)
 
     return _no_cache(make_response(render_template(
         "dashboard_4g.html",

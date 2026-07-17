@@ -942,6 +942,8 @@
 
     /* ── Main load ── */
     var dashPayloadChart = null, dashTrafficChart = null;
+    var chartInstances = window.chartInstances || {};
+    window.chartInstances = chartInstances;
 
     function dashLoad() {
         fetch('/api/home')

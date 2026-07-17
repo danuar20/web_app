@@ -6,6 +6,9 @@ from collections import OrderedDict
 import psycopg2
 import psycopg2.errors
 import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 prod = Blueprint("prod", __name__)
 
@@ -41,7 +44,7 @@ def _get_dropdown_data():
             _prod_cache["ts"] = now
             
     except Exception as e:
-        print("Error populating dropdown cache:", e)
+        logger.error("Error populating dropdown cache: %s", e)
         
     return _prod_cache
 
@@ -70,7 +73,7 @@ def _get_sites(sel_nsas=None, sel_cities=None):
             ''', params)
             sites = [r[0] for r in cur.fetchall()]
     except Exception as e:
-        print("Error fetching sites:", e)
+        logger.error("Error fetching sites: %s", e)
     return sites
 
 def _get_last_update():
@@ -82,7 +85,7 @@ def _get_last_update():
                 if isinstance(row[0], datetime):
                     return row[0].strftime("%d %b %Y")
                 return row[0].strftime("%d %b %Y") # if it's already a date object
-    except:
+    except Exception:
         pass
     return None
 

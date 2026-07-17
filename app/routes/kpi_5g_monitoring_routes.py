@@ -34,6 +34,8 @@ ALL_KPI_DEFS = [
     ("latUlChart", "Latency UL", "ms", None, None, 'CASE WHEN SUM(denum_latency_ul_xhj) > 0 THEN ROUND((SUM(num_latency_ul_xhj) / SUM(denum_latency_ul_xhj))::numeric, 2) ELSE NULL END', True),
 ]
 
+DEFAULT_KPIS = [k[0] for k in ALL_KPI_DEFS]
+
 # ── Main Page Route ─────────────────────────────────────────────────────────────
 @kpi5g_monitoring.route("/kpi_5g_monitoring")
 @login_required
@@ -448,7 +450,6 @@ def api_kpi_5g_monitoring_site_cluster():
             })
         
     except Exception as e:
-        import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
     finally:
@@ -581,7 +582,6 @@ def api_kpi_5g_monitoring_sector_data():
             })
         
     except Exception as e:
-        import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
     finally:
