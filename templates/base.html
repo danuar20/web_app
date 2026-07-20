@@ -1733,7 +1733,7 @@ body.mobile-view .sidebar .nav-link {
 
       <div class="menu-item {% block nav_monitoring %}{% endblock %}" onclick="toggleSub('sub_monitoring', this)">
         <div class="menu-icon"><i class="fas fa-tv"></i></div>
-        <span class="menu-item-label">Monitoring KPI</span>
+        <span class="menu-item-label">KPI Monitoring</span>
         <i class="fas fa-chevron-right menu-arrow"></i>
       </div>
       <div class="sub-menu {% block sub_monitoring_open %}{% endblock %}" id="sub_monitoring">
@@ -1748,6 +1748,26 @@ body.mobile-view .sidebar .nav-link {
         </a>
 
       </div>
+
+
+      <div class="menu-item {% block nav_wpc %}{% endblock %}" onclick="toggleSub('subWpc', this)">
+        <div class="menu-icon"><i class="fas fa-laptop-code"></i></div>
+        <span class="menu-item-label">WPC Monitoring</span>
+        <i class="fas fa-chevron-right menu-arrow"></i>
+      </div>
+      <div class="sub-menu {% block subWpc_open %}{% endblock %}" id="subWpc">
+        <a href="/wpc_2g_monitoring" class="sub-item {% block nav_wpc_2g %}{% endblock %}">
+          <span class="sub-item-dot"></span> WPC 2G
+        </a>
+        <a href="#" class="sub-item {% block nav_wpc_4g %}{% endblock %}">
+          <span class="sub-item-dot"></span> WPC 4G
+        </a>
+        <a href="#" class="sub-item {% block nav_wpc_5g %}{% endblock %}">
+          <span class="sub-item-dot"></span> WPC 5G
+        </a>
+      </div>
+
+
 
       <div class="menu-item {% block nav_dashboard %}{% endblock %}" onclick="toggleSub('subDashboard', this)">
         <div class="menu-icon"><i class="fas fa-tachometer-alt"></i></div>
@@ -1767,68 +1787,6 @@ body.mobile-view .sidebar .nav-link {
       </div>
 
 
-
-      {% if session.get('role') != 'viewer' %}
-      <div class="menu-item {% block nav_2g %}{% endblock %}" onclick="toggleSub('sub2g', this)">
-        <div class="menu-icon"><i class="fas fa-signal"></i></div>
-        <span class="menu-item-label">2G KPI</span>
-        <i class="fas fa-chevron-right menu-arrow"></i>
-      </div>
-      <div class="sub-menu {% block sub2g_open %}{% endblock %}" id="sub2g">
-
-        <a href="/kpi_2g_hourly_sector" class="sub-item {% block nav_2g_hourly_sector %}{% endblock %}">
-          <span class="sub-item-dot"></span> 2G Hourly Sector
-        </a>
-        <a href="/kpi_2g_hourly/compare" class="sub-item {% block nav_2g_compare %}{% endblock %}">
-          <span class="sub-item-dot"></span> 2G Hourly Compare
-        </a>
-
-      </div>
-
-      <div class="menu-item {% block nav_4g %}{% endblock %}" onclick="toggleSub('sub4g', this)">
-        <div class="menu-icon"><i class="fas fa-broadcast-tower"></i></div>
-        <span class="menu-item-label">4G KPI</span>
-        <i class="fas fa-chevron-right menu-arrow"></i>
-      </div>
-      <div class="sub-menu {% block sub4g_open %}{% endblock %}" id="sub4g">
-        <a href="/kpi_4g_daily" class="sub-item {% block nav_4g_daily %}{% endblock %}">
-          <span class="sub-item-dot"></span> 4G Daily
-        </a>
-        <a href="/kpi_4g_hourly" class="sub-item {% block nav_4g_hourly %}{% endblock %}">
-          <span class="sub-item-dot"></span> 4G Hourly
-        </a>
-        <a href="/kpi_4g_hourly_sector" class="sub-item {% block nav_4g_hourly_sector %}{% endblock %}">
-          <span class="sub-item-dot"></span> 4G Hourly Sector
-        </a>
-        <a href="/kpi_4g_hourly/compare" class="sub-item {% block nav_4g_hourly_compare %}{% endblock %}">
-          <span class="sub-item-dot"></span> 4G Hourly Compare
-        </a>
-        <a href="/kpi_4g_hourly/trend" class="sub-item {% block nav_4g_hourly_trend %}{% endblock %}">
-          <span class="sub-item-dot"></span> 4G Hourly Cluster
-        </a>
-      </div>
-
-      <div class="menu-item {% block nav_5g %}{% endblock %}" onclick="toggleSub('sub5g', this)">
-        <div class="menu-icon"><i class="fas fa-wifi"></i></div>
-        <span class="menu-item-label">5G KPI</span>
-        <i class="fas fa-chevron-right menu-arrow"></i>
-      </div>
-      <div class="sub-menu {% block sub5g_open %}{% endblock %}" id="sub5g">
-        <a href="/kpi_5g_daily" class="sub-item {% block nav_5g_daily %}{% endblock %}">
-          <span class="sub-item-dot"></span> 5G Daily
-        </a>
-        <a href="/kpi_5g_hourly" class="sub-item {% block nav_5g_hourly %}{% endblock %}">
-          <span class="sub-item-dot"></span> 5G Hourly
-        </a>
-        <a href="/kpi_5g_hourly_sector" class="sub-item {% block nav_5g_hourly_sector %}{% endblock %}">
-          <span class="sub-item-dot"></span> 5G Hourly Sector
-        </a>
-        <a href="/kpi_5g_hourly/compare" class="sub-item {% block nav_5g_hourly_compare %}{% endblock %}">
-          <span class="sub-item-dot"></span> 5G Hourly Compare
-        </a>
-      </div>
-      {% endif %}
-      
       {% if session.get('role') != 'viewer' %}
       <div class="menu-item {% block nav_optim %}{% endblock %}" onclick="toggleSub('subOptim', this)">
         <div class="menu-icon"><i class="fas fa-chart-pie"></i></div>

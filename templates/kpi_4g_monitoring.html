@@ -682,7 +682,7 @@
         </div>
         <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
             <!-- BDBH Toggle — placed before Daily|Hourly -->
-            <button class="btn-bdbh" id="btnBdbhToggle" onclick="toggleBdbh()" title="Toggle BDBH (Busy Day Busy Hour) data source">
+            <button class="btn-bdbh" id="btnBdbhToggle" onclick="toggleBdbh()" title="BDBH (Busy Day Busy Hour) data source">
                 <span class="bdbh-dot"></span>
                 BDBH
                 <span class="bdbh-badge">ON</span>
@@ -1070,7 +1070,7 @@ function toggleBdbh() {
             btn.title = 'BDBH Active — click to deactivate';
         } else {
             btn.classList.remove('bdbh-on');
-            btn.title = 'Toggle BDBH (Busy Day Busy Hour) data source';
+            btn.title = 'BDBH (Busy Day Busy Hour) data source';
         }
     }
     // Clear cached sector data to force re-fetch from correct source

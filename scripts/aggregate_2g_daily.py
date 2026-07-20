@@ -33,6 +33,7 @@ def create_table_if_not_exists(conn):
         city VARCHAR(255),
         me_name VARCHAR(255),
         siteid VARCHAR(255),
+        bts_name VARCHAR(255),
         total_payload DOUBLE PRECISION,
         tch_traffic DOUBLE PRECISION,
         sdcch_traffic DOUBLE PRECISION,
@@ -77,14 +78,14 @@ def create_table_if_not_exists(conn):
         edge_dl_thp DOUBLE PRECISION,
         gprs_payload DOUBLE PRECISION,
         edge_payload DOUBLE PRECISION,
-        CONSTRAINT unique_2g_kpi_daily UNIQUE (kpi_date, nsa, city, me_name, siteid)
+        CONSTRAINT unique_2g_kpi_daily UNIQUE (kpi_date, nsa, city, me_name, siteid, bts_name)
     );
     """
     cur.execute(sql)
     
     # Create indexes for fast querying
     cur.execute('CREATE INDEX IF NOT EXISTS idx_2g_kpi_daily_date ON "2g_kpi_zte_daily"(kpi_date);')
-    cur.execute('CREATE INDEX IF NOT EXISTS idx_2g_kpi_daily_dims ON "2g_kpi_zte_daily"(nsa, city, me_name, siteid);')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_2g_kpi_daily_dims ON "2g_kpi_zte_daily"(nsa, city, me_name, siteid, bts_name);')
     
     conn.commit()
     cur.close()
@@ -99,7 +100,7 @@ def aggregate_date_range(conn, start_date, end_date):
     cur.execute("SET work_mem = '2GB'")
     sql = """
     INSERT INTO "2g_kpi_zte_daily" (
-        kpi_date, nsa, city, me_name, siteid,
+        kpi_date, nsa, city, me_name, siteid, bts_name,
         total_payload, tch_traffic, sdcch_traffic, "Offic_full_traffic", "Offic_half_traffic",
         tch_avail_num, tch_avail_denum, cssr_num, cssr_denum, "2g_ccsr_num", "2g_ccsr_denum",
         hosr_num, hosr_denum, sdsr_num, sdsr_denum, tbf_dl_est_num, tbf_dl_est_denum,
@@ -114,6 +115,7 @@ def aggregate_date_range(conn, start_date, end_date):
         city,
         me_name,
         siteid,
+        bts_name,
         SUM(total_payload), SUM(tch_traffic), SUM(sdcch_traffic), SUM("Offic_full_traffic"), SUM("Offic_half_traffic"),
         SUM(tch_avail_num), SUM(tch_avail_denum), SUM(cssr_num), SUM(cssr_denum), SUM("2g_ccsr_num"), SUM("2g_ccsr_denum"),
         SUM(hosr_num), SUM(hosr_denum), SUM(sdsr_num), SUM(sdsr_denum), SUM(tbf_dl_est_num), SUM(tbf_dl_est_denum),
@@ -127,7 +129,8 @@ def aggregate_date_range(conn, start_date, end_date):
       AND city IS NOT NULL
       AND me_name IS NOT NULL
       AND siteid IS NOT NULL
-    GROUP BY DATE(datehour), nsa, city, me_name, siteid;
+      AND bts_name IS NOT NULL
+    GROUP BY DATE(datehour), nsa, city, me_name, siteid, bts_name;
     """
 
     cur.execute(sql, [start_date, end_date])
@@ -135,7 +138,7 @@ def aggregate_date_range(conn, start_date, end_date):
     inserted = cur.rowcount
     conn.commit()
     cur.close()
-    print(f"-> Inserted {inserted} daily site-level records for {start_date} to {end_date}.")
+    print(f"-> Inserted {inserted} daily cell-level records for {start_date} to {end_date}.")
 
 
 def main():

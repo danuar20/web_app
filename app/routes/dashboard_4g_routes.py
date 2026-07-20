@@ -207,10 +207,12 @@ def dashboard_4g_view():
     trend_labels = []
     trend_chart_data = defaultdict(lambda: {"total": {}})
     band_trend_chart_data = defaultdict(lambda: defaultdict(list))
+    tech_trend_chart_data = defaultdict(lambda: defaultdict(list))
     site_trend_chart_data = defaultdict(lambda: defaultdict(list))
     
     cluster_compare = {}
     band_compare = defaultdict(dict)
+    tech_compare = defaultdict(dict)
     sector_compare = defaultdict(dict)
     site_compare = defaultdict(dict)
     
@@ -341,6 +343,43 @@ def dashboard_4g_view():
                                 val_row = band_trend_map[band].get(hr)
                                 val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
                                 band_trend_chart_data[kpi_id][band].append(val)
+                                
+                    # 3. Tech Trend
+                    query_trend_tech = f"""
+                        SELECT 
+                            TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') AS dt_label,
+                            datehour,
+                            CASE RIGHT(cell::text, 1)
+                                WHEN '1' THEN 'FDD'
+                                WHEN '2' THEN 'FDD'
+                                WHEN '3' THEN 'FDD'
+                                WHEN '4' THEN 'TDD'
+                                WHEN '5' THEN 'TDD'
+                                WHEN '6' THEN 'TDD'
+                                WHEN '7' THEN 'FDD'
+                                ELSE 'Unknown'
+                            END AS tech,
+                            {kpi_selects}
+                        FROM "4g_kpi_zte"
+                        WHERE date BETWEEN %s AND %s AND {where_entity}
+                        GROUP BY datehour, dt_label, tech ORDER BY datehour
+                    """
+                    cur.execute(query_trend_tech, [trend_from_date, trend_to_date, sel_sites_param])
+                    rows_tech_trend = cur.fetchall()
+                    tech_trend_map = defaultdict(dict)
+                    for r in rows_tech_trend:
+                        dt_label = r[0]
+                        tech = r[2]
+                        tech_trend_map[tech][dt_label] = r[3:]
+                
+                    for tech in tech_trend_map:
+                        for idx, kpi in enumerate(KPI_DEFS):
+                            kpi_id = kpi[0]
+                            for hr in trend_labels:
+                                val_row = tech_trend_map[tech].get(hr)
+                                val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
+                                tech_trend_chart_data[kpi_id][tech].append(val)
+                            
                             
                 # --- COMPARE DATA ---
                 if has_compare:
@@ -373,6 +412,26 @@ def dashboard_4g_view():
                         """, [from_d, to_d, sel_sites_param])
                         band_rows = cur.fetchall()
                     
+                        # Tech
+                        cur.execute(f"""
+                            SELECT 
+                                CASE RIGHT(cell::text, 1)
+                                    WHEN '1' THEN 'FDD'
+                                    WHEN '2' THEN 'FDD'
+                                    WHEN '3' THEN 'FDD'
+                                    WHEN '4' THEN 'TDD'
+                                    WHEN '5' THEN 'TDD'
+                                    WHEN '6' THEN 'TDD'
+                                    WHEN '7' THEN 'FDD'
+                                    ELSE 'Unknown'
+                                END AS tech,
+                                {kpi_selects}
+                            FROM "4g_kpi_zte"
+                            WHERE date BETWEEN %s AND %s AND {where_entity}
+                            GROUP BY tech
+                        """, [from_d, to_d, sel_sites_param])
+                        tech_rows = cur.fetchall()
+                    
                         # Sector
                         cur.execute(f"""
                             SELECT 
@@ -398,10 +457,10 @@ def dashboard_4g_view():
                         """, [from_d, to_d, sel_sites_param])
                         site_rows = cur.fetchall()
                     
-                        return cluster_row, band_rows, sector_rows, site_rows
+                        return cluster_row, band_rows, tech_rows, sector_rows, site_rows
 
-                    b_cluster, b_band, b_sector, b_site = get_aggregates(before_from_date, before_to_date)
-                    a_cluster, a_band, a_sector, a_site = get_aggregates(after_from_date, after_to_date)
+                    b_cluster, b_band, b_tech, b_sector, b_site = get_aggregates(before_from_date, before_to_date)
+                    a_cluster, a_band, a_tech, a_sector, a_site = get_aggregates(after_from_date, after_to_date)
                 
                     # Process Cluster
                     for idx, kpi in enumerate(KPI_DEFS):
@@ -429,6 +488,19 @@ def dashboard_4g_view():
                             delta = round(a_val - b_val, 2) if (b_val is not None and a_val is not None) else None
                             delta_pct = round((delta / abs(b_val)) * 100, 1) if (delta is not None and b_val) else None
                             band_compare[band][kpi_id] = {"before": b_val, "after": a_val, "delta": delta, "delta_pct": delta_pct}
+
+                    # Process Tech
+                    b_tech_map = {r[0]: r[1:] for r in b_tech}
+                    a_tech_map = {r[0]: r[1:] for r in a_tech}
+                    all_techs = set(list(b_tech_map.keys()) + list(a_tech_map.keys()))
+                    for tech in all_techs:
+                        for idx, kpi in enumerate(KPI_DEFS):
+                            kpi_id = kpi[0]
+                            b_val = round(float(b_tech_map[tech][idx]), 2) if tech in b_tech_map and b_tech_map[tech][idx] is not None else None
+                            a_val = round(float(a_tech_map[tech][idx]), 2) if tech in a_tech_map and a_tech_map[tech][idx] is not None else None
+                            delta = round(a_val - b_val, 2) if (b_val is not None and a_val is not None) else None
+                            delta_pct = round((delta / abs(b_val)) * 100, 1) if (delta is not None and b_val) else None
+                            tech_compare[tech][kpi_id] = {"before": b_val, "after": a_val, "delta": delta, "delta_pct": delta_pct}
 
                     # Process Sector
                     b_sec_map = {f"{r[0]}_Sec{r[1]}": r[2:] for r in b_sector}
@@ -572,9 +644,11 @@ def dashboard_4g_view():
         trend_chart_data=dict(trend_chart_data),
         site_trend_chart_data=dict(site_trend_chart_data),
         band_trend_chart_data=dict(band_trend_chart_data),
+        tech_trend_chart_data=dict(tech_trend_chart_data),
         
         cluster_compare=cluster_compare,
         band_compare=dict(sorted(band_compare.items(), key=lambda x: (len(x[0]), x[0]))),
+        tech_compare=dict(sorted(tech_compare.items(), key=lambda x: (len(x[0]), x[0]))),
         sector_compare=dict(sector_compare),
         site_compare=dict(site_compare),
         
@@ -644,5 +718,177 @@ def get_filter_list_4g():
         else:
             items, _ = get_site_list_4g()
         return jsonify({"success": True, "items": items})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@dashboard_4g.route("/api/dashboard_4g_tech", methods=["POST"])
+@login_required
+def dashboard_4g_tech_api():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "Missing JSON data"})
+            
+        trend_from_date = data.get("trend_from_date")
+        trend_to_date = data.get("trend_to_date")
+        before_from_date = data.get("before_from_date")
+        before_to_date = data.get("before_to_date")
+        after_from_date = data.get("after_from_date")
+        after_to_date = data.get("after_to_date")
+        
+        filter_type = data.get("filter_type", "siteid")
+        sel_sites = data.get("site", [])
+        site_paste = data.get("site_paste", "")
+        
+        if site_paste:
+            extra = [s.strip() for s in site_paste.replace("\\n", ",").split(",") if s.strip()]
+            for s in extra:
+                if s not in sel_sites:
+                    sel_sites.append(s)
+                    
+        sel_sites_db = [s.strip() for s in sel_sites if s.strip()]
+        
+        if filter_type == "site_cell":
+            parsed = []
+            for s in sel_sites_db:
+                if '-' in s:
+                    sid, c = s.rsplit('-', 1)
+                    try:
+                        parsed.append((sid, float(c)))
+                    except ValueError:
+                        pass
+            if not parsed:
+                parsed = [('UNKNOWN', -1)]
+            where_entity = "(siteid, cell) IN %s"
+            sel_sites_param = tuple(parsed)
+        else:
+            if not sel_sites_db:
+                sel_sites_db = ['UNKNOWN']
+            where_entity = "siteid IN %s"
+            sel_sites_param = tuple(sel_sites_db)
+
+        sel_kpis = data.get("kpi", [])
+        if not sel_kpis:
+            sel_kpis = DEFAULT_KPIS
+            
+        KPI_DEFS = [k for k in ALL_KPI_DEFS if k[0] in sel_kpis]
+        kpi_selects = ", ".join([f"{k[6]} AS {k[0]}" for k in KPI_DEFS])
+        
+        fdd_bands = data.get("fdd_bands", [])
+        tdd_bands = data.get("tdd_bands", [])
+        
+        band_mapping = """
+            CASE RIGHT(cell::text, 1)
+                WHEN '1' THEN 'L1800'
+                WHEN '2' THEN 'L900'
+                WHEN '3' THEN 'L2100'
+                WHEN '4' THEN 'L2300_1'
+                WHEN '5' THEN 'L2300_2'
+                WHEN '6' THEN 'L2300_3'
+                WHEN '7' THEN 'L700'
+                ELSE 'Unknown'
+            END
+        """
+        
+        fdd_tup = tuple(fdd_bands) if fdd_bands else ('__NONE__',)
+        tdd_tup = tuple(tdd_bands) if tdd_bands else ('__NONE__',)
+        
+        tech_case = f"""
+            CASE 
+                WHEN {band_mapping} IN %s THEN 'FDD'
+                WHEN {band_mapping} IN %s THEN 'TDD'
+                ELSE 'Unknown'
+            END
+        """
+        
+        has_trend = trend_from_date and trend_to_date and sel_sites and KPI_DEFS
+        has_compare = before_from_date and before_to_date and after_from_date and after_to_date and sel_sites and KPI_DEFS
+        
+        from collections import defaultdict
+        
+        result = {
+            "success": True,
+            "trend_labels": [],
+            "tech_trend_chart_data": defaultdict(lambda: defaultdict(list)),
+            "tech_compare": defaultdict(dict)
+        }
+        
+        with db_query() as (conn, cur):
+            if has_trend:
+                cur.execute(f"""
+                    SELECT DISTINCT TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') AS dt_label, datehour
+                    FROM "4g_kpi_zte"
+                    WHERE date BETWEEN %s AND %s AND {where_entity}
+                    ORDER BY datehour
+                """, [trend_from_date, trend_to_date, sel_sites_param])
+                rows_trend_dates = cur.fetchall()
+                trend_labels = [r[0] for r in rows_trend_dates]
+                result["trend_labels"] = trend_labels
+                
+                query_trend_tech = f"""
+                    SELECT 
+                        TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') AS dt_label,
+                        datehour,
+                        {tech_case} AS tech,
+                        {kpi_selects}
+                    FROM "4g_kpi_zte"
+                    WHERE date BETWEEN %s AND %s AND {where_entity}
+                    GROUP BY datehour, dt_label, tech ORDER BY datehour
+                """
+                cur.execute(query_trend_tech, [fdd_tup, tdd_tup, trend_from_date, trend_to_date, sel_sites_param])
+                rows_tech_trend = cur.fetchall()
+                tech_trend_map = defaultdict(dict)
+                for r in rows_tech_trend:
+                    dt_label = r[0]
+                    tech = r[2]
+                    if tech != 'Unknown':
+                        tech_trend_map[tech][dt_label] = r[3:]
+                        
+                for tech in ['FDD', 'TDD']:
+                    for idx, kpi in enumerate(KPI_DEFS):
+                        kpi_id = kpi[0]
+                        for hr in trend_labels:
+                            val_row = tech_trend_map[tech].get(hr)
+                            val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
+                            result["tech_trend_chart_data"][kpi_id][tech].append(val)
+                            
+            if has_compare:
+                def get_tech_compare(from_d, to_d):
+                    cur.execute(f"""
+                        SELECT 
+                            {tech_case} AS tech,
+                            {kpi_selects}
+                        FROM "4g_kpi_zte"
+                        WHERE date BETWEEN %s AND %s AND {where_entity}
+                        GROUP BY tech
+                    """, [fdd_tup, tdd_tup, from_d, to_d, sel_sites_param])
+                    return cur.fetchall()
+                    
+                tech_before_rows = get_tech_compare(before_from_date, before_to_date)
+                tech_after_rows = get_tech_compare(after_from_date, after_to_date)
+                
+                tech_before_map = {r[0]: r[1:] for r in tech_before_rows} if tech_before_rows else {}
+                tech_after_map = {r[0]: r[1:] for r in tech_after_rows} if tech_after_rows else {}
+                
+                for tech in ['FDD', 'TDD']:
+                    for idx, kpi in enumerate(KPI_DEFS):
+                        kpi_id = kpi[0]
+                        val_before = round(float(tech_before_map[tech][idx]), 2) if tech in tech_before_map and tech_before_map[tech][idx] is not None else None
+                        val_after = round(float(tech_after_map[tech][idx]), 2) if tech in tech_after_map and tech_after_map[tech][idx] is not None else None
+                        
+                        delta = None
+                        perc = None
+                        if val_before is not None and val_after is not None:
+                            delta = round(val_after - val_before, 2)
+                            perc = round((delta / val_before) * 100, 2) if val_before != 0 else 0.0
+                            
+                        result["tech_compare"][tech][kpi_id] = {
+                            "before": val_before,
+                            "after": val_after,
+                            "delta": delta,
+                            "perc": perc
+                        }
+                        
+        return jsonify(result)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})

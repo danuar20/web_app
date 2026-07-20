@@ -807,6 +807,40 @@
             color: white !important;
             border-radius: 4px;
         }
+        
+        /* ──────────────────────────────────────────────────────────
+           Multi-select Dropdown CSS (Filter Band / KPI)
+           ────────────────────────────────────────────────────────── */
+        .ms-container { position: relative; width: 180px; }
+        .ms-toggle { 
+            width: 100%; padding: 6px 12px; border: 1px solid rgba(79,172,254,0.3); 
+            border-radius: 6px; cursor: pointer; text-align: left; display: flex; 
+            justify-content: space-between; align-items: center; font-size: 11px; 
+            transition: all 0.2s; 
+        }
+        [data-theme="dark"] .ms-toggle { background: rgba(30,30,58,0.8); color: #c8d0e0; }
+        [data-theme="light"] .ms-toggle { background: #fff; color: #1e293b; }
+        .ms-toggle:hover { border-color: #4facfe; }
+        .ms-menu { 
+            position: absolute; top: 100%; left: 0; right: 0; border-radius: 6px; 
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 1000; display: none; 
+            flex-direction: column; margin-top: 4px; border: 1px solid rgba(79,172,254,0.15); 
+        }
+        [data-theme="dark"] .ms-menu { background: #1a1a2e; }
+        [data-theme="light"] .ms-menu { background: #fff; }
+        
+        .band-mode-btn {
+            padding: 5px 12px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+        [data-theme="dark"] .band-mode-btn { background: transparent; color: #c8d0e0; }
+        [data-theme="light"] .band-mode-btn { background: transparent; color: #1e293b; }
+        [data-theme="dark"] .band-mode-btn.active { background: rgba(79,172,254,0.3); color: #fff; }
+        [data-theme="light"] .band-mode-btn.active { background: rgba(79,172,254,0.2); color: #0284c7; }
     </style>
 
     {% if trend_from_date and sel_sites %}
@@ -1056,9 +1090,101 @@
 
     <!-- 3. Band Level Tab -->
     <div id="tab-band" class="tab-content">
-        {{ render_tab_controls('tab-band', show_toggle=True, is_chart_active=False, chart_grid_id='bandChartGrid', export_chart_prefix='bandChart') }}
+        <div class="band-extra-controls" style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; background: rgba(128,128,128,0.05); padding: 12px; border-radius: 8px;">
+            <div style="display:flex; align-items: center; gap: 12px;">
+                <!-- Chart | Table toggle -->
+                <div class="view-btns" style="display:flex; background:rgba(128,128,128,0.1); border-radius:6px; overflow:hidden;">
+                    <button id="btn-chart-tab-band" class="view-btn active" style="padding:5px 14px; font-size:11px; border:none; cursor:pointer;" onclick="setTabView('tab-band','chart'); setChartBtnActive(this)">Chart</button>
+                    <button id="btn-table-tab-band" class="view-btn" style="padding:5px 14px; font-size:11px; border:none; cursor:pointer;" onclick="setTabView('tab-band','table'); setChartBtnActive(this)">Table</button>
+                </div>
+
+                <!-- Filter Band -->
+                <div class="ms-container" id="bandFilterDropdownContainer">
+                    <button type="button" class="ms-toggle" onclick="toggleDropdown('bandFilterDropdown')">
+                        <span class="ms-label" id="bandFilterBtnText" style="font-weight: 600;">Filter Band...</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div id="bandFilterDropdown" class="ms-menu" style="padding: 8px;">
+                        <div style="font-size: 10px; font-weight: bold; opacity: 0.7; margin-bottom: 6px; text-transform: uppercase; padding: 0 4px;">Filter Band</div>
+                        <label class="checkbox-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid rgba(128,128,128,0.2); cursor: pointer;">
+                            <input type="checkbox" id="bandFilterSelectAll" checked onchange="toggleAllFilters('bandFilterCheckboxes', this, onBandFilterChange)">
+                            <strong>Select All</strong>
+                        </label>
+                        <div id="bandFilterCheckboxes" style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding: 0 4px;">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filter KPI -->
+                <div class="ms-container" id="kpiTabFilterDropdownContainer">
+                    <button type="button" class="ms-toggle" onclick="toggleDropdown('kpiTabFilterDropdown')">
+                        <span class="ms-label" id="kpiTabFilterBtnText" style="font-weight: 600;">Filter KPI...</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div id="kpiTabFilterDropdown" class="ms-menu" style="padding: 8px;">
+                        <div style="font-size: 10px; font-weight: bold; opacity: 0.7; margin-bottom: 6px; text-transform: uppercase; padding: 0 4px;">Filter KPI</div>
+                        <label class="checkbox-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid rgba(128,128,128,0.2); cursor: pointer;">
+                            <input type="checkbox" id="kpiTabFilterSelectAll" checked onchange="toggleAllFilters('kpiTabFilterCheckboxes', this, onKpiTabFilterChange)">
+                            <strong>Select All</strong>
+                        </label>
+                        <div id="kpiTabFilterCheckboxes" style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding: 0 4px;">
+                            {% for kpi in kpi_defs %}
+                            <label class="checkbox-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; padding: 2px 0;">
+                                <input type="checkbox" value="{{ kpi[0] }}" checked onchange="onKpiTabFilterChange()"> <span>{{ kpi[1] }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right side controls -->
+            <div style="display:flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <!-- Toggle Mode -->
+                <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                    <button class="row-btn band-mode-btn" onclick="setBandMode('combined', this)">Combined Tech</button>
+                    <button class="row-btn band-mode-btn active" onclick="setBandMode('split', this)">Split by Band</button>
+                </div>
+
+                <button class="btn-apply" style="height:26px; padding:0 12px; border-radius:6px; font-size:11px;" onclick="openExportModal('bandChart', 'bandChartGrid')">
+                    <i class="fas fa-camera" style="margin-right:4px"></i> Export PNG
+                </button>
+                <span style="font-size:11px; font-weight:600; opacity:0.7;">Charts / Row:</span>
+                <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                    <button class="btn-xs row-btn bandChartGrid-row-btn" style="background:transparent; padding:4px 10px;" onclick="setGridColLocal(1, 'bandChartGrid')">1</button>
+                    <button class="btn-xs row-btn bandChartGrid-row-btn active" style="background:rgba(79,172,254,0.3); padding:4px 10px;" onclick="setGridColLocal(2, 'bandChartGrid')">2</button>
+                    <button class="btn-xs row-btn bandChartGrid-row-btn" style="background:transparent; padding:4px 10px;" onclick="setGridColLocal(3, 'bandChartGrid')">3</button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function setChartBtnActive(btn) {
+                const parent = btn.parentElement;
+                parent.querySelectorAll('.view-btn').forEach(b => {
+                    b.classList.remove('active');
+                });
+                btn.classList.add('active');
+            }
+            
+            function toggleDropdown(id) {
+                event.stopPropagation();
+                document.querySelectorAll('.ms-menu').forEach(menu => {
+                    if(menu.id !== id) menu.style.display = 'none';
+                });
+                const dd = document.getElementById(id);
+                if(dd) dd.style.display = dd.style.display === 'none' ? 'flex' : 'none';
+            }
+            
+            function toggleAllFilters(containerId, source, callback) {
+                const cbs = document.querySelectorAll(`#${containerId} input[type="checkbox"]:not([id$="SelectAll"])`);
+                cbs.forEach(cb => cb.checked = source.checked);
+                if (callback) callback();
+            }
+        </script>
         
-        <div id="tableView-tab-band" class="tab-view-container" style="display: block;">
+        <div id="tableView-tab-band" class="tab-view-container" style="display: none;">
         <div class="card" style="margin-bottom: 16px;">
             <div class="card-title" style="margin-bottom:10px;">Band Comparison Table</div>
             <div class="site-table-wrap">
@@ -1067,47 +1193,74 @@
                         <tr>
                             <th rowspan="2" class="entity-col">Band</th>
                             {% for kpi in kpi_defs %}
-                            <th colspan="4" class="text-center">{{ kpi[1] }}</th>
+                            <th colspan="4" class="text-center kpi-col-group-{{ kpi[0] }}">{{ kpi[1] }}</th>
                             {% endfor %}
                         </tr>
                         <tr>
                             {% for kpi in kpi_defs %}
-                            <th class="before-col">Before</th>
-                            <th class="after-col">After</th>
-                            <th class="delta-col">Delta</th>
-                            <th>%</th>
+                            <th class="before-col kpi-col-{{ kpi[0] }}">Before</th>
+                            <th class="after-col kpi-col-{{ kpi[0] }}">After</th>
+                            <th class="delta-col kpi-col-{{ kpi[0] }}">Delta</th>
+                            <th class="kpi-col-{{ kpi[0] }}">%</th>
                             {% endfor %}
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="bandTableBody">
                         {% set sorted_bands = band_compare.keys() %}
                         {% for band in sorted_bands %}
                         {% set metrics = band_compare[band] %}
-                        <tr>
+                        <tr class="band-row mode-split" data-band="{{ band }}">
                             <td class="entity-cell">{{ band }}</td>
                             {% for kpi in kpi_defs %}
                             {% set m = metrics.get(kpi[0], {}) %}
-                            <td class="before-val">{% if m.get('before') is not none %}{{ "%.2f"|format(m.get('before'))
-                                }}{% else %}-{% endif %}</td>
-                            <td class="after-val">{% if m.get('after') is not none %}{{ "%.2f"|format(m.get('after'))
-                                }}{% else %}-{% endif %}</td>
-                            <td>{% if m.get('delta') is not none %}{{ "+%.2f"|format(m.get('delta')) if m.get('delta')>0
-                                else "%.2f"|format(m.get('delta')) }}{% else %}-{% endif %}</td>
-                            <td style="font-weight: 600;">
+                            <td class="before-val kpi-col-{{ kpi[0] }}">{% if m.get('before') is not none %}{{ "%.2f"|format(m.get('before')) }}{% else %}-{% endif %}</td>
+                            <td class="after-val kpi-col-{{ kpi[0] }}">{% if m.get('after') is not none %}{{ "%.2f"|format(m.get('after')) }}{% else %}-{% endif %}</td>
+                            <td class="kpi-col-{{ kpi[0] }}">{% if m.get('delta') is not none %}{{ "+%.2f"|format(m.get('delta')) if m.get('delta')>0 else "%.2f"|format(m.get('delta')) }}{% else %}-{% endif %}</td>
+                            <td class="kpi-col-{{ kpi[0] }}" style="font-weight: 600;">
                                 {% if m.get('delta_pct') is not none %}
                                 {% set pct = m.get('delta_pct') %}
                                 {% set is_lb = kpi[7] %}
                                 {% if kpi[0] in ['dlPrbChart', 'ulPrbChart'] %}{% set is_lb = False %}{% endif %}
-                                {% set c = '#4facfe' %} <!-- blue -->
+                                {% set c = '#4facfe' %}
                                 {% if not is_lb %}
                                 {% if pct >= 5.0 %}{% set c = '#00e676' %}
-                                {% elif pct <= -5.0 %}{% set c='#ff5252' %} {% endif %} {% else %} {% if pct>= 5.0 %}{%
-                                    set c = '#ff5252' %}
-                                    {% elif pct <= -5.0 %}{% set c='#00e676' %} {% endif %} {% endif %} <span
-                                        style="color: {{ c }};">
-                                        {{ "+%.1f"|format(pct) if pct > 0 else "%.1f"|format(pct) }}%
-                                        </span>
-                                        {% else %}-{% endif %}
+                                {% elif pct <= -5.0 %}{% set c='#ff5252' %} {% endif %} 
+                                {% else %} 
+                                {% if pct>= 5.0 %}{% set c = '#ff5252' %}
+                                {% elif pct <= -5.0 %}{% set c='#00e676' %} {% endif %} 
+                                {% endif %} 
+                                <span style="color: {{ c }};">{{ "+%.1f"|format(pct) if pct > 0 else "%.1f"|format(pct) }}%</span>
+                                {% else %}-{% endif %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                        
+                        {% set sorted_techs = tech_compare.keys() %}
+                        {% for tech in sorted_techs %}
+                        {% set metrics = tech_compare[tech] %}
+                        <tr class="band-row mode-combined" data-band="{{ tech }}" style="display: none;">
+                            <td class="entity-cell">{{ tech }}</td>
+                            {% for kpi in kpi_defs %}
+                            {% set m = metrics.get(kpi[0], {}) %}
+                            <td class="before-val kpi-col-{{ kpi[0] }}">{% if m.get('before') is not none %}{{ "%.2f"|format(m.get('before')) }}{% else %}-{% endif %}</td>
+                            <td class="after-val kpi-col-{{ kpi[0] }}">{% if m.get('after') is not none %}{{ "%.2f"|format(m.get('after')) }}{% else %}-{% endif %}</td>
+                            <td class="kpi-col-{{ kpi[0] }}">{% if m.get('delta') is not none %}{{ "+%.2f"|format(m.get('delta')) if m.get('delta')>0 else "%.2f"|format(m.get('delta')) }}{% else %}-{% endif %}</td>
+                            <td class="kpi-col-{{ kpi[0] }}" style="font-weight: 600;">
+                                {% if m.get('delta_pct') is not none %}
+                                {% set pct = m.get('delta_pct') %}
+                                {% set is_lb = kpi[7] %}
+                                {% if kpi[0] in ['dlPrbChart', 'ulPrbChart'] %}{% set is_lb = False %}{% endif %}
+                                {% set c = '#4facfe' %}
+                                {% if not is_lb %}
+                                {% if pct >= 5.0 %}{% set c = '#00e676' %}
+                                {% elif pct <= -5.0 %}{% set c='#ff5252' %} {% endif %} 
+                                {% else %} 
+                                {% if pct>= 5.0 %}{% set c = '#ff5252' %}
+                                {% elif pct <= -5.0 %}{% set c='#00e676' %} {% endif %} 
+                                {% endif %} 
+                                <span style="color: {{ c }};">{{ "+%.1f"|format(pct) if pct > 0 else "%.1f"|format(pct) }}%</span>
+                                {% else %}-{% endif %}
                             </td>
                             {% endfor %}
                         </tr>
@@ -1118,11 +1271,11 @@
         </div>
         </div>
         
-        <div id="chartView-tab-band" class="tab-view-container" style="display: none;">
+        <div id="chartView-tab-band" class="tab-view-container" style="display: block;">
         <div class="chart-grid grid-2" id="bandChartGrid">
             {% for kpi in kpi_defs %}
-            <div class="card">
-                <div class="card-title">{{ kpi[1] }} (Band Level)</div>
+            <div class="card band-chart-card" data-kpi="{{ kpi[0] }}">
+                <div class="card-title">{{ kpi[1] }}</div>
                 <div class="chart-wrap-inner">
                     <canvas id="bandChart_{{ kpi[0] }}" style="cursor:pointer" onclick="openChartModal(this)"></canvas>
                 </div>
@@ -1575,7 +1728,6 @@
             ctx.fillStyle = isDark ? '#ffffff' : '#1e293b';
             ctx.textAlign = "left";
             var headerText = item.kpiTitle;
-            if (currentExportPrefix === "bandChart") headerText += " (Band Level)";
             ctx.fillText(headerText, cx + cardPad, cy + cardPad + (16 * dpr));
             
             ctx.drawImage(chart.canvas, cx + cardPad, cy + cardPad + titleHeight);
@@ -1599,6 +1751,9 @@
     const TREND_DATA = {{ trend_chart_data| tojson | safe }};
     const SITE_TREND_DATA = {{ site_trend_chart_data| tojson | safe }};
     const BAND_TREND_DATA = {{ band_trend_chart_data| tojson | safe }};
+    const TECH_TREND_DATA = {{ tech_trend_chart_data| tojson | safe }};
+    const BAND_COMPARE = {{ band_compare| tojson | safe }};
+    const TECH_COMPARE = {{ tech_compare| tojson | safe }};
     const COMPARE_HOURLY_LABELS = {{ compare_hourly_labels| tojson | safe }};
     const COMPARE_HOURLY_DATA = {{ compare_hourly_data| tojson | safe }};
 
@@ -1837,15 +1992,39 @@
                     }
                 });
             }
+        });
+    }
 
-            // Render Band Trend Chart
+    function renderBandCharts() {
+        if (!TREND_LABELS || TREND_LABELS.length === 0) return;
+        
+        let checkedBands = Array.from(document.querySelectorAll('#bandFilterCheckboxes input[type="checkbox"]:checked:not(#bandFilterSelectAll)')).map(cb => cb.value);
+        let mode = bandMode; 
+        let SOURCE_DATA = mode === 'combined' ? dynamicTechTrendData : BAND_TREND_DATA;
+
+        const fddBands = ['L700', 'L900', 'L1800', 'L2100'];
+        const tddBands = ['L2300_1', 'L2300_2', 'L2300_3', 'L2300'];
+        const hasFdd = fddBands.some(b => checkedBands.includes(b));
+        const hasTdd = tddBands.some(b => checkedBands.includes(b));
+
+        let activeKeys = mode === 'combined' ? [] : checkedBands;
+        if (mode === 'combined') {
+            if (hasFdd) activeKeys.push('FDD');
+            if (hasTdd) activeKeys.push('TDD');
+        }
+
+        KPI_DEFS.forEach(kpi => {
+            const kpiId = kpi[0];
+            const title = kpi[1];
+            const yLabel = kpi[3] || kpi[2];
+
             let bCtx = document.getElementById("bandChart_" + kpiId);
             if (bCtx) {
-                const FIXED_BAND_COLORS = { "L700": "#f093fb", "L900": "#ff5555", "L1800": "#4facfe", "L2100": "#00c853", "L2300_1": "#a78bfa", "L2300_2": "#ff9f40", "L2300_3": "#f6c90e", "L2300": "#a78bfa" };
+                const FIXED_BAND_COLORS = { "L700": "#f093fb", "L900": "#ff5555", "L1800": "#4facfe", "L2100": "#00c853", "L2300_1": "#a78bfa", "L2300_2": "#ff9f40", "L2300_3": "#f6c90e", "L2300": "#a78bfa", "FDD": "#4facfe", "TDD": "#a78bfa" };
                 const fbColors = ["#4facfe", "#f093fb", "#00c853", "#ff9f40", "#a78bfa", "#ff5555", "#00f2fe", "#f6c90e", "#8884d8", "#ff6b6b"];
-                let bData = BAND_TREND_DATA[kpiId] || {};
+                let bData = SOURCE_DATA[kpiId] || {};
 
-                let sortedBands = Object.keys(bData).sort((a, b) => {
+                let sortedBands = Object.keys(bData).filter(b => activeKeys.includes(b)).sort((a, b) => {
                     if (a.length !== b.length) return a.length - b.length;
                     return a.localeCompare(b);
                 });
@@ -1876,8 +2055,8 @@
                             highlightPeriods: true
                         },
                         scales: {
-                            x: { grid: { color: gridColor }, ticks: sharedXAxisTicks },
-                            y: { title: { display: true, text: yLabel, color: textColor, font: { size: 9 } }, grid: { color: gridColor }, ticks: { color: textColor, font: { size: 9 } } }
+                            x: { grid: { color: gridColor, drawBorder: false }, ticks: sharedXAxisTicks },
+                            y: { title: { display: true, text: yLabel, color: textColor, font: { size: 9 } }, grid: { color: gridColor, drawBorder: false }, ticks: { color: textColor, font: { size: 9 } } }
                         }
                     }
                 });
@@ -2553,10 +2732,232 @@
                 menu.style.display = 'none';
             });
         }
+        
+        const dd = document.getElementById('bandFilterDropdown');
+        if (dd && dd.style.display !== 'none' && !event.target.closest('#bandFilterDropdownContainer')) {
+            dd.style.display = 'none';
+        }
     });
 
-        document.addEventListener('DOMContentLoaded', () => {
+    // --- Band Filter Logic ---
+    let bandMode = 'split'; 
+    const sumKpis = ['payloadChart', 'volteTrafficChart', 'dlPayloadChart', 'ulPayloadChart', 'dlPayloadCaChart', 'ulPayloadCaChart', 'rrcChart', 'activeUserChart', 'bsrAttemptChart', 'dlTrafficChart', 'ulTrafficChart', 'userChart'];
+    let dynamicTechTrendData = {};
+    let dynamicTechCompareData = {};
+
+    async function updateCombinedTechData(checkedBands) {
+        const fddBands = ['L700', 'L900', 'L1800', 'L2100'];
+        const tddBands = ['L2300_1', 'L2300_2', 'L2300_3', 'L2300'];
+        const selectedFdd = fddBands.filter(b => checkedBands.includes(b));
+        const selectedTdd = tddBands.filter(b => checkedBands.includes(b));
+
+        const requestBody = {
+            trend_from_date: document.querySelector('[name="trend_from_date"]') ? document.querySelector('[name="trend_from_date"]').value : '',
+            trend_to_date: document.querySelector('[name="trend_to_date"]') ? document.querySelector('[name="trend_to_date"]').value : '',
+            before_from_date: document.querySelector('[name="before_from_date"]') ? document.querySelector('[name="before_from_date"]').value : '',
+            before_to_date: document.querySelector('[name="before_to_date"]') ? document.querySelector('[name="before_to_date"]').value : '',
+            after_from_date: document.querySelector('[name="after_from_date"]') ? document.querySelector('[name="after_from_date"]').value : '',
+            after_to_date: document.querySelector('[name="after_to_date"]') ? document.querySelector('[name="after_to_date"]').value : '',
+            filter_type: document.querySelector('[name="filter_type"]') ? document.querySelector('[name="filter_type"]').value : 'siteid',
+            site: Array.from(document.querySelectorAll('input[name="site"]:checked')).map(opt => opt.value),
+            site_paste: document.querySelector('[name="site_paste"]') ? document.querySelector('[name="site_paste"]').value : '',
+            kpi: Array.from(document.querySelectorAll('input[name="kpi"]:checked')).map(opt => opt.value),
+            fdd_bands: selectedFdd,
+            tdd_bands: selectedTdd
+        };
+
+        try {
+            const resp = await fetch('/api/dashboard_4g_tech', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': typeof csrfToken !== 'undefined' ? csrfToken : ''
+                },
+                body: JSON.stringify(requestBody)
+            });
+            const data = await resp.json();
+            if (data.success) {
+                dynamicTechTrendData = data.tech_trend_chart_data || {};
+                dynamicTechCompareData = data.tech_compare || { 'FDD': {}, 'TDD': {} };
+            }
+        } catch (e) {
+            console.error('Error fetching dynamic tech data:', e);
+            dynamicTechTrendData = {};
+            dynamicTechCompareData = { 'FDD': {}, 'TDD': {} };
+        }
+    }
+    
+    function setBandMode(mode, btn) {
+        bandMode = mode;
+        const parent = btn.parentElement;
+        parent.querySelectorAll('.band-mode-btn').forEach(b => {
+            b.classList.remove('active');
+        });
+        btn.classList.add('active');
+        
+        onBandFilterChange(); 
+    }
+    
+    function populateBandFilterCheckboxes() {
+        const container = document.getElementById('bandFilterCheckboxes');
+        if (!container) return;
+        const dataKeys = Object.keys(BAND_COMPARE || {});
+        
+        dataKeys.sort((a, b) => {
+            if (a.length !== b.length) return a.length - b.length;
+            return a.localeCompare(b);
+        });
+        
+        container.innerHTML = '';
+        dataKeys.forEach(key => {
+            const label = document.createElement('label');
+            label.className = 'checkbox-label';
+            label.style.cssText = 'display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; padding: 2px 0;';
+            label.innerHTML = `<input type="checkbox" value="${key}" checked onchange="onBandFilterChange()"> <span>${key}</span>`;
+            container.appendChild(label);
+        });
+        
+        let sa = document.getElementById('bandFilterSelectAll');
+        if(sa) sa.checked = true;
+        
+        onBandFilterChange();
+    }
+    
+    async function onBandFilterChange() {
+        const cbs = document.querySelectorAll('#bandFilterCheckboxes input[type="checkbox"]:not(#bandFilterSelectAll)');
+        const checked = document.querySelectorAll('#bandFilterCheckboxes input[type="checkbox"]:checked:not(#bandFilterSelectAll)');
+        let sa = document.getElementById('bandFilterSelectAll');
+        if(sa) sa.checked = cbs.length > 0 && cbs.length === checked.length;
+        
+        const text = document.getElementById('bandFilterBtnText');
+        if(text) {
+            if (checked.length === cbs.length) {
+                text.innerText = "All Bands";
+            } else if (checked.length === 0) {
+                text.innerText = "None Selected";
+            } else {
+                text.innerText = `${checked.length} Bands`;
+            }
+        }
+        
+        const checkedBands = Array.from(checked).map(cb => cb.value);
+        const fddBands = ['L700', 'L900', 'L1800', 'L2100'];
+        const tddBands = ['L2300_1', 'L2300_2', 'L2300_3', 'L2300'];
+        const hasFdd = fddBands.some(b => checkedBands.includes(b));
+        const hasTdd = tddBands.some(b => checkedBands.includes(b));
+        
+        if (bandMode === 'combined') {
+            const tableWrap = document.querySelector('#tab-band .table-wrap');
+            if (tableWrap) tableWrap.style.opacity = '0.5';
+        }
+        
+        await updateCombinedTechData(checkedBands);
+        
+        document.querySelectorAll(`#bandTableBody tr.band-row`).forEach(tr => {
+            const b = tr.getAttribute('data-band');
+            if (tr.classList.contains('mode-split') && bandMode === 'split') {
+                tr.style.display = checkedBands.includes(b) ? '' : 'none';
+            } else if (tr.classList.contains('mode-combined') && bandMode === 'combined') {
+                if (b === 'FDD' && hasFdd) tr.style.display = '';
+                else if (b === 'TDD' && hasTdd) tr.style.display = '';
+                else tr.style.display = 'none';
+                
+                if (tr.style.display !== 'none' && dynamicTechCompareData[b]) {
+                    KPI_DEFS.forEach(kpi => {
+                        let m = dynamicTechCompareData[b][kpi[0]];
+                        if (!m) return;
+                        
+                        let beforeTd = tr.querySelector(`.before-val.kpi-col-${kpi[0]}`);
+                        let afterTd = tr.querySelector(`.after-val.kpi-col-${kpi[0]}`);
+                        let kpiTds = tr.querySelectorAll(`.kpi-col-${kpi[0]}`);
+                        if (kpiTds.length >= 4) {
+                            let deltaTd = kpiTds[2];
+                            let pctTd = kpiTds[3];
+                            
+                            if (beforeTd) beforeTd.innerText = m.before !== null && m.before !== undefined ? m.before.toFixed(2) : '-';
+                            if (afterTd) afterTd.innerText = m.after !== null && m.after !== undefined ? m.after.toFixed(2) : '-';
+                            if (deltaTd) deltaTd.innerText = m.delta !== null && m.delta !== undefined ? (m.delta > 0 ? "+" + m.delta.toFixed(2) : m.delta.toFixed(2)) : '-';
+                            
+                            if (pctTd) {
+                                if (m.perc !== null && m.perc !== undefined) {
+                                    let pct = m.perc;
+                                    let isLb = kpi[7];
+                                    if (['dlPrbChart', 'ulPrbChart'].includes(kpi[0])) isLb = false;
+                                    let c = '#4facfe';
+                                    if (!isLb) {
+                                        if (pct >= 5.0) c = '#00e676';
+                                        else if (pct <= -5.0) c = '#ff5252';
+                                    } else {
+                                        if (pct >= 5.0) c = '#ff5252';
+                                        else if (pct <= -5.0) c = '#00e676';
+                                    }
+                                    pctTd.innerHTML = `<span style="color:${c};">${pct > 0 ? "+" + pct.toFixed(1) : pct.toFixed(1)}%</span>`;
+                                } else {
+                                    pctTd.innerText = '-';
+                                }
+                            }
+                        }
+                    });
+                }
+            } else {
+                tr.style.display = 'none';
+            }
+        });
+        
+        if (bandMode === 'combined') {
+            const tableWrap = document.querySelector('#tab-band .table-wrap');
+            if (tableWrap) tableWrap.style.opacity = '1';
+        }
+        
+        renderBandCharts();
+    }
+
+    function onKpiTabFilterChange() {
+        const cbs = document.querySelectorAll('#kpiTabFilterCheckboxes input[type="checkbox"]:not(#kpiTabFilterSelectAll)');
+        const checked = document.querySelectorAll('#kpiTabFilterCheckboxes input[type="checkbox"]:checked:not(#kpiTabFilterSelectAll)');
+        let sa = document.getElementById('kpiTabFilterSelectAll');
+        if(sa) sa.checked = cbs.length > 0 && cbs.length === checked.length;
+        
+        const text = document.getElementById('kpiTabFilterBtnText');
+        if(text) {
+            if (checked.length === cbs.length) {
+                text.innerText = "All KPIs";
+            } else if (checked.length === 0) {
+                text.innerText = "None Selected";
+            } else {
+                text.innerText = `${checked.length} KPIs`;
+            }
+        }
+        
+        const checkedKpis = Array.from(checked).map(cb => cb.value);
+        const allKpis = Array.from(cbs).map(cb => cb.value);
+        allKpis.forEach(kpiId => {
+            const isVisible = checkedKpis.includes(kpiId);
+            document.querySelectorAll(`.kpi-col-group-${kpiId}, .kpi-col-${kpiId}`).forEach(el => {
+                el.style.display = isVisible ? '' : 'none';
+            });
+            const chartCard = document.querySelector(`.band-chart-card[data-kpi="${kpiId}"]`);
+            if (chartCard) {
+                chartCard.style.display = isVisible ? '' : 'none';
+            }
+        });
+    }
+
+    // Auto-close filter dropdowns when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('#bandFilterDropdownContainer')) {
+            const dd1 = document.getElementById('bandFilterDropdown');
+            if (dd1) dd1.style.display = 'none';
+        }
+        if (!event.target.closest('#kpiTabFilterDropdownContainer')) {
+            const dd2 = document.getElementById('kpiTabFilterDropdown');
+            if (dd2) dd2.style.display = 'none';
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
         if (typeof updateKpiCount === 'function') updateKpiCount();
+        populateBandFilterCheckboxes();
     });
 </script>
 {% endblock %}
