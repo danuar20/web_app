@@ -484,11 +484,11 @@ def api_kpi_2g_hourly():
                 table_name = '"2g_kpi_zte"'
                 date_filter_col = 'date'
             else:
-                date_col = "TO_CHAR(date, 'YYYY-MM-DD')"
-                group_by = "date, dt_label, dimension"
-                order_by = "date"
-                table_name = '"vw_2g_kpi_realtime_daily"'
-                date_filter_col = 'date'
+                date_col = "TO_CHAR(kpi_date, 'YYYY-MM-DD')"
+                group_by = "kpi_date, dt_label, dimension"
+                order_by = "kpi_date"
+                table_name = '"2g_kpi_zte_daily"'
+                date_filter_col = 'kpi_date'
 
             sql = f"""
                 SELECT 
@@ -576,11 +576,11 @@ def api_kpi_2g_site_cluster():
                 table_name = '"2g_kpi_zte"'
                 date_filter_col = 'date'
             else:
-                date_col = "TO_CHAR(date, 'YYYY-MM-DD')"
-                group_by = "date, dt_label"
-                order_by = "date"
-                table_name = '"vw_2g_kpi_realtime_daily"'
-                date_filter_col = 'date'
+                date_col = "TO_CHAR(kpi_date, 'YYYY-MM-DD')"
+                group_by = "kpi_date, dt_label"
+                order_by = "kpi_date"
+                table_name = '"2g_kpi_zte_daily"'
+                date_filter_col = 'kpi_date'
             
             sql = f"""
                 SELECT 
