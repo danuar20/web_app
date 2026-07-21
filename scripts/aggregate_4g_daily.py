@@ -34,6 +34,7 @@ def create_table_if_not_exists(conn):
         city VARCHAR(255),
         subnetwork_name VARCHAR(255),
         siteid VARCHAR(255),
+        cell_name VARCHAR(255),
         "4g_payload_mb" DOUBLE PRECISION,
         dl_traffic_volume DOUBLE PRECISION,
         ul_traffic_volume DOUBLE PRECISION,
@@ -108,12 +109,12 @@ def create_table_if_not_exists(conn):
         number_of_paging_records_discarded_at_the_enodeb DOUBLE PRECISION,
         "Number of Outgoing HO Preparation Attempts(based UL Service)" DOUBLE PRECISION,
         "Number of Outgoing HO Success(based UL Service)" DOUBLE PRECISION,
-        CONSTRAINT unique_4g_kpi_daily UNIQUE (kpi_date, nsa, city, subnetwork_name, siteid)
+        CONSTRAINT unique_4g_kpi_daily UNIQUE (kpi_date, nsa, city, subnetwork_name, siteid, cell_name)
     );
     '''
     cur.execute(sql)
     cur.execute('CREATE INDEX IF NOT EXISTS idx_4g_kpi_daily_date ON "4g_kpi_zte_daily"(kpi_date);')
-    cur.execute('CREATE INDEX IF NOT EXISTS idx_4g_kpi_daily_dims ON "4g_kpi_zte_daily"(nsa, city, subnetwork_name, siteid);')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_4g_kpi_daily_dims ON "4g_kpi_zte_daily"(nsa, city, subnetwork_name, siteid, cell_name);')
     conn.commit()
     cur.close()
     print("Table ready.")
@@ -128,7 +129,7 @@ def aggregate_date_range(conn, start_date, end_date):
     cur.execute("SET work_mem = '2GB'")
     sql = '''
     INSERT INTO "4g_kpi_zte_daily" (
-        kpi_date, nsa, city, subnetwork_name, siteid,
+        kpi_date, nsa, city, subnetwork_name, siteid, cell_name,
         "4g_payload_mb", dl_traffic_volume, ul_traffic_volume,
         dl_payload_ca_mbyte, ul_payload_ca_mbyte,
         cssr_num, cssr_denum, volte_traffic,
@@ -174,6 +175,7 @@ def aggregate_date_range(conn, start_date, end_date):
         city,
         subnetwork_name,
         siteid,
+        cell_name,
         SUM("4g_payload_mb"), SUM(dl_traffic_volume), SUM(ul_traffic_volume),
         SUM(dl_payload_ca_mbyte), SUM(ul_payload_ca_mbyte),
         SUM(cssr_num), SUM(cssr_denum), SUM(volte_traffic),
@@ -217,7 +219,8 @@ def aggregate_date_range(conn, start_date, end_date):
       AND city IS NOT NULL
       AND subnetwork_name IS NOT NULL
       AND siteid IS NOT NULL
-    GROUP BY date, nsa, city, subnetwork_name, siteid;
+      AND cell_name IS NOT NULL
+    GROUP BY date, nsa, city, subnetwork_name, siteid, cell_name;
     '''
 
     cur.execute(sql, [start_date, end_date])

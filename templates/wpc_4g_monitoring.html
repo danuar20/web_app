@@ -1,0 +1,1019 @@
+{% extends "base.html" %}
+{% block page_title %}WPC 4G Monitoring{% endblock %}
+{% block page_sub %}Worst Performing Cell Analysis for 4G Network{% endblock %}
+
+{% block nav_wpc %}active{% endblock %}
+{% block subWpc_open %}open{% endblock %}
+{% block nav_wpc_4g %}active{% endblock %}
+
+{% block page_content %}
+<style>
+/* ── Layout & UI Styles ── */
+.wpc-container { flex: 1; padding: 14px 20px; display: flex; flex-direction: column; gap: 16px; font-family: 'Inter', sans-serif; }
+.filter-panel { background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+.filter-group { display: flex; flex-direction: column; gap: 6px; }
+.filter-label { font-size: 12px; font-weight: 600; color: #5f6368; text-transform: uppercase; }
+.filter-input { padding: 8px 12px; border: 1px solid #dcdfe6; border-radius: 6px; font-size: 13px; color: #333; outline: none; transition: border-color 0.2s; }
+.filter-input:focus { border-color: #4facfe; }
+
+/* Filter Panel Toggle */
+.filter-toggle-bar { display: flex; justify-content: space-between; align-items: center; padding: 0 4px; margin-bottom: 8px; }
+#filterContainer { overflow: hidden; }
+#filterContainer.collapsed { display: none; }
+.btn-xs { padding: 4px 10px; font-size: 11px; background: transparent; border: 1px solid #dcdfe6; border-radius: 4px; cursor: pointer; color: #5f6368; transition: 0.2s; }
+.btn-xs:hover { background: #f0f2f5; color: #333; }
+
+/* Date quick buttons */
+.date-quick-btns { display: flex; gap: 6px; }
+.btn-quick-date { background: #f0f2f5; color: #5f6368; border: 1px solid #dcdfe6; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+.btn-quick-date:hover, .btn-quick-date.active { background: #e1eaf5; color: #1a73e8; border-color: #1a73e8; }
+
+.btn-generate { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: #fff; border: none; padding: 8px 24px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: transform 0.1s, box-shadow 0.2s; }
+.btn-generate:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(79, 172, 254, 0.3); }
+
+.btn-export { background: #fff; border: 1px solid #1a73e8; color: #1a73e8; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; }
+.btn-export:hover { background: #f0f4f8; }
+
+/* ── Tabs ── */
+.wpc-tabs { display: flex; gap: 4px; background: #fff; padding: 8px 12px; border-radius: 8px 8px 0 0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-bottom: 1px solid #eee; }
+.wpc-tab { padding: 8px 16px; border: none; background: transparent; font-size: 13px; font-weight: 600; color: #5f6368; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+.wpc-tab:hover { background: #f0f2f5; color: #333; }
+.wpc-tab.active { background: rgba(79, 172, 254, 0.1); color: #007bff; }
+
+/* ── Tab Content Sub-filters ── */
+.tab-filters-container { background: #fff; padding: 12px 20px; border-radius: 0 0 8px 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; gap: 16px; align-items: flex-end; margin-top: -16px; margin-bottom: 16px; }
+.tab-filters-container:empty { display: none; }
+
+/* ── Summary Cards ── */
+.kpi-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.kpi-card { background: #fff; border-radius: 8px; padding: 12px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 8px; position: relative; overflow: hidden; }
+.kpi-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #e0e0e0; }
+.kpi-card.kpi-success::before { background: #28a745; }
+.kpi-card.kpi-warning::before { background: #ffc107; }
+.kpi-card.kpi-danger::before { background: #dc3545; }
+.kpi-title { font-size: 12px; color: #5f6368; font-weight: 500; }
+.kpi-value { font-size: 20px; font-weight: 700; color: #333; }
+
+/* ── WPC Tables ── */
+.wpc-tables-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+@media (max-width: 1200px) { .wpc-tables-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 768px) { .wpc-tables-grid { grid-template-columns: 1fr; } }
+.wpc-table-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; display: flex; flex-direction: column; }
+.wpc-table-header { padding: 12px 16px; background: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; font-size: 14px; color: #333; }
+.wpc-table-wrap { overflow-x: auto; flex: 1; min-height: 150px;}
+.wpc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.wpc-table th, .wpc-table td { padding: 10px 16px; text-align: left; border-bottom: 1px solid #e9ecef; }
+.wpc-table th { background: #fbfbfb; color: #5f6368; font-weight: 500; }
+.wpc-table tbody tr:hover { background: #f5f7fa; }
+.wpc-table td.rank-col { font-weight: 600; width: 40px; text-align: center; color: #999; }
+.wpc-table td.value-col { font-weight: 600; font-family: 'IBM Plex Mono', monospace; text-align: right; }
+.wpc-table tbody tr:nth-child(1) .rank-col { color: #dc3545; }
+.wpc-table tbody tr:nth-child(2) .rank-col { color: #fd7e14; }
+.wpc-table tbody tr:nth-child(3) .rank-col { color: #ffc107; }
+
+/* Truncation for long cell names */
+.td-contributor {
+    max-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: default;
+}
+
+/* ── Custom Select (Multi) ── */
+.ms-container { position: relative; width: 220px; font-family: inherit; }
+.ms-toggle { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #fff; border: 1px solid #dcdfe6; border-radius: 6px; font-size: 13px; color: #333; cursor: pointer; text-align: left; transition: 0.2s; }
+.ms-toggle:hover { border-color: #b4bccc; }
+.ms-toggle.disabled { background: #f5f7fa; color: #a8abb2; cursor: not-allowed; border-color: #e4e7ed; }
+.ms-menu { display: none; flex-direction: column; position: absolute; top: 100%; left: 0; width: 100%; background: #fff; border: 1px solid #dcdfe6; border-radius: 6px; margin-top: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; overflow: hidden; }
+.ms-search { padding: 8px; border-bottom: 1px solid #eee; }
+.ms-search input { width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; outline: none; }
+.ms-actions { display: flex; padding: 6px 8px; gap: 8px; border-bottom: 1px solid #eee; background: #fbfbfb; }
+.ms-actions button { flex: 1; padding: 4px; font-size: 11px; background: #fff; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; }
+.ms-actions button:hover { background: #f0f0f0; }
+.ms-list { max-height: 200px; overflow-y: auto; padding: 4px 0; }
+.ms-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+.ms-item:hover { background: #f5f7fa; }
+.ms-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.empty-state { text-align: center; padding: 40px; color: #666; font-size: 14px; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+
+/* Loader Overlay */
+#loader-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.7); z-index: 9999; justify-content: center; align-items: center; }
+.spinner { width: 40px; height: 40px; border: 4px solid rgba(79, 172, 254, 0.3); border-top-color: #4facfe; border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<!-- html2canvas -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- SheetJS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<div class="wpc-container">
+    
+    <!-- ═══════════════════ FILTER PANEL ═══════════════════ -->
+    <div class="filter-toggle-bar">
+        <div style="font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;">
+            <i class="fas fa-sliders-h" style="color:#4facfe;"></i> Filters
+        </div>
+        <button type="button" class="btn-xs" id="filterToggleBtn" onclick="toggleFilterPanel()">
+            <i class="fas fa-chevron-up" id="filterToggleIcon"></i> <span id="filterToggleLabel">Hide Filters</span>
+        </button>
+    </div>
+
+    <div class="filter-panel" id="filterContainer">
+        <div class="filter-group">
+            <div class="filter-label">Start Date</div>
+            <input type="date" class="filter-input" id="fromDate" value="{{ from_date }}">
+        </div>
+        <div class="filter-group">
+            <div class="filter-label">End Date</div>
+            <input type="date" class="filter-input" id="toDate" value="{{ to_date }}">
+        </div>
+        <div class="filter-group" style="margin-left: 8px;">
+            <div class="filter-label">Quick Select</div>
+            <div class="date-quick-btns">
+                <button class="btn-quick-date" onclick="setDateRange(3, this)">3d</button>
+                <button class="btn-quick-date active" onclick="setDateRange(7, this)">7d</button>
+                <button class="btn-quick-date" onclick="setDateRange(14, this)">14d</button>
+                <button class="btn-quick-date" onclick="setDateRange(30, this)">30d</button>
+            </div>
+        </div>
+        
+        <div style="flex:1"></div> <!-- Spacer -->
+        <button class="btn-generate" onclick="generateWpc()">Generate Report</button>
+    </div>
+
+    <div id="wpc-tabs-section" style="display:none; flex-direction:column; gap:16px;">
+        <!-- Tabs -->
+        <div class="wpc-tabs">
+            <button class="wpc-tab active" onclick="switchTab('regional', this)"><i class="fas fa-globe-asia"></i> Regional</button>
+            <button class="wpc-tab" onclick="switchTab('nop', this)"><i class="fas fa-network-wired"></i> NOP</button>
+            <button class="wpc-tab" onclick="switchTab('city', this)"><i class="fas fa-city"></i> City</button>
+            <button class="wpc-tab" onclick="switchTab('subnet', this)"><i class="fas fa-server"></i> Subnet</button>
+        </div>
+        
+        <!-- Tab-Specific Filters -->
+        <div class="tab-filters-container" id="tabFilters">
+            <!-- Global Tab Controls -->
+            <div class="filter-group" style="margin-right: 16px;">
+                <div class="filter-label">WPC Ranking Base</div>
+                <select class="filter-input" id="wpcTypeToggle" onchange="renderTab(activeTab)">
+                    <option value="pct">Percentage</option>
+                    <option value="fail">Fail Number</option>
+                </select>
+            </div>
+            
+            <!-- NOP Tab Filters -->
+            <div class="filter-group filter-tab-nop" style="display:none;">
+                <div class="filter-label">Filter NOPs</div>
+                <div class="ms-container" id="ms-container-nopTabNops">
+                    <button type="button" class="ms-toggle" id="ms-toggle-nopTabNops" onclick="toggleMsMenu('nopTabNops')">
+                        <span class="ms-label" id="ms-label-nopTabNops">Select NOP...</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="ms-menu" id="ms-menu-nopTabNops">
+                        <div class="ms-search"><input type="text" placeholder="Search..." onkeyup="filterMsMenu('nopTabNops', this.value)"></div>
+                        <div class="ms-actions"><button onclick="msSelectAll('nopTabNops', true)">All</button><button onclick="msSelectAll('nopTabNops', false)">Clear</button></div>
+                        <div class="ms-list" id="ms-list-nopTabNops"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- City Tab Filters -->
+            <div class="filter-group filter-tab-city" style="display:none;">
+                <div class="filter-label">Filter NOPs</div>
+                <div class="ms-container" id="ms-container-cityTabNops">
+                    <button type="button" class="ms-toggle" id="ms-toggle-cityTabNops" onclick="toggleMsMenu('cityTabNops')">
+                        <span class="ms-label" id="ms-label-cityTabNops">Select NOP...</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="ms-menu" id="ms-menu-cityTabNops">
+                        <div class="ms-search"><input type="text" placeholder="Search..." onkeyup="filterMsMenu('cityTabNops', this.value)"></div>
+                        <div class="ms-actions"><button onclick="msSelectAll('cityTabNops', true)">All</button><button onclick="msSelectAll('cityTabNops', false)">Clear</button></div>
+                        <div class="ms-list" id="ms-list-cityTabNops"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="filter-group filter-tab-city" style="display:none;">
+                <div class="filter-label">Filter Cities</div>
+                <div class="ms-container" id="ms-container-cityTabCities">
+                    <button type="button" class="ms-toggle disabled" id="ms-toggle-cityTabCities" onclick="toggleMsMenu('cityTabCities')">
+                        <span class="ms-label" id="ms-label-cityTabCities">Select NOP first</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="ms-menu" id="ms-menu-cityTabCities">
+                        <div class="ms-search"><input type="text" placeholder="Search..." onkeyup="filterMsMenu('cityTabCities', this.value)"></div>
+                        <div class="ms-actions"><button onclick="msSelectAll('cityTabCities', true)">All</button><button onclick="msSelectAll('cityTabCities', false)">Clear</button></div>
+                        <div class="ms-list" id="ms-list-cityTabCities"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Subnet Tab Filters -->
+            <div class="filter-group filter-tab-subnet" style="display:none;">
+                <div class="filter-label">Filter Subnets</div>
+                <div class="ms-container" id="ms-container-subnetTabBscs">
+                    <button type="button" class="ms-toggle" id="ms-toggle-subnetTabBscs" onclick="toggleMsMenu('subnetTabBscs')">
+                        <span class="ms-label" id="ms-label-subnetTabBscs">Select Subnet...</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="ms-menu" id="ms-menu-subnetTabBscs">
+                        <div class="ms-search"><input type="text" placeholder="Search..." onkeyup="filterMsMenu('subnetTabBscs', this.value)"></div>
+                        <div class="ms-actions"><button onclick="msSelectAll('subnetTabBscs', true)">All</button><button onclick="msSelectAll('subnetTabBscs', false)">Clear</button></div>
+                        <div class="ms-list" id="ms-list-subnetTabBscs"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
+                <div class="filter-group filter-tab-city filter-tab-subnet" style="display:none; margin: 0;">
+                    <select class="filter-input" id="wpcLevelToggle" onchange="generateWpc()" style="height: 32px; padding: 0 10px;">
+                        <option value="site">Site ID</option>
+                        <option value="cell">Cell Name</option>
+                    </select>
+                </div>
+                <button class="btn-export" onclick="exportPng()"><i class="fas fa-file-export"></i> Export PNG</button>
+                <button class="btn-export" onclick="exportXls()" style="color: #28a745; border-color: #28a745;"><i class="fas fa-file-excel"></i> Export XLS</button>
+            </div>
+        </div>
+
+        <div id="wpc-results" style="display:none; flex-direction:column; gap:16px; background:#f5f7fa; padding:10px; border-radius:8px;">
+            <!-- Summary Cards -->
+            
+        <div id="wpc-empty-state" class="empty-state" style="display:none; text-align:center; padding:40px; color:#666;">
+            Please select at least one filter above to view data.
+        </div>
+
+            <div class="kpi-summary-cards">
+                <div class="kpi-card" id="card-availChart"><div class="kpi-title">Availability (%)</div><div class="kpi-value" id="val-availChart">-</div></div>
+                <div class="kpi-card" id="card-cssrChart"><div class="kpi-title">CSSR (%)</div><div class="kpi-value" id="val-cssrChart">-</div></div>
+                <div class="kpi-card" id="card-erabChart"><div class="kpi-title">E-RAB SR (%)</div><div class="kpi-value" id="val-erabChart">-</div></div>
+                <div class="kpi-card" id="card-rrcChart"><div class="kpi-title">RRC SR (%)</div><div class="kpi-value" id="val-rrcChart">-</div></div>
+                <div class="kpi-card" id="card-s1Chart"><div class="kpi-title">S1 SR (%)</div><div class="kpi-value" id="val-s1Chart">-</div></div>
+                <div class="kpi-card" id="card-srvccChart"><div class="kpi-title">SRVCC 2G (%)</div><div class="kpi-value" id="val-srvccChart">-</div></div>
+                <div class="kpi-card" id="card-sdrChart"><div class="kpi-title">SDR (%)</div><div class="kpi-value" id="val-sdrChart">-</div></div>
+                <div class="kpi-card" id="card-volteDropChart"><div class="kpi-title">VoLTE Drop (%)</div><div class="kpi-value" id="val-volteDropChart">-</div></div>
+                <div class="kpi-card" id="card-ifhoChart"><div class="kpi-title">IFHO (%)</div><div class="kpi-value" id="val-ifhoChart">-</div></div>
+                <div class="kpi-card" id="card-csfbChart"><div class="kpi-title">CSFB (%)</div><div class="kpi-value" id="val-csfbChart">-</div></div>
+                <div class="kpi-card" id="card-dlCceChart"><div class="kpi-title">DL CCE Fail (%)</div><div class="kpi-value" id="val-dlCceChart">-</div></div>
+                <div class="kpi-card" id="card-ulCceChart"><div class="kpi-title">UL CCE Fail (%)</div><div class="kpi-value" id="val-ulCceChart">-</div></div>
+            </div>
+<!-- WPC Tables -->
+            <div class="wpc-tables-grid">
+                <!-- Availability -->
+                <div class="wpc-table-card">
+                    <div class="wpc-table-header">Worst Performers - Availability</div>
+                    <div class="wpc-table-wrap">
+                        <table class="wpc-table">
+                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th></tr></thead>
+                            <tbody id="tb-availChart"><tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- CSSR -->
+                <div class="wpc-table-card">
+                    <div class="wpc-table-header">Worst Performers - CSSR</div>
+                    <div class="wpc-table-wrap">
+                        <table class="wpc-table">
+                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th><th style="text-align:right">Avail (%)</th></tr></thead>
+                            <tbody id="tb-cssrChart"><tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- E-RAB SR -->
+                <div class="wpc-table-card">
+                    <div class="wpc-table-header">Worst Performers - E-RAB SR</div>
+                    <div class="wpc-table-wrap">
+                        <table class="wpc-table">
+                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th><th style="text-align:right">Avail (%)</th></tr></thead>
+                            <tbody id="tb-erabChart"><tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- RRC SR -->
+                <div class="wpc-table-card">
+                    <div class="wpc-table-header">Worst Performers - RRC SR</div>
+                    <div class="wpc-table-wrap">
+                        <table class="wpc-table">
+                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th><th style="text-align:right">Avail (%)</th></tr></thead>
+                            <tbody id="tb-rrcChart"><tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- S1 SR -->
+                <div class="wpc-table-card">
+                    <div class="wpc-table-header">Worst Performers - S1 SR</div>
+                    <div class="wpc-table-wrap">
+                        <table class="wpc-table">
+                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th><th style="text-align:right">Avail (%)</th></tr></thead>
+                            <tbody id="tb-s1Chart"><tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- SRVCC 2G -->
+                <div class="wpc-table-card">
+                    <div class="wpc-table-header">Worst Performers - SRVCC 2G</div>
+                    <div class="wpc-table-wrap">
+                        <table class="wpc-table">
+                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th><th style="text-align:right">Avail (%)</th></tr></thead>
+                            <tbody id="tb-srvccChart"><tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- SDR -->
+                <div class="wpc-table-card">
+                    <div class="wpc-table-header">Worst Performers - SDR</div>
+                    <div class="wpc-table-wrap">
+                        <table class="wpc-table">
+                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th></tr></thead>
+                            <tbody id="tb-sdrChart"><tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- VoLTE Drop -->
+                <div class="wpc-table-card">
+                    <div class="wpc-table-header">Worst Performers - VoLTE Drop</div>
+                    <div class="wpc-table-wrap">
+                        <table class="wpc-table">
+                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th></tr></thead>
+                            <tbody id="tb-volteDropChart"><tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- IFHO -->
+                <div class="wpc-table-card">
+                    <div class="wpc-table-header">Worst Performers - IFHO</div>
+                    <div class="wpc-table-wrap">
+                        <table class="wpc-table">
+                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th><th style="text-align:right">Avail (%)</th></tr></thead>
+                            <tbody id="tb-ifhoChart"><tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- CSFB -->
+                <div class="wpc-table-card">
+                    <div class="wpc-table-header">Worst Performers - CSFB</div>
+                    <div class="wpc-table-wrap">
+                        <table class="wpc-table">
+                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th><th style="text-align:right">Avail (%)</th></tr></thead>
+                            <tbody id="tb-csfbChart"><tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- DL CCE Fail -->
+                <div class="wpc-table-card">
+                    <div class="wpc-table-header">Worst Performers - DL CCE Fail</div>
+                    <div class="wpc-table-wrap">
+                        <table class="wpc-table">
+                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th></tr></thead>
+                            <tbody id="tb-dlCceChart"><tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- UL CCE Fail -->
+                <div class="wpc-table-card">
+                    <div class="wpc-table-header">Worst Performers - UL CCE Fail</div>
+                    <div class="wpc-table-wrap">
+                        <table class="wpc-table">
+                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th></tr></thead>
+                            <tbody id="tb-ulCceChart"><tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loader -->
+    <div id="loader-overlay"><div class="spinner"></div></div>
+
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+    var NSA_CITY_MAP = {{ nsa_city_map | tojson | safe }};
+    var Subnet_LIST = {{ sub_list | tojson | safe }};
+    var ALL_NOPS = Object.keys(NSA_CITY_MAP).sort();
+    
+    var activeTab = 'regional';
+    var wpcRawData = null;
+    
+    var msSelections = { nopTabNops: [], cityTabNops: [], cityTabCities: [], subnetTabBscs: [] };
+    
+    const KPI_THRESHOLDS = {
+        availChart: 99,
+        cssrChart: 99,
+        erabChart: 99,
+        rrcChart: 99,
+        s1Chart: 99,
+        srvccChart: 98,
+        sdrChart: 1.0,
+        volteDropChart: 1.0,
+        ifhoChart: 98,
+        csfbChart: 98,
+        dlCceChart: 1.0,
+        ulCceChart: 1.0
+    };
+    function exportPng() {
+        let container = document.getElementById('wpc-results');
+        if(container.style.display === 'none') {
+            alert("Please generate a report and select a filter first.");
+            return;
+        }
+        document.getElementById('loader-overlay').style.display = 'flex';
+        html2canvas(container, { backgroundColor: '#f5f7fa', scale: 2 }).then(canvas => {
+            let link = document.createElement('a');
+            link.download = `WPC_4G_${activeTab}_${new Date().getTime()}.png`;
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+            document.getElementById('loader-overlay').style.display = 'none';
+        }).catch(err => {
+            alert("Export failed: " + err);
+            document.getElementById('loader-overlay').style.display = 'none';
+        });
+    }
+
+    function exportXls() {
+        let container = document.getElementById('wpc-results');
+        if(container.style.display === 'none') {
+            alert("Please generate a report and select a filter first.");
+            return;
+        }
+        
+        let tempHidden = [];
+        if (activeTab === 'regional') {
+            document.querySelectorAll('.th-nop').forEach(th => {
+                let parent = th.parentNode;
+                let next = th.nextSibling;
+                parent.removeChild(th);
+                tempHidden.push({parent: parent, next: next, el: th});
+            });
+        }
+        
+        let wb = XLSX.utils.book_new();
+        
+        const kpiNames = {
+            'tb-availChart': 'Availability',
+            'tb-cssrChart': 'CSSR',
+            'tb-erabChart': 'E-RAB SR',
+            'tb-rrcChart': 'RRC SR',
+            'tb-s1Chart': 'S1 SR',
+            'tb-srvccChart': 'SRVCC 2G',
+            'tb-sdrChart': 'SDR',
+            'tb-volteDropChart': 'VoLTE Drop',
+            'tb-ifhoChart': 'IFHO',
+            'tb-csfbChart': 'CSFB',
+            'tb-dlCceChart': 'DL CCE Fail',
+            'tb-ulCceChart': 'UL CCE Fail'
+        };
+        
+        Object.keys(kpiNames).forEach(kpiId => {
+            let tbody = document.getElementById(kpiId);
+            if(!tbody) return;
+            
+            let isCellMode = document.getElementById('wpcLevelToggle') && document.getElementById('wpcLevelToggle').value === 'cell';
+            let showNopUI = (activeTab === 'city' || activeTab === 'subnet') && !isCellMode;
+            
+            let nopIndex = -1;
+            if (activeTab === 'regional') {
+                nopIndex = 1; 
+            } else if (showNopUI) {
+                nopIndex = 1;
+            }
+            
+            let tempHiddenNop = [];
+            if (nopIndex === 1 && !showNopUI && activeTab !== 'regional') {
+                tbody.querySelectorAll('tr').forEach(tr => {
+                    if (tr.children.length > 1) {
+                        let td = tr.children[1];
+                        if (td.style.display === 'none') {
+                            td.style.display = '';
+                            tempHiddenNop.push(td);
+                        }
+                    }
+                });
+                let theadTr = tbody.previousElementSibling.querySelector('tr');
+                if (theadTr && theadTr.children.length > 1) {
+                    let th = theadTr.children[1];
+                    if (th.style.display === 'none') {
+                        th.style.display = '';
+                        tempHiddenNop.push(th);
+                    }
+                }
+            }
+
+            let table = tbody.parentNode;
+            let ws = XLSX.utils.table_to_sheet(table);
+            XLSX.utils.book_append_sheet(wb, ws, kpiNames[kpiId]);
+            
+            tempHiddenNop.forEach(el => el.style.display = 'none');
+        });
+        
+        XLSX.writeFile(wb, `WPC_4G_${activeTab}_${new Date().getTime()}.xlsx`);
+        
+        tempHidden.forEach(item => {
+            item.parent.insertBefore(item.el, item.next);
+        });
+    }
+
+    function formatNumber(num, dec) {
+        if(num === null || num === undefined || isNaN(num)) return '-';
+        return num.toLocaleString('en-US', {minimumFractionDigits: dec, maximumFractionDigits: dec});
+    }
+    
+    function getCardClass(kpi, val) {
+        if(val === null) return "";
+        if(['sdrChart', 'volteDropChart', 'dlCceChart', 'ulCceChart'].includes(kpi)) {
+            return val > KPI_THRESHOLDS[kpi] ? "kpi-danger" : "kpi-success";
+        }
+        return val < KPI_THRESHOLDS[kpi] ? "kpi-danger" : "kpi-success";
+    }
+
+    
+    function calcPercentage(num, denum) {
+        if (denum && denum > 0) return (num / denum) * 100.0;
+        return null;
+    }
+    
+    
+    function switchTab(tab, btnEl) {
+        activeTab = tab;
+        document.querySelectorAll('.wpc-tab').forEach(el => el.classList.remove('active'));
+        if(btnEl) btnEl.classList.add('active');
+        else {
+            let targetBtn = document.querySelector(`.wpc-tab[onclick*="'${tab}'"]`);
+            if (targetBtn) targetBtn.classList.add('active');
+        }
+        
+        document.querySelectorAll('.filter-tab-nop').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.filter-tab-city').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.filter-tab-subnet').forEach(el => el.style.display = 'none');
+        
+        let isCellMode = (wpcRawData && wpcRawData.length > 0 && wpcRawData[0].cell_name !== undefined);
+        let colName = "Contributor";
+        if(tab === 'regional') colName = "NOP";
+        else if(tab === 'nop') colName = "City";
+        else if(tab === 'city') colName = isCellMode ? "Cell Name" : "Site ID";
+        else if(tab === 'subnet') colName = isCellMode ? "Cell Name" : "Site ID";
+        
+        document.querySelectorAll('.th-contributor').forEach(th => th.innerText = colName);
+        
+        let showNop = (tab === 'city' || tab === 'subnet') && !isCellMode;
+        document.querySelectorAll('.th-nop').forEach(th => th.style.display = showNop ? 'table-cell' : 'none');
+        
+        let hasFilter = false;
+        if (tab === 'nop') {
+            document.querySelectorAll('.filter-tab-nop').forEach(el => el.style.display = 'flex');
+            hasFilter = true;
+        } else if (tab === 'city') {
+            document.querySelectorAll('.filter-tab-city').forEach(el => el.style.display = 'flex');
+            hasFilter = true;
+        } else if (tab === 'subnet') {
+            document.querySelectorAll('.filter-tab-subnet').forEach(el => el.style.display = 'flex');
+            hasFilter = true;
+        }
+        
+        var tf = document.getElementById('tabFilters');
+        if (tf) tf.style.display = 'flex';
+        
+        renderTab(tab);
+    }
+
+    function renderTab(tab) {
+        if (!wpcRawData) return;
+        
+        let isValid = false;
+        if (tab === 'regional') {
+            isValid = true;
+        } else if (tab === 'nop') {
+            isValid = msSelections['nopTabNops'].length > 0;
+        } else if (tab === 'city') {
+            isValid = (msSelections['cityTabNops'].length > 0) && (msSelections['cityTabCities'].length > 0);
+        } else if (tab === 'subnet') {
+            isValid = msSelections['subnetTabBscs'].length > 0;
+        }
+        
+        if (!isValid) {
+            document.getElementById('wpc-results').style.display = 'none';
+            document.getElementById('wpc-empty-state').style.display = 'block';
+            return;
+        }
+        
+        document.getElementById('wpc-empty-state').style.display = 'none';
+        document.getElementById('wpc-results').style.display = 'flex';
+        
+        let filtered = wpcRawData;
+        if (tab === 'nop') {
+            let sNops = new Set(msSelections['nopTabNops']);
+            filtered = filtered.filter(r => sNops.has(r.nsa));
+        } else if (tab === 'city') {
+            let sNops = new Set(msSelections['cityTabNops']);
+            let sCities = new Set(msSelections['cityTabCities']);
+            filtered = filtered.filter(r => sNops.has(r.nsa) && sCities.has(r.city));
+        } else if (tab === 'subnet') {
+            let sBscs = new Set(msSelections['subnetTabBscs']);
+            filtered = filtered.filter(r => sBscs.has(r.subnet));
+        }
+        
+        let aggGroups = {};
+        let summaryAcc = {
+            avail_num: 0, avail_denum: 0, cssr_num: 0, cssr_denum: 0,
+            erab_num: 0, erab_denum: 0, rrc_num: 0, rrc_denum: 0,
+            s1_num: 0, s1_denum: 0, srvcc_num: 0, srvcc_denum: 0,
+            sdr_num: 0, sdr_denum: 0, volte_drop_num: 0, volte_drop_denum: 0,
+            ifho_num: 0, ifho_denum: 0, csfb_num: 0, csfb_denum: 0,
+            dl_cce_num: 0, dl_cce_denum: 0, ul_cce_num: 0, ul_cce_denum: 0
+        };
+        
+        filtered.forEach(r => {
+            let key = '';
+            let isCellMode = (wpcRawData.length > 0 && wpcRawData[0].cell_name !== undefined);
+            if (tab === 'regional') key = r.nsa;
+            else if (tab === 'nop') key = r.city;
+            else if (tab === 'city') key = isCellMode ? r.cell_name : r.siteid;
+            else if (tab === 'subnet') key = isCellMode ? r.cell_name : r.siteid;
+            
+            if (!key) return;
+            
+            if (!aggGroups[key]) {
+                aggGroups[key] = {
+                    contributor: key, nop: r.nsa || '',
+                    avail_num: 0, avail_denum: 0, cssr_num: 0, cssr_denum: 0,
+                    erab_num: 0, erab_denum: 0, rrc_num: 0, rrc_denum: 0,
+                    s1_num: 0, s1_denum: 0, srvcc_num: 0, srvcc_denum: 0,
+                    sdr_num: 0, sdr_denum: 0, volte_drop_num: 0, volte_drop_denum: 0,
+                    ifho_num: 0, ifho_denum: 0, csfb_num: 0, csfb_denum: 0,
+                    dl_cce_num: 0, dl_cce_denum: 0, ul_cce_num: 0, ul_cce_denum: 0
+                };
+            }
+            
+            let g = aggGroups[key];
+            g.avail_num += r.avail_num; g.avail_denum += r.avail_denum;
+            g.cssr_num += r.cssr_num; g.cssr_denum += r.cssr_denum;
+            g.erab_num += r.erab_num; g.erab_denum += r.erab_denum;
+            g.rrc_num += r.rrc_num; g.rrc_denum += r.rrc_denum;
+            g.s1_num += r.s1_num; g.s1_denum += r.s1_denum;
+            g.srvcc_num += r.srvcc_num; g.srvcc_denum += r.srvcc_denum;
+            g.sdr_num += r.sdr_num; g.sdr_denum += r.sdr_denum;
+            g.volte_drop_num += r.volte_drop_num; g.volte_drop_denum += r.volte_drop_denum;
+            g.ifho_num += r.ifho_num; g.ifho_denum += r.ifho_denum;
+            g.csfb_num += r.csfb_num; g.csfb_denum += r.csfb_denum;
+            g.dl_cce_num += r.dl_cce_num; g.dl_cce_denum += r.dl_cce_denum;
+            g.ul_cce_num += r.ul_cce_num; g.ul_cce_denum += r.ul_cce_denum;
+            
+            summaryAcc.avail_num += r.avail_num; summaryAcc.avail_denum += r.avail_denum;
+            summaryAcc.cssr_num += r.cssr_num; summaryAcc.cssr_denum += r.cssr_denum;
+            summaryAcc.erab_num += r.erab_num; summaryAcc.erab_denum += r.erab_denum;
+            summaryAcc.rrc_num += r.rrc_num; summaryAcc.rrc_denum += r.rrc_denum;
+            summaryAcc.s1_num += r.s1_num; summaryAcc.s1_denum += r.s1_denum;
+            summaryAcc.srvcc_num += r.srvcc_num; summaryAcc.srvcc_denum += r.srvcc_denum;
+            summaryAcc.sdr_num += r.sdr_num; summaryAcc.sdr_denum += r.sdr_denum;
+            summaryAcc.volte_drop_num += r.volte_drop_num; summaryAcc.volte_drop_denum += r.volte_drop_denum;
+            summaryAcc.ifho_num += r.ifho_num; summaryAcc.ifho_denum += r.ifho_denum;
+            summaryAcc.csfb_num += r.csfb_num; summaryAcc.csfb_denum += r.csfb_denum;
+            summaryAcc.dl_cce_num += r.dl_cce_num; summaryAcc.dl_cce_denum += r.dl_cce_denum;
+            summaryAcc.ul_cce_num += r.ul_cce_num; summaryAcc.ul_cce_denum += r.ul_cce_denum;
+        });
+        
+        let isFailMode = document.getElementById('wpcTypeToggle').value === 'fail';
+        document.querySelectorAll('.th-value').forEach(th => th.innerText = isFailMode ? 'Value (Fail)' : 'Value (%)');
+        
+        let groupList = Object.values(aggGroups).map(g => {
+            let res = { contributor: g.contributor, nop: g.nop };
+            
+            // Percentage (needed for Summary cards and the Avail column)
+            res.availChart_pct = calcPercentage(g.avail_num, g.avail_denum);
+            res.cssrChart_pct = calcPercentage(g.cssr_num, g.cssr_denum);
+            res.erabChart_pct = calcPercentage(g.erab_num, g.erab_denum);
+            res.rrcChart_pct = calcPercentage(g.rrc_num, g.rrc_denum);
+            res.s1Chart_pct = calcPercentage(g.s1_num, g.s1_denum);
+            res.srvccChart_pct = calcPercentage(g.srvcc_num, g.srvcc_denum);
+            res.sdrChart_pct = calcPercentage(g.sdr_num, g.sdr_denum);
+            res.volteDropChart_pct = calcPercentage(g.volte_drop_num, g.volte_drop_denum);
+            res.ifhoChart_pct = calcPercentage(g.ifho_num, g.ifho_denum);
+            res.csfbChart_pct = calcPercentage(g.csfb_num, g.csfb_denum);
+            res.dlCceChart_pct = calcPercentage(g.dl_cce_num, g.dl_cce_denum);
+            res.ulCceChart_pct = calcPercentage(g.ul_cce_num, g.ul_cce_denum);
+            
+            // Fail Number
+            res.availChart_fail = g.avail_denum - g.avail_num;
+            res.cssrChart_fail = g.cssr_denum - g.cssr_num;
+            res.erabChart_fail = g.erab_denum - g.erab_num;
+            res.rrcChart_fail = g.rrc_denum - g.rrc_num;
+            res.s1Chart_fail = g.s1_denum - g.s1_num;
+            res.srvccChart_fail = g.srvcc_denum - g.srvcc_num;
+            res.sdrChart_fail = g.sdr_num;
+            res.volteDropChart_fail = g.volte_drop_num;
+            res.ifhoChart_fail = g.ifho_denum - g.ifho_num;
+            res.csfbChart_fail = g.csfb_denum - g.csfb_num;
+            res.dlCceChart_fail = g.dl_cce_num;
+            res.ulCceChart_fail = g.ul_cce_num;
+            
+            // Assign actual sortable value
+            ['availChart', 'cssrChart', 'erabChart', 'rrcChart', 's1Chart', 'srvccChart', 'sdrChart', 'volteDropChart', 'ifhoChart', 'csfbChart', 'dlCceChart', 'ulCceChart'].forEach(k => {
+                if(isFailMode) {
+                    res[k] = (res[`${k}_fail`] >= 0) ? res[`${k}_fail`] : null; // Sometimes denum < num in weird DB states, but should be >= 0
+                } else {
+                    res[k] = res[`${k}_pct`];
+                }
+            });
+            
+            return res;
+        });
+        
+        let summaryData = {
+            availChart: calcPercentage(summaryAcc.avail_num, summaryAcc.avail_denum),
+            cssrChart: calcPercentage(summaryAcc.cssr_num, summaryAcc.cssr_denum),
+            erabChart: calcPercentage(summaryAcc.erab_num, summaryAcc.erab_denum),
+            rrcChart: calcPercentage(summaryAcc.rrc_num, summaryAcc.rrc_denum),
+            s1Chart: calcPercentage(summaryAcc.s1_num, summaryAcc.s1_denum),
+            srvccChart: calcPercentage(summaryAcc.srvcc_num, summaryAcc.srvcc_denum),
+            sdrChart: calcPercentage(summaryAcc.sdr_num, summaryAcc.sdr_denum),
+            volteDropChart: calcPercentage(summaryAcc.volte_drop_num, summaryAcc.volte_drop_denum),
+            ifhoChart: calcPercentage(summaryAcc.ifho_num, summaryAcc.ifho_denum),
+            csfbChart: calcPercentage(summaryAcc.csfb_num, summaryAcc.csfb_denum),
+            dlCceChart: calcPercentage(summaryAcc.dl_cce_num, summaryAcc.dl_cce_denum),
+            ulCceChart: calcPercentage(summaryAcc.ul_cce_num, summaryAcc.ul_cce_denum)
+        };
+        
+        Object.keys(KPI_THRESHOLDS).forEach(kpi => {
+            let val = summaryData[kpi];
+            let card = document.getElementById('card-' + kpi);
+            let valEl = document.getElementById('val-' + kpi);
+            if(card && valEl) {
+                valEl.innerText = val !== null ? val.toFixed(2) : '-';
+                card.className = "kpi-card " + getCardClass(kpi, val);
+            }
+        });
+        
+        let isCellMode = (wpcRawData.length > 0 && wpcRawData[0].cell_name !== undefined);
+        let exportNop = (tab !== 'regional');
+        let showNopUI = (tab === 'city' || tab === 'subnet') && !isCellMode;
+        
+        let contributorHeader = '';
+        if (tab === 'regional') {
+            contributorHeader = 'NOP';
+        } else if (isCellMode && (tab === 'city' || tab === 'subnet')) {
+            contributorHeader = 'Cell Name';
+        } else {
+            contributorHeader = (tab === 'nop') ? 'City' : 'Site ID';
+        }
+        
+        document.querySelectorAll('.th-nop').forEach(th => th.style.display = showNopUI ? 'table-cell' : 'none');
+        document.querySelectorAll('.th-contributor').forEach(th => th.innerText = contributorHeader);
+        
+        Object.keys(KPI_THRESHOLDS).forEach(kpi => {
+            let tbody = document.getElementById('tb-' + kpi);
+            if(!tbody) return;
+            
+            let validRows = groupList.filter(x => x[kpi] !== null && x[kpi] !== undefined && !isNaN(x[kpi]));
+            let sortedRows;
+            
+            if (isFailMode) {
+                sortedRows = validRows.sort((a,b) => b[kpi] - a[kpi]);
+            } else {
+                if (['availChart', 'cssrChart', 'erabChart', 'rrcChart', 's1Chart', 'srvccChart', 'ifhoChart', 'csfbChart'].includes(kpi)) {
+                    sortedRows = validRows.sort((a,b) => a[kpi] - b[kpi]);
+                } else {
+                    sortedRows = validRows.sort((a,b) => b[kpi] - a[kpi]);
+                }
+            }
+            
+            let top10 = sortedRows.slice(0, 10);
+            
+            if(top10.length === 0) {
+                let emptyColSpan = showNopUI ? (kpi === 'availChart' ? 4 : 5) : (kpi === 'availChart' ? 3 : 4);
+                tbody.innerHTML = `<tr><td colspan="${emptyColSpan}" style="text-align:center;color:#999;padding:20px;">No data</td></tr>`;
+            } else {
+                let html = '';
+                top10.forEach((r, idx) => {
+                    let valStr = '';
+                    if (isFailMode) {
+                        valStr = formatNumber(r[kpi + '_fail'], 0) + ' / ' + formatNumber(r[kpi + '_denum'], 0);
+                    } else {
+                        valStr = (r[kpi] !== null && r[kpi] !== undefined ? r[kpi].toFixed(2) : '-') + '%';
+                    }
+                    
+                    html += `<tr>`;
+                    html += `<td>${idx+1}</td>`;
+                    
+                    if (showNopUI) {
+                        html += `<td class="th-nop">${r.nop}</td>`;
+                    } else {
+                        html += `<td class="th-nop" style="display:none;">${r.nop}</td>`;
+                    }
+                    
+                    html += `<td class="th-contributor">${r.contributor}</td>`;
+                    html += `<td class="th-value" style="text-align:right"><strong>${valStr}</strong></td>`;
+                    
+                    if (kpi !== 'availChart' && kpi !== 'sdrChart' && kpi !== 'volteDropChart' && kpi !== 'dlCceChart' && kpi !== 'ulCceChart') {
+                        html += `<td style="text-align:right">${(r.availChart_pct !== null && r.availChart_pct !== undefined ? r.availChart_pct.toFixed(2) : '-')}</td>`;
+                    }
+                    html += `</tr>`;
+                });
+                tbody.innerHTML = html;
+            }
+        });
+    }
+    
+    function generateWpc() {
+        var levelToggle = document.getElementById('wpcLevelToggle');
+        var reqLevel = 'site';
+        if (levelToggle && (activeTab === 'city' || activeTab === 'subnet')) {
+            reqLevel = levelToggle.value;
+        }
+
+        var payload = {
+            from_date: document.getElementById('fromDate').value,
+            to_date: document.getElementById('toDate').value,
+            level: reqLevel
+        };
+        document.getElementById('loader-overlay').style.display = 'flex';
+        fetch('/api/wpc_4g/wpc_data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}' },
+            body: JSON.stringify(payload)
+        })
+        .then(res => { if(!res.ok) throw new Error("HTTP " + res.status); return res.json(); })
+        .then(data => {
+            document.getElementById('loader-overlay').style.display = 'none';
+            if(data.error) { alert("Error: " + data.error); return; }
+            wpcRawData = data.raw_data;
+            document.getElementById('wpc-tabs-section').style.display = 'flex';
+            
+            var fc = document.getElementById("filterContainer");
+            if (fc && !fc.classList.contains("collapsed")) {
+                toggleFilterPanel();
+            }
+            
+            renderTab(activeTab);
+        })
+        .catch(err => {
+            document.getElementById('loader-overlay').style.display = 'none';
+            alert("Failed to fetch data: " + err.message);
+            console.error(err);
+        });
+    }
+    
+    function toggleFilterPanel() {
+        var fc = document.getElementById("filterContainer");
+        var ic = document.getElementById("filterToggleIcon");
+        var lbl = document.getElementById("filterToggleLabel");
+        if (fc.classList.contains("collapsed")) {
+            fc.classList.remove("collapsed");
+            ic.className = "fas fa-chevron-up";
+            lbl.innerText = "Hide Filters";
+        } else {
+            fc.classList.add("collapsed");
+            ic.className = "fas fa-chevron-down";
+            lbl.innerText = "Show Filters";
+        }
+    }
+    
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.ms-container')) {
+            document.querySelectorAll('.ms-menu').forEach(el => el.style.display = 'none');
+        }
+    });
+    
+    
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.classList.contains('ms-item')) {
+            let container = e.target.closest('.ms-container');
+            if(!container) return;
+            let containerId = container.id;
+            let val = e.target.value;
+            if(e.target.checked) {
+                if(!msSelections[containerId].includes(val)) msSelections[containerId].push(val);
+            } else {
+                msSelections[containerId] = msSelections[containerId].filter(v => v !== val);
+            }
+            
+            // if cityTabNops changed, update cityTabCities
+            if(containerId === 'cityTabNops') {
+                let validCities = new Set();
+                msSelections['cityTabNops'].forEach(n => {
+                    if(NSA_CITY_MAP[n]) NSA_CITY_MAP[n].forEach(c => validCities.add(c));
+                });
+                
+                let sortedCities = Array.from(validCities).sort();
+                msSelections['cityTabCities'] = msSelections['cityTabCities'].filter(c => validCities.has(c));
+                
+                initMsOptions('cityTabCities', sortedCities, false, msSelections['cityTabCities']);
+            }
+        }
+    });
+
+
+    function setDateRange(days, btnEl) {
+        document.querySelectorAll('.btn-quick-date').forEach(el => el.classList.remove('active'));
+        if(btnEl) btnEl.classList.add('active');
+        let toDate = new Date();
+        let fromDate = new Date();
+        fromDate.setDate(toDate.getDate() - (days - 1));
+        document.getElementById('toDate').value = toDate.toISOString().split('T')[0];
+        document.getElementById('fromDate').value = fromDate.toISOString().split('T')[0];
+    }
+    
+    function initMsOptions(id, optionsList, defaultChecked = false) {
+        msSelections[id] = defaultChecked ? [...optionsList] : [];
+        var listEl = document.getElementById("ms-list-" + id);
+        if (!listEl) return;
+        var html = "";
+        optionsList.forEach(opt => {
+            var checkedAttr = defaultChecked ? "checked" : "";
+            html += `<div class="ms-item" onclick="toggleMsItem('${id}', '${opt}')">
+                    <input type="checkbox" id="chk-${id}-${opt}" value="${opt}" ${checkedAttr}>
+                    <span>${opt}</span>
+                 </div>`;
+        });
+        listEl.innerHTML = html;
+        updateMsLabel(id);
+    }
+    
+    function toggleMsMenu(id) {
+        var menu = document.getElementById("ms-menu-" + id);
+        var toggle = document.getElementById("ms-toggle-" + id);
+        if (toggle.classList.contains("disabled")) return;
+        document.querySelectorAll(".ms-menu").forEach(el => {
+            if (el.id !== "ms-menu-" + id) el.style.display = "none";
+        });
+        menu.style.display = menu.style.display === "flex" ? "none" : "flex";
+    }
+    
+    function filterMsMenu(id, term) {
+        term = term.toLowerCase();
+        document.querySelectorAll(`#ms-list-${id} .ms-item`).forEach(el => {
+            var txt = el.innerText.toLowerCase();
+            el.style.display = txt.includes(term) ? "flex" : "none";
+        });
+    }
+    
+    function toggleMsItem(id, opt) {
+        var chk = document.getElementById(`chk-${id}-${opt}`);
+        chk.checked = !chk.checked;
+        if (chk.checked) msSelections[id].push(opt);
+        else msSelections[id] = msSelections[id].filter(x => x !== opt);
+        updateMsLabel(id);
+        if(id === 'cityTabNops') onCityTabNopSelectionChange();
+        renderTab(activeTab);
+    }
+    
+    function msSelectAll(id, isAll) {
+        var items = document.querySelectorAll(`#ms-list-${id} input[type="checkbox"]`);
+        msSelections[id] = [];
+        items.forEach(chk => {
+            chk.checked = isAll;
+            if(isAll && chk.parentElement.style.display !== 'none') {
+                msSelections[id].push(chk.value);
+                chk.checked = true;
+            } else if (!isAll) {
+                chk.checked = false;
+            }
+        });
+        updateMsLabel(id);
+        if(id === 'cityTabNops') onCityTabNopSelectionChange();
+        renderTab(activeTab);
+    }
+    
+    function updateMsLabel(id) {
+        var lbl = document.getElementById("ms-label-" + id);
+        var count = msSelections[id].length;
+        if (count === 0) lbl.innerText = "Select...";
+        else if (count === 1) lbl.innerText = msSelections[id][0];
+        else lbl.innerText = `${count} selected`;
+    }
+    
+    function onCityTabNopSelectionChange() {
+        var nops = msSelections['cityTabNops'];
+        var cityToggle = document.getElementById('ms-toggle-cityTabCities');
+        if (nops.length === 0) {
+            cityToggle.classList.add('disabled');
+            document.getElementById('ms-label-cityTabCities').innerText = "Select NOP first";
+            initMsOptions('cityTabCities', []);
+        } else {
+            cityToggle.classList.remove('disabled');
+            var availableCities = new Set();
+            nops.forEach(nop => {
+                (NSA_NSA_CITY_MAP[nop] || []).forEach(c => availableCities.add(c));
+            });
+            var sortedCities = Array.from(availableCities).sort();
+            let newValidCities = [];
+            msSelections['cityTabCities'].forEach(c => {
+                if (availableCities.has(c)) newValidCities.push(c);
+            });
+            initMsOptions('cityTabCities', sortedCities, false);
+            newValidCities.forEach(c => toggleMsItem('cityTabCities', c));
+            if(newValidCities.length === 0) updateMsLabel('cityTabCities');
+        }
+    }
+    
+
+    initMsOptions('nopTabNops', ALL_NOPS, false);
+    initMsOptions('cityTabNops', ALL_NOPS, false);
+    initMsOptions('subnetTabBscs', Subnet_LIST, false);
+
+</script>
+{% endblock %}
