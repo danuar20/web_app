@@ -80,6 +80,8 @@ def kpi_5g_monitoring():
         cur  = None
         try:
             with db_query() as (conn, cur):
+                cur.execute("SET work_mem = '1GB'")
+                cur.execute("SET jit = off")
 
                 try:
                     cur.execute('SELECT MAX(datehour::date) FROM "5g_kpi_zte"')
@@ -294,6 +296,8 @@ def api_kpi_5g_monitoring_hourly():
     cur = None
     try:
         with db_query() as (conn, cur):
+            cur.execute("SET work_mem = '1GB'")
+            cur.execute("SET jit = off")
         
             kpi_selects = ",\n            ".join([f"{k[5]} AS {k[0]}" for k in kpi_defs])
         
@@ -399,6 +403,8 @@ def api_kpi_5g_monitoring_site_cluster():
     cur  = None
     try:
         with db_query() as (conn, cur):
+            cur.execute("SET work_mem = '1GB'")
+            cur.execute("SET jit = off")
         
             kpi_selects = ",\n            ".join([f"{k[5]} AS {k[0]}" for k in kpi_defs])
         
@@ -476,6 +482,8 @@ def api_kpi_5g_monitoring_sector_data():
     cur = None
     try:
         with db_query() as (conn, cur):
+            cur.execute("SET work_mem = '1GB'")
+            cur.execute("SET jit = off")
         
             kpi_selects = ",\n            ".join([f"{k[5]} AS {k[0]}" for k in kpi_defs])
         

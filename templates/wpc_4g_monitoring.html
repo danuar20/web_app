@@ -61,7 +61,7 @@
 .wpc-table-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; display: flex; flex-direction: column; }
 .wpc-table-header { padding: 12px 16px; background: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; font-size: 14px; color: #333; }
 .wpc-table-wrap { overflow-x: auto; flex: 1; min-height: 150px;}
-.wpc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.wpc-table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
 .wpc-table th, .wpc-table td { padding: 10px 16px; text-align: left; border-bottom: 1px solid #e9ecef; }
 .wpc-table th { background: #fbfbfb; color: #5f6368; font-weight: 500; }
 .wpc-table tbody tr:hover { background: #f5f7fa; }
@@ -73,7 +73,7 @@
 
 /* Truncation for long cell names */
 .td-contributor {
-    max-width: 150px;
+    max-width: 230px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -246,7 +246,7 @@
             Please select at least one filter above to view data.
         </div>
 
-            <div class="kpi-summary-cards">
+            <div class="kpi-cards">
                 <div class="kpi-card" id="card-availChart"><div class="kpi-title">Availability (%)</div><div class="kpi-value" id="val-availChart">-</div></div>
                 <div class="kpi-card" id="card-cssrChart"><div class="kpi-title">CSSR (%)</div><div class="kpi-value" id="val-cssrChart">-</div></div>
                 <div class="kpi-card" id="card-erabChart"><div class="kpi-title">E-RAB SR (%)</div><div class="kpi-value" id="val-erabChart">-</div></div>
@@ -327,8 +327,8 @@
                     <div class="wpc-table-header">Worst Performers - SDR</div>
                     <div class="wpc-table-wrap">
                         <table class="wpc-table">
-                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th></tr></thead>
-                            <tbody id="tb-sdrChart"><tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th><th style="text-align:right">Avail (%)</th></tr></thead>
+                            <tbody id="tb-sdrChart"><tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
                         </table>
                     </div>
                 </div>
@@ -337,8 +337,8 @@
                     <div class="wpc-table-header">Worst Performers - VoLTE Drop</div>
                     <div class="wpc-table-wrap">
                         <table class="wpc-table">
-                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th></tr></thead>
-                            <tbody id="tb-volteDropChart"><tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th><th style="text-align:right">Avail (%)</th></tr></thead>
+                            <tbody id="tb-volteDropChart"><tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
                         </table>
                     </div>
                 </div>
@@ -367,8 +367,8 @@
                     <div class="wpc-table-header">Worst Performers - DL CCE Fail</div>
                     <div class="wpc-table-wrap">
                         <table class="wpc-table">
-                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th></tr></thead>
-                            <tbody id="tb-dlCceChart"><tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th><th style="text-align:right">Avail (%)</th></tr></thead>
+                            <tbody id="tb-dlCceChart"><tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
                         </table>
                     </div>
                 </div>
@@ -377,8 +377,8 @@
                     <div class="wpc-table-header">Worst Performers - UL CCE Fail</div>
                     <div class="wpc-table-wrap">
                         <table class="wpc-table">
-                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th></tr></thead>
-                            <tbody id="tb-ulCceChart"><tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                            <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th><th style="text-align:right">Avail (%)</th></tr></thead>
+                            <tbody id="tb-ulCceChart"><tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
                         </table>
                     </div>
                 </div>
@@ -403,22 +403,26 @@
     var msSelections = { nopTabNops: [], cityTabNops: [], cityTabCities: [], subnetTabBscs: [] };
     
     const KPI_THRESHOLDS = {
-        availChart: 99,
-        cssrChart: 99,
-        erabChart: 99,
-        rrcChart: 99,
-        s1Chart: 99,
-        srvccChart: 98,
-        sdrChart: 1.0,
-        volteDropChart: 1.0,
-        ifhoChart: 98,
-        csfbChart: 98,
-        dlCceChart: 1.0,
-        ulCceChart: 1.0
+        availChart: { bad: 98, good: 99 },
+        cssrChart: { bad: 95, good: 98 },
+        erabChart: { bad: 95, good: 98 },
+        rrcChart: { bad: 95, good: 98 },
+        s1Chart: { bad: 95, good: 98 },
+        srvccChart: { bad: 95, good: 98 },
+        sdrChart: { bad: 2.0, good: 0.5 },
+        volteDropChart: { bad: 2.0, good: 0.5 },
+        ifhoChart: { bad: 95, good: 98 },
+        csfbChart: { bad: 95, good: 98 },
+        dlCceChart: { bad: 2.0, good: 0.5 },
+        ulCceChart: { bad: 2.0, good: 0.5 }
     };
+
+    
+    
+    
     function exportPng() {
         let container = document.getElementById('wpc-results');
-        if(container.style.display === 'none') {
+        if(!container || container.style.display === 'none') {
             alert("Please generate a report and select a filter first.");
             return;
         }
@@ -437,18 +441,37 @@
 
     function exportXls() {
         let container = document.getElementById('wpc-results');
-        if(container.style.display === 'none') {
+        if(!container || container.style.display === 'none') {
             alert("Please generate a report and select a filter first.");
             return;
         }
         
-        let tempHidden = [];
+        let tempHiddenNop = [];
         if (activeTab === 'regional') {
             document.querySelectorAll('.th-nop').forEach(th => {
                 let parent = th.parentNode;
                 let next = th.nextSibling;
                 parent.removeChild(th);
-                tempHidden.push({parent: parent, next: next, el: th});
+                tempHiddenNop.push({parent: parent, next: next, el: th});
+            });
+        } else {
+            document.querySelectorAll('.th-nop').forEach(el => {
+                if (el.style.display === 'none') {
+                    el.style.display = '';
+                    tempHiddenNop.push({el: el, wasHidden: true});
+                }
+            });
+        }
+        
+        // Swap fail numbers to exact integer values for Excel export
+        let tempValSwaps = [];
+        let isFailMode = document.getElementById('wpcTypeToggle') && document.getElementById('wpcTypeToggle').value === 'fail';
+        if (isFailMode) {
+            document.querySelectorAll('.value-col[data-exact]').forEach(td => {
+                let currentText = td.innerText;
+                let exact = td.getAttribute('data-exact');
+                td.innerText = exact;
+                tempValSwaps.push({ el: td, original: currentText });
             });
         }
         
@@ -469,67 +492,72 @@
             'tb-ulCceChart': 'UL CCE Fail'
         };
         
-        Object.keys(kpiNames).forEach(kpiId => {
-            let tbody = document.getElementById(kpiId);
-            if(!tbody) return;
-            
-            let isCellMode = document.getElementById('wpcLevelToggle') && document.getElementById('wpcLevelToggle').value === 'cell';
-            let showNopUI = (activeTab === 'city' || activeTab === 'subnet') && !isCellMode;
-            
-            let nopIndex = -1;
-            if (activeTab === 'regional') {
-                nopIndex = 1; 
-            } else if (showNopUI) {
-                nopIndex = 1;
+        Object.keys(kpiNames).forEach(tbId => {
+            let tbody = document.getElementById(tbId);
+            if (tbody) {
+                let table = tbody.closest('table');
+                let ws = XLSX.utils.table_to_sheet(table);
+                XLSX.utils.book_append_sheet(wb, ws, kpiNames[tbId]);
             }
-            
-            let tempHiddenNop = [];
-            if (nopIndex === 1 && !showNopUI && activeTab !== 'regional') {
-                tbody.querySelectorAll('tr').forEach(tr => {
-                    if (tr.children.length > 1) {
-                        let td = tr.children[1];
-                        if (td.style.display === 'none') {
-                            td.style.display = '';
-                            tempHiddenNop.push(td);
-                        }
-                    }
-                });
-                let theadTr = tbody.previousElementSibling.querySelector('tr');
-                if (theadTr && theadTr.children.length > 1) {
-                    let th = theadTr.children[1];
-                    if (th.style.display === 'none') {
-                        th.style.display = '';
-                        tempHiddenNop.push(th);
-                    }
-                }
-            }
-
-            let table = tbody.parentNode;
-            let ws = XLSX.utils.table_to_sheet(table);
-            XLSX.utils.book_append_sheet(wb, ws, kpiNames[kpiId]);
-            
-            tempHiddenNop.forEach(el => el.style.display = 'none');
+        });
+        
+        // Restore DOM elements and text
+        if (activeTab === 'regional') {
+            tempHiddenNop.forEach(item => {
+                item.parent.insertBefore(item.el, item.next);
+            });
+        } else {
+            tempHiddenNop.forEach(item => {
+                if (item.wasHidden) item.el.style.display = 'none';
+            });
+        }
+        
+        tempValSwaps.forEach(item => {
+            item.el.innerText = item.original;
         });
         
         XLSX.writeFile(wb, `WPC_4G_${activeTab}_${new Date().getTime()}.xlsx`);
-        
-        tempHidden.forEach(item => {
-            item.parent.insertBefore(item.el, item.next);
-        });
+    }
+
+    function formatCompactNumber(num) {
+        if (num === null || num === undefined || isNaN(num)) return '-';
+        let val = Math.abs(num);
+        if (val >= 1e18) {
+            return (num / 1e18).toFixed(2) + ' E';
+        } else if (val >= 1e15) {
+            return (num / 1e15).toFixed(2) + ' Q';
+        } else if (val >= 1e12) {
+            return (num / 1e12).toFixed(2) + ' T';
+        } else if (val >= 1e9) {
+            return (num / 1e9).toFixed(2) + ' B';
+        } else if (val >= 1e6) {
+            return (num / 1e6).toFixed(2) + ' M';
+        } else if (val >= 1e3) {
+            return (num / 1e3).toFixed(2) + ' K';
+        }
+        return Math.round(num).toLocaleString('en-US');
     }
 
     function formatNumber(num, dec) {
         if(num === null || num === undefined || isNaN(num)) return '-';
-        return num.toLocaleString('en-US', {minimumFractionDigits: dec, maximumFractionDigits: dec});
+        return Number(num).toLocaleString('en-US', {minimumFractionDigits: dec, maximumFractionDigits: dec});
     }
-    
-    function getCardClass(kpi, val) {
-        if(val === null) return "";
-        if(['sdrChart', 'volteDropChart', 'dlCceChart', 'ulCceChart'].includes(kpi)) {
-            return val > KPI_THRESHOLDS[kpi] ? "kpi-danger" : "kpi-success";
+
+    function getCardClass(kpiId, val) {
+        if(val === null || val === undefined) return "";
+        let conf = KPI_THRESHOLDS[kpiId];
+        if(!conf) return "";
+        if(['sdrChart', 'volteDropChart', 'dlCceChart', 'ulCceChart'].includes(kpiId)) {
+            if(val >= conf.bad) return "kpi-danger";
+            if(val <= conf.good) return "kpi-success";
+            return "kpi-warning";
+        } else {
+            if(val <= conf.bad) return "kpi-danger";
+            if(val >= conf.good) return "kpi-success";
+            return "kpi-warning";
         }
-        return val < KPI_THRESHOLDS[kpi] ? "kpi-danger" : "kpi-success";
     }
+
 
     
     function calcPercentage(num, denum) {
@@ -790,28 +818,24 @@
                 let html = '';
                 top10.forEach((r, idx) => {
                     let valStr = '';
+                    let valTitle = '';
+                    let exactVal = '';
                     if (isFailMode) {
-                        valStr = formatNumber(r[kpi + '_fail'], 0) + ' / ' + formatNumber(r[kpi + '_denum'], 0);
+                        valStr = formatCompactNumber(r[kpi]);
+                        exactVal = r[kpi] !== null && r[kpi] !== undefined ? Math.round(r[kpi]) : '';
+                        valTitle = r[kpi] !== null && r[kpi] !== undefined ? Math.round(r[kpi]).toLocaleString('en-US') : '';
                     } else {
-                        valStr = (r[kpi] !== null && r[kpi] !== undefined ? r[kpi].toFixed(2) : '-') + '%';
+                        valStr = r[kpi] !== null && r[kpi] !== undefined ? r[kpi].toFixed(2) : '-';
+                        exactVal = valStr;
+                        valTitle = r[kpi] !== null && r[kpi] !== undefined ? r[kpi].toFixed(2) + '%' : '';
                     }
                     
-                    html += `<tr>`;
-                    html += `<td>${idx+1}</td>`;
+                    let nopCell = exportNop ? `<td style="${showNopUI ? '' : 'display:none;'}">${r.nop || '-'}</td>` : '';
+                    let availCell = (kpi === 'availChart') ? '' : `<td style="text-align:right">${r.availChart_pct !== null && r.availChart_pct !== undefined ? r.availChart_pct.toFixed(2) : '-'}</td>`;
+                    let titleAttr = valTitle ? `title="${valTitle}"` : '';
+                    let dataAttr = exactVal !== '' ? `data-exact="${exactVal}"` : '';
                     
-                    if (showNopUI) {
-                        html += `<td class="th-nop">${r.nop}</td>`;
-                    } else {
-                        html += `<td class="th-nop" style="display:none;">${r.nop}</td>`;
-                    }
-                    
-                    html += `<td class="th-contributor">${r.contributor}</td>`;
-                    html += `<td class="th-value" style="text-align:right"><strong>${valStr}</strong></td>`;
-                    
-                    if (kpi !== 'availChart' && kpi !== 'sdrChart' && kpi !== 'volteDropChart' && kpi !== 'dlCceChart' && kpi !== 'ulCceChart') {
-                        html += `<td style="text-align:right">${(r.availChart_pct !== null && r.availChart_pct !== undefined ? r.availChart_pct.toFixed(2) : '-')}</td>`;
-                    }
-                    html += `</tr>`;
+                    html += `<tr><td class="rank-col">${idx+1}</td>${nopCell}<td class="td-contributor" title="${r.contributor}">${r.contributor}</td><td class="value-col" ${titleAttr} ${dataAttr}>${valStr}</td>${availCell}</tr>`;
                 });
                 tbody.innerHTML = html;
             }
@@ -997,7 +1021,7 @@
             cityToggle.classList.remove('disabled');
             var availableCities = new Set();
             nops.forEach(nop => {
-                (NSA_NSA_CITY_MAP[nop] || []).forEach(c => availableCities.add(c));
+                (NSA_CITY_MAP[nop] || []).forEach(c => availableCities.add(c));
             });
             var sortedCities = Array.from(availableCities).sort();
             let newValidCities = [];

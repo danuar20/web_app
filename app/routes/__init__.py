@@ -52,9 +52,7 @@ dashboard_5g = dashboard_5g_routes.dashboard_5g
 
 
 
-# 4G KPI API & Export — /api/kpi_4g_hourly, /export/kpi_4g_hourly
-from . import kpi_4g_api_routes
-kpi4g_api = kpi_4g_api_routes.kpi4g_api
+
 
 # TA 4G New — /ta_4g_new
 from . import ta_4g_new_routes

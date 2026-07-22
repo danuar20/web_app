@@ -136,6 +136,8 @@ def kpi_4g_monitoring():
         cur  = None
         try:
             with db_query() as (conn, cur):
+                cur.execute("SET work_mem = '1GB'")
+                cur.execute("SET jit = off")
 
                 try:
                     cur.execute('SELECT MAX(kpi_date) FROM "4g_kpi_zte_daily"')
@@ -326,7 +328,7 @@ def kpi_4g_monitoring():
 
 @kpi4g_monitoring.route("/api/kpi_4g_monitoring/hourly", methods=["POST"])
 @login_required
-@cache.cached(timeout=21600, make_cache_key=make_post_cache_key)
+@cache.cached(timeout=21600, key_prefix=make_post_cache_key)
 def api_kpi_4g_monitoring_hourly():
     data = request.get_json()
     from_date = data.get("from_date")
@@ -347,6 +349,8 @@ def api_kpi_4g_monitoring_hourly():
     cur = None
     try:
         with db_query() as (conn, cur):
+            cur.execute("SET work_mem = '1GB'")
+            cur.execute("SET jit = off")
         
             kpi_selects = ",\n            ".join([f"{k[5]} AS {k[0]}" for k in kpi_defs])
         
@@ -437,7 +441,7 @@ def api_kpi_4g_monitoring_hourly():
 
 @kpi4g_monitoring.route('/api/kpi_4g_monitoring/site_cluster', methods=['POST'])
 @login_required
-@cache.cached(timeout=21600, make_cache_key=make_post_cache_key)
+@cache.cached(timeout=21600, key_prefix=make_post_cache_key)
 def api_kpi_4g_monitoring_site_cluster():
     req = request.json
     from_date   = req.get('from_date')
@@ -457,6 +461,8 @@ def api_kpi_4g_monitoring_site_cluster():
     cur  = None
     try:
         with db_query() as (conn, cur):
+            cur.execute("SET work_mem = '1GB'")
+            cur.execute("SET jit = off")
         
             kpi_selects = ",\n            ".join([f"{k[5]} AS {k[0]}" for k in kpi_defs])
         
@@ -520,7 +526,7 @@ def api_kpi_4g_monitoring_site_cluster():
 
 @kpi4g_monitoring.route('/api/kpi_4g_monitoring/sector_data', methods=['POST'])
 @login_required
-@cache.cached(timeout=21600, make_cache_key=make_post_cache_key)
+@cache.cached(timeout=21600, key_prefix=make_post_cache_key)
 def api_kpi_4g_monitoring_sector_data():
     req = request.json
     from_date = req.get('from_date')
@@ -539,6 +545,8 @@ def api_kpi_4g_monitoring_sector_data():
     cur = None
     try:
         with db_query() as (conn, cur):
+            cur.execute("SET work_mem = '1GB'")
+            cur.execute("SET jit = off")
         
             kpi_selects = ",\n            ".join([f"{k[5]} AS {k[0]}" for k in kpi_defs])
         
@@ -699,7 +707,7 @@ BDBH_KPI_EXPR = {
 
 @kpi4g_monitoring.route('/api/kpi_4g_monitoring/sector_data_bdbh', methods=['POST'])
 @login_required
-@cache.cached(timeout=21600, make_cache_key=make_post_cache_key)
+@cache.cached(timeout=21600, key_prefix=make_post_cache_key)
 def api_kpi_4g_monitoring_sector_data_bdbh():
     """
     Sector data endpoint using measKpiBdbh4G table.
@@ -732,6 +740,8 @@ def api_kpi_4g_monitoring_sector_data_bdbh():
     cur  = None
     try:
         with db_query() as (conn, cur):
+            cur.execute("SET work_mem = '1GB'")
+            cur.execute("SET jit = off")
 
             # Build SELECT expressions using BDBH column names
             kpi_selects_hourly = ",\n            ".join(

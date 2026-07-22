@@ -164,6 +164,7 @@ def wpc_2g_monitoring_page():
 
 @wpc_2g_monitoring.route("/api/wpc_2g/wpc_data", methods=["POST"])
 @login_required
+@cache.cached(timeout=21600, key_prefix=make_post_cache_key)
 def api_wpc_2g_data():
     data = request.get_json()
     from_date = data.get("from_date")
@@ -178,6 +179,7 @@ def api_wpc_2g_data():
     try:
         with db_query() as (conn, cur):
             cur.execute("SET work_mem = '1GB'")
+            cur.execute("SET jit = off")
             
             if level == 'cell':
                 sql = """

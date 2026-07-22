@@ -171,6 +171,8 @@ def kpi_2g_monitoring():
         cur  = None
         try:
             with db_query() as (conn, cur):
+                cur.execute("SET work_mem = '1GB'")
+                cur.execute("SET jit = off")
 
                 # Last update — also used to determine the live branch boundary
                 try:
@@ -446,6 +448,8 @@ def api_kpi_2g_hourly():
     cur = None
     try:
         with db_query() as (conn, cur):
+            cur.execute("SET work_mem = '1GB'")
+            cur.execute("SET jit = off")
         
             kpi_selects = ",\n            ".join([f"{k[5]} AS {k[0]}" for k in kpi_defs])
         
@@ -566,6 +570,8 @@ def api_kpi_2g_site_cluster():
     cur  = None
     try:
         with db_query() as (conn, cur):
+            cur.execute("SET work_mem = '1GB'")
+            cur.execute("SET jit = off")
         
             kpi_selects = ",\n            ".join([f"{k[5]} AS {k[0]}" for k in kpi_defs])
         
@@ -650,6 +656,8 @@ def api_kpi_2g_sector_data():
     cur = None
     try:
         with db_query() as (conn, cur):
+            cur.execute("SET work_mem = '1GB'")
+            cur.execute("SET jit = off")
         
             # We need the formulas from the Hourly Sector logic.
             # But in kpi_2g_monitoring ALL_KPI_DEFS has sql_expr at index 5.
