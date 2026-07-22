@@ -1,0 +1,780 @@
+{% extends "base.html" %}
+{% block page_title %}WPC 5G Monitoring{% endblock %}
+{% block page_sub %}Worst Performing Cell Analysis for 5G Network{% endblock %}
+
+{% block nav_wpc %}active{% endblock %}
+{% block subWpc_open %}open{% endblock %}
+{% block nav_wpc_5g %}active{% endblock %}
+
+{% block page_content %}
+<style>
+.wpc-container { display: flex; flex-direction: column; gap: 16px; margin: 16px; }
+.filter-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 16px 20px; }
+.filter-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+.filter-group { display: flex; flex-direction: column; gap: 6px; }
+.filter-label { font-size: 12px; font-weight: 600; color: #5f6368; text-transform: uppercase; }
+.filter-input { padding: 8px 12px; border: 1px solid #dcdfe6; border-radius: 6px; font-size: 13px; color: #333; outline: none; transition: border-color 0.2s; }
+.filter-input:focus { border-color: #4facfe; }
+
+/* Filter Panel Toggle */
+.filter-toggle-bar { display: flex; justify-content: space-between; align-items: center; padding: 0 4px; margin-bottom: 8px; }
+#filterContainer { overflow: hidden; transition: all 0.3s ease; }
+#filterContainer.collapsed { display: none !important; }
+.btn-xs { padding: 4px 10px; font-size: 11px; background: transparent; border: 1px solid #dcdfe6; border-radius: 4px; cursor: pointer; color: #5f6368; transition: 0.2s; }
+.btn-xs:hover { background: #f0f2f5; color: #333; }
+
+/* Quick Select Buttons */
+.date-quick-btns { display: flex; gap: 6px; }
+.btn-quick-date { background: #f0f2f5; color: #5f6368; border: 1px solid #dcdfe6; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+.btn-quick-date:hover, .btn-quick-date.active { background: #e1eaf5; color: #1a73e8; border-color: #1a73e8; }
+
+.btn-generate { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: #fff; border: none; padding: 8px 24px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: transform 0.1s, box-shadow 0.2s; }
+.btn-generate:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(79, 172, 254, 0.3); }
+
+.btn-export { background: #fff; border: 1px solid #1a73e8; color: #1a73e8; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; }
+.btn-export:hover { background: #f0f4f8; }
+
+/* ── Tabs ── */
+.wpc-tabs-wrapper { display: none; flex-direction: column; }
+.wpc-tabs { display: flex; gap: 4px; background: #fff; padding: 8px 12px; border-radius: 8px 8px 0 0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-bottom: 1px solid #eee; }
+.wpc-tab { padding: 8px 16px; border: none; background: transparent; font-size: 13px; font-weight: 600; color: #5f6368; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+.wpc-tab:hover { background: #f0f2f5; color: #333; }
+.wpc-tab.active { background: rgba(79, 172, 254, 0.1); color: #007bff; }
+
+/* ── Tab Content Sub-filters ── */
+.tab-filters-container { background: #fff; padding: 12px 20px; border-radius: 0 0 8px 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; gap: 16px; align-items: flex-end; margin-bottom: 16px; }
+
+/* Custom Select (Multi) Matching WPC 4G Height */
+.ms-container { position: relative; width: 220px; font-family: inherit; }
+.ms-toggle { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #fff; border: 1px solid #dcdfe6; border-radius: 6px; font-size: 13px; color: #333; cursor: pointer; text-align: left; transition: 0.2s; box-sizing: border-box; }
+.ms-toggle:hover { border-color: #b4bccc; }
+.ms-toggle.disabled { background: #f5f7fa; color: #a8abb2; cursor: not-allowed; border-color: #e4e7ed; }
+.ms-menu { display: none; flex-direction: column; position: absolute; top: 100%; left: 0; width: 100%; background: #fff; border: 1px solid #dcdfe6; border-radius: 6px; margin-top: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; overflow: hidden; }
+.ms-search { padding: 8px; border-bottom: 1px solid #eee; }
+.ms-search input { width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; outline: none; box-sizing: border-box; }
+.ms-actions { display: flex; padding: 6px 8px; gap: 8px; border-bottom: 1px solid #eee; background: #fbfbfb; }
+.ms-actions button { flex: 1; padding: 4px; font-size: 11px; background: #fff; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; color: #007bff; font-weight: 600; }
+.ms-actions button:hover { background: #f0f0f0; }
+.ms-list { max-height: 200px; overflow-y: auto; padding: 4px 0; }
+.ms-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+.ms-item:hover { background: #f5f7fa; }
+.ms-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Summary Cards (Matching WPC 4G) ── */
+.kpi-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.kpi-card { background: #fff; border-radius: 8px; padding: 12px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 8px; position: relative; overflow: hidden; }
+.kpi-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #e0e0e0; }
+.kpi-card.kpi-success::before { background: #28a745; }
+.kpi-card.kpi-warning::before { background: #ffc107; }
+.kpi-card.kpi-danger::before { background: #dc3545; }
+.kpi-title { font-size: 11px; font-weight: 600; color: #6c757d; text-transform: uppercase; }
+.kpi-value { font-size: 20px; font-weight: 700; color: #212529; }
+
+/* Grid Layout for WPC Tables */
+.wpc-tables-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+@media(max-width: 1200px) { .wpc-tables-grid { grid-template-columns: repeat(2, 1fr); } }
+@media(max-width: 768px) { .wpc-tables-grid { grid-template-columns: 1fr; } }
+
+.wpc-table-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; display: flex; flex-direction: column; }
+.wpc-table-header { font-size: 13px; font-weight: 700; color: #333; border-bottom: 1px solid #ebeef5; padding: 12px 16px; background: #fff; }
+.wpc-table-wrap { overflow-x: auto; }
+
+.wpc-table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+.wpc-table th { background: #fafafa; color: #5f6368; font-weight: 600; text-align: left; padding: 8px 6px; border-bottom: 1px solid #e8e8e8; }
+.wpc-table td { padding: 8px 6px; border-bottom: 1px solid #f0f0f0; color: #333; }
+.wpc-table tr:last-child td { border-bottom: none; }
+.wpc-table .rank-col { width: 28px; text-align: center; font-weight: 700; color: #dc3545; }
+.wpc-table .value-col { text-align: right; font-weight: 600; width: 95px; }
+
+.td-contributor { max-width: 230px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; }
+
+#loader-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.7); display: flex; justify-content: center; align-items: center; z-index: 9999; flex-direction: column; gap: 12px; }
+.spinner { border: 4px solid #f3f3f3; border-top: 4px solid #4facfe; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+.empty-state { text-align: center; padding: 40px; background: #fff; border-radius: 8px; color: #6c757d; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+</style>
+
+<div id="loader-overlay" style="display: none;">
+    <div class="spinner"></div>
+    <div style="font-weight: 600; color: #333;">Fetching WPC 5G Data...</div>
+</div>
+
+<div class="wpc-container">
+    <div class="filter-toggle-bar">
+        <div style="font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;">
+            <i class="fas fa-sliders-h" style="color:#4facfe;"></i> Filters
+        </div>
+        <button type="button" class="btn-xs" id="filterToggleBtn" onclick="toggleFilterPanel()">
+            <i class="fas fa-chevron-up" id="filterToggleIcon"></i> <span id="filterToggleLabel">Hide Filters</span>
+        </button>
+    </div>
+
+    <div class="filter-card" id="filterContainer">
+        <div class="filter-row">
+            <div class="filter-group">
+                <div class="filter-label">Start Date</div>
+                <input type="date" class="filter-input" id="fromDate" value="{{ from_date }}">
+            </div>
+            <div class="filter-group">
+                <div class="filter-label">End Date</div>
+                <input type="date" class="filter-input" id="toDate" value="{{ to_date }}">
+            </div>
+            <div class="filter-group">
+                <div class="filter-label">Quick Select</div>
+                <div class="date-quick-btns">
+                    <button class="btn-quick-date" onclick="setDateRange(3, this)">3d</button>
+                    <button class="btn-quick-date active" onclick="setDateRange(7, this)">7d</button>
+                    <button class="btn-quick-date" onclick="setDateRange(14, this)">14d</button>
+                    <button class="btn-quick-date" onclick="setDateRange(30, this)">30d</button>
+                </div>
+            </div>
+            <div class="filter-group" style="margin-left: auto;">
+                <button class="btn-generate" onclick="generateReport()"><i class="fas fa-sync-alt"></i> Generate Report</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="wpc-tabs-wrapper" id="wpcTabsWrapper">
+        <div class="wpc-tabs">
+            <button class="wpc-tab active" onclick="switchTab('regional', this)"><i class="fas fa-globe-asia"></i> Regional</button>
+            <button class="wpc-tab" onclick="switchTab('nop', this)"><i class="fas fa-network-wired"></i> NOP</button>
+            <button class="wpc-tab" onclick="switchTab('city', this)"><i class="fas fa-city"></i> City</button>
+            <button class="wpc-tab" onclick="switchTab('subnet', this)"><i class="fas fa-project-diagram"></i> Subnet</button>
+        </div>
+
+        <div class="tab-filters-container">
+            <!-- WPC Ranking Base (Positioned on the Left of Tab Filters) -->
+            <div class="filter-group" style="margin: 0;">
+                <div class="filter-label">WPC Ranking Base</div>
+                <select class="filter-input" id="wpcTypeToggle" onchange="generateWpc()" style="height: 35px; padding: 0 10px;">
+                    <option value="pct" selected>Percentage</option>
+                    <option value="fail">Fail Number</option>
+                </select>
+            </div>
+
+            <!-- NOP Tab Filters -->
+            <div class="filter-group filter-tab-nop" style="display:none;">
+                <div class="filter-label">Filter NOPs</div>
+                <div class="ms-container" id="ms-container-nopTabNops">
+                    <button type="button" class="ms-toggle" id="ms-toggle-nopTabNops" onclick="toggleMsMenu('nopTabNops')">
+                        <span class="ms-label" id="ms-label-nopTabNops">Select NOP...</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="ms-menu" id="ms-menu-nopTabNops">
+                        <div class="ms-search"><input type="text" placeholder="Search..." onkeyup="filterMsMenu('nopTabNops', this.value)"></div>
+                        <div class="ms-actions"><button type="button" onclick="msSelectAll('nopTabNops', true)">All</button><button type="button" onclick="msSelectAll('nopTabNops', false)">Clear</button></div>
+                        <div class="ms-list" id="ms-list-nopTabNops"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- City Tab Filters -->
+            <div class="filter-group filter-tab-city" style="display:none;">
+                <div class="filter-label">Filter NOPs</div>
+                <div class="ms-container" id="ms-container-cityTabNops">
+                    <button type="button" class="ms-toggle" id="ms-toggle-cityTabNops" onclick="toggleMsMenu('cityTabNops')">
+                        <span class="ms-label" id="ms-label-cityTabNops">Select NOP...</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="ms-menu" id="ms-menu-cityTabNops">
+                        <div class="ms-search"><input type="text" placeholder="Search..." onkeyup="filterMsMenu('cityTabNops', this.value)"></div>
+                        <div class="ms-actions"><button type="button" onclick="msSelectAll('cityTabNops', true)">All</button><button type="button" onclick="msSelectAll('cityTabNops', false)">Clear</button></div>
+                        <div class="ms-list" id="ms-list-cityTabNops"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="filter-group filter-tab-city" style="display:none;">
+                <div class="filter-label">Filter Cities</div>
+                <div class="ms-container" id="ms-container-cityTabCities">
+                    <button type="button" class="ms-toggle disabled" id="ms-toggle-cityTabCities" onclick="toggleMsMenu('cityTabCities')">
+                        <span class="ms-label" id="ms-label-cityTabCities">Select NOP first</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="ms-menu" id="ms-menu-cityTabCities">
+                        <div class="ms-search"><input type="text" placeholder="Search..." onkeyup="filterMsMenu('cityTabCities', this.value)"></div>
+                        <div class="ms-actions"><button type="button" onclick="msSelectAll('cityTabCities', true)">All</button><button type="button" onclick="msSelectAll('cityTabCities', false)">Clear</button></div>
+                        <div class="ms-list" id="ms-list-cityTabCities"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subnet Tab Filters -->
+            <div class="filter-group filter-tab-subnet" style="display:none;">
+                <div class="filter-label">Filter Subnets</div>
+                <div class="ms-container" id="ms-container-subnetTabBscs">
+                    <button type="button" class="ms-toggle" id="ms-toggle-subnetTabBscs" onclick="toggleMsMenu('subnetTabBscs')">
+                        <span class="ms-label" id="ms-label-subnetTabBscs">Select Subnet...</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="ms-menu" id="ms-menu-subnetTabBscs">
+                        <div class="ms-search"><input type="text" placeholder="Search..." onkeyup="filterMsMenu('subnetTabBscs', this.value)"></div>
+                        <div class="ms-actions"><button type="button" onclick="msSelectAll('subnetTabBscs', true)">All</button><button type="button" onclick="msSelectAll('subnetTabBscs', false)">Clear</button></div>
+                        <div class="ms-list" id="ms-list-subnetTabBscs"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
+                <div class="filter-group filter-tab-city filter-tab-subnet" style="display:none; margin: 0;">
+                    <select class="filter-input" id="wpcLevelToggle" onchange="generateReport()" style="height: 35px; padding: 0 10px;">
+                        <option value="site">Site ID</option>
+                        <option value="cell">Cell Name</option>
+                    </select>
+                </div>
+                <button class="btn-export" onclick="exportPng()"><i class="fas fa-file-export"></i> Export PNG</button>
+                <button class="btn-export" onclick="exportXls()" style="color: #28a745; border-color: #28a745;"><i class="fas fa-file-excel"></i> Export XLS</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="wpc-empty-state" class="empty-state">
+        <i class="fas fa-chart-line" style="font-size: 48px; color: #ccc; margin-bottom: 12px;"></i>
+        <div style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 4px;">Please select at least one filter above to view data.</div>
+        <div>Select a date range and click <b>Generate Report</b> to analyze 5G WPC contributors.</div>
+    </div>
+
+    <div id="wpc-results" style="display: none; flex-direction: column; gap: 16px; background: #f5f7fa; padding: 10px; border-radius: 8px;">
+        <!-- Summary Cards -->
+        <div class="kpi-cards">
+            <div class="kpi-card" id="card-availChart"><div class="kpi-title">Availability (%)</div><div class="kpi-value" id="val-availChart">-</div></div>
+            <div class="kpi-card" id="card-accChart"><div class="kpi-title">NR Accessibility (%)</div><div class="kpi-value" id="val-accChart">-</div></div>
+            <div class="kpi-card" id="card-retChart"><div class="kpi-title">NR Retainability (%)</div><div class="kpi-value" id="val-retChart">-</div></div>
+            <div class="kpi-card" id="card-mobChart"><div class="kpi-title">NR Mobility SR (%)</div><div class="kpi-value" id="val-mobChart">-</div></div>
+            <div class="kpi-card" id="card-plChart"><div class="kpi-title">Packet Loss (%)</div><div class="kpi-value" id="val-plChart">-</div></div>
+        </div>
+
+        <!-- WPC Tables Grid -->
+        <div class="wpc-tables-grid">
+            <!-- Availability -->
+            <div class="wpc-table-card">
+                <div class="wpc-table-header">Worst Performers - Availability</div>
+                <div class="wpc-table-wrap">
+                    <table class="wpc-table">
+                        <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th></tr></thead>
+                        <tbody id="tb-availChart"><tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- NR Accessibility -->
+            <div class="wpc-table-card">
+                <div class="wpc-table-header">Worst Performers - NR Accessibility</div>
+                <div class="wpc-table-wrap">
+                    <table class="wpc-table">
+                        <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th><th style="text-align:right">Avail (%)</th></tr></thead>
+                        <tbody id="tb-accChart"><tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- NR Retainability -->
+            <div class="wpc-table-card">
+                <div class="wpc-table-header">Worst Performers - NR Retainability</div>
+                <div class="wpc-table-wrap">
+                    <table class="wpc-table">
+                        <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th><th style="text-align:right">Avail (%)</th></tr></thead>
+                        <tbody id="tb-retChart"><tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- NR Mobility SR -->
+            <div class="wpc-table-card">
+                <div class="wpc-table-header">Worst Performers - NR Mobility SR</div>
+                <div class="wpc-table-wrap">
+                    <table class="wpc-table">
+                        <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th><th style="text-align:right">Avail (%)</th></tr></thead>
+                        <tbody id="tb-mobChart"><tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- Packet Loss -->
+            <div class="wpc-table-card">
+                <div class="wpc-table-header">Worst Performers - Packet Loss</div>
+                <div class="wpc-table-wrap">
+                    <table class="wpc-table">
+                        <thead><tr><th style="width:40px">#</th><th class="th-nop" style="display:none;">NOP</th><th class="th-contributor">Contributor</th><th class="th-value" style="text-align:right">Value (%)</th><th style="text-align:right">Avail (%)</th></tr></thead>
+                        <tbody id="tb-plChart"><tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No data</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+    const NSA_CITY_MAP = {{ nsa_city_map | tojson | safe }};
+    const SUBNET_LIST = {{ sub_list | tojson | safe }};
+
+    const KPI_THRESHOLDS = {
+        'availChart': { bad: 99.0, good: 99.8, isLowerBetter: false },
+        'accChart':   { bad: 98.0, good: 99.5, isLowerBetter: false },
+        'retChart':   { bad: 98.0, good: 99.5, isLowerBetter: false },
+        'mobChart':   { bad: 98.0, good: 99.5, isLowerBetter: false },
+        'plChart':    { bad: 1.0,  good: 0.1,  isLowerBetter: true }
+    };
+
+    let activeTab = 'regional';
+    let rawWpcData = [];
+    let msSelections = { nopTabNops: [], cityTabNops: [], cityTabCities: [], subnetTabBscs: [] };
+    let _filterOpen = true;
+
+    function formatCompactNumber(num) {
+        if (num === null || num === undefined || isNaN(num)) return '-';
+        let val = Math.abs(num);
+        if (val >= 1e18) return (num / 1e18).toFixed(2) + ' E';
+        if (val >= 1e15) return (num / 1e15).toFixed(2) + ' Q';
+        if (val >= 1e12) return (num / 1e12).toFixed(2) + ' T';
+        if (val >= 1e9)  return (num / 1e9).toFixed(2) + ' B';
+        if (val >= 1e6)  return (num / 1e6).toFixed(2) + ' M';
+        if (val >= 1e3)  return (num / 1e3).toFixed(2) + ' K';
+        return Math.round(num).toLocaleString('en-US');
+    }
+
+    function toggleFilterPanel() {
+        var fc = document.getElementById("filterContainer");
+        var ic = document.getElementById("filterToggleIcon");
+        var lbl = document.getElementById("filterToggleLabel");
+        if (!fc) return;
+        _filterOpen = !_filterOpen;
+        if (_filterOpen) {
+            fc.classList.remove("collapsed");
+            if (ic) ic.className = "fas fa-chevron-up";
+            if (lbl) lbl.textContent = "Hide Filters";
+        } else {
+            fc.classList.add("collapsed");
+            if (ic) ic.className = "fas fa-chevron-down";
+            if (lbl) lbl.textContent = "Show Filters";
+        }
+    }
+
+    function setDateRange(days, btnEl) {
+        document.querySelectorAll('.btn-quick-date').forEach(el => el.classList.remove('active'));
+        if(btnEl) btnEl.classList.add('active');
+        let toDate = new Date();
+        let fromDate = new Date();
+        fromDate.setDate(toDate.getDate() - (days - 1));
+        document.getElementById('toDate').value = toDate.toISOString().split('T')[0];
+        document.getElementById('fromDate').value = fromDate.toISOString().split('T')[0];
+    }
+
+    function switchTab(tabId, btnEl) {
+        activeTab = tabId;
+        document.querySelectorAll('.wpc-tab').forEach(b => b.classList.remove('active'));
+        if (btnEl) btnEl.classList.add('active');
+
+        document.querySelectorAll('.filter-tab-nop, .filter-tab-city, .filter-tab-subnet').forEach(el => el.style.display = 'none');
+        if (tabId === 'nop') document.querySelectorAll('.filter-tab-nop').forEach(el => el.style.display = 'flex');
+        if (tabId === 'city') document.querySelectorAll('.filter-tab-city').forEach(el => el.style.display = 'flex');
+        if (tabId === 'subnet') document.querySelectorAll('.filter-tab-subnet').forEach(el => el.style.display = 'flex');
+
+        if (rawWpcData.length > 0) generateWpc();
+    }
+
+    /* Multi-Select Handlers */
+    function toggleMsMenu(id) {
+        const toggle = document.getElementById(`ms-toggle-${id}`);
+        if (toggle.classList.contains('disabled')) return;
+        const menu = document.getElementById(`ms-menu-${id}`);
+        const isShown = menu.style.display === 'flex';
+        document.querySelectorAll('.ms-menu').forEach(m => m.style.display = 'none');
+        menu.style.display = isShown ? 'none' : 'flex';
+    }
+
+    function initMsOptions(id, optionsList) {
+        const listEl = document.getElementById(`ms-list-${id}`);
+        if (!listEl) return;
+        msSelections[id] = [];
+        listEl.innerHTML = optionsList.map(opt => `
+            <div class="ms-item" onclick="toggleMsItem('${id}', '${opt}')">
+                <input type="checkbox" id="chk-${id}-${opt}" value="${opt}">
+                <span>${opt}</span>
+            </div>
+        `).join('');
+        updateMsLabel(id);
+    }
+
+    function toggleMsItem(id, val) {
+        const chk = document.getElementById(`chk-${id}-${val}`);
+        if (chk) chk.checked = !chk.checked;
+        updateMsSelections(id);
+        if (id === 'cityTabNops') onCityTabNopSelectionChange();
+        generateWpc();
+    }
+
+    function msSelectAll(id, checkAll) {
+        document.querySelectorAll(`#ms-list-${id} input`).forEach(chk => chk.checked = checkAll);
+        updateMsSelections(id);
+        if (id === 'cityTabNops') onCityTabNopSelectionChange();
+        generateWpc();
+    }
+
+    function updateMsSelections(id) {
+        const selected = Array.from(document.querySelectorAll(`#ms-list-${id} input:checked`)).map(i => i.value);
+        msSelections[id] = selected;
+        updateMsLabel(id);
+    }
+
+    function updateMsLabel(id) {
+        const total = document.querySelectorAll(`#ms-list-${id} input`).length;
+        const selected = msSelections[id] || [];
+        const lbl = document.getElementById(`ms-label-${id}`);
+        if (!lbl) return;
+        if (selected.length === total && total > 0) lbl.innerText = "Select All";
+        else if (selected.length === 0) lbl.innerText = "None Selected";
+        else lbl.innerText = `${selected.length} Selected`;
+    }
+
+    function filterMsMenu(id, query) {
+        const q = query.toLowerCase();
+        document.querySelectorAll(`#ms-list-${id} .ms-item`).forEach(item => {
+            const txt = item.querySelector('span').innerText.toLowerCase();
+            item.style.display = txt.includes(q) ? 'flex' : 'none';
+        });
+    }
+
+    function setMsDisabled(id, disabled) {
+        const toggle = document.getElementById(`ms-toggle-${id}`);
+        if (!toggle) return;
+        if (disabled) toggle.classList.add('disabled');
+        else toggle.classList.remove('disabled');
+    }
+
+    function onCityTabNopSelectionChange() {
+        const selectedNops = msSelections['cityTabNops'] || [];
+        let validCities = new Set();
+        selectedNops.forEach(nop => {
+            if (NSA_CITY_MAP[nop]) NSA_CITY_MAP[nop].forEach(c => validCities.add(c));
+        });
+        const cityOpts = Array.from(validCities).sort();
+        if (cityOpts.length > 0) {
+            setMsDisabled('cityTabCities', false);
+            initMsOptions('cityTabCities', cityOpts);
+        } else {
+            setMsDisabled('cityTabCities', true);
+            document.getElementById('ms-label-cityTabCities').innerText = "Select NOP first";
+            msSelections['cityTabCities'] = [];
+        }
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.ms-container')) {
+            document.querySelectorAll('.ms-menu').forEach(m => m.style.display = 'none');
+        }
+    });
+
+    function generateReport() {
+        const fromDate = document.getElementById('fromDate').value;
+        const toDate = document.getElementById('toDate').value;
+        let level = 'site';
+        const levelToggle = document.getElementById('wpcLevelToggle');
+        if (levelToggle && (activeTab === 'city' || activeTab === 'subnet')) {
+            level = levelToggle.value;
+        }
+
+        if (!fromDate || !toDate) return alert("Please select both From and To dates.");
+        document.getElementById('loader-overlay').style.display = 'flex';
+
+        fetch('/api/wpc_5g/wpc_data', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ from_date: fromDate, to_date: toDate, level: level })
+        })
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('loader-overlay').style.display = 'none';
+            if (data.error) return alert("API Error: " + data.error);
+
+            rawWpcData = data.raw_data || [];
+            document.getElementById('wpcTabsWrapper').style.display = 'flex';
+
+            generateWpc();
+            if (_filterOpen) toggleFilterPanel();
+        })
+        .catch(err => {
+            document.getElementById('loader-overlay').style.display = 'none';
+            alert("Failed to fetch 5G WPC data: " + err);
+        });
+    }
+
+    function getCardClass(val, targetObj) {
+        if (val === null || val === undefined || isNaN(val)) return 'kpi-success';
+        if (targetObj.isLowerBetter) {
+            if (val <= targetObj.good) return 'kpi-success';
+            if (val <= targetObj.bad) return 'kpi-warning';
+            return 'kpi-danger';
+        } else {
+            if (val >= targetObj.good) return 'kpi-success';
+            if (val >= targetObj.bad) return 'kpi-warning';
+            return 'kpi-danger';
+        }
+    }
+
+    function generateWpc() {
+        if (rawWpcData.length === 0) return;
+
+        // Check Tab Filter Selection Validity (Matching WPC 4G)
+        let isValid = true;
+        if (activeTab === 'nop') {
+            isValid = (msSelections['nopTabNops'] && msSelections['nopTabNops'].length > 0);
+        } else if (activeTab === 'city') {
+            isValid = (msSelections['cityTabNops'] && msSelections['cityTabNops'].length > 0) &&
+                      (msSelections['cityTabCities'] && msSelections['cityTabCities'].length > 0);
+        } else if (activeTab === 'subnet') {
+            isValid = (msSelections['subnetTabBscs'] && msSelections['subnetTabBscs'].length > 0);
+        }
+
+        if (!isValid) {
+            document.getElementById('wpc-results').style.display = 'none';
+            document.getElementById('wpc-empty-state').style.display = 'block';
+            return;
+        }
+
+        document.getElementById('wpc-empty-state').style.display = 'none';
+        document.getElementById('wpc-results').style.display = 'flex';
+
+        const levelToggle = document.getElementById('wpcLevelToggle');
+        const isCellMode = (rawWpcData.length > 0 && rawWpcData[0].cell_name !== undefined);
+        const isFailMode = document.getElementById('wpcTypeToggle').value === 'fail';
+
+        // Filter raw data based on tab selections
+        let filtered = rawWpcData.filter(r => {
+            if (activeTab === 'nop') {
+                const selectedNops = msSelections['nopTabNops'] || [];
+                return selectedNops.includes(r.nsa);
+            }
+            if (activeTab === 'city') {
+                const selectedNops = msSelections['cityTabNops'] || [];
+                const selectedCities = msSelections['cityTabCities'] || [];
+                return selectedNops.includes(r.nsa) && selectedCities.includes(r.city);
+            }
+            if (activeTab === 'subnet') {
+                const selectedSubs = msSelections['subnetTabBscs'] || [];
+                return selectedSubs.includes(r.subnet);
+            }
+            return true;
+        });
+
+        // Update Summary Cards
+        let totals = { avail_num:0, avail_denum:0, acc_num:0, acc_denum:0, ret_num:0, ret_denum:0, mob_num:0, mob_denum:0, pl_num:0, pl_denum:0 };
+        filtered.forEach(r => {
+            totals.avail_num += r.avail_num || 0; totals.avail_denum += r.avail_denum || 0;
+            totals.acc_num += r.acc_num || 0; totals.acc_denum += r.acc_denum || 0;
+            totals.ret_num += r.ret_num || 0; totals.ret_denum += r.ret_denum || 0;
+            totals.mob_num += r.mob_num || 0; totals.mob_denum += r.mob_denum || 0;
+            totals.pl_num += r.pl_num || 0; totals.pl_denum += r.pl_denum || 0;
+        });
+
+        const kpis = [
+            { id: 'availChart', val: totals.avail_denum > 0 ? (totals.avail_num / totals.avail_denum) * 100 : null },
+            { id: 'accChart', val: totals.acc_denum > 0 ? (totals.acc_num / totals.acc_denum) * 100 : null },
+            { id: 'retChart', val: totals.ret_denum > 0 ? 100 - ((totals.ret_num / totals.ret_denum) * 100) : null },
+            { id: 'mobChart', val: totals.mob_denum > 0 ? (totals.mob_num / totals.mob_denum) * 100 : null },
+            { id: 'plChart', val: totals.pl_denum > 0 ? (totals.pl_num / totals.pl_denum) * 100 : null }
+        ];
+
+        kpis.forEach(k => {
+            const cardEl = document.getElementById(`card-${k.id}`);
+            const valEl = document.getElementById(`val-${k.id}`);
+            if (cardEl && valEl) {
+                const targetObj = KPI_THRESHOLDS[k.id];
+                cardEl.className = 'kpi-card ' + getCardClass(k.val, targetObj);
+                valEl.innerText = (k.val !== null && k.val !== undefined) ? k.val.toFixed(2) : '-';
+            }
+        });
+
+        // Contributor Grouping Logic:
+        // Regional Tab -> Contributor = NOP (nsa), Header = NOP
+        // NOP Tab      -> Contributor = City (city), Header = City WPC
+        // City / Subnet Tab -> Contributor = Site ID or Cell Name (based on wpcLevelToggle)
+        let contribMap = {};
+        filtered.forEach(r => {
+            let key = '';
+            if (activeTab === 'regional') key = r.nsa;
+            else if (activeTab === 'nop') key = r.city;
+            else key = isCellMode ? r.cell_name : r.siteid;
+
+            if (!key) return;
+            if (!contribMap[key]) {
+                contribMap[key] = {
+                    contributor: key, nop: r.nsa || '', city: r.city || '', subnet: r.subnet || '',
+                    avail_num:0, avail_denum:0, acc_num:0, acc_denum:0, ret_num:0, ret_denum:0, mob_num:0, mob_denum:0, pl_num:0, pl_denum:0
+                };
+            }
+            let c = contribMap[key];
+            c.avail_num += r.avail_num || 0; c.avail_denum += r.avail_denum || 0;
+            c.acc_num += r.acc_num || 0; c.acc_denum += r.acc_denum || 0;
+            c.ret_num += r.ret_num || 0; c.ret_denum += r.ret_denum || 0;
+            c.mob_num += r.mob_num || 0; c.mob_denum += r.mob_denum || 0;
+            c.pl_num += r.pl_num || 0; c.pl_denum += r.pl_denum || 0;
+        });
+
+        let contribList = Object.values(contribMap);
+        contribList.forEach(c => {
+            c.availChart_pct = c.avail_denum > 0 ? (c.avail_num / c.avail_denum) * 100 : null;
+            c.availChart_fail = c.avail_denum - c.avail_num;
+
+            c.accChart_pct = c.acc_denum > 0 ? (c.acc_num / c.acc_denum) * 100 : null;
+            c.accChart_fail = c.acc_denum - c.acc_num;
+
+            c.retChart_pct = c.ret_denum > 0 ? (100 - (c.ret_num / c.ret_denum * 100)) : null;
+            c.retChart_fail = c.ret_num;
+
+            c.mobChart_pct = c.mob_denum > 0 ? (c.mob_num / c.mob_denum) * 100 : null;
+            c.mobChart_fail = c.mob_denum - c.mob_num;
+
+            c.plChart_pct = c.pl_denum > 0 ? (c.pl_num / c.pl_denum) * 100 : null;
+            c.plChart_fail = c.pl_num;
+        });
+
+        const showNopUI = (activeTab === 'city' || activeTab === 'subnet') && !isCellMode;
+        const exportNop = activeTab !== 'regional';
+        
+        let entityHeader = 'Contributor';
+        if (activeTab === 'regional') entityHeader = 'NOP';
+        else if (activeTab === 'nop') entityHeader = 'City WPC';
+        else entityHeader = isCellMode ? 'Cell Name' : 'Site ID';
+
+        // Update Headers
+        document.querySelectorAll('.th-contributor').forEach(th => th.innerText = entityHeader);
+        document.querySelectorAll('.th-value').forEach(th => th.innerText = isFailMode ? 'Value (Fail)' : 'Value (%)');
+        document.querySelectorAll('.th-nop').forEach(th => th.style.display = showNopUI ? '' : 'none');
+
+        const kpiKeys = ['availChart', 'accChart', 'retChart', 'mobChart', 'plChart'];
+
+        kpiKeys.forEach(kpi => {
+            const tbody = document.getElementById(`tb-${kpi}`);
+            if (!tbody) return;
+            const targetObj = KPI_THRESHOLDS[kpi];
+            const isLowerBetter = targetObj.isLowerBetter;
+            const sortKey = isFailMode ? `${kpi}_fail` : `${kpi}_pct`;
+
+            let sorted = [...contribList].filter(c => c[sortKey] !== null && c[sortKey] !== undefined);
+            if (isFailMode) {
+                sorted.sort((a, b) => b[sortKey] - a[sortKey]);
+            } else {
+                if (isLowerBetter) sorted.sort((a, b) => b[sortKey] - a[sortKey]);
+                else sorted.sort((a, b) => a[sortKey] - b[sortKey]);
+            }
+
+            const top10 = sorted.slice(0, 10);
+            if (top10.length === 0) {
+                const colSpan = (kpi === 'availChart') ? (showNopUI ? 4 : 3) : (showNopUI ? 5 : 4);
+                tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center;color:#999;padding:20px;">No data</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            top10.forEach((r, idx) => {
+                let valStr = '';
+                let valTitle = '';
+                let exactVal = '';
+                if (isFailMode) {
+                    valStr = formatCompactNumber(r[sortKey]);
+                    exactVal = r[sortKey] !== null && r[sortKey] !== undefined ? Math.round(r[sortKey]) : '';
+                    valTitle = r[sortKey] !== null && r[sortKey] !== undefined ? Math.round(r[sortKey]).toLocaleString('en-US') : '';
+                } else {
+                    valStr = r[sortKey] !== null && r[sortKey] !== undefined ? r[sortKey].toFixed(2) : '-';
+                    exactVal = valStr;
+                    valTitle = r[sortKey] !== null && r[sortKey] !== undefined ? r[sortKey].toFixed(2) + '%' : '';
+                }
+
+                let nopCell = exportNop ? `<td class="td-nop" style="${showNopUI ? '' : 'display:none;'}">${r.nop || '-'}</td>` : '';
+                let availCell = (kpi === 'availChart') ? '' : `<td style="text-align:right">${r.availChart_pct !== null && r.availChart_pct !== undefined ? r.availChart_pct.toFixed(2) : '-'}</td>`;
+                let titleAttr = valTitle ? `title="${valTitle}"` : '';
+                let dataAttr = exactVal !== '' ? `data-exact="${exactVal}"` : '';
+
+                html += `<tr><td class="rank-col">${idx+1}</td>${nopCell}<td class="td-contributor" title="${r.contributor}">${r.contributor}</td><td class="value-col" ${titleAttr} ${dataAttr}>${valStr}</td>${availCell}</tr>`;
+            });
+            tbody.innerHTML = html;
+        });
+    }
+
+    function exportPng() {
+        let container = document.getElementById('wpc-results');
+        if(!container || container.style.display === 'none') return alert("Please generate a report first.");
+        document.getElementById('loader-overlay').style.display = 'flex';
+
+        html2canvas(container, { backgroundColor: '#f5f7fa', scale: 2 }).then(canvas => {
+            let link = document.createElement('a');
+            link.download = `WPC_5G_${activeTab}_${new Date().getTime()}.png`;
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+            document.getElementById('loader-overlay').style.display = 'none';
+        }).catch(err => {
+            alert("Export failed: " + err);
+            document.getElementById('loader-overlay').style.display = 'none';
+        });
+    }
+
+    function exportXls() {
+        let container = document.getElementById('wpc-results');
+        if(!container || container.style.display === 'none') return alert("Please generate a report first.");
+
+        let tempHiddenNop = [];
+        if (activeTab === 'regional') {
+            document.querySelectorAll('.th-nop, .td-nop').forEach(th => {
+                let parent = th.parentNode;
+                let next = th.nextSibling;
+                parent.removeChild(th);
+                tempHiddenNop.push({parent: parent, next: next, el: th});
+            });
+        } else {
+            document.querySelectorAll('.th-nop, .td-nop').forEach(el => {
+                if (el.style.display === 'none') {
+                    el.style.display = '';
+                    tempHiddenNop.push({el: el, wasHidden: true});
+                }
+            });
+        }
+
+        let tempValSwaps = [];
+        let isFailMode = document.getElementById('wpcTypeToggle') && document.getElementById('wpcTypeToggle').value === 'fail';
+        if (isFailMode) {
+            document.querySelectorAll('.value-col[data-exact]').forEach(td => {
+                let currentText = td.innerText;
+                let exact = td.getAttribute('data-exact');
+                td.innerText = exact;
+                tempValSwaps.push({ el: td, original: currentText });
+            });
+        }
+
+        let wb = XLSX.utils.book_new();
+        const kpiNames = {
+            'tb-availChart': 'Availability',
+            'tb-accChart': 'NR Accessibility',
+            'tb-retChart': 'NR Retainability',
+            'tb-mobChart': 'NR Mobility SR',
+            'tb-plChart': 'Packet Loss'
+        };
+
+        Object.keys(kpiNames).forEach(tbId => {
+            let tbody = document.getElementById(tbId);
+            if (tbody) {
+                let table = tbody.closest('table');
+                let ws = XLSX.utils.table_to_sheet(table);
+                XLSX.utils.book_append_sheet(wb, ws, kpiNames[tbId]);
+            }
+        });
+
+        if (activeTab === 'regional') {
+            tempHiddenNop.forEach(item => item.parent.insertBefore(item.el, item.next));
+        } else {
+            tempHiddenNop.forEach(item => { if (item.wasHidden) item.el.style.display = 'none'; });
+        }
+
+        tempValSwaps.forEach(item => item.el.innerText = item.original);
+        XLSX.writeFile(wb, `WPC_5G_${activeTab}_${new Date().getTime()}.xlsx`);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initMsOptions('nopTabNops', Object.keys(NSA_CITY_MAP).sort());
+        initMsOptions('cityTabNops', Object.keys(NSA_CITY_MAP).sort());
+        initMsOptions('subnetTabBscs', SUBNET_LIST);
+    });
+</script>
+{% endblock %}

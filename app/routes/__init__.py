@@ -27,6 +27,9 @@ wpc_2g_monitoring = wpc_2g_monitoring_routes.wpc_2g_monitoring
 from . import wpc_4g_monitoring_routes
 wpc_4g_monitoring = wpc_4g_monitoring_routes.wpc_4g_monitoring
 
+from . import wpc_5g_monitoring_routes
+wpc_5g_monitoring = wpc_5g_monitoring_routes.wpc_5g_monitoring
+
 # 4G Monitoring — /kpi_4g_monitoring (import before dashboards that depend on it)
 from . import kpi_4g_monitoring_routes
 kpi4g_monitoring = kpi_4g_monitoring_routes.kpi4g_monitoring

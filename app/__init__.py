@@ -95,7 +95,7 @@ def create_app():
     # ── 5. REGISTER BLUEPRINTS ─────────────────────────────────────────────────
     from .routes import (
         auth, prod, admin_bp,
-        kpi2g_monitoring, wpc_2g_monitoring, wpc_4g_monitoring,
+        kpi2g_monitoring, wpc_2g_monitoring, wpc_4g_monitoring, wpc_5g_monitoring,
         kpi4g_monitoring,
         kpi5g_monitoring,
         pl_monitoring, ta4g_new, dashboard_2g, dashboard_4g, dashboard_5g, coverage, okumura_hata, nettilt3d,
@@ -107,6 +107,7 @@ def create_app():
     app.register_blueprint(kpi2g_monitoring)
     app.register_blueprint(wpc_2g_monitoring)
     app.register_blueprint(wpc_4g_monitoring)
+    app.register_blueprint(wpc_5g_monitoring)
     app.register_blueprint(kpi4g_monitoring)
     app.register_blueprint(optim_4g)
     app.register_blueprint(kpi5g_monitoring)
