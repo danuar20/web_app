@@ -558,9 +558,8 @@
         <div style="font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px;">
             <i class="fas fa-filter" style="color: #4facfe;"></i> Filters
         </div>
-        <button type="button" class="btn-xs" onclick="toggleFilters()" id="filterToggleBtn"
-            style="padding: 4px 10px; font-size: 11px;">
-            <i class="fas fa-chevron-up"></i> Hide Filters
+        <button type="button" class="btn-xs" onclick="toggleFilterPanel()" id="filterToggleBtn">
+            <i class="fas fa-chevron-up" id="filterToggleIcon"></i> <span id="filterToggleLabel">Hide Filters</span>
         </button>
     </div>
 
@@ -2558,5 +2557,32 @@
         document.addEventListener('DOMContentLoaded', () => {
         if (typeof updateKpiCount === 'function') updateKpiCount();
     });
+
+var _filterOpen = true;
+function toggleFilterPanel() {
+    var fc = document.getElementById("filterContainer");
+    var ic = document.getElementById("filterToggleIcon");
+    var lbl = document.getElementById("filterToggleLabel");
+    if (!fc) return;
+    _filterOpen = !_filterOpen;
+    if (_filterOpen) {
+        fc.classList.remove("collapsed");
+        if (ic) ic.className = "fas fa-chevron-up";
+        if (lbl) lbl.textContent = "Hide Filters";
+    } else {
+        fc.classList.add("collapsed");
+        if (ic) ic.className = "fas fa-chevron-down";
+        if (lbl) lbl.textContent = "Show Filters";
+    }
+}
+function toggleFilters() { toggleFilterPanel(); }
+
+
+    document.addEventListener('DOMContentLoaded', () => {
+        {% if query_done %}
+        if (typeof _filterOpen !== 'undefined' && _filterOpen) toggleFilterPanel();
+        {% endif %}
+    });
+
 </script>
 {% endblock %}

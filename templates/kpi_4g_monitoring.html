@@ -22,6 +22,10 @@
 @media(max-width:768px) { .chart-grid { grid-template-columns: 1fr; } }
 
 /* ── Filter panel ── */
+
+.btn-xs { padding: 4px 10px; font-size: 11px; background: transparent; border: 1px solid #dcdfe6; border-radius: 4px; cursor: pointer; color: #5f6368; transition: 0.2s; }
+.btn-xs:hover { background: #f0f2f5; color: #333; }
+
 .filter-toggle-bar { display:flex; justify-content:space-between; align-items:center; padding: 0 4px; }
 .filter-kpi-grid   { display:grid; grid-template-columns: repeat(4,1fr); gap:6px 12px; margin-top:10px; }
 @media(max-width:900px){ .filter-kpi-grid { grid-template-columns: repeat(2,1fr); } }
@@ -2133,6 +2137,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
     // Render regional charts
     renderTabCharts("regional", ["Regional"]);
+        if (_filterOpen) toggleFilterPanel();
     {% endif %}
 });
 

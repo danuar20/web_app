@@ -44,6 +44,10 @@
     }
 
     /* ── Filter panel ── */
+
+.btn-xs { padding: 4px 10px; font-size: 11px; background: transparent; border: 1px solid #dcdfe6; border-radius: 4px; cursor: pointer; color: #5f6368; transition: 0.2s; }
+.btn-xs:hover { background: #f0f2f5; color: #333; }
+
     .filter-toggle-bar {
         display: flex;
         justify-content: space-between;
@@ -745,8 +749,7 @@
         <div style="font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;">
             <i class="fas fa-sliders-h" style="color:#4facfe;"></i> Filters &amp; KPI Selection
         </div>
-        <button type="button" class="btn-xs" id="filterToggleBtn" onclick="toggleFilterPanel()"
-            style="padding:4px 10px;font-size:11px;">
+        <button type="button" class="btn-xs" id="filterToggleBtn" onclick="toggleFilterPanel()">
             <i class="fas fa-chevron-up" id="filterToggleIcon"></i> <span id="filterToggleLabel">Hide Filters</span>
         </button>
     </div>
@@ -2542,6 +2545,7 @@
 
         // Render regional charts
         renderTabCharts("regional", ["Regional"]);
+        if (_filterOpen) toggleFilterPanel();
         {% endif %}
     });
 
