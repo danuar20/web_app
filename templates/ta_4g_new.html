@@ -244,6 +244,15 @@
                             <option value="pct">Cumulative % TA</option>
                         </select>
                     </div>
+                    
+                    <div class="filter-group">
+                        <div class="filter-label">Filter Type</div>
+                        <select id="actFilterType" class="f-input" onchange="renderCharts('actual'); buildAnalysisTable('actual');">
+                            <option value="all" selected>All</option>
+                            <option value="indoor">Indoor</option>
+                            <option value="macro">Macro</option>
+                        </select>
+                    </div>
                 </div>
             </div>
             
@@ -371,6 +380,15 @@
                             <option value="all" selected>All</option>
                             <option value="dist">TA Distribution</option>
                             <option value="pct">Cumulative % TA</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <div class="filter-label">Filter Type</div>
+                        <select id="compFilterType" class="f-input" onchange="renderCharts('compare'); buildAnalysisTable('compare');">
+                            <option value="all" selected>All</option>
+                            <option value="indoor">Indoor</option>
+                            <option value="macro">Macro</option>
                         </select>
                     </div>
                 </div>
@@ -636,6 +654,7 @@ function openCustomChartModal(canvas) {
 function rebuildDynamicFilters(tab, dataObj) {
     let sectors = new Set();
     let bands = new Set();
+    let types = new Set();
     
     for(let secKey in dataObj) {
         let parts = secKey.split("_S");
@@ -643,11 +662,14 @@ function rebuildDynamicFilters(tab, dataObj) {
         sectors.add(sec);
         for(let b in dataObj[secKey]) {
             bands.add(b);
+            let st = dataObj[secKey][b].sector_type || 'Macro';
+            types.add(st);
         }
     }
     
     let sortedSecs = Array.from(sectors).sort((a,b) => parseInt(a) - parseInt(b));
     let sortedBands = Array.from(bands).sort((a,b) => a.length === b.length ? a.localeCompare(b) : a.length - b.length);
+    let sortedTypes = Array.from(types).sort();
     
     let secListId = tab === 'actual' ? 'actSecList' : 'compSecList';
     let bandListId = tab === 'actual' ? 'actBandList' : 'compBandList';
@@ -669,6 +691,23 @@ function rebuildDynamicFilters(tab, dataObj) {
         lbl.innerHTML = `<input type="checkbox" checked value="${b}" onchange="updateLbl('${bandListId}', '${bandLblId}', 'Band', true)"> <span>${b}</span>`;
         bandListEl.appendChild(lbl);
     });
+    
+    let typeSelectId = tab === 'actual' ? 'actFilterType' : 'compFilterType';
+    let typeSelectEl = document.getElementById(typeSelectId);
+    if(typeSelectEl) {
+        let prevVal = typeSelectEl.value;
+        let html = '<option value="all">All</option>';
+        sortedTypes.forEach(t => {
+            let val = t.toLowerCase();
+            html += `<option value="${val}">${t}</option>`;
+        });
+        typeSelectEl.innerHTML = html;
+        if(sortedTypes.map(t => t.toLowerCase()).includes(prevVal)) {
+            typeSelectEl.value = prevVal;
+        } else {
+            typeSelectEl.value = 'all';
+        }
+    }
     
     document.getElementById(tab==='actual'?'actSecCbAll':'compSecCbAll').checked = true;
     document.getElementById(tab==='actual'?'actBandCbAll':'compBandCbAll').checked = true;
@@ -754,7 +793,7 @@ function getBandColor(band) {
     return FALLBACK_COLORS[band.length % FALLBACK_COLORS.length];
 }
 
-function buildDatasetsActual(bandsObj, selectedBands, thresholdId) {
+function buildDatasetsActual(bandsObj, selectedBands, thresholdId, filterType='all') {
     let dist = [], pct = [];
     let thresh = parseFloat(document.getElementById(thresholdId).value) || 90;
     
@@ -762,6 +801,9 @@ function buildDatasetsActual(bandsObj, selectedBands, thresholdId) {
     
     for(let band of sortedBands) {
         if(!selectedBands.includes(band)) continue;
+        let bandType = (bandsObj[band].sector_type || 'Macro').toLowerCase();
+        if(filterType && filterType !== 'all' && bandType !== filterType) continue;
+
         let c = getBandColor(band);
         let vals = bandsObj[band].ta_vals;
         let tot = bandsObj[band].total || 1; 
@@ -843,6 +885,7 @@ function renderCharts(tab) {
     let bandListId = tab === 'actual' ? 'actBandList' : 'compBandList';
     let thresholdId = tab === 'actual' ? 'actThreshold' : 'compThreshold';
     let viewType = document.getElementById(tab === 'actual' ? 'actChartViewType' : 'compChartViewType').value;
+    let filterType = document.getElementById(tab === 'actual' ? 'actFilterType' : 'compFilterType').value.toLowerCase();
     
     let selSecs = getCheckedValues(secListId);
     let selBands = getCheckedValues(bandListId);
@@ -866,7 +909,7 @@ function renderCharts(tab) {
             let secNum = parts.length > 1 ? parts[1] : "";
             if(!selSecs.includes(secNum)) continue;
             
-            let ds = buildDatasetsActual(ACT_DATA[secKey], selBands, thresholdId);
+            let ds = buildDatasetsActual(ACT_DATA[secKey], selBands, thresholdId, filterType);
             if(ds.dist.length === 0) continue;
             
             if(count % cols === 0) {
@@ -877,7 +920,6 @@ function renderCharts(tab) {
             count++;
             
             let colDiv = document.createElement('div');
-            // BUG #1 FIX: Removed dead hidden <h3> element that was never used
             let distCard = document.createElement('div');
             distCard.className = 'glass-card chart-row';
             
@@ -936,8 +978,8 @@ function renderCharts(tab) {
             
             let bef = COMP_BEFORE[secKey] || {};
             let aft = COMP_AFTER[secKey] || {};
-            let dsBef = buildDatasetsActual(bef, selBands, thresholdId);
-            let dsAft = buildDatasetsActual(aft, selBands, thresholdId);
+            let dsBef = buildDatasetsActual(bef, selBands, thresholdId, filterType);
+            let dsAft = buildDatasetsActual(aft, selBands, thresholdId, filterType);
             
             if(dsBef.dist.length === 0 && dsAft.dist.length === 0) continue;
             
@@ -945,7 +987,6 @@ function renderCharts(tab) {
             flexRow.className = 'chart-row-flex';
             flexRow.style.marginBottom = '20px';
             
-            // Before Card — BUG #1 FIX: Removed dead hidden <h3> elements
             let bCard = document.createElement('div');
             bCard.className = 'glass-card chart-row';
             
@@ -968,7 +1009,6 @@ function renderCharts(tab) {
             }
             flexRow.appendChild(bCard);
             
-            // After Card — BUG #1 FIX: Removed dead hidden <h3> elements
             let aCard = document.createElement('div');
             aCard.className = 'glass-card chart-row';
             
@@ -1011,9 +1051,7 @@ function getStatusByDistance(dist) {
     return '<span class="pill-neg">Overshoot</span>';
 }
 
-// BUG #2 FIX: samplesInThresh now correctly uses the cumulative count AT the threshold bucket,
-// rather than accumulating all samples every iteration (which always equalled total).
-function calculateAnalysisRows(dataObj, selSecs, selBands, period, thresholdId) {
+function calculateAnalysisRows(dataObj, selSecs, selBands, period, thresholdId, filterType='all') {
     let rows = [];
     let thresh = parseFloat(document.getElementById(thresholdId).value) || 90;
     
@@ -1028,6 +1066,8 @@ function calculateAnalysisRows(dataObj, selSecs, selBands, period, thresholdId) 
         let maxT = -1;
         for(let b in bands) {
             if(!selBands.includes(b)) continue;
+            let bandType = (bands[b].sector_type || 'Macro').toLowerCase();
+            if(filterType && filterType !== 'all' && bandType !== filterType) continue;
             if(bands[b].total > maxT) { maxT = bands[b].total; domBand = b; }
         }
         
@@ -1035,10 +1075,13 @@ function calculateAnalysisRows(dataObj, selSecs, selBands, period, thresholdId) 
         
         for(let b of sortedBands) {
             if(!selBands.includes(b)) continue;
+            let bandType = (bands[b].sector_type || 'Macro').toLowerCase();
+            if(filterType && filterType !== 'all' && bandType !== filterType) continue;
+
             let tot = bands[b].total;
             let vals = bands[b].ta_vals;
             let cum = 0;
-            let samplesInThresh = 0; // Will hold the cumulative count AT the threshold bucket
+            let samplesInThresh = 0;
             let bucketIndex = 0;
             let thresholdReached = false;
             
@@ -1046,14 +1089,12 @@ function calculateAnalysisRows(dataObj, selSecs, selBands, period, thresholdId) 
                 cum += vals[i];
                 let pct = (cum / (tot||1)) * 100;
                 if(pct >= thresh && !thresholdReached) {
-                    // Fix: samplesInThresh = cumulative count up to and including this bucket
                     samplesInThresh = cum;
                     bucketIndex = i;
                     thresholdReached = true;
                     break;
                 }
                 if(i === vals.length - 1) {
-                    // Threshold not reached even at last bucket — use full cumulative
                     samplesInThresh = cum;
                     bucketIndex = i;
                 }
@@ -1077,6 +1118,8 @@ function buildAnalysisTable(tab) {
     let secListId = tab === 'actual' ? 'actSecList' : 'compSecList';
     let bandListId = tab === 'actual' ? 'actBandList' : 'compBandList';
     let thresholdId = tab === 'actual' ? 'actThreshold' : 'compThreshold';
+    let filterType = document.getElementById(tab === 'actual' ? 'actFilterType' : 'compFilterType').value.toLowerCase();
+    
     let selSecs = getCheckedValues(secListId);
     let selBands = getCheckedValues(bandListId);
 
@@ -1087,11 +1130,11 @@ function buildAnalysisTable(tab) {
     let rows = [];
     if(tab === 'actual') {
         if(!ACT_DATA) return;
-        rows = calculateAnalysisRows(ACT_DATA, selSecs, selBands, "", thresholdId);
+        rows = calculateAnalysisRows(ACT_DATA, selSecs, selBands, "", thresholdId, filterType);
     } else {
         if(!COMP_BEFORE && !COMP_AFTER) return;
-        if(COMP_BEFORE) rows = rows.concat(calculateAnalysisRows(COMP_BEFORE, selSecs, selBands, "Before", thresholdId));
-        if(COMP_AFTER) rows = rows.concat(calculateAnalysisRows(COMP_AFTER, selSecs, selBands, "After", thresholdId));
+        if(COMP_BEFORE) rows = rows.concat(calculateAnalysisRows(COMP_BEFORE, selSecs, selBands, "Before", thresholdId, filterType));
+        if(COMP_AFTER) rows = rows.concat(calculateAnalysisRows(COMP_AFTER, selSecs, selBands, "After", thresholdId, filterType));
     }
     
     rows.forEach(r => {

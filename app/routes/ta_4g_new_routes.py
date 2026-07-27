@@ -53,6 +53,30 @@ def get_band(cell_id_str):
     return BAND_MAP.get(s[-1], "Unknown") if s else "Unknown"
 
 
+def extract_sector_code(cell_name, siteid=""):
+    if not cell_name:
+        return ""
+    cn = str(cell_name).strip()
+    import re
+    m = re.search(r'_([A-Za-z]{2})\d+$', cn)
+    if m:
+        return m.group(1).upper()
+    if siteid:
+        m = re.search(re.escape(str(siteid)) + r'([A-Za-z]{2})\d', cn, re.IGNORECASE)
+        if m:
+            return m.group(1).upper()
+    m = re.search(r'[A-Za-z]{3}\d{3}([A-Za-z]{2})', cn)
+    if m:
+        return m.group(1).upper()
+    return ""
+
+
+def get_sector_type(sector_code):
+    if sector_code and sector_code.upper().startswith("I"):
+        return "Indoor"
+    return "Macro"
+
+
 def query_ta_data(cur, site_ids, from_date, to_date):
     """Query measTA4G and return aggregated TA data summed over date range."""
     if not site_ids or not from_date or not to_date:
@@ -63,7 +87,7 @@ def query_ta_data(cur, site_ids, from_date, to_date):
     ta_sums = ", ".join(["COALESCE(SUM(" + col + "), 0)" for col in TA_COLUMNS])
 
     sql = (
-        "SELECT \"ME Name\", \"Cell ID\", \"Product\", " + ta_sums + " "
+        "SELECT \"ME Name\", \"Cell ID\", \"Product\", MAX(\"Cell Name\") AS cell_name, " + ta_sums + " "
         "FROM \"measTA4G\" "
         "WHERE \"Date\"::date >= %s::date "
         "  AND \"Date\"::date <= %s::date "
@@ -79,7 +103,8 @@ def query_ta_data(cur, site_ids, from_date, to_date):
     for row in rows:
         me_name = row[0]
         cell_id = row[1]
-        ta_vals = [float(v) if v is not None else 0.0 for v in row[3:18]]
+        cell_name = row[3] or ""
+        ta_vals = [float(v) if v is not None else 0.0 for v in row[4:19]]
         site_id = extract_site_id(me_name)
         try:
             cid_str = str(int(float(cell_id))) if cell_id is not None else ""
@@ -88,11 +113,16 @@ def query_ta_data(cur, site_ids, from_date, to_date):
         sector = get_sector(cid_str)
         band = get_band(cid_str)
         sec_key = site_id + "_S" + sector
+        
+        sec_code = extract_sector_code(cell_name, site_id)
+        sec_type = get_sector_type(sec_code)
+
         if sec_key not in result:
             result[sec_key] = {}
         if band not in result[sec_key]:
             result[sec_key][band] = {
                 "site_id": site_id, "sector": sector, "band": band,
+                "cell_name": cell_name, "sector_code": sec_code, "sector_type": sec_type,
                 "ta_vals": [0.0] * 15, "total": 0.0
             }
         existing = result[sec_key][band]["ta_vals"]

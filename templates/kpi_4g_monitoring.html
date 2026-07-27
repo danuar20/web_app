@@ -731,6 +731,9 @@
         <div style="flex:1; min-width:150px;">
                         {{ render_ms('sector_kpi', 'Filter KPI', 'Select KPIs...') }}
         </div>
+        <div style="flex:1; min-width:150px;">
+                        {{ render_ms('sector_type', 'Filter Type', 'Select Types...') }}
+        </div>
     </div>
     
     <div class="tab-empty-state" id="emptyState-sector">
@@ -1033,7 +1036,7 @@ function triggerMsChange(id) {
         activeFilterDims.sector = msSelections[id];
         updateTabDisplay("sector");
     }
-    else if(id === "sector_kpi" || id === "sector_sector" || id === "sector_band") {
+    else if(id === "sector_kpi" || id === "sector_sector" || id === "sector_band" || id === "sector_type") {
         applySectorLocalFilters();
     }
 }
@@ -1121,6 +1124,24 @@ function setSiteMode(mode, btn) {
 }
 
 
+function getLegendSectorCode(leg) {
+    var parts = leg.split("|");
+    if (parts.length < 2) return "";
+    var tokens = parts[1].trim().split(" ");
+    if (tokens.length > 1) {
+        return tokens[1].split("-")[0].toUpperCase();
+    }
+    return "";
+}
+
+function getLegendSectorType(leg) {
+    var code = getLegendSectorCode(leg);
+    if (code.startsWith("I")) {
+        return "Indoor";
+    }
+    return "Macro";
+}
+
 function fetchSectorData(dims) {
     if (dims.length === 0) {
         document.getElementById("emptyState-sector").style.display = "block";
@@ -1168,18 +1189,20 @@ function fetchSectorData(dims) {
         SECTOR_API_DATA = data;
         SECTOR_API_DATA._dims = dimsStr;
         
-        // Extract unique sectors and bands from legends dynamically
+        // Extract unique sectors, bands, and types from legends dynamically
         var uniqueSectors = new Set();
         var uniqueBands = new Set();
+        var uniqueTypes = new Set();
         (data.daily.legends || []).forEach(leg => {
             var parts = leg.split(" S");
             if (parts.length > 1) {
                 var p2 = parts[1].split("|");
                 uniqueSectors.add(p2[0]);
                 if (p2.length > 1) {
-                    uniqueBands.add(p2[1].split("-")[0]);
+                    uniqueBands.add(p2[1].split("-")[0].split(" ")[0]);
                 }
             }
+            uniqueTypes.add(getLegendSectorType(leg));
         });
         var sortedSectors = Array.from(uniqueSectors).sort((a,b) => parseInt(a)-parseInt(b));
         if (sortedSectors.length > 0) {
@@ -1191,6 +1214,10 @@ function fetchSectorData(dims) {
         });
         if (sortedBands.length > 0) {
             initMsOptions('sector_band', sortedBands, true);
+        }
+        var sortedTypes = Array.from(uniqueTypes).sort();
+        if (sortedTypes.length > 0) {
+            initMsOptions('sector_type', sortedTypes, true);
         }
         
         applySectorLocalFilters();
@@ -1212,20 +1239,23 @@ function applySectorLocalFilters() {
     
     var selSectors = msSelections['sector_sector'] || [];
     var selBands = msSelections['sector_band'] || [];
+    var selTypes = msSelections['sector_type'] || [];
     var selKpis = msSelections['sector_kpi'] || [];
     if (selKpis.length === 0) selKpis = KPI_DEFS.map(k => k[0]); // Default to all if empty
     
     // Filter the legend keys
     var validLegends = sourceData.legends.filter(leg => {
-        // Legend format: {siteid} S{sector}|{band}-{cell}
+        // Legend format: {siteid} S{sector}|{band} {code}-{cell}
         var parts = leg.split(" S");
         if (parts.length < 2) return true; // keep if format differs
         var p2 = parts[1].split("|");
         var legSec = p2[0];
-        var legBand = p2.length > 1 ? p2[1].split("-")[0] : "";
+        var legBand = p2.length > 1 ? p2[1].split("-")[0].split(" ")[0] : "";
+        var legType = getLegendSectorType(leg);
         
         if (selSectors.length > 0 && !selSectors.includes(legSec)) return false;
         if (selBands.length > 0 && !selBands.includes(legBand)) return false;
+        if (selTypes.length > 0 && !selTypes.includes(legType)) return false;
         return true;
     });
     
@@ -1585,12 +1615,12 @@ function buildDatasets(tabId, kpiId, dims){
             var legendLabel = d;
             var finalColor = COLORS[i % COLORS.length];
             if (tabId === 'sector') {
+                var parts = d.split('|');
                 if (SECTOR_CHART_MODE === 'combined') {
-                    legendLabel = d.replace('|', ' ');
+                    legendLabel = parts.length > 1 ? parts[1] : d.replace('|', ' ');
                 } else {
-                    var parts = d.split('|');
                     if (parts.length > 1) {
-                        legendLabel = parts[1].split('-')[0];
+                        legendLabel = parts[1].split(' ')[0].split('-')[0];
                         if (BAND_COLORS[legendLabel]) {
                             finalColor = BAND_COLORS[legendLabel];
                         }
@@ -2120,6 +2150,9 @@ document.addEventListener("DOMContentLoaded", function(){
     
     var bandOpts = ["L700", "L900", "L1800", "L2100", "L2300_1", "L2300_2", "L2300_3"];
     initMsOptions('sector_band', bandOpts, true);
+    
+    var typeOpts = ["Indoor", "Macro"];
+    initMsOptions('sector_type', typeOpts, true);
     // Populate sector_kpi
     var kpiListEl = document.getElementById("ms-list-sector_kpi");
     if(kpiListEl) {
