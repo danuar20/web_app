@@ -14,7 +14,7 @@ def make_post_cache_key(*args, **kwargs):
     import json
     data = request.get_json() or {}
     key = f"{request.path}:{json.dumps(data, sort_keys=True)}"
-    return "post_cache_v4_" + hashlib.md5(key.encode('utf-8')).hexdigest()
+    return "post_cache_v5_" + hashlib.md5(key.encode('utf-8')).hexdigest()
 
 
 
@@ -596,7 +596,7 @@ def api_kpi_4g_monitoring_sector_data():
                 FROM "4g_kpi_zte"
                 WHERE datehour >= %s::date AND datehour < (%s::date + interval '1 day')
                   AND siteid = ANY(%s)
-                GROUP BY datehour, siteid, cell, sector, band, tech
+                GROUP BY datehour, siteid, cell, cell_name, sector, band, tech
                 ORDER BY datehour
             '''
             cur.execute(sql_hourly, [from_date, to_date, sites])
@@ -627,7 +627,7 @@ def api_kpi_4g_monitoring_sector_data():
                 FROM "4g_kpi_zte"
                 WHERE datehour >= %s::date AND datehour < (%s::date + interval '1 day')
                   AND siteid = ANY(%s)
-                GROUP BY date, siteid, cell, sector, band, tech
+                GROUP BY date, siteid, cell, cell_name, sector, band, tech
                 ORDER BY date
             '''
             cur.execute(sql_daily, [from_date, to_date, sites])
@@ -800,7 +800,7 @@ def api_kpi_4g_monitoring_sector_data_bdbh():
                 FROM "measKpiBdbh4G"
                 WHERE "Date" >= %s::date AND "Date" <= %s::date
                   AND COALESCE(SUBSTRING("Cell Name" FROM '([A-Za-z]{{3}}\\d{{3}})'), SUBSTRING("ME Name", 3, 6)) = ANY(%s)
-                GROUP BY "Time", siteid, "Cell ID", sector, band, tech
+                GROUP BY "Time", siteid, "Cell ID", "Cell Name", sector, band, tech
                 ORDER BY "Time"
             '''
             cur.execute(sql_hourly, [from_date, to_date, sites])
@@ -832,7 +832,7 @@ def api_kpi_4g_monitoring_sector_data_bdbh():
                 FROM "measKpiBdbh4G"
                 WHERE "Date" >= %s::date AND "Date" <= %s::date
                   AND COALESCE(SUBSTRING("Cell Name" FROM '([A-Za-z]{{3}}\\d{{3}})'), SUBSTRING("ME Name", 3, 6)) = ANY(%s)
-                GROUP BY "Date", siteid, "Cell ID", sector, band, tech
+                GROUP BY "Date", siteid, "Cell ID", "Cell Name", sector, band, tech
                 ORDER BY "Date"
             '''
             cur.execute(sql_daily, [from_date, to_date, sites])

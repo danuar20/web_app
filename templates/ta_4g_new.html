@@ -508,11 +508,25 @@ window.addEventListener('click', function(e){
         document.querySelectorAll('.dropdown-menu').forEach(d => d.style.display = 'none');
     }
 });
+
+let filterListTimer = null;
 function filterList(inp, listId) {
-    let v = inp.value.toLowerCase();
-    document.querySelectorAll(`#${listId} label`).forEach(lbl => {
-        let text = lbl.querySelector('span').innerText.toLowerCase();
-        lbl.style.display = text.indexOf(v) > -1 ? 'flex' : 'none';
+    if (filterListTimer) cancelAnimationFrame(filterListTimer);
+    filterListTimer = requestAnimationFrame(() => {
+        let v = inp.value.toLowerCase().trim();
+        let container = document.getElementById(listId);
+        if (!container) return;
+        let labels = container.getElementsByTagName("label");
+        let len = labels.length;
+        for (let i = 0; i < len; i++) {
+            let lbl = labels[i];
+            let txt = lbl.dataset.txt;
+            if (!txt) {
+                txt = (lbl.textContent || "").toLowerCase();
+                lbl.dataset.txt = txt;
+            }
+            lbl.style.display = (v === "" || txt.indexOf(v) > -1) ? "flex" : "none";
+        }
     });
 }
 function searchTable(tableId, query) {
@@ -661,7 +675,8 @@ function rebuildDynamicFilters(tab, dataObj) {
         let sec = parts.length > 1 ? parts[1] : "Unknown";
         sectors.add(sec);
         for(let b in dataObj[secKey]) {
-            bands.add(b);
+            let baseBand = dataObj[secKey][b].band || b;
+            bands.add(baseBand);
             let st = dataObj[secKey][b].sector_type || 'Macro';
             types.add(st);
         }
@@ -793,20 +808,42 @@ function getBandColor(band) {
     return FALLBACK_COLORS[band.length % FALLBACK_COLORS.length];
 }
 
+function aggregateBands(bandsObj, selectedBands, filterType='all') {
+    let agg = {};
+    for (let k in bandsObj) {
+        let item = bandsObj[k];
+        let baseBand = item.band || k;
+        if (selectedBands.length > 0 && !selectedBands.includes(baseBand) && !selectedBands.includes(k)) continue;
+        let bType = (item.sector_type || 'Macro').toLowerCase();
+        if (filterType && filterType !== 'all' && bType !== filterType) continue;
+
+        if (!agg[baseBand]) {
+            agg[baseBand] = {
+                band: baseBand,
+                ta_vals: Array(15).fill(0.0),
+                total: 0.0,
+                sector_type: item.sector_type
+            };
+        }
+        for (let i = 0; i < 15; i++) {
+            agg[baseBand].ta_vals[i] += ((item.ta_vals && item.ta_vals[i]) ? item.ta_vals[i] : 0.0);
+        }
+        agg[baseBand].total += (item.total || 0.0);
+    }
+    return agg;
+}
+
 function buildDatasetsActual(bandsObj, selectedBands, thresholdId, filterType='all') {
     let dist = [], pct = [];
     let thresh = parseFloat(document.getElementById(thresholdId).value) || 90;
     
-    let sortedBands = Object.keys(bandsObj).sort((a,b) => a.length === b.length ? a.localeCompare(b) : a.length - b.length);
+    let aggBands = aggregateBands(bandsObj, selectedBands, filterType);
+    let sortedBands = Object.keys(aggBands).sort((a,b) => a.length === b.length ? a.localeCompare(b) : a.length - b.length);
     
     for(let band of sortedBands) {
-        if(!selectedBands.includes(band)) continue;
-        let bandType = (bandsObj[band].sector_type || 'Macro').toLowerCase();
-        if(filterType && filterType !== 'all' && bandType !== filterType) continue;
-
         let c = getBandColor(band);
-        let vals = bandsObj[band].ta_vals;
-        let tot = bandsObj[band].total || 1; 
+        let vals = aggBands[band].ta_vals;
+        let tot = aggBands[band].total || 1; 
         
         let pctData = [];
         let cum = 0;
@@ -1061,25 +1098,18 @@ function calculateAnalysisRows(dataObj, selSecs, selBands, period, thresholdId, 
         let sec = parts.length > 1 ? parts[1] : "";
         if(!selSecs.includes(sec)) continue;
         
-        let bands = dataObj[secKey];
+        let aggBands = aggregateBands(dataObj[secKey], selBands, filterType);
         let domBand = "-";
         let maxT = -1;
-        for(let b in bands) {
-            if(!selBands.includes(b)) continue;
-            let bandType = (bands[b].sector_type || 'Macro').toLowerCase();
-            if(filterType && filterType !== 'all' && bandType !== filterType) continue;
-            if(bands[b].total > maxT) { maxT = bands[b].total; domBand = b; }
+        for(let b in aggBands) {
+            if(aggBands[b].total > maxT) { maxT = aggBands[b].total; domBand = b; }
         }
         
-        let sortedBands = Object.keys(bands).sort((a,b) => a.length === b.length ? a.localeCompare(b) : a.length - b.length);
+        let sortedBands = Object.keys(aggBands).sort((a,b) => a.length === b.length ? a.localeCompare(b) : a.length - b.length);
         
         for(let b of sortedBands) {
-            if(!selBands.includes(b)) continue;
-            let bandType = (bands[b].sector_type || 'Macro').toLowerCase();
-            if(filterType && filterType !== 'all' && bandType !== filterType) continue;
-
-            let tot = bands[b].total;
-            let vals = bands[b].ta_vals;
+            let tot = aggBands[b].total;
+            let vals = aggBands[b].ta_vals;
             let cum = 0;
             let samplesInThresh = 0;
             let bucketIndex = 0;

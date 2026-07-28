@@ -87,12 +87,12 @@ def query_ta_data(cur, site_ids, from_date, to_date):
     ta_sums = ", ".join(["COALESCE(SUM(" + col + "), 0)" for col in TA_COLUMNS])
 
     sql = (
-        "SELECT \"ME Name\", \"Cell ID\", \"Product\", MAX(\"Cell Name\") AS cell_name, " + ta_sums + " "
+        "SELECT \"ME Name\", \"Cell ID\", \"Product\", \"Cell Name\", " + ta_sums + " "
         "FROM \"measTA4G\" "
         "WHERE \"Date\"::date >= %s::date "
         "  AND \"Date\"::date <= %s::date "
         "  AND (" + site_filter + ") "
-        "GROUP BY \"ME Name\", \"Cell ID\", \"Product\" "
+        "GROUP BY \"ME Name\", \"Cell ID\", \"Product\", \"Cell Name\" "
         "ORDER BY \"ME Name\", \"Cell ID\""
     )
     params = [from_date, to_date] + site_params
@@ -119,16 +119,27 @@ def query_ta_data(cur, site_ids, from_date, to_date):
 
         if sec_key not in result:
             result[sec_key] = {}
-        if band not in result[sec_key]:
-            result[sec_key][band] = {
+
+        b_key = band
+        if band in result[sec_key] and result[sec_key][band].get("sector_code") != sec_code:
+            exist_old = result[sec_key].pop(band)
+            exist_code = exist_old.get("sector_code", "")
+            exist_bkey = f"{band} {exist_code}" if exist_code else f"{band}_1"
+            result[sec_key][exist_bkey] = exist_old
+            b_key = f"{band} {sec_code}" if sec_code else f"{band}_2"
+        elif any(k.startswith(band + " ") for k in result[sec_key]):
+            b_key = f"{band} {sec_code}" if sec_code else band
+
+        if b_key not in result[sec_key]:
+            result[sec_key][b_key] = {
                 "site_id": site_id, "sector": sector, "band": band,
                 "cell_name": cell_name, "sector_code": sec_code, "sector_type": sec_type,
                 "ta_vals": [0.0] * 15, "total": 0.0
             }
-        existing = result[sec_key][band]["ta_vals"]
+        existing = result[sec_key][b_key]["ta_vals"]
         for i in range(15):
             existing[i] += ta_vals[i]
-        result[sec_key][band]["total"] += sum(ta_vals)
+        result[sec_key][b_key]["total"] += sum(ta_vals)
 
     def sector_sort(item):
         key = item[0]   # item is (sec_key, bands_dict)
