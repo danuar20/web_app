@@ -122,7 +122,7 @@ def kpi_4g_monitoring():
     cache_key = None
     if submitted and from_date and to_date and kpi_defs:
         kpi_names = "-".join(sorted([k[0] for k in kpi_defs]))
-        cache_key = f"4g_mon_data_{from_date}_{to_date}_{kpi_names}"
+        cache_key = f"4g_mon_data_v2_{from_date}_{to_date}_{kpi_names}"
 
     cached_data = cache.get(cache_key) if cache_key else None
     
@@ -254,31 +254,28 @@ def kpi_4g_monitoring():
                 city_data     = align_data(temp_city, sorted(city_dims_set))
                 subnet_data   = align_data(temp_subnet, sorted(subnet_dims_set))
 
-                cur.execute('SELECT MAX(kpi_date) FROM "4g_kpi_zte_daily" WHERE kpi_date >= %s::date AND kpi_date <= %s::date', [from_date, to_date])
-                max_date = cur.fetchone()[0]
+                cur.execute("""
+                    SELECT city, subnetwork_name, siteid 
+                    FROM "4g_kpi_zte_daily" 
+                    WHERE kpi_date >= %s::date AND kpi_date <= %s::date
+                      AND siteid IS NOT NULL AND siteid != '' AND siteid != 'Unknown'
+                    GROUP BY city, subnetwork_name, siteid
+                """, [from_date, to_date])
             
-                if max_date:
-                    cur.execute("""
-                        SELECT city, subnetwork_name, siteid 
-                        FROM "4g_kpi_zte_daily" 
-                        WHERE kpi_date = %s::date 
-                        GROUP BY city, subnetwork_name, siteid
-                    """, [max_date])
+                for r in cur.fetchall():
+                    c, sub, s = r[0], r[1], r[2]
+                    if c not in city_site_map: city_site_map[c] = set()
+                    city_site_map[c].add(s)
                 
-                    for r in cur.fetchall():
-                        c, sub, s = r[0], r[1], r[2]
-                        if c not in city_site_map: city_site_map[c] = set()
-                        city_site_map[c].add(s)
+                    if c not in city_subnet_map: city_subnet_map[c] = set()
+                    if sub: city_subnet_map[c].add(sub)
+                
+                    if sub:
+                        if sub not in subnet_site_map: subnet_site_map[sub] = set()
+                        subnet_site_map[sub].add(s)
                     
-                        if c not in city_subnet_map: city_subnet_map[c] = set()
-                        if sub: city_subnet_map[c].add(sub)
-                    
-                        if sub:
-                            if sub not in subnet_site_map: subnet_site_map[sub] = set()
-                            subnet_site_map[sub].add(s)
-                        
-                            if sub not in subnet_city_map: subnet_city_map[sub] = set()
-                            subnet_city_map[sub].add(c)
+                        if sub not in subnet_city_map: subnet_city_map[sub] = set()
+                        subnet_city_map[sub].add(c)
 
                 query_done = True
         except psycopg2.OperationalError:

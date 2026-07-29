@@ -294,31 +294,28 @@ def pl_monitoring_main():
                     all_data[current_tech]['cluster']  = temp_cluster
                     
                     # Also run site mapping queries
-                    cur.execute('SELECT MAX(date) FROM "vw_pl_daily" WHERE tech = %s AND date >= %s::date AND date <= %s::date', [current_tech, from_date, to_date])
-                    max_date = cur.fetchone()[0]
+                    cur.execute("""
+                        SELECT city, cluster, siteid 
+                        FROM "vw_pl_daily" 
+                        WHERE tech = %s AND date >= %s::date AND date <= %s::date
+                          AND siteid IS NOT NULL AND siteid != '' AND siteid != 'Unknown'
+                        GROUP BY city, cluster, siteid
+                    """, [current_tech, from_date, to_date])
                 
-                    if max_date:
-                        cur.execute("""
-                            SELECT city, cluster, siteid 
-                            FROM "vw_pl_daily" 
-                            WHERE tech = %s AND date = %s::date 
-                            GROUP BY city, cluster, siteid
-                        """, [current_tech, max_date])
+                    for r in cur.fetchall():
+                        c, sub, s = r[0], r[1], r[2]
+                        if c not in city_site_map: city_site_map[c] = set()
+                        city_site_map[c].add(s)
                     
-                        for r in cur.fetchall():
-                            c, sub, s = r[0], r[1], r[2]
-                            if c not in city_site_map: city_site_map[c] = set()
-                            city_site_map[c].add(s)
+                        if c not in city_cluster_map: city_cluster_map[c] = set()
+                        if sub: city_cluster_map[c].add(sub)
+                    
+                        if sub:
+                            if sub not in cluster_site_map: cluster_site_map[sub] = set()
+                            cluster_site_map[sub].add(s)
                         
-                            if c not in city_cluster_map: city_cluster_map[c] = set()
-                            if sub: city_cluster_map[c].add(sub)
-                        
-                            if sub:
-                                if sub not in cluster_site_map: cluster_site_map[sub] = set()
-                                cluster_site_map[sub].add(s)
-                            
-                                if sub not in cluster_city_map: cluster_city_map[sub] = set()
-                                cluster_city_map[sub].add(c)
+                            if sub not in cluster_city_map: cluster_city_map[sub] = set()
+                            cluster_city_map[sub].add(c)
                 
                 # After looping techs, sort labels and align data
                 chart_labels = sorted(list(chart_labels))

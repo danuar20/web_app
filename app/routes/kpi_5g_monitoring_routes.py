@@ -202,31 +202,28 @@ def kpi_5g_monitoring():
                 city_data     = align_data(temp_city, sorted(city_dims_set))
                 subnet_data   = align_data(temp_subnet, sorted(subnet_dims_set))
 
-                cur.execute('SELECT MAX(datehour::date) FROM "5g_kpi_zte" WHERE datehour::date >= %s::date AND datehour::date <= %s::date', [from_date, to_date])
-                max_date = cur.fetchone()[0]
+                cur.execute("""
+                    SELECT city, subnetwork_name, siteid 
+                    FROM "5g_kpi_zte" 
+                    WHERE datehour::date >= %s::date AND datehour::date <= %s::date
+                      AND siteid IS NOT NULL AND siteid != '' AND siteid != 'Unknown'
+                    GROUP BY city, subnetwork_name, siteid
+                """, [from_date, to_date])
             
-                if max_date:
-                    cur.execute("""
-                        SELECT city, subnetwork_name, siteid 
-                        FROM "5g_kpi_zte" 
-                        WHERE datehour::date = %s::date 
-                        GROUP BY city, subnetwork_name, siteid
-                    """, [max_date])
+                for r in cur.fetchall():
+                    c, sub, s = r[0], r[1], r[2]
+                    if c not in city_site_map: city_site_map[c] = set()
+                    city_site_map[c].add(s)
                 
-                    for r in cur.fetchall():
-                        c, sub, s = r[0], r[1], r[2]
-                        if c not in city_site_map: city_site_map[c] = set()
-                        city_site_map[c].add(s)
+                    if c not in city_subnet_map: city_subnet_map[c] = set()
+                    if sub: city_subnet_map[c].add(sub)
+                
+                    if sub:
+                        if sub not in subnet_site_map: subnet_site_map[sub] = set()
+                        subnet_site_map[sub].add(s)
                     
-                        if c not in city_subnet_map: city_subnet_map[c] = set()
-                        if sub: city_subnet_map[c].add(sub)
-                    
-                        if sub:
-                            if sub not in subnet_site_map: subnet_site_map[sub] = set()
-                            subnet_site_map[sub].add(s)
-                        
-                            if sub not in subnet_city_map: subnet_city_map[sub] = set()
-                            subnet_city_map[sub].add(c)
+                        if sub not in subnet_city_map: subnet_city_map[sub] = set()
+                        subnet_city_map[sub].add(c)
 
                 query_done = True
         except psycopg2.OperationalError:

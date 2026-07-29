@@ -361,25 +361,20 @@ def kpi_2g_monitoring():
                 city_data     = align_data(temp_city, sorted(city_dims_set))
                 bsc_data      = align_data(temp_bsc, sorted(bsc_dims_set))
 
-                # Fetch site topology for cascading dropdowns using the latest available date in the selected range
-                # This ensures dropdowns are populated even if 'to_date' itself has no data yet.
-                cur.execute('SELECT MAX(kpi_date) FROM "2g_kpi_zte_daily" WHERE kpi_date >= %s AND kpi_date <= %s', [from_date, to_date])
-                max_date = cur.fetchone()[0]
+                cur.execute("""
+                    SELECT city, me_name, siteid 
+                    FROM "2g_kpi_zte_daily"
+                    WHERE kpi_date >= %s::date AND kpi_date <= %s::date
+                      AND siteid IS NOT NULL AND siteid != '' AND siteid != 'Unknown'
+                    GROUP BY city, me_name, siteid
+                """, [from_date, to_date])
             
-                if max_date:
-                    cur.execute("""
-                        SELECT city, me_name, siteid 
-                        FROM "2g_kpi_zte_daily"
-                        WHERE kpi_date = %s
-                        GROUP BY city, me_name, siteid
-                    """, [max_date])
-                
-                    for r in cur.fetchall():
-                        c, b, s = r[0], r[1], r[2]
-                        if c not in city_site_map: city_site_map[c] = set()
-                        city_site_map[c].add(s)
-                        if b not in bsc_site_map: bsc_site_map[b] = set()
-                        bsc_site_map[b].add(s)
+                for r in cur.fetchall():
+                    c, b, s = r[0], r[1], r[2]
+                    if c not in city_site_map: city_site_map[c] = set()
+                    city_site_map[c].add(s)
+                    if b not in bsc_site_map: bsc_site_map[b] = set()
+                    bsc_site_map[b].add(s)
 
                 query_done = True
         except psycopg2.OperationalError:
