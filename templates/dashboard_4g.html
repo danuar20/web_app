@@ -478,47 +478,108 @@
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     }
 
-    /* Solid White Filters */
+    /* ── Filter Panel Styles (Matching Packet Loss & 4G Monitoring Page) ── */
+    #filterContainer {
+        position: relative;
+        z-index: 50;
+        background: rgba(30, 30, 58, 0.6);
+        border: 1px solid rgba(79, 172, 254, 0.15);
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        backdrop-filter: blur(8px);
+        overflow: visible !important;
+        transition: opacity 0.25s ease;
+    }
+
+    [data-theme="light"] #filterContainer {
+        background: #ffffff;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    #filterContainer.collapsed {
+        max-height: 0 !important;
+        opacity: 0;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        margin-bottom: 0 !important;
+        border: none !important;
+        overflow: hidden !important;
+        display: none !important;
+    }
+
+    .filter-panel {
+        background: rgba(20, 20, 44, 0.3);
+        border: 1px solid rgba(79, 172, 254, 0.12);
+        border-radius: 10px;
+        padding: 14px 16px;
+        box-shadow: none;
+        transition: all 0.2s ease;
+    }
+
+    [data-theme="light"] .filter-panel {
+        background: rgba(248, 250, 252, 0.6);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .filter-panel .filter-label {
+        color: #4facfe;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
     .f-input,
     .dropdown-toggle {
-        background: #ffffff !important;
-        color: #1e293b !important;
-        border: 1px solid #cbd5e1 !important;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        padding: 6px 10px;
+        border-radius: 8px;
+        font-size: 11px;
+        outline: none;
+        transition: border-color 0.18s, background 0.3s ease, color 0.3s ease;
     }
 
     [data-theme="dark"] .f-input,
     [data-theme="dark"] .dropdown-toggle {
-        background: #1e293b !important;
-        color: #f8fafc !important;
-        border: 1px solid #334155 !important;
+        background: rgba(20, 20, 44, 0.8) !important;
+        color: #c8d0e0 !important;
+        border: 1px solid rgba(79, 172, 254, 0.25) !important;
+    }
+
+    [data-theme="light"] .f-input,
+    [data-theme="light"] .dropdown-toggle {
+        background: #ffffff !important;
+        color: #1e293b !important;
+        border: 1px solid rgba(0, 0, 0, 0.15) !important;
+    }
+
+    .dropdown-container {
+        position: relative;
+        z-index: 100;
     }
 
     .dropdown-menu {
-        background: #ffffff !important;
-        color: #1e293b !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-        border: 1px solid #cbd5e1 !important;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        z-index: 9999 !important;
+        border-radius: 8px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
+        border: 1px solid rgba(79, 172, 254, 0.25) !important;
     }
 
     [data-theme="dark"] .dropdown-menu {
-        background: #1e293b !important;
-        color: #f8fafc !important;
-        border: 1px solid #334155 !important;
+        background: #1a1a2e !important;
+        color: #c8d0e0 !important;
     }
 
-    .filter-panel {
-        background: #ffffff;
-        border: 1px solid rgba(128, 128, 128, 0.2);
-        border-radius: 12px;
-        padding: 16px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    }
-
-    [data-theme="dark"] .filter-panel {
-        background: rgba(30, 30, 58, 0.6);
-        border: 1px solid rgba(79, 172, 254, 0.1);
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    [data-theme="light"] .dropdown-menu {
+        background: #ffffff !important;
+        color: #1e293b !important;
+        border-color: rgba(0, 0, 0, 0.15) !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12) !important;
     }
 
     /* Modal Styles */
@@ -553,25 +614,32 @@
 
 <div class="content-area">
     <!-- Filter Bar Header -->
-    <div
-        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 4px;">
-        <div style="font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px;">
-            <i class="fas fa-filter" style="color: #4facfe;"></i> Filters
+    <div class="filter-toggle-bar"
+        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 4px;">
+        <div style="font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-sliders-h" style="color: #4facfe;"></i> Filters &amp; KPI Selection
         </div>
-        <button type="button" class="btn-xs" onclick="toggleFilterPanel()" id="filterToggleBtn">
+        <button type="button" class="filter-toggle-btn" onclick="toggleFilterPanel()" id="filterToggleBtn">
             <i class="fas fa-chevron-up" id="filterToggleIcon"></i> <span id="filterToggleLabel">Hide Filters</span>
         </button>
     </div>
 
     <!-- Filter Bar Content -->
     <div class="card dashboard-top" id="filterContainer" style="transition: all 0.3s ease; padding: 20px;">
-        <form method="GET" action="/dashboard_4g" id="filterForm" onsubmit="showLoading()">
+        <form method="GET" action="/dashboard_4g" id="filterForm" onsubmit="return validateAndSubmitFilter(event)">
+            <input type="hidden" name="submitted" value="1">
             <div class="filter-bar"
                 style="padding: 0; background: transparent; border: none; display: flex; gap: 16px; align-items: stretch; flex-wrap: wrap; overflow: visible; width: 100%;">
 
                 <!-- Panel 1: Dates Section -->
                 <div class="filter-panel date-panel"
                     style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+                        <span style="font-size:10px; font-weight:700; text-transform:uppercase; color:#4facfe; letter-spacing:0.5px;">Range:</span>
+                        <button type="button" class="btn-xs" onclick="setTrendPreset(7)" style="padding: 2px 8px; font-size: 10px;">7d</button>
+                        <button type="button" class="btn-xs" onclick="setTrendPreset(14)" style="padding: 2px 8px; font-size: 10px;">14d</button>
+                        <button type="button" class="btn-xs" onclick="setTrendPreset(30)" style="padding: 2px 8px; font-size: 10px;">30d</button>
+                    </div>
                     <div
                         style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
                         <span class="date-label" style="margin:0; font-size:11px;">Trend Range</span>
@@ -755,8 +823,8 @@
                 <div
                     style="display: flex; flex-direction: column; gap: 12px; justify-content: flex-start; flex: 0 0 auto;">
                     <button type="submit" class="btn-apply"
-                        style="padding: 12px 24px; font-size: 14px; font-weight: 700; border-radius: 12px; box-shadow: 0 4px 14px rgba(79,172,254,0.4); background: linear-gradient(135deg, #4facfe, #00f2fe); border: none; color: #fff;">Generate
-                        Dashboard</button>
+                        style="padding: 12px 24px; font-size: 14px; font-weight: 700; border-radius: 12px; box-shadow: 0 4px 14px rgba(79,172,254,0.4); background: linear-gradient(135deg, #4facfe, #00f2fe); border: none; color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;"><i
+                            class="fas fa-play" style="font-size: 10px;"></i> Generate Dashboard</button>
                     <button type="button" onclick="resetUI()" class="btn-reset text-center"
                         style="padding: 8px 24px; font-size: 13px; font-weight: 600; border-radius: 12px; border: 1px solid rgba(128,128,128,0.2); background: transparent;">Reset</button>
                 </div>
@@ -2466,6 +2534,32 @@
 
     // -- Filter UI Functions --
 
+    function validateAndSubmitFilter(e) {
+        const trendFrom = document.getElementsByName('trend_from_date')[0]?.value;
+        const trendTo = document.getElementsByName('trend_to_date')[0]?.value;
+        if (trendFrom && trendTo && trendFrom > trendTo) {
+            alert("Trend 'From' date cannot be after 'To' date!");
+            if (e) e.preventDefault();
+            return false;
+        }
+        const beforeFrom = document.getElementsByName('before_from_date')[0]?.value;
+        const beforeTo = document.getElementsByName('before_to_date')[0]?.value;
+        if (beforeFrom && beforeTo && beforeFrom > beforeTo) {
+            alert("Comparison 'Before' start date cannot be after end date!");
+            if (e) e.preventDefault();
+            return false;
+        }
+        const afterFrom = document.getElementsByName('after_from_date')[0]?.value;
+        const afterTo = document.getElementsByName('after_to_date')[0]?.value;
+        if (afterFrom && afterTo && afterFrom > afterTo) {
+            alert("Comparison 'After' start date cannot be after end date!");
+            if (e) e.preventDefault();
+            return false;
+        }
+        showLoading();
+        return true;
+    }
+
     function showLoading() {
         document.getElementById('loadingOverlay').style.display = 'flex';
     }
@@ -2976,14 +3070,67 @@ function toggleFilterPanel() {
         if (lbl) lbl.textContent = "Show Filters";
     }
 }
-function toggleFilters() { toggleFilterPanel(); }
+function setTrendPreset(days) {
+    const today = new Date();
+    const formatDate = (d) => {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
 
+    const trendTo = new Date(today);
+    const trendFrom = new Date(today);
+    trendFrom.setDate(today.getDate() - (days - 1));
 
-    document.addEventListener('DOMContentLoaded', () => {
-        {% if query_done %}
-        if (typeof _filterOpen !== 'undefined' && _filterOpen) toggleFilterPanel();
-        {% endif %}
-    });
+    const fTrendFrom = document.getElementsByName('trend_from_date')[0];
+    const fTrendTo = document.getElementsByName('trend_to_date')[0];
+
+    if (fTrendFrom) fTrendFrom.value = formatDate(trendFrom);
+    if (fTrendTo) fTrendTo.value = formatDate(trendTo);
+}
+
+function setComparePreset(days) {
+    const today = new Date();
+    const formatDate = (d) => {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const afterTo = new Date(today);
+    const afterFrom = new Date(today);
+    afterFrom.setDate(today.getDate() - (days - 1));
+
+    const beforeTo = new Date(afterFrom);
+    beforeTo.setDate(afterFrom.getDate() - 1);
+    const beforeFrom = new Date(beforeTo);
+    beforeFrom.setDate(beforeTo.getDate() - (days - 1));
+
+    const trendFrom = new Date(beforeFrom);
+    const trendTo = new Date(afterTo);
+
+    const fTrendFrom = document.getElementsByName('trend_from_date')[0];
+    const fTrendTo = document.getElementsByName('trend_to_date')[0];
+    const fBeforeFrom = document.getElementsByName('before_from_date')[0];
+    const fBeforeTo = document.getElementsByName('before_to_date')[0];
+    const fAfterFrom = document.getElementsByName('after_from_date')[0];
+    const fAfterTo = document.getElementsByName('after_to_date')[0];
+
+    if (fTrendFrom) fTrendFrom.value = formatDate(trendFrom);
+    if (fTrendTo) fTrendTo.value = formatDate(trendTo);
+    if (fBeforeFrom) fBeforeFrom.value = formatDate(beforeFrom);
+    if (fBeforeTo) fBeforeTo.value = formatDate(beforeTo);
+    if (fAfterFrom) fAfterFrom.value = formatDate(afterFrom);
+    if (fAfterTo) fAfterTo.value = formatDate(afterTo);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    {% if query_done or request.args.get('submitted') or request.args.get('trend_from_date') %}
+    if (typeof _filterOpen !== 'undefined' && _filterOpen) toggleFilterPanel();
+    {% endif %}
+});
 
 </script>
 {% endblock %}
