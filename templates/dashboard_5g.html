@@ -628,6 +628,7 @@
     <div class="card dashboard-top" id="filterContainer" style="transition: all 0.3s ease; padding: 20px;">
         <form method="GET" action="/dashboard_5g" id="filterForm" onsubmit="return validateAndSubmitFilter(event)">
             <input type="hidden" name="submitted" value="1">
+            <div id="hiddenSiteInputs"></div>
             <div class="filter-bar"
                 style="padding: 0; background: transparent; border: none; display: flex; gap: 16px; align-items: stretch; flex-wrap: wrap; overflow: visible; width: 100%;">
 
@@ -744,14 +745,6 @@
                                 </label>
                                 <div id="siteCheckboxes"
                                     style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding: 6px 12px;">
-                                    {% for site in sites_list %}
-                                    <label class="checkbox-label" data-site="{{ site }}"
-                                        style="cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;">
-                                        <input type="checkbox" name="site" value="{{ site }}" {% if site in sel_sites
-                                            %}checked{% endif %} onchange="updateSiteCount()">
-                                        <span>{{ site }}</span>
-                                    </label>
-                                    {% endfor %}
                                 </div>
                             </div>
                         </div>
@@ -1673,69 +1666,8 @@
     const KPI_DEFS = {{ kpi_defs| tojson | safe }};
     const ALL_KPIS = {{ all_kpis| tojson | safe }};
 
-    const BEFORE_FROM = "{{ before_from_date }}";
-    const BEFORE_TO = "{{ before_to_date }}";
-    const AFTER_FROM = "{{ after_from_date }}";
-    const AFTER_TO = "{{ after_to_date }}";
-    const EXECUTION_DATES = "{{ execution_dates }}".split(",").map(d => d.trim()).filter(d => d);
-
-    // Chart.js Default Styles
-    const THEME = document.documentElement.getAttribute("data-theme") || "dark";
-    const gridColor = THEME === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
-    const textColor = THEME === "dark" ? "rgba(200,208,224,0.6)" : "rgba(0,0,0,0.6)";
-
-    const sharedXAxisTicks = {
-        color: textColor,
-        font: { size: 9 },
-        maxRotation: 0,
-        minRotation: 0,
-        autoSkip: true,
-        autoSkipPadding: 20,
-        maxTicksLimit: 8,
-        callback: function (value, index, ticks) {
-            const fullLabel = this.getLabelForValue(value);
-            if (!fullLabel) return value;
-            const dtStr = fullLabel.split(' ')[0];
-            const parts = dtStr.split('-');
-            if (parts.length === 3) {
-                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                return parts[2] + ' ' + months[parseInt(parts[1]) - 1];
-            }
-            return fullLabel;
-        }
-    };
-
-    // Plugin for background shading (Before/After) and execution lines
-    // --- UI State Management via LocalStorage ---
-    function handleInlinePasteAndSelect(val) {
-        if (!val) return;
-        let items = val.split(/[\n,]+/).map(s => s.trim()).filter(s => s);
-        if (items.length > 0) {
-            let cbs = document.querySelectorAll('#siteCheckboxes input[type="checkbox"]');
-            cbs.forEach(cb => cb.checked = false); // Uncheck all first
-            items.forEach(site => {
-                let cb = document.querySelector(`#siteCheckboxes input[value="${site}"]`);
-                if (cb) cb.checked = true;
-            });
-            updateSiteCount();
-            sortSitesToTop();
-        }
-    }
-
-    function sortSitesToTop() {
-        let container = document.getElementById('siteCheckboxes');
-        if (!container) return;
-        
-        let checkedBoxes = container.querySelectorAll('input[type="checkbox"]:checked');
-        if (checkedBoxes.length === 0) return;
-        
-        container.style.display = 'none';
-        checkedBoxes.forEach(cb => {
-            let label = cb.closest('.checkbox-label');
-            if (label) container.insertBefore(label, container.firstChild);
-        });
-        container.style.display = 'flex';
-    }
+    let allSitesList = {{ sites_list | tojson | safe }} || [];
+    let selectedSitesSet = new Set({{ sel_sites | tojson | safe }} || []);
 
     function resetUI() {
         ['trendColor', 'beforeColor', 'afterColor', 'execColor', 'execWeight', 'execDash', 'showShadingToggle'].forEach(id => {
@@ -2355,6 +2287,119 @@
 
     // -- Filter UI Functions --
 
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function escapeJs(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/\\/g, '\\\\')
+            .replace(/'/g, "\\'")
+            .replace(/"/g, '\\"');
+    }
+
+    const SITE_RENDER_LIMIT = 200;
+
+    function renderSiteCheckboxes() {
+        const container = document.getElementById('siteCheckboxes');
+        if (!container) return;
+
+        const queryInput = document.getElementById('siteSearch');
+        const query = queryInput ? queryInput.value.toLowerCase().trim() : '';
+
+        let itemsToRender = [];
+        let totalMatches = 0;
+
+        if (!query) {
+            const selectedArr = [];
+            const unselectedArr = [];
+            for (let i = 0; i < allSitesList.length; i++) {
+                const item = allSitesList[i];
+                if (selectedSitesSet.has(item)) {
+                    selectedArr.push(item);
+                } else {
+                    unselectedArr.push(item);
+                }
+            }
+            totalMatches = allSitesList.length;
+            itemsToRender = selectedArr.concat(unselectedArr).slice(0, SITE_RENDER_LIMIT);
+        } else {
+            const matches = [];
+            for (let i = 0; i < allSitesList.length; i++) {
+                const item = allSitesList[i];
+                if (item.toLowerCase().includes(query)) {
+                    matches.push(item);
+                }
+            }
+            totalMatches = matches.length;
+            const selectedMatches = [];
+            const unselectedMatches = [];
+            for (let i = 0; i < matches.length; i++) {
+                const item = matches[i];
+                if (selectedSitesSet.has(item)) {
+                    selectedMatches.push(item);
+                } else {
+                    unselectedMatches.push(item);
+                }
+            }
+            itemsToRender = selectedMatches.concat(unselectedMatches).slice(0, SITE_RENDER_LIMIT);
+        }
+
+        let html = [];
+        itemsToRender.forEach(item => {
+            const isChecked = selectedSitesSet.has(item) ? 'checked' : '';
+            html.push(`
+                <label class="checkbox-label" style="cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                    <input type="checkbox" value="${escapeHtml(item)}" ${isChecked} onchange="toggleSiteSelection('${escapeJs(item)}', this.checked)">
+                    <span>${escapeHtml(item)}</span>
+                </label>
+            `);
+        });
+
+        if (totalMatches > SITE_RENDER_LIMIT) {
+            html.push(`
+                <div style="font-size: 10px; color: #888; text-align: center; padding: 4px; font-style: italic;">
+                    Showing ${itemsToRender.length} of ${totalMatches} matches. Refine search if needed.
+                </div>
+            `);
+        } else if (totalMatches === 0) {
+            html.push(`
+                <div style="font-size: 11px; color: #888; text-align: center; padding: 8px;">
+                    No matching items found.
+                </div>
+            `);
+        }
+
+        container.innerHTML = html.join('');
+        syncHiddenSiteInputs();
+    }
+
+    function toggleSiteSelection(item, isChecked) {
+        if (isChecked) {
+            selectedSitesSet.add(item);
+        } else {
+            selectedSitesSet.delete(item);
+        }
+        updateSiteCount();
+    }
+
+    function syncHiddenSiteInputs() {
+        const hiddenContainer = document.getElementById('hiddenSiteInputs');
+        if (!hiddenContainer) return;
+        let html = [];
+        selectedSitesSet.forEach(site => {
+            html.push(`<input type="hidden" name="site" value="${escapeHtml(site)}">`);
+        });
+        hiddenContainer.innerHTML = html.join('');
+    }
+
     function validateAndSubmitFilter(e) {
         const trendFrom = document.getElementsByName('trend_from_date')[0]?.value;
         const trendTo = document.getElementsByName('trend_to_date')[0]?.value;
@@ -2377,6 +2422,7 @@
             if (e) e.preventDefault();
             return false;
         }
+        syncHiddenSiteInputs();
         showLoading();
         return true;
     }
@@ -2412,28 +2458,36 @@
         }
     });
 
+    let searchDebounceTimer = null;
     function filterSites() {
-        const query = document.getElementById('siteSearch').value.toLowerCase();
-        const container = document.getElementById('siteCheckboxes');
-        const labels = document.querySelectorAll('#siteCheckboxes .checkbox-label');
-        container.style.display = 'none';
-        labels.forEach(label => {
-            const text = label.querySelector('span').textContent.toLowerCase();
-            label.style.display = text.includes(query) ? 'flex' : 'none';
-        });
-        container.style.display = 'flex';
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(() => {
+            renderSiteCheckboxes();
+        }, 50);
     }
 
     function toggleAllSites(source) {
-        const container = document.getElementById('siteCheckboxes');
-        const checkboxes = document.querySelectorAll('#siteCheckboxes input[type="checkbox"]');
-        container.style.display = 'none';
-        checkboxes.forEach(cb => {
-            if (cb.closest('.checkbox-label').style.display !== 'none') {
-                cb.checked = source.checked;
+        const queryInput = document.getElementById('siteSearch');
+        const query = queryInput ? queryInput.value.toLowerCase().trim() : '';
+
+        if (query) {
+            allSitesList.forEach(item => {
+                if (item.toLowerCase().includes(query)) {
+                    if (source.checked) {
+                        selectedSitesSet.add(item);
+                    } else {
+                        selectedSitesSet.delete(item);
+                    }
+                }
+            });
+        } else {
+            if (source.checked) {
+                allSitesList.forEach(item => selectedSitesSet.add(item));
+            } else {
+                selectedSitesSet.clear();
             }
-        });
-        container.style.display = 'flex';
+        }
+        renderSiteCheckboxes();
         updateSiteCount();
     }
 
@@ -2444,12 +2498,15 @@
     }
 
     function updateSiteCount() {
-        const count = document.querySelectorAll('#siteCheckboxes input[type="checkbox"]:checked').length;
+        const count = selectedSitesSet.size;
         const filterTypeNode = document.querySelector('input[name="filter_type"]:checked');
         const isCell = filterTypeNode && filterTypeNode.value === 'site_cell';
         const typeStr = isCell ? 'Cells' : 'Sites';
-        document.getElementById('siteBtnText').textContent = count > 0 ? `Select ${typeStr} (${count})` : `Select ${typeStr} (0)`;
-        sortSitesToTop();
+        const btnText = document.getElementById('siteBtnText');
+        if (btnText) {
+            btnText.textContent = count > 0 ? `Select ${typeStr} (${count})` : `Select ${typeStr} (0)`;
+        }
+        syncHiddenSiteInputs();
     }
 
     function updateKpiCount() {
@@ -2477,21 +2534,16 @@
     function parseSiteText(text) {
         if (!text) return;
         const rawItems = text.split(/[\n,;\t]+/).map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
-        let count = 0;
-        const container = document.getElementById('siteCheckboxes');
-        container.style.display = 'none';
-        const checkboxes = document.querySelectorAll('#siteCheckboxes input[type="checkbox"]');
-        checkboxes.forEach(cb => {
-            if (rawItems.includes(cb.value.toUpperCase())) {
-                cb.checked = true;
-                count++;
-            }
+        let matchedCount = 0;
+        rawItems.forEach(site => {
+            selectedSitesSet.add(site);
+            matchedCount++;
         });
-        container.style.display = 'flex';
+        renderSiteCheckboxes();
         updateSiteCount();
         const cSpan = document.getElementById('sitePasteCount');
         if (cSpan) {
-            cSpan.textContent = "Matched: " + count;
+            cSpan.textContent = "Matched: " + matchedCount;
             setTimeout(() => cSpan.textContent = "", 3000);
         }
     }
@@ -2545,6 +2597,8 @@
             execDatesArray = initVal.split(',').map(s => s.trim()).filter(s => s.length > 0);
             renderExecDatesChips();
         }
+        renderSiteCheckboxes();
+        updateSiteCount();
     });
 
     // ── Export All Custom Charts ──
@@ -2587,28 +2641,26 @@
     }
 
     function onFilterTypeChange(type) {
-        // Update placeholders
         let isCell = (type === "site_cell");
         document.getElementById("filterTitleLabel").innerText = isCell ? "SITE-CELLS" : "SITES";
         document.getElementById("siteBtnText").textContent = `Select ${isCell ? 'Cells' : 'Sites'} (0)`;
         document.getElementById("siteSearch").placeholder = `Search ${isCell ? 'cells' : 'sites'}...`;
         document.getElementById("importLabel").innerText = `OR IMPORT ${isCell ? 'CELLS' : 'SITES'} FROM CSV`;
         document.getElementById("sitePasteArea").placeholder = `Paste ${isCell ? 'cell' : 'site'} IDs here\n(one per line or comma-separated)`;
+        document.getElementById("siteSearch").value = "";
         
-        // Fetch new items
+        selectedSitesSet.clear();
+        const container = document.getElementById("siteCheckboxes");
+        if (container) {
+            container.innerHTML = '<div style="padding:10px; font-size:12px; opacity:0.7;">Loading list...</div>';
+        }
+
         fetch(`/api/filter_list_5g?filter_type=${type}`)
             .then(res => res.json())
             .then(data => {
                 if (data.success && data.items) {
-                    let container = document.getElementById("siteCheckboxes");
-                    let html = [];
-                    data.items.forEach(item => {
-                        html.push(`<label class="checkbox-label" data-site="${item}" style="cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;">
-                            <input type="checkbox" name="site" value="${item}" onchange="updateSiteCount()">
-                            <span>${item}</span>
-                        </label>`);
-                    });
-                    container.innerHTML = html.join('');
+                    allSitesList = data.items;
+                    renderSiteCheckboxes();
                     updateSiteCount();
                 }
             })
