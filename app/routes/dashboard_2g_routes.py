@@ -480,6 +480,7 @@ def dashboard_2g_view():
         filter_type=filter_type,
         sites_list=sites_list,
         sel_sites=sel_sites,
+        site_paste=site_paste_raw,
         sel_kpis=sel_kpis,
         all_kpis=ALL_KPI_DEFS,
         trend_from_date=trend_from_date,

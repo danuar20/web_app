@@ -762,10 +762,10 @@
                             <span id="siteFileLabel" style="font-weight: 600; font-size: 11px;">Choose CSV
                                 file...</span>
                         </label>
-                        <textarea id="sitePasteArea" class="f-input" placeholder="Paste {% if filter_type == 'site_cell' %}cell{% else %}site{% endif %} IDs here
+                        <textarea id="sitePasteArea" name="site_paste" class="f-input" placeholder="Paste {% if filter_type == 'site_cell' %}cell{% else %}site{% endif %} IDs here
 (one per line or comma-separated)" rows="3"
                             style="width: 100%; resize:vertical; font-size:11px; margin-top:8px; box-sizing: border-box; border-radius: 6px;"
-                            oninput="handleInlinePasteAndSelect(this.value)"></textarea>
+                            oninput="handleInlinePasteAndSelect(this.value)">{{ site_paste if site_paste else '' }}</textarea>
                     </div>
                 </div>
 
@@ -2713,24 +2713,74 @@
         reader.readAsText(file);
     }
 
+    function handleInlinePasteAndSelect(text) {
+        parseSiteText(text);
+    }
+
     function handleInlinePaste(text) {
-        if (text.trim().length > 2) parseSiteText(text);
+        parseSiteText(text);
     }
 
     function parseSiteText(text) {
-        if (!text) return;
-        const rawItems = text.split(/[\n,;\t]+/).map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
+        selectedSitesSet.clear();
+        const cSpan = document.getElementById('sitePasteCount');
+
+        if (text === undefined || text === null || !String(text).trim()) {
+            renderSiteCheckboxes();
+            updateSiteCount();
+            if (cSpan) cSpan.textContent = "";
+            return;
+        }
+
+        const filterTypeNode = document.querySelector('input[name="filter_type"]:checked');
+        const isCell = filterTypeNode && filterTypeNode.value === 'site_cell';
+
+        const rawItems = String(text).split(/[\n,;\t]+/).map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
+        if (rawItems.length === 0) {
+            renderSiteCheckboxes();
+            updateSiteCount();
+            if (cSpan) cSpan.textContent = "";
+            return;
+        }
+
+        // Build uppercase lookup map for O(1) matching against allSitesList
+        const upperMap = new Map();
+        if (allSitesList && allSitesList.length > 0) {
+            for (let i = 0; i < allSitesList.length; i++) {
+                const item = allSitesList[i];
+                upperMap.set(item.toUpperCase(), item);
+            }
+        }
+
         let matchedCount = 0;
-        rawItems.forEach(site => {
-            selectedSitesSet.add(site);
-            matchedCount++;
+        rawItems.forEach(item => {
+            let candidate = item;
+            if (!isCell && candidate.includes('-')) {
+                candidate = candidate.split('-')[0].trim();
+            }
+            if (upperMap.size > 0) {
+                if (upperMap.has(candidate)) {
+                    selectedSitesSet.add(upperMap.get(candidate));
+                    matchedCount++;
+                }
+            } else {
+                if (candidate) {
+                    selectedSitesSet.add(candidate);
+                    matchedCount++;
+                }
+            }
         });
+
         renderSiteCheckboxes();
         updateSiteCount();
-        const cSpan = document.getElementById('sitePasteCount');
+
         if (cSpan) {
-            cSpan.textContent = "Matched: " + matchedCount;
-            setTimeout(() => cSpan.textContent = "", 3000);
+            if (upperMap.size > 0) {
+                cSpan.textContent = `Matched: ${matchedCount} of ${rawItems.length}`;
+            } else {
+                cSpan.textContent = `Pasted: ${matchedCount}`;
+            }
+            setTimeout(() => { if (cSpan) cSpan.textContent = ""; }, 4000);
         }
     }
 
@@ -2783,6 +2833,10 @@
             execDatesArray = initVal.split(',').map(s => s.trim()).filter(s => s.length > 0);
             renderExecDatesChips();
         }
+        const pasteArea = document.getElementById('sitePasteArea');
+        if (pasteArea && pasteArea.value.trim()) {
+            parseSiteText(pasteArea.value);
+        }
         renderSiteCheckboxes();
         updateSiteCount();
     });
@@ -2834,6 +2888,9 @@
         document.getElementById("importLabel").innerText = `OR IMPORT ${isCell ? 'CELLS' : 'SITES'} FROM CSV`;
         document.getElementById("sitePasteArea").placeholder = `Paste ${isCell ? 'cell' : 'site'} IDs here\n(one per line or comma-separated)`;
         document.getElementById("siteSearch").value = "";
+        document.getElementById("sitePasteArea").value = "";
+        const cSpan = document.getElementById('sitePasteCount');
+        if (cSpan) cSpan.textContent = "";
         
         selectedSitesSet.clear();
         const container = document.getElementById("siteCheckboxes");
@@ -2846,8 +2903,13 @@
             .then(data => {
                 if (data.success && data.items) {
                     allSitesList = data.items;
-                    renderSiteCheckboxes();
-                    updateSiteCount();
+                    const pasteArea = document.getElementById('sitePasteArea');
+                    if (pasteArea && pasteArea.value.trim()) {
+                        parseSiteText(pasteArea.value);
+                    } else {
+                        renderSiteCheckboxes();
+                        updateSiteCount();
+                    }
                 }
             })
             .catch(err => console.error("Error fetching filter list:", err));
