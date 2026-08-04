@@ -2956,8 +2956,8 @@
     // --- Band Filter Logic ---
     let bandMode = 'split'; 
     const sumKpis = ['payloadChart', 'volteTrafficChart', 'dlPayloadChart', 'ulPayloadChart', 'dlPayloadCaChart', 'ulPayloadCaChart', 'rrcChart', 'activeUserChart', 'bsrAttemptChart', 'dlTrafficChart', 'ulTrafficChart', 'userChart'];
-    let dynamicTechTrendData = {};
-    let dynamicTechCompareData = {};
+    let dynamicTechTrendData = typeof TECH_TREND_DATA !== 'undefined' ? TECH_TREND_DATA : {};
+    let dynamicTechCompareData = typeof TECH_COMPARE !== 'undefined' ? TECH_COMPARE : { 'FDD': {}, 'TDD': {} };
 
     async function updateCombinedTechData(checkedBands) {
         const fddBands = ['L700', 'L900', 'L1800', 'L2100'];
@@ -2972,10 +2972,10 @@
             before_to_date: document.querySelector('[name="before_to_date"]') ? document.querySelector('[name="before_to_date"]').value : '',
             after_from_date: document.querySelector('[name="after_from_date"]') ? document.querySelector('[name="after_from_date"]').value : '',
             after_to_date: document.querySelector('[name="after_to_date"]') ? document.querySelector('[name="after_to_date"]').value : '',
-            filter_type: document.querySelector('[name="filter_type"]') ? document.querySelector('[name="filter_type"]').value : 'siteid',
-            site: Array.from(document.querySelectorAll('input[name="site"]:checked')).map(opt => opt.value),
+            filter_type: document.querySelector('[name="filter_type"]:checked') ? document.querySelector('[name="filter_type"]:checked').value : 'siteid',
+            site: Array.from(selectedSitesSet),
             site_paste: document.querySelector('[name="site_paste"]') ? document.querySelector('[name="site_paste"]').value : '',
-            kpi: Array.from(document.querySelectorAll('input[name="kpi"]:checked')).map(opt => opt.value),
+            kpi: Array.from(document.querySelectorAll('#kpiCheckboxes input[type="checkbox"]:checked')).map(opt => opt.value),
             fdd_bands: selectedFdd,
             tdd_bands: selectedTdd
         };

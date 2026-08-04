@@ -484,12 +484,27 @@
         menu.style.display = menu.style.display === "flex" ? "none" : "flex";
     }
     
+    let filterMsDebounceTimer = null;
     function filterMsMenu(id, term) {
-        term = term.toLowerCase();
-        document.querySelectorAll(`#ms-list-${id} .ms-item`).forEach(el => {
-            var txt = el.innerText.toLowerCase();
-            el.style.display = txt.includes(term) ? "flex" : "none";
-        });
+        clearTimeout(filterMsDebounceTimer);
+        filterMsDebounceTimer = setTimeout(() => {
+            term = (term || '').toLowerCase().trim();
+            const container = document.getElementById(`ms-list-${id}`);
+            if (!container) return;
+            const items = container.querySelectorAll('.ms-item');
+            if (items.length === 0) return;
+
+            const origDisplay = container.style.display;
+            container.style.display = 'none';
+
+            for (let i = 0; i < items.length; i++) {
+                const el = items[i];
+                const txt = (el.textContent || '').toLowerCase();
+                el.style.display = (!term || txt.includes(term)) ? "flex" : "none";
+            }
+
+            container.style.display = origDisplay;
+        }, 50);
     }
     
     function toggleMsItem(id, opt) {

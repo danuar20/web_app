@@ -426,12 +426,28 @@
         else lbl.innerText = `${selected.length} Selected`;
     }
 
+    let filterMsDebounceTimer = null;
     function filterMsMenu(id, query) {
-        const q = query.toLowerCase();
-        document.querySelectorAll(`#ms-list-${id} .ms-item`).forEach(item => {
-            const txt = item.querySelector('span').innerText.toLowerCase();
-            item.style.display = txt.includes(q) ? 'flex' : 'none';
-        });
+        clearTimeout(filterMsDebounceTimer);
+        filterMsDebounceTimer = setTimeout(() => {
+            const q = (query || '').toLowerCase().trim();
+            const container = document.getElementById(`ms-list-${id}`);
+            if (!container) return;
+            const items = container.querySelectorAll('.ms-item');
+            if (items.length === 0) return;
+
+            const origDisplay = container.style.display;
+            container.style.display = 'none';
+
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                const span = item.querySelector('span');
+                const txt = (span ? span.textContent : item.textContent || '').toLowerCase();
+                item.style.display = (!q || txt.includes(q)) ? 'flex' : 'none';
+            }
+
+            container.style.display = origDisplay;
+        }, 50);
     }
 
     function setMsDisabled(id, disabled) {

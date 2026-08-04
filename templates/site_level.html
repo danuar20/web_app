@@ -493,13 +493,27 @@ document.addEventListener("click", e => {
     }
 });
 
+let filterListDebounceTimer = null;
 function filterList(input, listId) {
-    const filter = input.value.toUpperCase();
-    const labels = document.getElementById(listId).getElementsByTagName("label");
-    for(let i=0; i<labels.length; i++){
-        const txt = labels[i].textContent || labels[i].innerText;
-        labels[i].style.display = txt.toUpperCase().indexOf(filter) > -1 ? "" : "none";
-    }
+    clearTimeout(filterListDebounceTimer);
+    filterListDebounceTimer = setTimeout(() => {
+        const container = document.getElementById(listId);
+        if (!container) return;
+        const filter = (input.value || '').toUpperCase().trim();
+        const labels = container.getElementsByTagName("label");
+        if (labels.length === 0) return;
+
+        const origDisplay = container.style.display;
+        container.style.display = 'none';
+
+        for (let i = 0; i < labels.length; i++) {
+            const label = labels[i];
+            const txt = (label.textContent || '').toUpperCase();
+            label.style.display = (!filter || txt.indexOf(filter) > -1) ? "" : "none";
+        }
+
+        container.style.display = origDisplay;
+    }, 50);
 }
 function toggleAll(cb, listId, lblId, name) {
     const checked = cb.checked;

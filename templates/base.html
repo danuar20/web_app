@@ -3201,19 +3201,27 @@ function exportTableCSV(tableId, filename) {
 }
 
 /* ── Generic Table Filter ── */
+let genericFilterTableDebounceTimer = null;
 function filterTable(tbodyId, searchTerm) {
-    const tbody = document.getElementById(tbodyId);
-    if (!tbody) return;
-    const rows = tbody.querySelectorAll('tr');
-    const term = searchTerm.toLowerCase();
-    rows.forEach(row => {
-        const text = row.innerText.toLowerCase();
-        if (text.indexOf(term) > -1) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
+    clearTimeout(genericFilterTableDebounceTimer);
+    genericFilterTableDebounceTimer = setTimeout(() => {
+        const tbody = document.getElementById(tbodyId);
+        if (!tbody) return;
+        const term = (searchTerm || '').toLowerCase().trim();
+        const rows = tbody.rows || tbody.querySelectorAll('tr');
+        if (rows.length === 0) return;
+
+        const origDisplay = tbody.style.display;
+        tbody.style.display = 'none';
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const text = (row.textContent || '').toLowerCase();
+            row.style.display = (!term || text.indexOf(term) > -1) ? '' : 'none';
         }
-    });
+
+        tbody.style.display = origDisplay;
+    }, 50);
 }
 </script>
 
