@@ -49,9 +49,20 @@ def _get_dropdown_data():
     return _prod_cache
 
 def _get_sites(sel_nsas=None, sel_cities=None):
-    # This is more dynamic, so we fetch it when needed, maybe with a limit
     sites = []
     try:
+        # If no NSA or City filter is active, fetch full site list from reference view
+        if not sel_nsas and not sel_cities:
+            try:
+                from app.db.db_webapp import get_site_list_4g
+                res = get_site_list_4g()
+                if isinstance(res, tuple):
+                    res = res[0]
+                if res and isinstance(res, list) and len(res) > 0:
+                    return res
+            except Exception as ref_err:
+                logger.warning("Reference site list fetch fallback: %s", ref_err)
+
         with db_query() as (conn, cur):
             params = []
             nsa_clause = ""
@@ -69,7 +80,7 @@ def _get_sites(sel_nsas=None, sel_cities=None):
                 FROM traffic_payload 
                 WHERE "Site ID" IS NOT NULL 
                 {nsa_clause} {city_clause}
-                ORDER BY "Site ID" LIMIT 2000
+                ORDER BY "Site ID"
             ''', params)
             sites = [r[0] for r in cur.fetchall()]
     except Exception as e:
@@ -294,9 +305,9 @@ def api_productivity_trend():
 @login_required
 def api_productivity_cities():
     sel_nsas = [n for n in request.args.getlist("nsa") if n]
-    cities = []
     if not sel_nsas:
-        return jsonify({"cities": []})
+        return jsonify({"cities": _get_dropdown_data()["cities"]})
+    cities = []
     try:
         with db_query() as (conn, cur):
             cur.execute('''
@@ -312,7 +323,7 @@ def api_productivity_cities():
                 cities = [c for c in cities if c != "SORONG RAJA AMPAT"]
                 
     except Exception as e:
-        pass
+        cities = _get_dropdown_data()["cities"]
     return jsonify({"cities": cities})
 
 @prod.route("/api/productivity/sites")
@@ -320,8 +331,6 @@ def api_productivity_cities():
 def api_productivity_sites():
     sel_nsas = [n for n in request.args.getlist("nsa") if n]
     sel_cities = [c for c in request.args.getlist("city") if c]
-    if not sel_nsas and not sel_cities:
-        return jsonify({"sites": []})
     return jsonify({"sites": _get_sites(sel_nsas, sel_cities)})
 
 # ── City Level ────────────────────────────────────────────────────────────────
@@ -498,11 +507,21 @@ def api_productivity_city():
 @login_required
 def site_level():
     data = _get_dropdown_data()
-    # Filter cities/sites based on arguments if provided
     sel_nsas = [n for n in request.args.getlist("nsa") if n]
     sel_cities = [c for c in request.args.getlist("city") if c]
     
     sites_list = _get_sites(sel_nsas, sel_cities)
+    last_up = _get_last_update()
+
+    from datetime import datetime, timedelta
+    if last_up:
+        try:
+            to_dt = datetime.strptime(last_up, "%d %b %Y")
+        except Exception:
+            to_dt = datetime.now()
+    else:
+        to_dt = datetime.now()
+    from_dt = to_dt - timedelta(days=30)
     
     return _no_cache(make_response(render_template(
         "site_level.html",
@@ -511,7 +530,9 @@ def site_level():
         cities_list=data["cities"],
         sites_list=sites_list,
         yw_list=data["yw"],
-        last_update=_get_last_update()
+        default_from=from_dt.strftime("%Y-%m-%d"),
+        default_to=to_dt.strftime("%Y-%m-%d"),
+        last_update=last_up
     )))
 
 @prod.route("/api/productivity/sites")
@@ -536,9 +557,17 @@ def api_productivity_site():
             if mode == "trend":
                 from_date = request.args.get("from_date", "")
                 to_date = request.args.get("to_date", "")
-                if not from_date or not to_date or not sel_sites:
-                    return jsonify({"error": "Missing required filters for trend mode"})
+                if not from_date or not to_date:
+                    return jsonify({"error": "Missing required date filters for trend mode"})
                 
+                if not sel_sites:
+                    sel_sites = _get_sites(sel_nsas, sel_cities)
+                    if len(sel_sites) > 50:
+                        sel_sites = sel_sites[:50]
+                
+                if not sel_sites:
+                    return jsonify({"error": "No sites found matching selected filters"})
+
                 params = [from_date, to_date, sel_sites]
                 nsa_clause = ""
                 city_clause = ""
@@ -626,18 +655,20 @@ def api_productivity_site():
                 if not yw_before or not yw_after:
                     return jsonify({"error": "Missing weeks for compare"})
                 
-                if not sel_sites:
-                    sel_sites = _get_sites(sel_nsas, sel_cities)
-                    
-                params = [yw_before, yw_after, sel_sites]
+                query_params = []
+                site_clause = ""
                 nsa_clause = ""
                 city_clause = ""
+                
+                if sel_sites:
+                    site_clause = 'AND "Site ID"=ANY(%s)'
+                    query_params.append(sel_sites)
                 if sel_nsas:
                     nsa_clause = 'AND "NSA"=ANY(%s)'
-                    params.append(sel_nsas)
+                    query_params.append(sel_nsas)
                 if sel_cities:
                     city_clause = 'AND "KABUPATEN"=ANY(%s)'
-                    params.append(sel_cities)
+                    query_params.append(sel_cities)
                     
                 cur.execute(f'''
                     SELECT
@@ -654,10 +685,10 @@ def api_productivity_site():
                         SUM(CASE WHEN "Y_W"=%s THEN sum_max_rrc END) AS rb,
                         SUM(CASE WHEN "Y_W"=%s THEN sum_max_rrc END) AS ra
                     FROM mv_traffic_payload_yw_site
-                    WHERE "Y_W" IN (%s, %s) AND "Site ID"=ANY(%s) {nsa_clause} {city_clause}
+                    WHERE "Y_W" IN (%s, %s) {site_clause} {nsa_clause} {city_clause}
                     GROUP BY "KABUPATEN", "Site ID"
                     ORDER BY "KABUPATEN", "Site ID"
-                ''', [yw_before, yw_after, yw_before, yw_after, yw_before, yw_before, yw_after, yw_after, yw_before, yw_after] + [yw_before, yw_after, sel_sites] + ([sel_nsas] if sel_nsas else []) + ([sel_cities] if sel_cities else []))
+                ''', [yw_before, yw_after, yw_before, yw_after, yw_before, yw_before, yw_after, yw_after, yw_before, yw_after, yw_before, yw_after] + query_params)
                 
                 grouped = {}
                 def pct(a, b): return round((a - b) / b * 100, 1) if b and b > 0 else None

@@ -147,8 +147,12 @@ def create_app():
         return render_template("error.html", code=500,
                                message="An internal error occurred. Please try again later."), 500
 
+    from werkzeug.exceptions import HTTPException
+
     @app.errorhandler(Exception)
     def handle_unexpected(e):
+        if isinstance(e, HTTPException):
+            return e
         logger.error("Unhandled exception: %s", str(e), exc_info=True)
         return render_template("error.html", code=500,
                                message="An unexpected error occurred. Please try again later."), 500

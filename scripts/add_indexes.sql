@@ -68,6 +68,13 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tp_yw
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tp_date_siteid
     ON traffic_payload ("Date", "Site ID");
 
+-- Site level materialized view comparison indexes
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mv_yw_site_yw_nsa
+    ON mv_traffic_payload_yw_site ("Y_W", "NSA");
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_mv_yw_site_yw_kab
+    ON mv_traffic_payload_yw_site ("Y_W", "KABUPATEN");
+
 
 -- ── Packet Loss Tables ─────────────────────────────────────────────────────────
 
