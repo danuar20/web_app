@@ -1774,7 +1774,8 @@
             const dtStr = fullLabel.split(' ')[0];
             const parts = dtStr.split('-');
             if (parts.length === 3) {
-                return `${parts[1]}-${parts[2]}`;
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                return parts[2] + ' ' + months[parseInt(parts[1]) - 1];
             }
             return fullLabel;
         }
