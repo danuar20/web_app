@@ -353,7 +353,8 @@ def api_home():
                 ("measKpiDy4G", "Date", "last_mk4g"),
                 ("2G_pl_hy", "Date", "last_2gpl"),
                 ("4G_pl_hy", "date", "last_4gpl"),
-                ("measTA4G", "Date", "last_ta4g")
+                ("measTA4G", "Date", "last_ta4g"),
+                ("measTA5G", "Date", "last_ta5g")
             ]:
                 try:
                     cur.execute(f'SELECT MAX("{col}") FROM "{tbl}"')
@@ -475,7 +476,7 @@ def api_database_status(db_type):
     if db_type != "postgres":
         return json_response({"error": "Invalid db type"})
 
-    cache_key = f"api_database_status_{db_type}"
+    cache_key = f"api_database_status_{db_type}_v2"
     cached_data = cache.get(cache_key)
     if cached_data:
         return json_response(cached_data)
@@ -503,6 +504,7 @@ def api_database_status(db_type):
             ("measKpiBdbh2G", "Date"),
             ("measKpiBdbh4G", "Date"),
             ("measTA4G", "Date"),
+            ("measTA5G", "Date"),
             ("2G_pl_hy", "Date"),
             ("4G_pl_hy", "date"),
         ]
