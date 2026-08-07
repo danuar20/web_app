@@ -1841,10 +1841,19 @@ body.mobile-view .sidebar .nav-link {
     <div class="menu-section">
       <div class="menu-section-label">Others</div>
 
-      <a href="/ta_4g_new" class="menu-item {% block nav_ta %}{% endblock %}">
+      <div class="menu-item {% block nav_ta %}{% endblock %}" onclick="toggleSub('subta', this)">
         <div class="menu-icon"><i class="fas fa-clock"></i></div>
         <span class="menu-item-label">Timing Advance</span>
-      </a>
+        <i class="fas fa-chevron-right menu-arrow"></i>
+      </div>
+      <div class="sub-menu {% block subta_open %}{% endblock %}" id="subta">
+        <a href="/ta_4g_new" class="sub-item {% block nav_ta_4g %}{% endblock %}">
+          <span class="sub-item-dot"></span> TA 4G
+        </a>
+        <a href="/ta_5g" class="sub-item {% block nav_ta_5g %}{% endblock %}">
+          <span class="sub-item-dot"></span> TA 5G
+        </a>
+      </div>
 
       <a href="/pl_monitoring" class="menu-item {% block nav_packet_loss %}{% endblock %}">
         <div class="menu-icon"><i class="fas fa-network-wired"></i></div>

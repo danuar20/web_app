@@ -2,9 +2,9 @@
 
 {% block nav_ta %}active{% endblock %}
 {% block subta_open %}open{% endblock %}
-{% block nav_ta_4g %}active{% endblock %}
-{% block page_title %}TA 4G New — Monitoring & Comparison{% endblock %}
-{% block page_sub %}Distribution of Timing Advance (Actual vs Compare){% endblock %}
+{% block nav_ta_5g %}active{% endblock %}
+{% block page_title %}TA 5G — Monitoring & Comparison{% endblock %}
+{% block page_sub %}Distribution of 5G NR Timing Advance (Actual vs Compare){% endblock %}
 
 {% block page_content %}
 <style>
@@ -197,7 +197,7 @@
                             <button class="row-btn active" onclick="setChartRow(3, 'actual', this)">3</button>
                         </div>
                         <button class="export-btn btn-png" onclick="exportPNG('actual', event)"><i class="fas fa-camera"></i> Export PNG</button>
-                        <button class="export-btn btn-csv" onclick="exportCSV('actTable', 'Actual_TA.csv')"><i class="fas fa-file-csv"></i> Export CSV</button>
+                        <button class="export-btn btn-csv" onclick="exportCSV('actTable', 'Actual_TA_5G.csv')"><i class="fas fa-file-csv"></i> Export CSV</button>
                     </div>
                 </div>
                 
@@ -264,7 +264,7 @@
             <!-- Table Container -->
             <div class="glass-card" id="actTableContainer" style="display:none; padding:0; overflow:hidden;">
                 <div style="padding:16px 20px; border-bottom:1px solid rgba(128,128,128,0.1); display:flex; justify-content:space-between; align-items:center;">
-                    <h3 style="margin:0; font-size:14px;">TA Analysis <span style="font-size:11px; font-weight:normal; opacity:0.7; margin-left:12px;">(Status criteria: Normal &lt; 1.092km, Borderline &lt; 3.198km, Overshoot &gt;= 3.198km)</span></h3>
+                    <h3 style="margin:0; font-size:14px;">TA 5G Analysis <span style="font-size:11px; font-weight:normal; opacity:0.7; margin-left:12px;">(Status criteria: Normal &lt; 1.014km, Borderline &lt; 3.1km, Overshoot &gt;= 3.1km)</span></h3>
                     <input type="text" id="actSearch" class="f-input" placeholder="Search Site ID..." onkeyup="searchTable('actTable', this.value)" style="padding:6px 12px; font-size:12px; width:150px;">
                 </div>
                 <div style="overflow-x:auto;">
@@ -335,7 +335,7 @@
                     </div>
                     <div class="right-actions">
                         <button class="export-btn btn-png" onclick="exportPNG('compare', event)"><i class="fas fa-camera"></i> Export PNG</button>
-                        <button class="export-btn btn-csv" onclick="exportCSV('compTable', 'Comparison_TA.csv')"><i class="fas fa-file-csv"></i> Export CSV</button>
+                        <button class="export-btn btn-csv" onclick="exportCSV('compTable', 'Comparison_TA_5G.csv')"><i class="fas fa-file-csv"></i> Export CSV</button>
                     </div>
                 </div>
                 
@@ -402,7 +402,7 @@
             <!-- Table Container -->
             <div class="glass-card" id="compTableContainer" style="display:none; padding:0; overflow:hidden;">
                 <div style="padding:16px 20px; border-bottom:1px solid rgba(128,128,128,0.1); display:flex; justify-content:space-between; align-items:center;">
-                    <h3 style="margin:0; font-size:14px;">TA Analysis (Compare) <span style="font-size:11px; font-weight:normal; opacity:0.7; margin-left:12px;">(Status criteria: Normal &lt; 1.092km, Borderline &lt; 3.198km, Overshoot &gt;= 3.198km)</span></h3>
+                    <h3 style="margin:0; font-size:14px;">TA 5G Analysis (Compare) <span style="font-size:11px; font-weight:normal; opacity:0.7; margin-left:12px;">(Status criteria: Normal &lt; 1.014km, Borderline &lt; 3.1km, Overshoot &gt;= 3.1km)</span></h3>
                     <input type="text" id="compSearch" class="f-input" placeholder="Search Site ID..." onkeyup="searchTable('compTable', this.value)" style="padding:6px 12px; font-size:12px; width:150px;">
                 </div>
                 <div style="overflow-x:auto;">
@@ -424,14 +424,16 @@
 <script>
     const CSRF_TOKEN = "{{ csrf_token() }}";
     const TA_LABELS = {{ ta_labels|tojson|safe }};
+    const TA_MAX_DIST = {{ ta_max_dist|tojson|safe }};
+    const NUM_BUCKETS = TA_LABELS.length; // 18
     const BAND_COLOR_MAP = {
-        "L700": "#f093fb",
-        "L900": "#ff5555",
-        "L1800": "#4facfe",
-        "L2100": "#00c853",
-        "L2300_1": "#a78bfa",
-        "L2300_2": "#ff9f40",
-        "L2300_3": "#f6c90e"
+        "NR700": "#f093fb",
+        "NR900": "#ff5555",
+        "NR1800": "#4facfe",
+        "NR2100": "#00c853",
+        "NR2300_1": "#a78bfa",
+        "NR2300_2": "#ff9f40",
+        "NR2300_3": "#f6c90e"
     };
     const FALLBACK_COLORS = ["#90a4ae", "#4db6ac", "#ff8a65", "#ba68c8", "#aed581"];
     let ACT_DATA = null;
@@ -604,7 +606,7 @@ function exportPNG(tab, event) {
             backgroundColor: null // strictly transparent background!
         }).then(canvas => {
             let a = document.createElement('a');
-            a.download = 'TA_Analysis_' + tab + '.png';
+            a.download = 'TA_5G_Analysis_' + tab + '.png';
             a.href = canvas.toDataURL('image/png');
             a.click();
             
@@ -754,7 +756,7 @@ async function fetchData(tab) {
     }
     
     try {
-        let res = await fetch('/api/ta_4g_query', {
+        let res = await fetch('/api/ta_5g_query', {
             method: 'POST',
             headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
             body: JSON.stringify(payload)
@@ -802,7 +804,6 @@ function hexToRgba(hex, alpha) {
     return 'rgba(0,0,0,'+alpha+')';
 }
 
-// BUG #3 FIX: Removed dead variable `i` that was incremented but never used
 function getBandColor(band) {
     for(let b of Object.keys(BAND_COLOR_MAP)) {
         if(band === b) return BAND_COLOR_MAP[b];
@@ -822,12 +823,12 @@ function aggregateBands(bandsObj, selectedBands, filterType='all') {
         if (!agg[baseBand]) {
             agg[baseBand] = {
                 band: baseBand,
-                ta_vals: Array(15).fill(0.0),
+                ta_vals: Array(NUM_BUCKETS).fill(0.0),
                 total: 0.0,
                 sector_type: item.sector_type
             };
         }
-        for (let i = 0; i < 15; i++) {
+        for (let i = 0; i < NUM_BUCKETS; i++) {
             agg[baseBand].ta_vals[i] += ((item.ta_vals && item.ta_vals[i]) ? item.ta_vals[i] : 0.0);
         }
         agg[baseBand].total += (item.total || 0.0);
@@ -869,7 +870,7 @@ function buildDatasetsActual(bandsObj, selectedBands, thresholdId, filterType='a
     
     pct.push({
         label: "ThresholdLineHidden", 
-        data: Array(15).fill(thresh),
+        data: Array(NUM_BUCKETS).fill(thresh),
         borderColor: '#ef4444', borderDash: [5, 5],
         borderWidth: 1.5, pointRadius: 0, fill: false,
         pointStyle: 'rect', hoverRadius: 0
@@ -1076,17 +1077,13 @@ function renderCharts(tab) {
 }
 
 // --- Analysis Table ---
-function extractMaxDistance(bucketLabel) {
-    if(!bucketLabel) return 0;
-    if(bucketLabel.includes(">")) return 10.140;
-    let parts = bucketLabel.split("-");
-    if(parts.length===2) return parseFloat(parts[1]);
-    return 0;
-}
-
+// 5G Status thresholds mapped to nearest 5G TA bucket boundaries:
+// Normal < 1.014 km (bucket [11,13] = 858-1014m, near 4G's 1.092km)
+// Borderline < 3.1 km (bucket [34,40] = 2.65-3.1km, near 4G's 3.198km)
+// Overshoot >= 3.1 km
 function getStatusByDistance(dist) {
-    if(dist < 1.092) return '<span class="pill-pos">Normal</span>';
-    if(dist < 3.198) return '<span class="pill-warn">Borderline</span>';
+    if(dist < 1.014) return '<span class="pill-pos">Normal</span>';
+    if(dist < 3.1) return '<span class="pill-warn">Borderline</span>';
     return '<span class="pill-neg">Overshoot</span>';
 }
 
@@ -1132,8 +1129,8 @@ function calculateAnalysisRows(dataObj, selSecs, selBands, period, thresholdId, 
                 }
             }
             
-            let distStr = TA_LABELS[bucketIndex];
-            let maxDist = extractMaxDistance(distStr);
+            // Use the pre-computed max distance for each bucket
+            let maxDist = TA_MAX_DIST[bucketIndex];
             let statusHtml = getStatusByDistance(maxDist);
             
             rows.push({

@@ -61,6 +61,10 @@ dashboard_5g = dashboard_5g_routes.dashboard_5g
 from . import ta_4g_new_routes
 ta4g_new = ta_4g_new_routes.ta4g_new
 
+# TA 5G — /ta_5g
+from . import ta_5g_routes
+ta5g = ta_5g_routes.ta5g
+
 
 
 

@@ -98,7 +98,7 @@ def create_app():
         kpi2g_monitoring, wpc_2g_monitoring, wpc_4g_monitoring, wpc_5g_monitoring,
         kpi4g_monitoring,
         kpi5g_monitoring,
-        pl_monitoring, ta4g_new, dashboard_2g, dashboard_4g, dashboard_5g, coverage, okumura_hata, nettilt3d,
+        pl_monitoring, ta4g_new, ta5g, dashboard_2g, dashboard_4g, dashboard_5g, coverage, okumura_hata, nettilt3d,
         optim_4g
     )
     app.register_blueprint(auth)
@@ -113,6 +113,7 @@ def create_app():
     app.register_blueprint(kpi5g_monitoring)
     app.register_blueprint(pl_monitoring)
     app.register_blueprint(ta4g_new)
+    app.register_blueprint(ta5g)
     app.register_blueprint(dashboard_2g)
     app.register_blueprint(dashboard_4g)
     app.register_blueprint(dashboard_5g)
