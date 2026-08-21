@@ -127,7 +127,7 @@ Start the Flask development server:
 ```bash
 python run.py
 ```
-Navigate to **`http://localhost:5000`** in your browser!
+Navigate to **`http://localhost:5001`** in your browser!
 
 ---
 

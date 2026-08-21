@@ -1,0 +1,2267 @@
+{% extends "base.html" %}
+{% block nav_optim %}active{% endblock %}
+{% block subOptim_open %}open{% endblock %}
+{% block nav_unbalance_prb %}active{% endblock %}
+
+{% block page_content %}
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<!-- SheetJS XLSX Export Library (xlsx-js-style fork for cell styling support) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+
+<style>
+:root{
+  --bg:#faf7f2;--surface:#ffffff;--surface2:#f3efe8;
+  --border:#e2d9cc;--text:#2c2418;--muted:#8a7d6b;
+  --red:#c0392b;--amber:#b7770d;--blue:#1a5fa8;--green:#1e7e34;
+  --accent:#1a5fa8;
+}
+[data-theme="dark"] {
+  --bg:#1a1a2e;--surface:#16213e;--surface2:#0f3460;
+  --border:#1a3a5c;--text:#e0e0e0;--muted:#8899aa;
+  --red:#e74c3c;--amber:#f39c12;--blue:#3498db;--green:#2ecc71;
+  --accent:#3498db;
+}
+
+.prb-container {
+    font-family:'IBM Plex Sans',sans-serif;
+    color:var(--text);
+    background:var(--bg);
+    padding: 24px;
+    border-radius: 8px;
+    min-height: calc(100vh - 100px);
+}
+
+.report-header {
+    padding: 24px 32px 16px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+.report-header::before{content:'';position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(26,95,168,0.06) 0%,transparent 70%);pointer-events:none;}
+.badge{display:inline-flex;align-items:center;gap:6px;background:rgba(26,95,168,0.08);border:1px solid rgba(26,95,168,0.3);color:var(--accent);font-family:'IBM Plex Mono',monospace;font-size:10px;padding:3px 10px;border-radius:20px;margin-bottom:12px;letter-spacing:.05em;}
+.badge-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+
+h1{font-size:24px;font-weight:300;letter-spacing:-0.5px;line-height:1.2;margin-bottom:6px; margin-top:0;}
+h1 span{font-weight:600;color:var(--accent);}
+
+/* Filter Controls Box */
+.filter-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+
+.filter-grid {
+    display: flex;
+    gap: 20px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.filter-group { display: flex; flex-direction: column; gap: 6px; }
+.filter-group label {
+    font-size: 11px; font-family:'IBM Plex Mono',monospace;
+    color:var(--muted); font-weight: 600; text-transform: uppercase;
+    letter-spacing: .05em;
+}
+.filter-group select, .filter-group input[type="number"], .filter-group input[type="text"] {
+    padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 13px; font-family: inherit; background: var(--surface2);
+    color: var(--text); min-width: 110px;
+}
+
+.config-divider {
+    width: 1px; height: 38px; background: var(--border); align-self: center;
+}
+
+.btn-load {
+    background: var(--accent); color: white; border: none; border-radius: 6px;
+    padding: 9px 24px; font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;
+    height: 38px;
+}
+.btn-load:hover { background: #13467a; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26,95,168,0.3); }
+.btn-load:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ── Tab System ─────────────────────────────────────────────── */
+.tab-bar {
+    display: flex; gap: 0; margin-bottom: 0;
+    border-bottom: 2px solid var(--border);
+    background: var(--surface);
+    border-radius: 12px 12px 0 0;
+    padding: 0 24px;
+}
+.tab-btn {
+    padding: 14px 28px; font-size: 14px; font-weight: 600;
+    color: var(--muted); background: transparent; border: none;
+    cursor: pointer; position: relative; transition: all 0.2s;
+    font-family: 'IBM Plex Sans', sans-serif;
+    border-bottom: 3px solid transparent; margin-bottom: -2px;
+}
+.tab-btn:hover { color: var(--accent); }
+.tab-btn.active {
+    color: var(--accent); border-bottom-color: var(--accent);
+}
+.tab-btn i { margin-right: 8px; font-size: 13px; }
+
+.tab-panel {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border); border-top: none;
+    border-radius: 0 0 12px 12px;
+    padding: 24px;
+}
+.tab-panel.active { display: block; }
+
+/* ── Trend Tab ──────────────────────────────────────────────── */
+.trend-controls {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 20px; flex-wrap: wrap;
+}
+.layout-toggle {
+    display: inline-flex; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 3px; gap: 3px;
+}
+.layout-btn {
+    border: none; background: transparent; color: var(--muted); font-size: 12px;
+    font-weight: 600; padding: 6px 14px; border-radius: 6px; cursor: pointer;
+    transition: all 0.2s; font-family: 'IBM Plex Mono', monospace;
+}
+.layout-btn.active {
+    background: var(--surface); color: var(--accent);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+
+.trend-grid {
+    display: grid; gap: 20px; width: 100%;
+}
+.trend-grid.cols-1 { grid-template-columns: minmax(0, 1fr); }
+.trend-grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.trend-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.trend-chart-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    min-width: 0; width: 100%; box-sizing: border-box; overflow: hidden;
+}
+.trend-chart-title {
+    font-size: 14px; font-weight: 700; color: var(--text);
+    margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+}
+.trend-chart-title i { color: var(--accent); font-size: 13px; }
+.trend-canvas-wrap { position: relative; height: 280px; width: 100%; min-width: 0; }
+
+/* ── Weekly Analysis Tab ────────────────────────────────────── */
+/* Summary KPI Cards Grid */
+.summary-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px; margin-bottom: 20px;
+}
+.summary-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+}
+.summary-label {
+    font-size: 10px; color: var(--muted); font-family: 'IBM Plex Mono', monospace;
+    text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.summary-value {
+    font-size: 18px; font-weight: 700; line-height: 1.2;
+    display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap;
+}
+.summary-pct {
+    font-size: 11px; font-weight: 600; font-family: 'IBM Plex Mono', monospace;
+    opacity: 0.85;
+}
+
+/* Category Cards Layout with Interactive Pie Charts & Legends */
+.cat-summary-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 20px; margin-bottom: 20px;
+}
+
+.cat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 22px 26px; box-shadow: 0 4px 16px rgba(0,0,0,0.03);
+}
+
+.cat-card-title {
+    font-size: 17px; font-weight: 700; color: var(--text);
+    margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+}
+
+.cat-body-flex {
+    display: flex; gap: 24px; align-items: center; justify-content: space-between;
+}
+
+.chart-canvas-container {
+    width: 160px; height: 160px; position: relative; flex-shrink: 0;
+}
+
+.cat-legend-wrapper { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+
+.cat-row { display: flex; flex-direction: column; gap: 4px; }
+.cat-row-header {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; font-weight: 600; color: #495057;
+}
+.cat-row-val { font-family: 'IBM Plex Sans', sans-serif; font-weight: 700; color: #212529; }
+
+.cat-bar-track {
+    width: 100%; height: 7px; background: #e9ecef; border-radius: 6px;
+    overflow: hidden; display: flex;
+}
+.cat-bar-fill { height: 100%; border-radius: 6px; transition: width 0.4s ease-in-out; }
+.fill-high { background: #c5221f; }
+.fill-med { background: #b06000; }
+.fill-low { background: #137333; }
+
+/* Toolbar: Search, Status, Mode & Export */
+.toolbar-card {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 18px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 10px;
+    margin-bottom: 16px; flex-wrap: wrap; gap: 12px;
+}
+
+.toolbar-left {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+
+.view-toggle {
+    display: inline-flex; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 3px; gap: 3px;
+}
+.btn-toggle {
+    border: none; background: transparent; color: var(--muted); font-size: 12px;
+    font-weight: 500; padding: 5px 14px; border-radius: 6px; cursor: pointer;
+    transition: all 0.2s; font-family: 'IBM Plex Sans', sans-serif;
+}
+.btn-toggle.active {
+    background: var(--surface); color: var(--accent); font-weight: 600;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+
+.toolbar-select {
+    padding: 6px 12px; font-size: 12px; min-width: 155px; height: 35px;
+    box-sizing: border-box; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); font-family: inherit;
+}
+
+.search-wrapper {
+    position: relative; display: flex; align-items: center; width: 240px;
+}
+.search-wrapper .search-icon {
+    position: absolute; left: 10px; color: var(--muted); font-size: 12px; pointer-events: none;
+}
+.search-input {
+    width: 100%; padding: 6px 12px 6px 30px; border: 1px solid var(--border);
+    border-radius: 6px; font-size: 12px; background: var(--surface2);
+    color: var(--text); font-family: inherit; height: 35px; box-sizing: border-box;
+}
+
+.btn-xlsx {
+    background: #137333; color: white; border: none;
+    border-radius: 6px; padding: 7px 16px; font-size: 12px; cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace; font-weight: 500; transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 6px; height: 35px; box-sizing: border-box;
+}
+.btn-xlsx:hover { background: #0f5827; box-shadow: 0 4px 10px rgba(19,115,51,0.3); }
+
+/* Band Filter Dropdown Box */
+.band-dropdown-wrapper { position: relative; display: inline-block; min-width: 140px; }
+.btn-band-dropdown {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 12px; font-size: 13px; cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--text);
+    height: 38px; box-sizing: border-box; transition: border-color 0.2s;
+}
+.btn-band-dropdown:hover { border-color: var(--accent); }
+.band-menu {
+    position: absolute; top: calc(100% + 4px); left: 0; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px; padding: 6px;
+    z-index: 100; box-shadow: 0 8px 24px rgba(0,0,0,0.12); display: none; min-width: 160px;
+}
+.band-menu.active { display: block; }
+.band-item {
+    display: flex; align-items: center; gap: 10px; font-size: 12px;
+    padding: 6px 10px; cursor: pointer; border-radius: 4px; transition: background 0.15s;
+    user-select: none; margin-bottom: 2px; color: var(--text);
+}
+.band-item:hover { background: var(--surface2); }
+.band-item input[type="checkbox"] {
+    cursor: pointer; width: 14px; height: 14px; accent-color: var(--accent); margin: 0;
+}
+.band-item span { cursor: pointer; flex: 1; }
+
+/* Week Period Date Range Display */
+.week-period-display {
+    padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 12px; font-family: 'IBM Plex Mono', monospace; background: var(--surface2);
+    color: var(--accent); font-weight: 500; height: 38px; box-sizing: border-box;
+    display: flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+
+/* Pagination Controls */
+.pagination-wrapper {
+    display: flex; align-items: center; gap: 10px; font-size: 12px;
+    font-family: 'IBM Plex Mono', monospace; color: var(--muted);
+}
+.btn-page {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 4px; padding: 4px 10px; cursor: pointer;
+    font-size: 11px; transition: all 0.15s;
+}
+.btn-page:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.btn-page:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Table Container & Table */
+.table-container {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+.table-scroll { overflow-x: auto; max-height: 420px; overflow-y: auto; }
+.prb-table { width: 100%; border-collapse: collapse; }
+
+.prb-table th {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600;
+    color: var(--muted); text-transform: uppercase; letter-spacing: .05em;
+    padding: 8px 10px; text-align: left; background: var(--surface2);
+    border-bottom: 2px solid var(--border); position: sticky; top: 0; z-index: 2;
+    cursor: pointer; user-select: none; white-space: nowrap;
+}
+.prb-table th:hover { color: var(--accent); }
+.prb-table th .sort-icon { font-size: 8px; margin-left: 3px; opacity: 0.5; }
+.prb-table th.sorted .sort-icon { opacity: 1; color: var(--accent); }
+
+.prb-table td {
+    padding: 6px 10px; font-size: 12px;
+    border-bottom: 1px solid rgba(226,217,204,0.4);
+    vertical-align: middle; white-space: nowrap;
+}
+.prb-table tr:hover td { opacity: 0.95; }
+.prb-table td.mono { font-family: 'IBM Plex Mono', monospace; }
+
+/* Calm Category Colors */
+.cat-low { background: #e6f4ea !important; color: #137333 !important; font-weight: 600; }
+.cat-medium { background: #fef7e0 !important; color: #b06000 !important; font-weight: 600; }
+.cat-high { background: #fce8e6 !important; color: #c5221f !important; font-weight: 600; }
+
+/* Read-only Medium Util display */
+.medium-display {
+    padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 13px; font-family: inherit; background: var(--surface2);
+    color: var(--muted); min-width: 110px; cursor: default;
+    display: flex; align-items: center; font-weight: 500;
+}
+
+/* Status Cell Styling */
+.status-balance { background: #C6E0B4 !important; color: #000000 !important; font-weight: 600; text-align: center; }
+.status-unbalance { background: #FCE4D6 !important; color: #000000 !important; font-weight: 600; text-align: center; }
+.status-na { background: transparent !important; color: var(--muted) !important; text-align: center; }
+
+/* Empty & Loading States */
+.empty-state {
+    padding: 60px; text-align: center; color: var(--muted);
+    background: var(--surface); border: 1px dashed var(--border);
+    border-radius: 12px;
+}
+.empty-state i { font-size: 32px; margin-bottom: 16px; opacity: 0.5; display: block; }
+
+.loading-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.3); backdrop-filter: blur(4px);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+.loading-overlay.active { opacity: 1; pointer-events: all; }
+.loading-spinner {
+    background: var(--surface); padding: 30px 40px; border-radius: 12px;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.2); text-align: center;
+}
+.spinner-ring {
+    width: 28px; height: 28px; border: 3px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-sub { font-size: 12px; color: var(--muted); margin-top: -6px; }
+
+/* Loaded info bar */
+.loaded-info {
+    display: none; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 20px; margin-bottom: 20px;
+    font-size: 13px; color: var(--text);
+    align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.loaded-info.active { display: flex; }
+.loaded-info .info-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(26,95,168,0.08); color: var(--accent);
+    padding: 4px 12px; border-radius: 20px; font-size: 12px;
+    font-family: 'IBM Plex Mono', monospace; font-weight: 500;
+}
+
+/* Weekly Analysis inline filter bar */
+.weekly-filter-bar {
+    display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+@media (max-width: 768px) {
+    .trend-grid.cols-2, .trend-grid.cols-3 { grid-template-columns: 1fr; }
+    .tab-btn { padding: 10px 16px; font-size: 13px; }
+}
+</style>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner" style="min-width: 320px;">
+        <div class="spinner-ring" id="spinnerRing"></div>
+        <span id="loadingText" style="font-weight:600; font-size:14px;">Processing Unbalance PRB data...</span>
+        <span class="loading-sub" id="loadingSub" style="font-size:12px; margin-top:2px;"></span>
+        <div id="loadingProgressWrap" style="display:none; width:100%; margin-top:14px;">
+            <div style="width:100%; height:6px; background:rgba(0,0,0,0.08); border-radius:3px; overflow:hidden;">
+                <div id="loadingProgressBar" style="width:0%; height:100%; background:var(--accent, #1a5fa8); transition:width 0.2s ease; border-radius:3px;"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:11px; color:var(--muted); font-family:'IBM Plex Mono',monospace;">
+                <span id="loadingProgressStatus">Generating Excel...</span>
+                <span id="loadingProgressPct">0%</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="prb-container">
+    <!-- Header -->
+    <div class="report-header">
+        <div class="badge"><span class="badge-dot"></span>PRE-AGGREGATED WEEKLY</div>
+        <h1>Unbalance <span>PRB Analysis</span></h1>
+    </div>
+
+    <!-- Filter Configuration Card -->
+    <div class="filter-card">
+        <div class="filter-grid">
+            <!-- Week Range Selection -->
+            <div class="filter-group">
+                <label>Start Week</label>
+                <select id="startWeekSelect">
+                    {% if initial_weeks %}
+                        {% for w in initial_weeks %}
+                        <option value="{{ w }}" {% if loop.index0 == 4 or (initial_weeks|length < 5 and loop.last) %}selected{% endif %}>{{ w }}</option>
+                        {% endfor %}
+                    {% else %}
+                        <option value="">Loading weeks...</option>
+                    {% endif %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>End Week</label>
+                <select id="endWeekSelect">
+                    {% if initial_weeks %}
+                        {% for w in initial_weeks %}
+                        <option value="{{ w }}" {% if loop.first %}selected{% endif %}>{{ w }}</option>
+                        {% endfor %}
+                    {% else %}
+                        <option value="">Loading weeks...</option>
+                    {% endif %}
+                </select>
+            </div>
+
+            <div class="config-divider"></div>
+
+            <!-- PRB Category Configuration (Low & High only, Medium auto-calculated) -->
+            <div class="filter-group">
+                <label>Low Util (&le; %)</label>
+                <input type="number" id="threshLow" min="0" max="99" value="50" oninput="updateMediumDisplay()" onchange="validateAndRender()">
+            </div>
+            <div class="filter-group">
+                <label>Medium Util</label>
+                <div class="medium-display" id="mediumDisplay">51 – 85 %</div>
+            </div>
+            <div class="filter-group">
+                <label>High Util (&gt; %)</label>
+                <input type="number" id="threshHigh" min="1" max="100" value="85" oninput="updateMediumDisplay()" onchange="validateAndRender()">
+            </div>
+
+            <div class="config-divider"></div>
+
+            <!-- PRB Gap Configuration -->
+            <div class="filter-group">
+                <label>PRB Gap Threshold (%)</label>
+                <input type="number" id="threshGap" min="1" max="100" value="30" onchange="validateAndRender()">
+            </div>
+
+            <button type="button" class="btn-load" id="btnLoad" onclick="loadData()">
+                <i class="fas fa-cogs"></i> Process
+            </button>
+        </div>
+    </div>
+
+    <!-- Tab Bar -->
+    <div id="tabBarContainer" style="display:none;">
+        <div class="tab-bar">
+            <button class="tab-btn active" id="tabBtnTrend" onclick="switchTab('trend')">
+                <i class="fas fa-chart-line"></i>Unbalance PRB Trend
+            </button>
+            <button class="tab-btn" id="tabBtnWeekly" onclick="switchTab('weekly')">
+                <i class="fas fa-table"></i>Unbalance PRB Weekly Analysis
+            </button>
+        </div>
+
+        <!-- ════════════════ TAB 1: TREND ════════════════ -->
+        <div class="tab-panel active" id="panelTrend">
+            <div class="trend-controls">
+                <span style="font-size:12px; font-weight:600; color:var(--muted); font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:.05em;">
+                    Charts per row:
+                </span>
+                <div class="layout-toggle">
+                    <button class="layout-btn" onclick="setChartLayout(1)" id="layoutBtn1">1</button>
+                    <button class="layout-btn active" onclick="setChartLayout(2)" id="layoutBtn2">2</button>
+                    <button class="layout-btn" onclick="setChartLayout(3)" id="layoutBtn3">3</button>
+                </div>
+            </div>
+
+            <div class="trend-grid cols-2" id="trendGrid">
+                <!-- Chart 1: DL PRB Unbalance Trend -->
+                <div class="trend-chart-card">
+                    <div class="trend-chart-title"><i class="fas fa-arrow-down"></i> DL PRB Unbalance Trend</div>
+                    <div class="trend-canvas-wrap">
+                        <canvas id="chartDlUnbalanceTrend"></canvas>
+                    </div>
+                </div>
+                <!-- Chart 2: UL PRB Unbalance Trend -->
+                <div class="trend-chart-card">
+                    <div class="trend-chart-title"><i class="fas fa-arrow-up"></i> UL PRB Unbalance Trend</div>
+                    <div class="trend-canvas-wrap">
+                        <canvas id="chartUlUnbalanceTrend"></canvas>
+                    </div>
+                </div>
+                <!-- Chart 3: DL/UL PRB Unbalance Trend -->
+                <div class="trend-chart-card">
+                    <div class="trend-chart-title"><i class="fas fa-exchange-alt"></i> DL/UL PRB Unbalance Trend</div>
+                    <div class="trend-canvas-wrap">
+                        <canvas id="chartBothUnbalanceTrend"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 4: DL PRB Category Trend -->
+                <div class="trend-chart-card">
+                    <div class="trend-chart-title"><i class="fas fa-layer-group"></i> DL PRB Category Trend</div>
+                    <div class="trend-canvas-wrap">
+                        <canvas id="chartDlCategoryTrend"></canvas>
+                    </div>
+                </div>
+                <!-- Chart 5: UL PRB Category Trend -->
+                <div class="trend-chart-card">
+                    <div class="trend-chart-title"><i class="fas fa-layer-group"></i> UL PRB Category Trend</div>
+                    <div class="trend-canvas-wrap">
+                        <canvas id="chartUlCategoryTrend"></canvas>
+                    </div>
+                </div>
+                <!-- Chart 6: DL/UL PRB Category Trend -->
+                <div class="trend-chart-card">
+                    <div class="trend-chart-title"><i class="fas fa-layer-group"></i> DL/UL PRB Category Trend</div>
+                    <div class="trend-canvas-wrap">
+                        <canvas id="chartBothCategoryTrend"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ════════════════ TAB 2: WEEKLY ANALYSIS ════════════════ -->
+        <div class="tab-panel" id="panelWeekly">
+            <!-- Weekly Analysis Inline Filters: Week, Period, Type, Band -->
+            <div class="weekly-filter-bar">
+                <div class="filter-group">
+                    <label>Week</label>
+                    <select id="weeklyWeekFilter" onchange="onWeeklyWeekFilterChange()" style="min-width:140px;">
+                        <option value="all">All Weeks</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Period</label>
+                    <div class="week-period-display" id="weeklyDateRange">
+                        <i class="far fa-calendar-alt"></i> <span id="weeklyDateRangeText">-</span>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label>Type</label>
+                    <select id="typeFilter" onchange="resetPageAndRender()" style="min-width:160px;">
+                        <option value="all">All Types (Outdoor & Indoor)</option>
+                        <option value="outdoor">Outdoor Only</option>
+                        <option value="indoor">Indoor Only</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Bands</label>
+                    <div class="band-dropdown-wrapper">
+                        <button type="button" class="btn-band-dropdown" onclick="toggleBandMenu()">
+                            <span><i class="fas fa-layer-group" style="margin-right:6px; color:var(--accent);"></i><span id="bandDropdownLabel">Bands (6)</span></span>
+                            <i class="fas fa-chevron-down" style="font-size:10px; color:var(--muted);"></i>
+                        </button>
+                        <div class="band-menu" id="bandMenu">
+                            <label class="band-item" for="band_selectAll" style="border-bottom:1px solid var(--border); padding-bottom:6px; margin-bottom:6px; font-weight:600;">
+                                <input type="checkbox" id="band_selectAll" onchange="toggleSelectAllBands(this)">
+                                <span>Select All</span>
+                            </label>
+                            <label class="band-item" for="band_L900"><input type="checkbox" id="band_L900" value="L900" checked onchange="onBandFilterChange()"><span>L900</span></label>
+                            <label class="band-item" for="band_L1800"><input type="checkbox" id="band_L1800" value="L1800" checked onchange="onBandFilterChange()"><span>L1800</span></label>
+                            <label class="band-item" for="band_L2100"><input type="checkbox" id="band_L2100" value="L2100" checked onchange="onBandFilterChange()"><span>L2100</span></label>
+                            <label class="band-item" for="band_L2300_1"><input type="checkbox" id="band_L2300_1" value="L2300_1" checked onchange="onBandFilterChange()"><span>L2300_1</span></label>
+                            <label class="band-item" for="band_L2300_2"><input type="checkbox" id="band_L2300_2" value="L2300_2" checked onchange="onBandFilterChange()"><span>L2300_2</span></label>
+                            <label class="band-item" for="band_L2300_3"><input type="checkbox" id="band_L2300_3" value="L2300_3" checked onchange="onBandFilterChange()"><span>L2300_3</span></label>
+                            <label class="band-item" for="band_L700"><input type="checkbox" id="band_L700" value="L700" onchange="onBandFilterChange()"><span>L700</span></label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary KPI Cards -->
+            <div class="summary-grid" id="summaryGrid">
+                <div class="summary-card" style="border-top:3px solid var(--blue);">
+                    <div class="summary-label">Total Sectors</div>
+                    <div class="summary-value" id="statTotal" style="color:var(--accent);">0</div>
+                </div>
+                <div class="summary-card" style="border-top:3px solid var(--green);">
+                    <div class="summary-label">DL Balance</div>
+                    <div class="summary-value" id="statDlBalance" style="color:var(--green);">0</div>
+                </div>
+                <div class="summary-card" style="border-top:3px solid var(--red);">
+                    <div class="summary-label">DL Unbalance</div>
+                    <div class="summary-value" id="statDlUnbalance" style="color:var(--red);">0</div>
+                </div>
+                <div class="summary-card" style="border-top:3px solid var(--green);">
+                    <div class="summary-label">UL Balance</div>
+                    <div class="summary-value" id="statUlBalance" style="color:var(--green);">0</div>
+                </div>
+                <div class="summary-card" style="border-top:3px solid var(--red);">
+                    <div class="summary-label">UL Unbalance</div>
+                    <div class="summary-value" id="statUlUnbalance" style="color:var(--red);">0</div>
+                </div>
+                <div class="summary-card" style="border-top:3px solid #16a085;">
+                    <div class="summary-label">DL/UL Balance</div>
+                    <div class="summary-value" id="statBothBalance" style="color:#16a085;">0</div>
+                </div>
+                <div class="summary-card" style="border-top:3px solid #8e44ad;">
+                    <div class="summary-label">DL/UL Unbalance</div>
+                    <div class="summary-value" id="statBothUnbalance" style="color:#8e44ad;">0</div>
+                </div>
+            </div>
+
+            <!-- Interactive Category Summary Cards with Pie Charts & Legends -->
+            <div class="cat-summary-grid" id="catSummaryGrid">
+                <!-- Card 1: Downlink (DL) PRB Category Pie Chart -->
+                <div class="cat-card">
+                    <div class="cat-card-title">Downlink (DL) PRB Category</div>
+                    <div class="cat-body-flex">
+                        <div class="chart-canvas-container">
+                            <canvas id="dlCatPieChart"></canvas>
+                        </div>
+
+                        <div class="cat-legend-wrapper">
+                            <div class="cat-row">
+                                <div class="cat-row-header">
+                                    <span>High Util</span>
+                                    <span class="cat-row-val" id="dlHighVal">0 sector (0.0%)</span>
+                                </div>
+                                <div class="cat-bar-track">
+                                    <div class="cat-bar-fill fill-high" id="dlHighBar" style="width: 0%;"></div>
+                                </div>
+                            </div>
+
+                            <div class="cat-row">
+                                <div class="cat-row-header">
+                                    <span>Medium Util</span>
+                                    <span class="cat-row-val" id="dlMedVal">0 sector (0.0%)</span>
+                                </div>
+                                <div class="cat-bar-track">
+                                    <div class="cat-bar-fill fill-med" id="dlMedBar" style="width: 0%;"></div>
+                                </div>
+                            </div>
+
+                            <div class="cat-row">
+                                <div class="cat-row-header">
+                                    <span>Low Util</span>
+                                    <span class="cat-row-val" id="dlLowVal">0 sector (0.0%)</span>
+                                </div>
+                                <div class="cat-bar-track">
+                                    <div class="cat-bar-fill fill-low" id="dlLowBar" style="width: 0%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Uplink (UL) PRB Category Pie Chart -->
+                <div class="cat-card">
+                    <div class="cat-card-title">Uplink (UL) PRB Category</div>
+                    <div class="cat-body-flex">
+                        <div class="chart-canvas-container">
+                            <canvas id="ulCatPieChart"></canvas>
+                        </div>
+
+                        <div class="cat-legend-wrapper">
+                            <div class="cat-row">
+                                <div class="cat-row-header">
+                                    <span>High Util</span>
+                                    <span class="cat-row-val" id="ulHighVal">0 sector (0.0%)</span>
+                                </div>
+                                <div class="cat-bar-track">
+                                    <div class="cat-bar-fill fill-high" id="ulHighBar" style="width: 0%;"></div>
+                                </div>
+                            </div>
+
+                            <div class="cat-row">
+                                <div class="cat-row-header">
+                                    <span>Medium Util</span>
+                                    <span class="cat-row-val" id="ulMedVal">0 sector (0.0%)</span>
+                                </div>
+                                <div class="cat-bar-track">
+                                    <div class="cat-bar-fill fill-med" id="ulMedBar" style="width: 0%;"></div>
+                                </div>
+                            </div>
+
+                            <div class="cat-row">
+                                <div class="cat-row-header">
+                                    <span>Low Util</span>
+                                    <span class="cat-row-val" id="ulLowVal">0 sector (0.0%)</span>
+                                </div>
+                                <div class="cat-bar-track">
+                                    <div class="cat-bar-fill fill-low" id="ulLowBar" style="width: 0%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Toolbar: Search, PRB Status Filter, View Modes & Export -->
+            <div class="toolbar-card" id="toolbarCard">
+                <div class="toolbar-left">
+                    <!-- 1. Search Box (Leftmost) -->
+                    <div class="search-wrapper">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" class="search-input" id="tableSearch"
+                               placeholder="Search Site ID / Site ID V2..." oninput="onSearchInput()">
+                    </div>
+
+                    <!-- 2. PRB Status Filter -->
+                    <select id="statusFilter" onchange="resetPageAndRender()" class="toolbar-select">
+                        <option value="all">All PRB Status</option>
+                        <option value="dl_unbalance">DL PRB Unbalance</option>
+                        <option value="ul_unbalance">UL PRB Unbalance</option>
+                        <option value="both_unbalance">DL/UL PRB Unbalance</option>
+                    </select>
+
+                    <!-- 3. Mode Switcher -->
+                    <div class="view-toggle">
+                        <button class="btn-toggle active" id="btnModeAll" onclick="setMode('all')">All Columns</button>
+                        <button class="btn-toggle" id="btnModeDL" onclick="setMode('dl')">DL PRB Only</button>
+                        <button class="btn-toggle" id="btnModeUL" onclick="setMode('ul')">UL PRB Only</button>
+                    </div>
+                </div>
+
+                <!-- Right: Export XLSX Button -->
+                <button class="btn-xlsx" id="btnExportXLSX" onclick="exportXLSX()">
+                    <i class="fas fa-file-excel"></i> Export XLSX
+                </button>
+            </div>
+
+            <!-- 36-Column Data Table Container -->
+            <div class="table-container" id="tableContainer">
+                <!-- Pagination Controls Header -->
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 16px; background:var(--surface); border-bottom:1px solid var(--border);">
+                    <div class="pagination-wrapper">
+                        <span>Page Size:</span>
+                        <select id="pageSizeSelect" onchange="onPageSizeChange()" style="padding:4px 8px; font-size:12px; border-radius:4px; border:1px solid var(--border); background:var(--surface2); color:var(--text);">
+                            <option value="25" selected>25 rows</option>
+                            <option value="50">50 rows</option>
+                            <option value="100">100 rows</option>
+                        </select>
+                        <span id="rowCount" style="margin-left:8px;">0 sectors</span>
+                    </div>
+
+                    <div class="pagination-wrapper">
+                        <button class="btn-page" id="btnPageFirst" onclick="changePage('first')">&laquo; First</button>
+                        <button class="btn-page" id="btnPagePrev" onclick="changePage('prev')">&lsaquo; Prev</button>
+                        <span id="pageIndicator" style="font-weight:600; color:var(--text);">Page 1 of 1</span>
+                        <button class="btn-page" id="btnPageNext" onclick="changePage('next')">Next &rsaquo;</button>
+                        <button class="btn-page" id="btnPageLast" onclick="changePage('last')">Last &raquo;</button>
+                    </div>
+                </div>
+
+                <div class="table-scroll">
+                    <table class="prb-table" id="prbTable">
+                        <thead id="prbTableHeader"></thead>
+                        <tbody id="prbTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="emptyState">
+        <i class="fas fa-chart-line"></i>
+        <h3>Select a week range and click Process to view Unbalance PRB analysis.</h3>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script>
+/* ── State & Variables ──────────────────────────────────────────────── */
+let rawData = [];
+let allWeeks = {{ initial_weeks|tojson if initial_weeks else '[]' }};       // All available weeks (SSR pre-populated)
+let loadedWeeks = [];    // Distinct weeks in current loaded data
+let viewMode = 'all';    // 'all', 'dl', 'ul'
+let sortCol = -1, sortAsc = true;
+let currentPage = 1;
+let pageSize = 25;
+let searchTimer = null;
+let dlPieChart = null, ulPieChart = null;
+let chartLayout = 2;    // Charts per row: 1, 2, or 3
+const trendCharts = {};
+
+const csrfToken = '{{ csrf_token() }}';
+const MAX_WEEK_RANGE = 12;
+
+/* Selected Bands */
+let activeBands = new Set(['L900', 'L1800', 'L2100', 'L2300_1', 'L2300_2', 'L2300_3']);
+
+/* Column Definitions */
+const ALL_COLUMNS = [
+    { key: 'week', label: 'week', group: 'base', band: null },
+    { key: 'site_id', label: 'site_id', group: 'base', band: null },
+    { key: 'site_id_v2', label: 'site_id_v2', group: 'base', band: null },
+    { key: 'sector', label: 'sector', group: 'base', band: null },
+    { key: 'type', label: 'type', group: 'base', band: null },
+    { key: 'num_band', label: 'num_band', group: 'base', band: null },
+
+    { key: 'dl_L900', label: 'dl_L900', group: 'dl', band: 'L900' },
+    { key: 'dl_L1800', label: 'dl_L1800', group: 'dl', band: 'L1800' },
+    { key: 'dl_L2100', label: 'dl_L2100', group: 'dl', band: 'L2100' },
+    { key: 'dl_L2300_1', label: 'dl_L2300_1', group: 'dl', band: 'L2300_1' },
+    { key: 'dl_L2300_2', label: 'dl_L2300_2', group: 'dl', band: 'L2300_2' },
+    { key: 'dl_L2300_3', label: 'dl_L2300_3', group: 'dl', band: 'L2300_3' },
+    { key: 'dl_L700', label: 'dl_L700', group: 'dl', band: 'L700' },
+    { key: 'avg_dl_prb', label: 'avg_dl_prb', group: 'dl', band: null },
+    { key: 'max_dl_prb', label: 'max_dl_prb', group: 'dl', band: null },
+    { key: 'cat_dl_prb', label: 'Cat DL PRB', group: 'dl', band: null },
+    { key: 'dl_prb_status', label: 'DL PRB Status', group: 'dl', band: null },
+    { key: 'dl_fdd', label: 'dl_fdd', group: 'dl', band: null },
+    { key: 'dl_tdd', label: 'dl_tdd', group: 'dl', band: null },
+    { key: 'max_dl_band', label: 'max_dl_band', group: 'dl', band: null },
+    { key: 'min_dl_band', label: 'min_dl_band', group: 'dl', band: null },
+
+    { key: 'ul_L900', label: 'ul_L900', group: 'ul', band: 'L900' },
+    { key: 'ul_L1800', label: 'ul_L1800', group: 'ul', band: 'L1800' },
+    { key: 'ul_L2100', label: 'ul_L2100', group: 'ul', band: 'L2100' },
+    { key: 'ul_L2300_1', label: 'ul_L2300_1', group: 'ul', band: 'L2300_1' },
+    { key: 'ul_L2300_2', label: 'ul_L2300_2', group: 'ul', band: 'L2300_2' },
+    { key: 'ul_L2300_3', label: 'ul_L2300_3', group: 'ul', band: 'L2300_3' },
+    { key: 'ul_L700', label: 'ul_L700', group: 'ul', band: 'L700' },
+    { key: 'avg_ul_prb', label: 'avg_ul_prb', group: 'ul', band: null },
+    { key: 'max_ul_prb', label: 'max_ul_prb', group: 'ul', band: null },
+    { key: 'cat_ul_prb', label: 'Cat UL PRB', group: 'ul', band: null },
+    { key: 'ul_prb_status', label: 'UL PRB Status', group: 'ul', band: null },
+    { key: 'ul_fdd', label: 'ul_fdd', group: 'ul', band: null },
+    { key: 'ul_tdd', label: 'ul_tdd', group: 'ul', band: null },
+    { key: 'max_ul_band', label: 'max_ul_band', group: 'ul', band: null },
+    { key: 'min_ul_band', label: 'min_ul_band', group: 'ul', band: null }
+];
+
+/* ── Init: Load Available Weeks ─────────────────────────────────────── */
+let weekDatesMap = {{ initial_week_dates|tojson if initial_week_dates else '{}' }};
+
+function getWeekDateRange(weekStr) {
+    if (weekDatesMap[weekStr]) {
+        return weekDatesMap[weekStr];
+    }
+    const m = (weekStr || '').match(/^(\d{4})-W(\d{2})$/);
+    if (!m) return null;
+    const year = parseInt(m[1]), weekNum = parseInt(m[2]);
+    const simple = new Date(Date.UTC(year, 0, 1 + (weekNum - 1) * 7));
+    const dow = simple.getUTCDay();
+    const ISOweekStart = simple;
+    if (dow <= 4) ISOweekStart.setUTCDate(simple.getUTCDate() - simple.getUTCDay() + 1);
+    else ISOweekStart.setUTCDate(simple.getUTCDate() + 8 - simple.getUTCDay());
+    const fri = new Date(ISOweekStart);
+    fri.setUTCDate(ISOweekStart.getUTCDate() + 4);
+    const thu = new Date(fri);
+    thu.setUTCDate(fri.getUTCDate() + 6);
+    const fmt = d => d.toISOString().split('T')[0];
+    return { start_date: fmt(fri), end_date: fmt(thu) };
+}
+
+function updateWeeklyDateRangeDisplay() {
+    const selectedWeek = document.getElementById('weeklyWeekFilter') ? document.getElementById('weeklyWeekFilter').value : 'all';
+    const textEl = document.getElementById('weeklyDateRangeText');
+    if (!textEl) return;
+
+    if (selectedWeek === 'all') {
+        if (loadedWeeks.length === 0) {
+            textEl.textContent = '-';
+            return;
+        }
+        const firstRange = getWeekDateRange(loadedWeeks[0]);
+        const lastRange = getWeekDateRange(loadedWeeks[loadedWeeks.length - 1]);
+        const startDate = firstRange ? firstRange.start_date : loadedWeeks[0];
+        const endDate = lastRange ? lastRange.end_date : loadedWeeks[loadedWeeks.length - 1];
+        textEl.innerHTML = `<span>${startDate}</span> &rarr; <span>${endDate}</span> <span style="opacity:0.75; font-size:11px; margin-left:3px;">(${loadedWeeks.length} wks)</span>`;
+    } else {
+        const range = getWeekDateRange(selectedWeek);
+        if (range) {
+            textEl.innerHTML = `<span>${range.start_date}</span> &rarr; <span>${range.end_date}</span>`;
+        } else {
+            textEl.textContent = selectedWeek;
+        }
+    }
+}
+
+function onWeeklyWeekFilterChange() {
+    updateWeeklyDateRangeDisplay();
+    resetPageAndRender();
+}
+
+(async function loadWeeks() {
+    if (allWeeks && allWeeks.length > 0) {
+        return; // Already pre-rendered from server
+    }
+    const startSel = document.getElementById('startWeekSelect');
+    const endSel = document.getElementById('endWeekSelect');
+    try {
+        const res = await fetch('/api/unbalance_prb/weeks');
+        const json = await res.json();
+        allWeeks = json.weeks || [];
+        weekDatesMap = json.week_dates || {};
+
+        startSel.innerHTML = '';
+        endSel.innerHTML = '';
+
+        if (allWeeks.length > 0) {
+            // Newest on top, old at bottom (allWeeks is already DESC from API)
+            allWeeks.forEach(w => {
+                startSel.add(new Option(w, w));
+                endSel.add(new Option(w, w));
+            });
+            // Default: start = 5th from latest (or oldest available), end = latest (first item)
+            const defaultStartIdx = Math.min(4, allWeeks.length - 1);
+            startSel.value = allWeeks[defaultStartIdx];
+            endSel.value = allWeeks[0];
+        } else {
+            startSel.add(new Option('No weeks available', ''));
+            endSel.add(new Option('No weeks available', ''));
+        }
+    } catch (e) {
+        startSel.innerHTML = '<option value="">Error loading weeks</option>';
+        endSel.innerHTML = '<option value="">Error loading weeks</option>';
+    }
+})();
+
+/* ── Tab Switching ──────────────────────────────────────────────────── */
+function switchTab(tab) {
+    document.getElementById('tabBtnTrend').classList.toggle('active', tab === 'trend');
+    document.getElementById('tabBtnWeekly').classList.toggle('active', tab === 'weekly');
+    document.getElementById('panelTrend').classList.toggle('active', tab === 'trend');
+    document.getElementById('panelWeekly').classList.toggle('active', tab === 'weekly');
+
+    // Resize charts when switching to trend tab (Chart.js needs visible canvas)
+    if (tab === 'trend') {
+        setTimeout(() => {
+            Object.values(trendCharts).forEach(c => { if (c) c.resize(); });
+        }, 50);
+    }
+}
+
+/* ── Chart Layout Selector ──────────────────────────────────────────── */
+function setChartLayout(cols) {
+    chartLayout = cols;
+    const grid = document.getElementById('trendGrid');
+    grid.classList.remove('cols-1', 'cols-2', 'cols-3');
+    grid.classList.add('cols-' + cols);
+    document.getElementById('layoutBtn1').classList.toggle('active', cols === 1);
+    document.getElementById('layoutBtn2').classList.toggle('active', cols === 2);
+    document.getElementById('layoutBtn3').classList.toggle('active', cols === 3);
+
+    // Resize charts after layout change
+    setTimeout(() => {
+        Object.values(trendCharts).forEach(c => { if (c) c.resize(); });
+    }, 50);
+}
+
+/* ── Band Dropdown Toggle & Filter ──────────────────────────────────── */
+function toggleBandMenu() {
+    document.getElementById('bandMenu').classList.toggle('active');
+}
+
+document.addEventListener('click', function(e) {
+    const wrapper = document.querySelector('.band-dropdown-wrapper');
+    if (wrapper && !wrapper.contains(e.target)) {
+        document.getElementById('bandMenu').classList.remove('active');
+    }
+});
+
+function toggleSelectAllBands(master) {
+    const isChecked = master.checked;
+    ['L900', 'L1800', 'L2100', 'L2300_1', 'L2300_2', 'L2300_3', 'L700'].forEach(b => {
+        const chk = document.getElementById('band_' + b);
+        if (chk) chk.checked = isChecked;
+    });
+    onBandFilterChange();
+}
+
+function onBandFilterChange() {
+    activeBands.clear();
+    const allBandsList = ['L900', 'L1800', 'L2100', 'L2300_1', 'L2300_2', 'L2300_3', 'L700'];
+    let checkedCount = 0;
+
+    allBandsList.forEach(b => {
+        const chk = document.getElementById('band_' + b);
+        if (chk && chk.checked) {
+            activeBands.add(b);
+            checkedCount++;
+        }
+    });
+
+    const master = document.getElementById('band_selectAll');
+    if (master) master.checked = (checkedCount === allBandsList.length);
+
+    document.getElementById('bandDropdownLabel').textContent = `Bands (${activeBands.size})`;
+    resetPageAndRender();
+}
+
+/* ── Mode Switching (All, DL Only, UL Only) ─────────────────────────── */
+function setMode(mode) {
+    viewMode = mode;
+    document.getElementById('btnModeAll').classList.toggle('active', mode === 'all');
+    document.getElementById('btnModeDL').classList.toggle('active', mode === 'dl');
+    document.getElementById('btnModeUL').classList.toggle('active', mode === 'ul');
+    renderTable();
+}
+
+/* ── Load Data (Week Range) ─────────────────────────────────────────── */
+async function loadData() {
+    const selA = document.getElementById('startWeekSelect').value;
+    const selB = document.getElementById('endWeekSelect').value;
+    if (!selA || !selB) return;
+
+    // Normalize chronological order
+    const startWeek = selA <= selB ? selA : selB;
+    const endWeek = selA <= selB ? selB : selA;
+
+    // Check range size
+    const startIdx = allWeeks.indexOf(startWeek);
+    const endIdx = allWeeks.indexOf(endWeek);
+    const diff = Math.abs(startIdx - endIdx) + 1;
+    if (startIdx >= 0 && endIdx >= 0 && diff > MAX_WEEK_RANGE) {
+        alert(`Maximum ${MAX_WEEK_RANGE} weeks allowed. Please narrow your range.`);
+        return;
+    }
+
+    const btn = document.getElementById('btnLoad');
+    const overlay = document.getElementById('loadingOverlay');
+
+    btn.disabled = true;
+    document.getElementById('loadingText').textContent = 'Processing Unbalance PRB data...';
+    document.getElementById('loadingSub').textContent = `Loading ${startWeek} → ${endWeek}`;
+    overlay.classList.add('active');
+
+    try {
+        const res = await fetch('/api/unbalance_prb/data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ start_week: startWeek, end_week: endWeek })
+        });
+
+        const json = await res.json();
+
+        if (json.error) {
+            alert('Error: ' + json.error);
+            return;
+        }
+
+        if (json.rows && json.columns) {
+            const cols = json.columns;
+            rawData = json.rows.map(r => {
+                const obj = {};
+                for (let i = 0; i < cols.length; i++) {
+                    obj[cols[i]] = r[i];
+                }
+                obj.dl_L2300 = obj.dl_L2300_1;
+                obj.ul_L2300 = obj.ul_L2300_1;
+                return obj;
+            });
+        } else {
+            rawData = json.data || [];
+        }
+
+        currentPage = 1;
+
+        // Determine loaded weeks
+        loadedWeeks = [...new Set(rawData.map(r => r.week))].sort();
+
+        // Populate weekly week filter: newest in top, old in bottom
+        const weeklyFilter = document.getElementById('weeklyWeekFilter');
+        weeklyFilter.innerHTML = '<option value="all">All Weeks</option>';
+        const loadedWeeksDesc = [...loadedWeeks].sort().reverse();
+        loadedWeeksDesc.forEach(w => {
+            weeklyFilter.add(new Option(w, w));
+        });
+
+        updateWeeklyDateRangeDisplay();
+
+        // Show tabs
+        document.getElementById('tabBarContainer').style.display = 'block';
+        document.getElementById('emptyState').style.display = 'none';
+
+        // Compute and render both tabs
+        computeTrendData();
+        renderTable();
+
+    } catch (e) {
+        alert('Failed to load data: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        overlay.classList.remove('active');
+    }
+}
+
+/* ── Threshold Validation ────────────────────────────────────────────── */
+function getThresholds() {
+    const low = parseFloat(document.getElementById('threshLow').value);
+    const high = parseFloat(document.getElementById('threshHigh').value);
+    const gap = parseFloat(document.getElementById('threshGap').value) || 30;
+
+    return {
+        low: isNaN(low) ? 50 : low,
+        high: isNaN(high) ? 85 : high,
+        gap
+    };
+}
+
+function updateMediumDisplay() {
+    const low = parseFloat(document.getElementById('threshLow').value);
+    const high = parseFloat(document.getElementById('threshHigh').value);
+    const el = document.getElementById('mediumDisplay');
+    if (isNaN(low) || isNaN(high) || low >= high) {
+        el.textContent = '–';
+    } else {
+        el.textContent = (low + 1) + ' – ' + high + ' %';
+    }
+}
+
+function validateAndRender() {
+    const { low, high } = getThresholds();
+    if (low < 0) {
+        alert('Low Util threshold cannot be negative.');
+        return;
+    }
+    if (high > 100) {
+        alert('High Util threshold cannot exceed 100.');
+        return;
+    }
+    if (low >= high) {
+        alert('Low Util threshold must be less than High Util threshold.');
+        return;
+    }
+    updateMediumDisplay();
+    if (rawData.length > 0) {
+        computeTrendData();
+        renderTable();
+    }
+}
+
+function resetPageAndRender() {
+    currentPage = 1;
+    renderTable();
+}
+
+function onSearchInput() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+        currentPage = 1;
+        renderTable();
+    }, 120);
+}
+
+/* ── Category & Status Helpers (HIGH-PERFORMANCE ZERO-ALLOCATION VECTORIZED) ── */
+function calcActiveBandAverage(row, prefix) {
+    let sum = 0, cnt = 0;
+    if (activeBands.has('L700')) { const v = row[`${prefix}_L700`]; if (v !== null && v !== undefined && v !== '' && !isNaN(v)) { sum += parseFloat(v); cnt++; } }
+    if (activeBands.has('L900')) { const v = row[`${prefix}_L900`]; if (v !== null && v !== undefined && v !== '' && !isNaN(v)) { sum += parseFloat(v); cnt++; } }
+    if (activeBands.has('L1800')) { const v = row[`${prefix}_L1800`]; if (v !== null && v !== undefined && v !== '' && !isNaN(v)) { sum += parseFloat(v); cnt++; } }
+    if (activeBands.has('L2100')) { const v = row[`${prefix}_L2100`]; if (v !== null && v !== undefined && v !== '' && !isNaN(v)) { sum += parseFloat(v); cnt++; } }
+    if (activeBands.has('L2300_1')) { const v = row[`${prefix}_L2300_1`]; if (v !== null && v !== undefined && v !== '' && !isNaN(v)) { sum += parseFloat(v); cnt++; } }
+    if (activeBands.has('L2300_2')) { const v = row[`${prefix}_L2300_2`]; if (v !== null && v !== undefined && v !== '' && !isNaN(v)) { sum += parseFloat(v); cnt++; } }
+    if (activeBands.has('L2300_3')) { const v = row[`${prefix}_L2300_3`]; if (v !== null && v !== undefined && v !== '' && !isNaN(v)) { sum += parseFloat(v); cnt++; } }
+
+    return cnt > 0 ? Math.round((sum / cnt) * 100) / 100 : null;
+}
+
+function getCategoryLabel(val, lowThresh, medThresh) {
+    if (val === null || val === undefined || isNaN(val) || val === '') return '';
+    if (val <= lowThresh) return 'Low Util';
+    if (val <= medThresh) return 'Medium Util';
+    return 'High Util';
+}
+
+function getCategoryClass(val, lowThresh, medThresh) {
+    if (val === null || val === undefined || isNaN(val) || val === '') return '';
+    if (val <= lowThresh) return 'cat-low';
+    if (val <= medThresh) return 'cat-medium';
+    return 'cat-high';
+}
+
+function evalStatus(row, prefix, fddOrTdd, gapThresh) {
+    let maxVal = -Infinity;
+    let minPosVal = Infinity;
+    let posCount = 0;
+
+    if (fddOrTdd !== 'tdd') {
+        if (activeBands.has('L700')) {
+            const raw = row[`${prefix}_L700`];
+            if (raw !== null && raw !== undefined && raw !== '') {
+                const v = typeof raw === 'number' ? raw : parseFloat(raw);
+                if (v > 0) { posCount++; if (v > maxVal) maxVal = v; if (v < minPosVal) minPosVal = v; }
+            }
+        }
+        if (activeBands.has('L900')) {
+            const raw = row[`${prefix}_L900`];
+            if (raw !== null && raw !== undefined && raw !== '') {
+                const v = typeof raw === 'number' ? raw : parseFloat(raw);
+                if (v > 0) { posCount++; if (v > maxVal) maxVal = v; if (v < minPosVal) minPosVal = v; }
+            }
+        }
+        if (activeBands.has('L1800')) {
+            const raw = row[`${prefix}_L1800`];
+            if (raw !== null && raw !== undefined && raw !== '') {
+                const v = typeof raw === 'number' ? raw : parseFloat(raw);
+                if (v > 0) { posCount++; if (v > maxVal) maxVal = v; if (v < minPosVal) minPosVal = v; }
+            }
+        }
+        if (activeBands.has('L2100')) {
+            const raw = row[`${prefix}_L2100`];
+            if (raw !== null && raw !== undefined && raw !== '') {
+                const v = typeof raw === 'number' ? raw : parseFloat(raw);
+                if (v > 0) { posCount++; if (v > maxVal) maxVal = v; if (v < minPosVal) minPosVal = v; }
+            }
+        }
+    }
+
+    if (fddOrTdd !== 'fdd') {
+        if (activeBands.has('L2300_1')) {
+            const raw = row[`${prefix}_L2300_1`];
+            if (raw !== null && raw !== undefined && raw !== '') {
+                const v = typeof raw === 'number' ? raw : parseFloat(raw);
+                if (v > 0) { posCount++; if (v > maxVal) maxVal = v; if (v < minPosVal) minPosVal = v; }
+            }
+        }
+        if (activeBands.has('L2300_2')) {
+            const raw = row[`${prefix}_L2300_2`];
+            if (raw !== null && raw !== undefined && raw !== '') {
+                const v = typeof raw === 'number' ? raw : parseFloat(raw);
+                if (v > 0) { posCount++; if (v > maxVal) maxVal = v; if (v < minPosVal) minPosVal = v; }
+            }
+        }
+        if (activeBands.has('L2300_3')) {
+            const raw = row[`${prefix}_L2300_3`];
+            if (raw !== null && raw !== undefined && raw !== '') {
+                const v = typeof raw === 'number' ? raw : parseFloat(raw);
+                if (v > 0) { posCount++; if (v > maxVal) maxVal = v; if (v < minPosVal) minPosVal = v; }
+            }
+        }
+    }
+
+    if (posCount === 0) return 'N/A';
+    if (posCount === 1) return 'Balance';
+
+    return (maxVal - minPosVal >= gapThresh) ? 'Unbalance' : 'Balance';
+}
+
+function getStatusClass(status) {
+    if (status === 'Balance') return 'status-balance';
+    if (status === 'Unbalance') return 'status-unbalance';
+    return 'status-na';
+}
+
+/* ── Trend Data Computation & Chart Rendering ──────────────────────── */
+function computeTrendData() {
+    if (!rawData.length || !loadedWeeks.length) return;
+
+    const { low, high, gap } = getThresholds();
+
+    // Chronological order for chart X-axis (left to right = old to new)
+    const weekLabels = [...loadedWeeks].sort();
+
+    const startW = document.getElementById('startWeekSelect').value;
+    const endW = document.getElementById('endWeekSelect').value;
+    const minW = startW <= endW ? startW : endW;
+    const maxW = startW <= endW ? endW : startW;
+    const expectedWeeks = [...allWeeks].reverse().filter(w => w >= minW && w <= maxW);
+    const finalLabels = expectedWeeks.length > 0 ? expectedWeeks : weekLabels;
+
+    // Initialize per-week counters
+    const weekData = {};
+    finalLabels.forEach(w => {
+        weekData[w] = {
+            dlBal: 0, dlUnbal: 0,
+            ulBal: 0, ulUnbal: 0,
+            bothBal: 0, bothUnbal: 0, otherUnbal: 0,
+            dlLow: 0, dlMed: 0, dlHigh: 0,
+            ulLow: 0, ulMed: 0, ulHigh: 0,
+            bothLow: 0, bothMed: 0, bothHigh: 0,
+            total: 0
+        };
+    });
+
+    // Process each row
+    rawData.forEach(r => {
+        const w = r.week;
+        if (!weekData[w]) return;
+
+        const dlAvg = calcActiveBandAverage(r, 'dl') !== null ? calcActiveBandAverage(r, 'dl') : r.avg_dl_prb;
+        const ulAvg = calcActiveBandAverage(r, 'ul') !== null ? calcActiveBandAverage(r, 'ul') : r.avg_ul_prb;
+
+        const catDl = getCategoryLabel(dlAvg, low, high);
+        const catUl = getCategoryLabel(ulAvg, low, high);
+        const dlStatus = evalStatus(r, 'dl', 'all', gap);
+        const ulStatus = evalStatus(r, 'ul', 'all', gap);
+
+        weekData[w].total++;
+
+        // 1. DL Unbalance
+        if (dlStatus === 'Balance') weekData[w].dlBal++;
+        else if (dlStatus === 'Unbalance') weekData[w].dlUnbal++;
+
+        // 2. UL Unbalance
+        if (ulStatus === 'Balance') weekData[w].ulBal++;
+        else if (ulStatus === 'Unbalance') weekData[w].ulUnbal++;
+
+        // 3. DL/UL Unbalance (AND logic: Both Balance, Both Unbalance, Other)
+        if (dlStatus === 'Balance' && ulStatus === 'Balance') {
+            weekData[w].bothBal++;
+        } else if (dlStatus === 'Unbalance' && ulStatus === 'Unbalance') {
+            weekData[w].bothUnbal++;
+        } else {
+            weekData[w].otherUnbal++;
+        }
+
+        // 4. DL Category
+        if (catDl === 'Low Util') weekData[w].dlLow++;
+        else if (catDl === 'Medium Util') weekData[w].dlMed++;
+        else if (catDl === 'High Util') weekData[w].dlHigh++;
+
+        // 5. UL Category
+        if (catUl === 'Low Util') weekData[w].ulLow++;
+        else if (catUl === 'Medium Util') weekData[w].ulMed++;
+        else if (catUl === 'High Util') weekData[w].ulHigh++;
+
+        // 6. DL/UL Category
+        if (catDl === 'High Util' || catUl === 'High Util') {
+            weekData[w].bothHigh++;
+        } else if (catDl === 'Low Util' && catUl === 'Low Util') {
+            weekData[w].bothLow++;
+        } else {
+            weekData[w].bothMed++;
+        }
+    });
+
+    const labels = finalLabels;
+
+    // Render 6 Stacked Bar Charts (with actual sector counts and auto-adjusting Y axis)
+    // 1. DL PRB Unbalance Trend
+    renderTrendBarChart('chartDlUnbalanceTrend', 'dlUnbalance', labels, [
+        { label: 'DL Balance', data: labels.map(w => weekData[w].dlBal), backgroundColor: '#137333' },
+        { label: 'DL Unbalance', data: labels.map(w => weekData[w].dlUnbal), backgroundColor: '#c5221f' }
+    ]);
+
+    // 2. UL PRB Unbalance Trend
+    renderTrendBarChart('chartUlUnbalanceTrend', 'ulUnbalance', labels, [
+        { label: 'UL Balance', data: labels.map(w => weekData[w].ulBal), backgroundColor: '#137333' },
+        { label: 'UL Unbalance', data: labels.map(w => weekData[w].ulUnbal), backgroundColor: '#c5221f' }
+    ]);
+
+    // 3. DL/UL PRB Unbalance Trend (AND logic with Other)
+    renderTrendBarChart('chartBothUnbalanceTrend', 'bothUnbalance', labels, [
+        { label: 'DL & UL Balance', data: labels.map(w => weekData[w].bothBal), backgroundColor: '#137333' },
+        { label: 'Other', data: labels.map(w => weekData[w].otherUnbal), backgroundColor: '#b06000' },
+        { label: 'DL & UL Unbalance', data: labels.map(w => weekData[w].bothUnbal), backgroundColor: '#c5221f' }
+    ]);
+
+    // 4. DL PRB Category Trend
+    renderTrendBarChart('chartDlCategoryTrend', 'dlCategory', labels, [
+        { label: 'Low Util', data: labels.map(w => weekData[w].dlLow), backgroundColor: '#137333' },
+        { label: 'Medium Util', data: labels.map(w => weekData[w].dlMed), backgroundColor: '#b06000' },
+        { label: 'High Util', data: labels.map(w => weekData[w].dlHigh), backgroundColor: '#c5221f' }
+    ]);
+
+    // 5. UL PRB Category Trend
+    renderTrendBarChart('chartUlCategoryTrend', 'ulCategory', labels, [
+        { label: 'Low Util', data: labels.map(w => weekData[w].ulLow), backgroundColor: '#137333' },
+        { label: 'Medium Util', data: labels.map(w => weekData[w].ulMed), backgroundColor: '#b06000' },
+        { label: 'High Util', data: labels.map(w => weekData[w].ulHigh), backgroundColor: '#c5221f' }
+    ]);
+
+    // 6. DL/UL PRB Category Trend
+    renderTrendBarChart('chartBothCategoryTrend', 'bothCategory', labels, [
+        { label: 'Low Util', data: labels.map(w => weekData[w].bothLow), backgroundColor: '#137333' },
+        { label: 'Medium Util', data: labels.map(w => weekData[w].bothMed), backgroundColor: '#b06000' },
+        { label: 'High Util', data: labels.map(w => weekData[w].bothHigh), backgroundColor: '#c5221f' }
+    ]);
+}
+
+function renderTrendBarChart(canvasId, chartKey, labels, datasets) {
+    if (typeof Chart === 'undefined') return;
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    // Destroy existing chart
+    if (trendCharts[chartKey]) {
+        trendCharts[chartKey].destroy();
+        trendCharts[chartKey] = null;
+    }
+
+    const chartDatasets = datasets.map(ds => ({
+        label: ds.label,
+        data: ds.data,
+        backgroundColor: ds.backgroundColor,
+        borderRadius: 3,
+        borderSkipped: false,
+        stack: 'total'
+    }));
+
+    // Plugin to draw segment numbers inside each bar and total number above each bar
+    const barLabelsPlugin = {
+        id: 'stackedBarLabels_' + chartKey,
+        afterDatasetsDraw(chart) {
+            const { ctx } = chart;
+            ctx.save();
+            ctx.textAlign = 'center';
+
+            const metaList = chart.data.datasets.map((_, i) => chart.getDatasetMeta(i));
+            if (!metaList.length || !metaList[0].data.length) {
+                ctx.restore();
+                return;
+            }
+
+            const numBars = chart.data.labels.length;
+            const totalPerBar = new Array(numBars).fill(0);
+            const topYPerBar = new Array(numBars).fill(Infinity);
+
+            // 1. Draw segment counts inside bars
+            metaList.forEach((meta, dIdx) => {
+                if (meta.hidden) return;
+                const ds = chart.data.datasets[dIdx];
+
+                meta.data.forEach((bar, bIdx) => {
+                    const val = ds.data[bIdx] || 0;
+                    totalPerBar[bIdx] += val;
+
+                    if (bar.y < topYPerBar[bIdx]) {
+                        topYPerBar[bIdx] = bar.y;
+                    }
+
+                    const barHeight = Math.abs(bar.base - bar.y);
+                    // Draw segment label if segment is tall enough (>= 12px)
+                    if (val > 0 && barHeight >= 12) {
+                        ctx.font = '600 8.5px "IBM Plex Mono", monospace';
+                        ctx.fillStyle = '#ffffff';
+                        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+                        ctx.shadowBlur = 2;
+                        ctx.textBaseline = 'middle';
+
+                        const centerY = (bar.y + bar.base) / 2;
+                        ctx.fillText(val.toLocaleString(), bar.x, centerY);
+                    }
+                });
+            });
+
+            // 2. Draw total count above each bar
+            ctx.shadowBlur = 0;
+            ctx.font = '700 9px "IBM Plex Mono", monospace';
+            const isDark = document.documentElement.classList.contains('dark') || document.body.classList.contains('dark-theme');
+            ctx.fillStyle = isDark ? '#f0ede6' : '#2d241e';
+            ctx.textBaseline = 'bottom';
+
+            metaList[0].data.forEach((bar, bIdx) => {
+                const total = totalPerBar[bIdx];
+                if (total > 0 && topYPerBar[bIdx] !== Infinity) {
+                    ctx.fillText(total.toLocaleString(), bar.x, topYPerBar[bIdx] - 3);
+                }
+            });
+
+            ctx.restore();
+        }
+    };
+
+    trendCharts[chartKey] = new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: { labels, datasets: chartDatasets },
+        plugins: [barLabelsPlugin],
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        pointStyle: 'rectRounded',
+                        padding: 10,
+                        font: { size: 11, family: "'IBM Plex Sans', sans-serif" }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.85)',
+                    titleFont: { size: 12, family: "'IBM Plex Sans', sans-serif" },
+                    bodyFont: { size: 11, family: "'IBM Plex Mono', monospace" },
+                    padding: 10,
+                    cornerRadius: 6,
+                    callbacks: {
+                        label: function(context) {
+                            const val = context.raw || 0;
+                            let total = 0;
+                            if (context.chart && context.chart.data && context.chart.data.datasets) {
+                                total = context.chart.data.datasets.reduce((sum, ds) => sum + (ds.data[context.dataIndex] || 0), 0);
+                            }
+                            const pct = total > 0 ? ((val / total) * 100).toFixed(1) : '0.0';
+                            return ` ${context.dataset.label}: ${val.toLocaleString()} sectors (${pct}%)`;
+                        },
+                        footer: function(tooltipItems) {
+                            let total = 0;
+                            tooltipItems.forEach(item => {
+                                total += item.raw || 0;
+                            });
+                            return `Total: ${total.toLocaleString()} sectors`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    stacked: true,
+                    grid: { display: false },
+                    ticks: {
+                        font: { size: 10, family: "'IBM Plex Mono', monospace" },
+                        color: '#8a7d6b',
+                        maxRotation: 45,
+                        autoSkip: true
+                    }
+                },
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    grace: '10%',
+                    grid: { color: 'rgba(226,217,204,0.3)' },
+                    ticks: {
+                        font: { size: 10, family: "'IBM Plex Mono', monospace" },
+                        color: '#8a7d6b',
+                        callback: function(value) {
+                            return value >= 1000 ? (value / 1000).toLocaleString() + 'k' : value.toLocaleString();
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/* ── Interactive Pie Charts Update ──────────────────────────────────── */
+function updatePieCharts(dlHigh, dlMed, dlLow, ulHigh, ulMed, ulLow) {
+    if (typeof Chart === 'undefined') return;
+
+    const dlCanvas = document.getElementById('dlCatPieChart');
+    const ulCanvas = document.getElementById('ulCatPieChart');
+    if (!dlCanvas || !ulCanvas) return;
+
+    const chartColors = ['#c5221f', '#b06000', '#137333']; // High (Rose), Med (Amber), Low (Green)
+
+    if (dlPieChart) {
+        dlPieChart.data.datasets[0].data = [dlHigh, dlMed, dlLow];
+        dlPieChart.update('none');
+    } else {
+        dlPieChart = new Chart(dlCanvas.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['High Util', 'Medium Util', 'Low Util'],
+                datasets: [{
+                    data: [dlHigh, dlMed, dlLow],
+                    backgroundColor: chartColors,
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a,b)=>a+b, 0);
+                                const val = context.raw || 0;
+                                const pct = total > 0 ? (val / total * 100).toFixed(1) : '0.0';
+                                return ` ${context.label}: ${val.toLocaleString()} sector (${pct}%)`;
+                            }
+                        }
+                    }
+                },
+                cutout: '65%'
+            }
+        });
+    }
+
+    if (ulPieChart) {
+        ulPieChart.data.datasets[0].data = [ulHigh, ulMed, ulLow];
+        ulPieChart.update('none');
+    } else {
+        ulPieChart = new Chart(ulCanvas.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['High Util', 'Medium Util', 'Low Util'],
+                datasets: [{
+                    data: [ulHigh, ulMed, ulLow],
+                    backgroundColor: chartColors,
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a,b)=>a+b, 0);
+                                const val = context.raw || 0;
+                                const pct = total > 0 ? (val / total * 100).toFixed(1) : '0.0';
+                                return ` ${context.label}: ${val.toLocaleString()} sector (${pct}%)`;
+                            }
+                        }
+                    }
+                },
+                cutout: '65%'
+            }
+        });
+    }
+}
+
+function getRowValue(r, k) {
+    if (k === 'avg_dl_prb') return r._dlAvg !== undefined ? r._dlAvg : r.avg_dl_prb;
+    if (k === 'avg_ul_prb') return r._ulAvg !== undefined ? r._ulAvg : r.avg_ul_prb;
+    if (k === 'cat_dl_prb') return r._catDl !== undefined ? r._catDl : r.cat_dl_prb;
+    if (k === 'cat_ul_prb') return r._catUl !== undefined ? r._catUl : r.cat_ul_prb;
+    if (k === 'dl_prb_status') return r._dlStatus !== undefined ? r._dlStatus : r.dl_prb_status;
+    if (k === 'ul_prb_status') return r._ulStatus !== undefined ? r._ulStatus : r.ul_prb_status;
+    if (k === 'dl_fdd') return r._dlFdd !== undefined ? r._dlFdd : r.dl_fdd;
+    if (k === 'dl_tdd') return r._dlTdd !== undefined ? r._dlTdd : r.dl_tdd;
+    if (k === 'ul_fdd') return r._ulFdd !== undefined ? r._ulFdd : r.ul_fdd;
+    if (k === 'ul_tdd') return r._ulTdd !== undefined ? r._ulTdd : r.ul_tdd;
+    return r[k];
+}
+
+/* ── Render Table & Fast Pagination (Optimized Vectorized Pass) ────── */
+function renderTable() {
+    if (!rawData.length) return;
+
+    const searchTerm = (document.getElementById('tableSearch').value || '').trim().toLowerCase();
+    const typeFilter = document.getElementById('typeFilter').value;
+    const { low, high, gap } = getThresholds();
+    const statusFilter = document.getElementById('statusFilter').value;
+    const weekFilter = document.getElementById('weeklyWeekFilter').value;
+
+    const isAllBands = (activeBands.size === 7 || (activeBands.size === 6 && !activeBands.has('L700')));
+
+    // Summary & Category Counters
+    let dlHigh = 0, dlMed = 0, dlLow = 0, dlTotal = 0;
+    let ulHigh = 0, ulMed = 0, ulLow = 0, ulTotal = 0;
+    let dlBal = 0, dlUnbal = 0, ulBal = 0, ulUnbal = 0;
+    let bothBal = 0, bothUnbal = 0;
+
+    const filteredRows = [];
+
+    // Single fast pass over rawData (no object cloning)
+    for (let i = 0; i < rawData.length; i++) {
+        const r = rawData[i];
+
+        // 1. Week Filter
+        if (weekFilter !== 'all' && r.week !== weekFilter) continue;
+
+        // 2. Type Filter
+        if (typeFilter !== 'all' && (r.type || '').toLowerCase() !== typeFilter) continue;
+
+        // 3. Search Filter
+        if (searchTerm) {
+            const matchSite = (r.site_id && r.site_id.toLowerCase().includes(searchTerm)) ||
+                              (r.site_id_v2 && r.site_id_v2.toLowerCase().includes(searchTerm));
+            if (!matchSite) continue;
+        }
+
+        // Recalculate average DL and UL PRB dynamically using selected active bands
+        const dlAvg = isAllBands ? r.avg_dl_prb : (calcActiveBandAverage(r, 'dl') ?? r.avg_dl_prb);
+        const ulAvg = isAllBands ? r.avg_ul_prb : (calcActiveBandAverage(r, 'ul') ?? r.avg_ul_prb);
+
+        const catDl = getCategoryLabel(dlAvg, low, high);
+        const catUl = getCategoryLabel(ulAvg, low, high);
+
+        if (catDl === 'High Util') dlHigh++;
+        else if (catDl === 'Medium Util') dlMed++;
+        else if (catDl === 'Low Util') dlLow++;
+        if (catDl) dlTotal++;
+
+        if (catUl === 'High Util') ulHigh++;
+        else if (catUl === 'Medium Util') ulMed++;
+        else if (catUl === 'Low Util') ulLow++;
+        if (catUl) ulTotal++;
+
+        const dlStatus = evalStatus(r, 'dl', 'all', gap);
+        const ulStatus = evalStatus(r, 'ul', 'all', gap);
+
+        if (dlStatus === 'Balance') dlBal++;
+        else if (dlStatus === 'Unbalance') dlUnbal++;
+
+        if (ulStatus === 'Balance') ulBal++;
+        else if (ulStatus === 'Unbalance') ulUnbal++;
+
+        if (dlStatus === 'Balance' && ulStatus === 'Balance') bothBal++;
+        else if (dlStatus === 'Unbalance' && ulStatus === 'Unbalance') bothUnbal++;
+
+        // Status Filter
+        if (statusFilter === 'dl_unbalance' && dlStatus !== 'Unbalance') continue;
+        if (statusFilter === 'ul_unbalance' && ulStatus !== 'Unbalance') continue;
+        if (statusFilter === 'both_unbalance' && (dlStatus !== 'Unbalance' || ulStatus !== 'Unbalance')) continue;
+
+        // Store computed values directly on the row reference (without creating new wrapper objects)
+        r._dlAvg = dlAvg;
+        r._ulAvg = ulAvg;
+        r._catDl = catDl;
+        r._catUl = catUl;
+        r._dlStatus = dlStatus;
+        r._ulStatus = ulStatus;
+        r._dlFdd = undefined; // Lazy-evaluated for page only
+        r._dlTdd = undefined;
+        r._ulFdd = undefined;
+        r._ulTdd = undefined;
+
+        filteredRows.push(r);
+    }
+
+    // Update Summary KPI Cards
+    const totalMatching = filteredRows.length;
+    const totalWeekly = (dlBal + dlUnbal) || totalMatching;
+    const fmtCardVal = (cnt, tot) => {
+        const pct = tot > 0 ? (cnt / tot * 100).toFixed(1) : '0.0';
+        return `${cnt.toLocaleString()} <span class="summary-pct">(${pct}%)</span>`;
+    };
+
+    document.getElementById('statTotal').textContent = totalWeekly.toLocaleString();
+    document.getElementById('statDlBalance').innerHTML = fmtCardVal(dlBal, totalWeekly);
+    document.getElementById('statDlUnbalance').innerHTML = fmtCardVal(dlUnbal, totalWeekly);
+    document.getElementById('statUlBalance').innerHTML = fmtCardVal(ulBal, totalWeekly);
+    document.getElementById('statUlUnbalance').innerHTML = fmtCardVal(ulUnbal, totalWeekly);
+    document.getElementById('statBothBalance').innerHTML = fmtCardVal(bothBal, totalWeekly);
+    document.getElementById('statBothUnbalance').innerHTML = fmtCardVal(bothUnbal, totalWeekly);
+
+    // Update Category Cards UI & Progress Bars
+    const fmtSectorPct = (cnt, tot) => {
+        const pct = tot > 0 ? (cnt / tot * 100).toFixed(1) : '0.0';
+        return `${cnt.toLocaleString()} sector (${pct}%)`;
+    };
+    const getPct = (cnt, tot) => tot > 0 ? (cnt / tot * 100).toFixed(1) : '0';
+
+    document.getElementById('dlHighVal').textContent = fmtSectorPct(dlHigh, dlTotal);
+    document.getElementById('dlHighBar').style.width = getPct(dlHigh, dlTotal) + '%';
+    document.getElementById('dlMedVal').textContent = fmtSectorPct(dlMed, dlTotal);
+    document.getElementById('dlMedBar').style.width = getPct(dlMed, dlTotal) + '%';
+    document.getElementById('dlLowVal').textContent = fmtSectorPct(dlLow, dlTotal);
+    document.getElementById('dlLowBar').style.width = getPct(dlLow, dlTotal) + '%';
+
+    document.getElementById('ulHighVal').textContent = fmtSectorPct(ulHigh, ulTotal);
+    document.getElementById('ulHighBar').style.width = getPct(ulHigh, ulTotal) + '%';
+    document.getElementById('ulMedVal').textContent = fmtSectorPct(ulMed, ulTotal);
+    document.getElementById('ulMedBar').style.width = getPct(ulMed, ulTotal) + '%';
+    document.getElementById('ulLowVal').textContent = fmtSectorPct(ulLow, ulTotal);
+    document.getElementById('ulLowBar').style.width = getPct(ulLow, ulTotal) + '%';
+
+    // Update Doughnut/Pie Charts in place
+    updatePieCharts(dlHigh, dlMed, dlLow, ulHigh, ulMed, ulLow);
+
+    // 3. Determine active columns based on viewMode & Band Filter
+    const activeCols = ALL_COLUMNS.filter(col => {
+        if (col.band && !activeBands.has(col.band)) return false;
+        if (viewMode === 'all') return true;
+        if (viewMode === 'dl') return col.group === 'base' || col.group === 'dl';
+        if (viewMode === 'ul') return col.group === 'base' || col.group === 'ul';
+        return true;
+    });
+
+    // 4. Sort
+    if (sortCol >= 0 && sortCol < activeCols.length) {
+        const colDef = activeCols[sortCol];
+        const key = colDef.key;
+        filteredRows.sort((a, b) => {
+            let va = getRowValue(a, key);
+            let vb = getRowValue(b, key);
+            if (va === null || va === undefined) va = sortAsc ? Infinity : -Infinity;
+            if (vb === null || vb === undefined) vb = sortAsc ? Infinity : -Infinity;
+            if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb||'').toLowerCase(); }
+            if (va < vb) return sortAsc ? -1 : 1;
+            if (va > vb) return sortAsc ? 1 : -1;
+            return 0;
+        });
+    }
+
+    document.getElementById('rowCount').textContent = filteredRows.length.toLocaleString() + ' sectors';
+
+    // 5. Pagination calculation
+    pageSize = parseInt(document.getElementById('pageSizeSelect').value) || 25;
+    let displayRows = filteredRows;
+    let totalPages = Math.ceil(filteredRows.length / pageSize) || 1;
+
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+    const start = (currentPage - 1) * pageSize;
+    displayRows = filteredRows.slice(start, start + pageSize);
+
+    // Lazy compute FDD/TDD only for the currently displayed rows (25-100 items)
+    displayRows.forEach(r => {
+        if (r._dlFdd === undefined) {
+            r._dlFdd = evalStatus(r, 'dl', 'fdd', gap);
+            r._dlTdd = evalStatus(r, 'dl', 'tdd', gap);
+            r._ulFdd = evalStatus(r, 'ul', 'fdd', gap);
+            r._ulTdd = evalStatus(r, 'ul', 'tdd', gap);
+        }
+    });
+
+    document.getElementById('pageIndicator').textContent = `Page ${currentPage} of ${totalPages}`;
+    document.getElementById('btnPageFirst').disabled = (currentPage <= 1);
+    document.getElementById('btnPagePrev').disabled = (currentPage <= 1);
+    document.getElementById('btnPageNext').disabled = (currentPage >= totalPages);
+    document.getElementById('btnPageLast').disabled = (currentPage >= totalPages);
+
+    // 6. Render Table Header
+    let headHtml = '<tr>';
+    activeCols.forEach((col, idx) => {
+        const isSorted = (sortCol === idx);
+        headHtml += `<th onclick="sortTable(${idx})" class="${isSorted ? 'sorted' : ''}">
+            ${col.label} <span class="sort-icon"><i class="fas fa-sort"></i></span>
+        </th>`;
+    });
+    headHtml += '</tr>';
+    document.getElementById('prbTableHeader').innerHTML = headHtml;
+
+    // 7. Render Table Body Rows
+    let bodyHtml = '';
+    displayRows.forEach(r => {
+        bodyHtml += '<tr>';
+        activeCols.forEach(col => {
+            const k = col.key;
+            const val = getRowValue(r, k);
+
+            if (k === 'cat_dl_prb' || k === 'cat_ul_prb') {
+                const numVal = (k === 'cat_dl_prb') ? r._dlAvg : r._ulAvg;
+                const cls = getCategoryClass(numVal, low, high);
+                bodyHtml += `<td class="${cls}">${val || '-'}</td>`;
+            }
+            else if (k === 'dl_prb_status' || k === 'dl_fdd' || k === 'dl_tdd' ||
+                     k === 'ul_prb_status' || k === 'ul_fdd' || k === 'ul_tdd') {
+                bodyHtml += `<td class="${getStatusClass(val)}">${val}</td>`;
+            }
+            else if (k.startsWith('dl_L') || k.startsWith('ul_L') || k === 'avg_dl_prb' || k === 'avg_ul_prb') {
+                const cls = getCategoryClass(val, low, high);
+                bodyHtml += `<td class="mono ${cls}">${fmtVal(val)}</td>`;
+            }
+            else if (k === 'max_dl_prb' || k === 'max_ul_prb') {
+                bodyHtml += `<td class="mono">${fmtVal(val)}</td>`;
+            }
+            else if (k === 'num_band' || k === 'sector') {
+                bodyHtml += `<td class="mono" style="text-align:center;">${val}</td>`;
+            }
+            else if (k === 'week') {
+                bodyHtml += `<td class="mono">${val || '-'}</td>`;
+            }
+            else {
+                bodyHtml += `<td>${val !== null && val !== undefined ? val : '-'}</td>`;
+            }
+        });
+        bodyHtml += '</tr>';
+    });
+
+    if (!bodyHtml) {
+        bodyHtml = `<tr><td colspan="${activeCols.length}" style="text-align:center;padding:30px;color:var(--muted);">No matching records found</td></tr>`;
+    }
+
+    document.getElementById('prbTableBody').innerHTML = bodyHtml;
+}
+
+function fmtVal(v) {
+    if (v === null || v === undefined || v === '' || isNaN(v)) return '-';
+    return v + '%';
+}
+
+/* ── Pagination Event Handlers ───────────────────────────────────────── */
+function onPageSizeChange() {
+    currentPage = 1;
+    renderTable();
+}
+
+function changePage(action) {
+    const pageSizeVal = parseInt(document.getElementById('pageSizeSelect').value) || 25;
+    const totalPages = Math.ceil(rawData.length / pageSizeVal) || 1;
+
+    if (action === 'first') currentPage = 1;
+    else if (action === 'prev') currentPage = Math.max(1, currentPage - 1);
+    else if (action === 'next') currentPage = Math.min(totalPages, currentPage + 1);
+    else if (action === 'last') currentPage = totalPages;
+
+    renderTable();
+}
+
+/* ── Sort Table ─────────────────────────────────────────────────────── */
+function sortTable(colIdx) {
+    if (sortCol === colIdx) {
+        sortAsc = !sortAsc;
+    } else {
+        sortCol = colIdx;
+        sortAsc = true;
+    }
+    renderTable();
+}
+
+/* ── Direct Client-Side Styled XLSX Export (with Colors & Format) ── */
+async function exportXLSX() {
+    if (!rawData || !rawData.length) {
+        alert('No data available to export. Please select week range and click Process first.');
+        return;
+    }
+
+    const overlay = document.getElementById('loadingOverlay');
+    const progWrap = document.getElementById('loadingProgressWrap');
+    const progBar = document.getElementById('loadingProgressBar');
+    const progStatus = document.getElementById('loadingProgressStatus');
+    const progPct = document.getElementById('loadingProgressPct');
+
+    if (progWrap) progWrap.style.display = 'block';
+    if (progBar) progBar.style.width = '5%';
+    if (progPct) progPct.textContent = '5%';
+    if (progStatus) progStatus.textContent = 'Preparing export data...';
+
+    const weekFilter = document.getElementById('weeklyWeekFilter').value;
+    const startWeek = document.getElementById('startWeekSelect').value || '';
+    const endWeek = document.getElementById('endWeekSelect').value || '';
+
+    const exportTitle = (weekFilter && weekFilter !== 'all')
+        ? `Week ${weekFilter}`
+        : `${startWeek} to ${endWeek}`;
+
+    document.getElementById('loadingText').textContent = 'Exporting Excel Workbook...';
+    document.getElementById('loadingSub').textContent = exportTitle;
+    overlay.classList.add('active');
+
+    await new Promise(r => setTimeout(r, 60));
+
+    try {
+        const searchTerm = (document.getElementById('tableSearch').value || '').trim().toLowerCase();
+        const typeFilter = document.getElementById('typeFilter').value;
+        const { low, high, gap } = getThresholds();
+        const statusFilter = document.getElementById('statusFilter').value;
+        const isAllBands = (activeBands.size === 7 || (activeBands.size === 6 && !activeBands.has('L700')));
+
+        const activeCols = ALL_COLUMNS.filter(c => {
+            if (c.band && !activeBands.has(c.band)) return false;
+            if (viewMode === 'dl' && c.group !== 'base' && c.group !== 'dl') return false;
+            if (viewMode === 'ul' && c.group !== 'base' && c.group !== 'ul') return false;
+            return true;
+        });
+
+        // Filter rows based on current filters
+        const rowsToExport = [];
+        for (let i = 0; i < rawData.length; i++) {
+            const r = rawData[i];
+
+            if (weekFilter !== 'all' && r.week !== weekFilter) continue;
+            if (typeFilter !== 'all' && (r.type || '').toLowerCase() !== typeFilter) continue;
+            if (searchTerm) {
+                const matchSite = (r.site_id && r.site_id.toLowerCase().includes(searchTerm)) ||
+                                  (r.site_id_v2 && r.site_id_v2.toLowerCase().includes(searchTerm));
+                if (!matchSite) continue;
+            }
+
+            const dlStatus = evalStatus(r, 'dl', 'all', gap);
+            const ulStatus = evalStatus(r, 'ul', 'all', gap);
+
+            if (statusFilter === 'dl_unbalance' && dlStatus !== 'Unbalance') continue;
+            if (statusFilter === 'ul_unbalance' && ulStatus !== 'Unbalance') continue;
+            if (statusFilter === 'both_unbalance' && (dlStatus !== 'Unbalance' || ulStatus !== 'Unbalance')) continue;
+
+            rowsToExport.push(r);
+        }
+
+        const totalRows = rowsToExport.length;
+        const filename = (weekFilter && weekFilter !== 'all')
+            ? `Unbalance_PRB_Weekly_${weekFilter}.xlsx`
+            : (startWeek === endWeek ? `Unbalance_PRB_Weekly_${startWeek}.xlsx` : `Unbalance_PRB_Weekly_${startWeek}_to_${endWeek}.xlsx`);
+
+        if (typeof ExcelJS !== 'undefined') {
+            const workbook = new ExcelJS.Workbook();
+            workbook.creator = 'NetKPI Monitor';
+            workbook.created = new Date();
+
+            const ws = workbook.addWorksheet('Unbalance_PRB_Weekly', {
+                views: [{ state: 'frozen', ySplit: 1 }]
+            });
+
+            // Set Column Definitions
+            ws.columns = activeCols.map(col => ({
+                header: col.label.toUpperCase(),
+                key: col.key,
+                width: col.key === 'week' ? 12 : (col.key.includes('site') ? 18 : (col.key.includes('status') || col.key.includes('cat') ? 16 : 13))
+            }));
+
+            // Style Header Row
+            const headerRow = ws.getRow(1);
+            headerRow.height = 25;
+            headerRow.eachCell((cell) => {
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFF3EFE8' }
+                };
+                cell.font = {
+                    name: 'Calibri',
+                    size: 10,
+                    bold: true,
+                    color: { argb: 'FF8A7D6B' }
+                };
+                cell.alignment = {
+                    vertical: 'middle',
+                    horizontal: 'center'
+                };
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FFE2D9CC' } },
+                    left: { style: 'thin', color: { argb: 'FFE2D9CC' } },
+                    bottom: { style: 'medium', color: { argb: 'FF8A7D6B' } },
+                    right: { style: 'thin', color: { argb: 'FFE2D9CC' } }
+                };
+            });
+
+            // Styling Dictionaries
+            const borderThin = {
+                top: { style: 'thin', color: { argb: 'FFE5E0D8' } },
+                left: { style: 'thin', color: { argb: 'FFE5E0D8' } },
+                bottom: { style: 'thin', color: { argb: 'FFE5E0D8' } },
+                right: { style: 'thin', color: { argb: 'FFE5E0D8' } }
+            };
+
+            const fillCatLow = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F4EA' } };
+            const fontCatLow = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF137333' } };
+
+            const fillCatMed = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF7E0' } };
+            const fontCatMed = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFB06000' } };
+
+            const fillCatHigh = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCE8E6' } };
+            const fontCatHigh = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFC5221F' } };
+
+            const fillBal = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6E0B4' } };
+            const fontBal = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF1B5E20' } };
+
+            const fillUnbal = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCE4D6' } };
+            const fontUnbal = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFC0392B' } };
+
+            // Process Rows in Chunks for Responsive Live Progress Bar
+            const chunkSize = 2000;
+            for (let i = 0; i < totalRows; i += chunkSize) {
+                const end = Math.min(i + chunkSize, totalRows);
+
+                for (let rIdx = i; rIdx < end; rIdx++) {
+                    const row = rowsToExport[rIdx];
+                    const dlAvg = isAllBands ? row.avg_dl_prb : (calcActiveBandAverage(row, 'dl') ?? row.avg_dl_prb);
+                    const ulAvg = isAllBands ? row.avg_ul_prb : (calcActiveBandAverage(row, 'ul') ?? row.avg_ul_prb);
+                    const catDl = getCategoryLabel(dlAvg, low, high);
+                    const catUl = getCategoryLabel(ulAvg, low, high);
+                    const dlStatus = evalStatus(row, 'dl', 'all', gap);
+                    const ulStatus = evalStatus(row, 'ul', 'all', gap);
+                    const dlFdd = evalStatus(row, 'dl', 'fdd', gap);
+                    const dlTdd = evalStatus(row, 'dl', 'tdd', gap);
+                    const ulFdd = evalStatus(row, 'ul', 'fdd', gap);
+                    const ulTdd = evalStatus(row, 'ul', 'tdd', gap);
+
+                    const rowData = {};
+                    for (let j = 0; j < activeCols.length; j++) {
+                        const col = activeCols[j];
+                        if (col.key === 'avg_dl_prb') {
+                            rowData[col.key] = dlAvg !== null && dlAvg !== undefined ? Number(dlAvg) : null;
+                        } else if (col.key === 'avg_ul_prb') {
+                            rowData[col.key] = ulAvg !== null && ulAvg !== undefined ? Number(ulAvg) : null;
+                        } else if (col.key === 'cat_dl_prb') {
+                            rowData[col.key] = catDl || '-';
+                        } else if (col.key === 'cat_ul_prb') {
+                            rowData[col.key] = catUl || '-';
+                        } else if (col.key === 'dl_prb_status') {
+                            rowData[col.key] = dlStatus;
+                        } else if (col.key === 'ul_prb_status') {
+                            rowData[col.key] = ulStatus;
+                        } else if (col.key === 'dl_fdd') {
+                            rowData[col.key] = dlFdd;
+                        } else if (col.key === 'dl_tdd') {
+                            rowData[col.key] = dlTdd;
+                        } else if (col.key === 'ul_fdd') {
+                            rowData[col.key] = ulFdd;
+                        } else if (col.key === 'ul_tdd') {
+                            rowData[col.key] = ulTdd;
+                        } else {
+                            const val = row[col.key];
+                            if (col.key.startsWith('dl_L') || col.key.startsWith('ul_L') || col.key === 'max_dl_prb' || col.key === 'max_ul_prb') {
+                                rowData[col.key] = (val !== null && val !== undefined && val !== '') ? Number(val) : null;
+                            } else {
+                                rowData[col.key] = (val !== null && val !== undefined && val !== '') ? val : '-';
+                            }
+                        }
+                    }
+
+                    const excelRow = ws.addRow(rowData);
+                    excelRow.height = 18;
+
+                    // Format & Color Cells
+                    for (let j = 0; j < activeCols.length; j++) {
+                        const col = activeCols[j];
+                        const cell = excelRow.getCell(j + 1);
+                        cell.border = borderThin;
+                        cell.font = { name: 'Calibri', size: 10 };
+
+                        if (col.key === 'cat_dl_prb' || col.key === 'cat_ul_prb') {
+                            const cat = cell.value;
+                            if (cat === 'Low Util') { cell.fill = fillCatLow; cell.font = fontCatLow; }
+                            else if (cat === 'Medium Util') { cell.fill = fillCatMed; cell.font = fontCatMed; }
+                            else if (cat === 'High Util') { cell.fill = fillCatHigh; cell.font = fontCatHigh; }
+                            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                        } else if (col.key === 'dl_prb_status' || col.key === 'ul_prb_status' || col.key === 'dl_fdd' || col.key === 'dl_tdd' || col.key === 'ul_fdd' || col.key === 'ul_tdd') {
+                            const stat = cell.value;
+                            if (stat === 'Balance') { cell.fill = fillBal; cell.font = fontBal; }
+                            else if (stat === 'Unbalance') { cell.fill = fillUnbal; cell.font = fontUnbal; }
+                            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                        } else if (col.key.startsWith('dl_L') || col.key.startsWith('ul_L') || col.key.includes('avg') || col.key.includes('max_dl_prb') || col.key.includes('max_ul_prb')) {
+                            if (typeof cell.value === 'number') {
+                                cell.numFmt = '0.00"%"';
+                                cell.alignment = { vertical: 'middle', horizontal: 'right' };
+                                const num = cell.value;
+                                if (num <= low) {
+                                    cell.fill = fillCatLow;
+                                    cell.font = fontCatLow;
+                                } else if (num <= high) {
+                                    cell.fill = fillCatMed;
+                                    cell.font = fontCatMed;
+                                } else {
+                                    cell.fill = fillCatHigh;
+                                    cell.font = fontCatHigh;
+                                }
+                            } else {
+                                cell.value = '-';
+                                cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                            }
+                        } else if (col.key === 'week' || col.key === 'sector' || col.key === 'num_band' || col.key === 'type') {
+                            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                        } else {
+                            cell.alignment = { vertical: 'middle', horizontal: 'left' };
+                        }
+                    }
+                }
+
+                // Update real-time progress bar
+                const currentPct = Math.min(85, Math.round((end / totalRows) * 80) + 5);
+                if (progBar) progBar.style.width = `${currentPct}%`;
+                if (progPct) progPct.textContent = `${currentPct}%`;
+                if (progStatus) progStatus.textContent = `Formatting ${end.toLocaleString()} / ${totalRows.toLocaleString()} sectors...`;
+
+                // Yield control to let the browser repaint smoothly
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+
+            if (progBar) progBar.style.width = '90%';
+            if (progPct) progPct.textContent = '90%';
+            if (progStatus) progStatus.textContent = 'Compiling Excel file...';
+            await new Promise(resolve => setTimeout(resolve, 10));
+
+            const buffer = await workbook.xlsx.writeBuffer();
+
+            if (progBar) progBar.style.width = '100%';
+            if (progPct) progPct.textContent = '100%';
+            if (progStatus) progStatus.textContent = 'Download starting...';
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            }, 1500);
+
+        } else {
+            // Fallback SheetJS
+            const headers = activeCols.map(c => c.label.toUpperCase());
+            const dataRows = rowsToExport.map(row => {
+                const dlAvg = isAllBands ? row.avg_dl_prb : (calcActiveBandAverage(row, 'dl') ?? row.avg_dl_prb);
+                const ulAvg = isAllBands ? row.avg_ul_prb : (calcActiveBandAverage(row, 'ul') ?? row.avg_ul_prb);
+                return activeCols.map(col => {
+                    if (col.key === 'avg_dl_prb') return dlAvg !== null ? Number(dlAvg) : '-';
+                    if (col.key === 'avg_ul_prb') return ulAvg !== null ? Number(ulAvg) : '-';
+                    if (col.key === 'cat_dl_prb') return getCategoryLabel(dlAvg, low, high) || '-';
+                    if (col.key === 'cat_ul_prb') return getCategoryLabel(ulAvg, low, high) || '-';
+                    if (col.key === 'dl_prb_status') return evalStatus(row, 'dl', 'all', gap);
+                    if (col.key === 'ul_prb_status') return evalStatus(row, 'ul', 'all', gap);
+                    if (col.key === 'dl_fdd') return evalStatus(row, 'dl', 'fdd', gap);
+                    if (col.key === 'dl_tdd') return evalStatus(row, 'dl', 'tdd', gap);
+                    if (col.key === 'ul_fdd') return evalStatus(row, 'ul', 'fdd', gap);
+                    if (col.key === 'ul_tdd') return evalStatus(row, 'ul', 'tdd', gap);
+                    const val = row[col.key];
+                    return (val !== null && val !== undefined && val !== '') ? val : '-';
+                });
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Unbalance_PRB_Weekly");
+            XLSX.writeFile(wb, filename);
+        }
+
+    } catch (err) {
+        console.error('Export error:', err);
+        alert('Export failed: ' + err.message);
+    } finally {
+        setTimeout(() => {
+            overlay.classList.remove('active');
+            if (progWrap) progWrap.style.display = 'none';
+        }, 500);
+    }
+}
+</script>
+{% endblock %}

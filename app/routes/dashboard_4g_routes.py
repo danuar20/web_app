@@ -1,6 +1,6 @@
 """4G Dashboard Routes — /dashboard_4g"""
 from flask import Blueprint, render_template, request, session, flash, make_response, jsonify
-from app.db.db_webapp import get_postgres_connection, get_site_list_4g, get_site_cell_list_4g
+from app.db.db_webapp import get_postgres_connection, get_site_list_4g, get_site_cell_list_4g, get_city_list_4g
 from ._utils import login_required, _no_cache, json_response, db_query
 import psycopg2
 import psycopg2.extras
@@ -166,7 +166,13 @@ def dashboard_4g_view():
                 
     sel_sites_db = [s.strip().upper() for s in sel_sites if s.strip()]
     
-    if filter_type == "site_cell":
+    if filter_type == "city":
+        if not sel_sites_db:
+            sel_sites_db = ['UNKNOWN']
+        where_entity = "city IN %s"
+        sel_sites_param = tuple(sel_sites_db)
+        group_entity = "city"
+    elif filter_type == "site_cell":
         parsed = []
         for s in sel_sites_db:
             if '-' in s:
@@ -195,7 +201,9 @@ def dashboard_4g_view():
 
     sites_list = []
     try:
-        if filter_type == "site_cell":
+        if filter_type == "city":
+            sites_list, _ = get_city_list_4g()
+        elif filter_type == "site_cell":
             sites_list, _ = get_site_cell_list_4g()
         else:
             sites_list, _ = get_site_list_4g()
@@ -205,11 +213,16 @@ def dashboard_4g_view():
     last_update = None
     
     # Initialize response structures
-    trend_labels = []
-    trend_chart_data = defaultdict(lambda: {"total": {}})
-    band_trend_chart_data = defaultdict(lambda: defaultdict(list))
-    tech_trend_chart_data = defaultdict(lambda: defaultdict(list))
-    site_trend_chart_data = defaultdict(lambda: defaultdict(list))
+    daily_trend_labels = []
+    hourly_trend_labels = []
+    daily_trend_chart_data = defaultdict(lambda: {"total": []})
+    hourly_trend_chart_data = defaultdict(lambda: {"total": []})
+    daily_site_trend_chart_data = defaultdict(lambda: defaultdict(list))
+    hourly_site_trend_chart_data = defaultdict(lambda: defaultdict(list))
+    daily_band_trend_chart_data = defaultdict(lambda: defaultdict(list))
+    hourly_band_trend_chart_data = defaultdict(lambda: defaultdict(list))
+    daily_tech_trend_chart_data = defaultdict(lambda: defaultdict(list))
+    hourly_tech_trend_chart_data = defaultdict(lambda: defaultdict(list))
     
     cluster_compare = {}
     band_compare = defaultdict(dict)
@@ -273,7 +286,9 @@ def dashboard_4g_view():
 
                     query_trend_all = f"""
                         SELECT 
-                            TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') AS dt_label,
+                            CASE WHEN GROUPING(datehour) = 1 THEN TO_CHAR(date, 'YYYY-MM-DD') ELSE TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') END AS dt_label,
+                            CASE WHEN GROUPING(datehour) = 1 THEN 'daily' ELSE 'hourly' END AS gran,
+                            date,
                             datehour,
                             {group_entity} AS siteid,
                             {band_expr} AS band,
@@ -281,75 +296,128 @@ def dashboard_4g_view():
                             GROUPING({group_entity}) AS g_site,
                             GROUPING({band_expr}) AS g_band,
                             GROUPING({tech_expr}) AS g_tech,
+                            GROUPING(datehour) AS g_hour,
                             {kpi_selects}
                         FROM "4g_kpi_zte"
                         WHERE date BETWEEN %s AND %s AND {where_entity}
                         GROUP BY GROUPING SETS (
-                            (datehour, dt_label),
-                            (datehour, dt_label, {group_entity}),
-                            (datehour, dt_label, {band_expr}),
-                            (datehour, dt_label, {tech_expr})
+                            -- Daily
+                            (date),
+                            (date, {group_entity}),
+                            (date, {band_expr}),
+                            (date, {tech_expr}),
+                            -- Hourly
+                            (date, datehour),
+                            (date, datehour, {group_entity}),
+                            (date, datehour, {band_expr}),
+                            (date, datehour, {tech_expr})
                         )
-                        ORDER BY datehour
+                        ORDER BY gran, date, datehour NULLS FIRST
                     """
                     cur.execute(query_trend_all, [trend_from_date, trend_to_date, sel_sites_param])
                     rows_trend_all = cur.fetchall()
 
-                    trend_labels = []
-                    trend_map = {}
-                    site_trend_map = defaultdict(dict)
-                    band_trend_map = defaultdict(dict)
-                    tech_trend_map = defaultdict(dict)
+                    daily_trend_map = {}
+                    hourly_trend_map = {}
+                    daily_site_trend_map = defaultdict(dict)
+                    hourly_site_trend_map = defaultdict(dict)
+                    daily_band_trend_map = defaultdict(dict)
+                    hourly_band_trend_map = defaultdict(dict)
+                    daily_tech_trend_map = defaultdict(dict)
+                    hourly_tech_trend_map = defaultdict(dict)
 
                     for r in rows_trend_all:
-                        dt_label, dh, siteid, band, tech, g_site, g_band, g_tech = r[:8]
-                        kpis = r[8:]
+                        dt_label, gran, d, dh, siteid, band, tech, g_site, g_band, g_tech, g_hour = r[:11]
+                        kpis = r[11:]
 
-                        if dt_label not in trend_labels:
-                            trend_labels.append(dt_label)
+                        if gran == 'daily':
+                            if dt_label not in daily_trend_labels:
+                                daily_trend_labels.append(dt_label)
+                            if g_site == 1 and g_band == 1 and g_tech == 1:
+                                daily_trend_map[dt_label] = kpis
+                            elif g_site == 0:
+                                daily_site_trend_map[siteid][dt_label] = kpis
+                            elif g_band == 0:
+                                daily_band_trend_map[band][dt_label] = kpis
+                            elif g_tech == 0:
+                                daily_tech_trend_map[tech][dt_label] = kpis
+                        else:
+                            if dt_label not in hourly_trend_labels:
+                                hourly_trend_labels.append(dt_label)
+                            if g_site == 1 and g_band == 1 and g_tech == 1:
+                                hourly_trend_map[dt_label] = kpis
+                            elif g_site == 0:
+                                hourly_site_trend_map[siteid][dt_label] = kpis
+                            elif g_band == 0:
+                                hourly_band_trend_map[band][dt_label] = kpis
+                            elif g_tech == 0:
+                                hourly_tech_trend_map[tech][dt_label] = kpis
 
-                        if g_site == 1 and g_band == 1 and g_tech == 1:
-                            trend_map[dt_label] = kpis
-                        elif g_site == 0:
-                            site_trend_map[siteid][dt_label] = kpis
-                        elif g_band == 0:
-                            band_trend_map[band][dt_label] = kpis
-                        elif g_tech == 0:
-                            tech_trend_map[tech][dt_label] = kpis
-
-                    for kpi in KPI_DEFS:
-                        trend_chart_data[kpi[0]]["total"] = []
-
+                    # Populate Daily Chart Data
                     for idx, kpi in enumerate(KPI_DEFS):
                         kpi_id = kpi[0]
-                        for hr in trend_labels:
-                            val_row = trend_map.get(hr)
+                        daily_trend_chart_data[kpi_id]["total"] = []
+                        for dt in daily_trend_labels:
+                            val_row = daily_trend_map.get(dt)
                             val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
-                            trend_chart_data[kpi_id]["total"].append(val)
+                            daily_trend_chart_data[kpi_id]["total"].append(val)
 
-                    for site in site_trend_map:
+                    for site in daily_site_trend_map:
                         for idx, kpi in enumerate(KPI_DEFS):
                             kpi_id = kpi[0]
-                            for hr in trend_labels:
-                                val_row = site_trend_map[site].get(hr)
+                            for dt in daily_trend_labels:
+                                val_row = daily_site_trend_map[site].get(dt)
                                 val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
-                                site_trend_chart_data[kpi_id][site].append(val)
+                                daily_site_trend_chart_data[kpi_id][site].append(val)
 
-                    for band in band_trend_map:
+                    for band in daily_band_trend_map:
                         for idx, kpi in enumerate(KPI_DEFS):
                             kpi_id = kpi[0]
-                            for hr in trend_labels:
-                                val_row = band_trend_map[band].get(hr)
+                            for dt in daily_trend_labels:
+                                val_row = daily_band_trend_map[band].get(dt)
                                 val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
-                                band_trend_chart_data[kpi_id][band].append(val)
+                                daily_band_trend_chart_data[kpi_id][band].append(val)
 
-                    for tech in tech_trend_map:
+                    for tech in daily_tech_trend_map:
                         for idx, kpi in enumerate(KPI_DEFS):
                             kpi_id = kpi[0]
-                            for hr in trend_labels:
-                                val_row = tech_trend_map[tech].get(hr)
+                            for dt in daily_trend_labels:
+                                val_row = daily_tech_trend_map[tech].get(dt)
                                 val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
-                                tech_trend_chart_data[kpi_id][tech].append(val)
+                                daily_tech_trend_chart_data[kpi_id][tech].append(val)
+
+                    # Populate Hourly Chart Data
+                    for idx, kpi in enumerate(KPI_DEFS):
+                        kpi_id = kpi[0]
+                        hourly_trend_chart_data[kpi_id]["total"] = []
+                        for hr in hourly_trend_labels:
+                            val_row = hourly_trend_map.get(hr)
+                            val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
+                            hourly_trend_chart_data[kpi_id]["total"].append(val)
+
+                    for site in hourly_site_trend_map:
+                        for idx, kpi in enumerate(KPI_DEFS):
+                            kpi_id = kpi[0]
+                            for hr in hourly_trend_labels:
+                                val_row = hourly_site_trend_map[site].get(hr)
+                                val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
+                                hourly_site_trend_chart_data[kpi_id][site].append(val)
+
+                    for band in hourly_band_trend_map:
+                        for idx, kpi in enumerate(KPI_DEFS):
+                            kpi_id = kpi[0]
+                            for hr in hourly_trend_labels:
+                                val_row = hourly_band_trend_map[band].get(hr)
+                                val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
+                                hourly_band_trend_chart_data[kpi_id][band].append(val)
+
+                    for tech in hourly_tech_trend_map:
+                        for idx, kpi in enumerate(KPI_DEFS):
+                            kpi_id = kpi[0]
+                            for hr in hourly_trend_labels:
+                                val_row = hourly_tech_trend_map[tech].get(hr)
+                                val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
+                                hourly_tech_trend_chart_data[kpi_id][tech].append(val)
                             
                             
                 # --- COMPARE DATA ---
@@ -600,11 +668,23 @@ def dashboard_4g_view():
         before_str=before_str if 'before_str' in locals() else "",
         after_str=after_str if 'after_str' in locals() else "",
         
-        trend_labels=trend_labels,
-        trend_chart_data=dict(trend_chart_data),
-        site_trend_chart_data=dict(site_trend_chart_data),
-        band_trend_chart_data=dict(band_trend_chart_data),
-        tech_trend_chart_data=dict(tech_trend_chart_data),
+        trend_labels=daily_trend_labels,
+        trend_chart_data=dict(daily_trend_chart_data),
+        site_trend_chart_data=dict(daily_site_trend_chart_data),
+        band_trend_chart_data=dict(daily_band_trend_chart_data),
+        tech_trend_chart_data=dict(daily_tech_trend_chart_data),
+
+        daily_trend_labels=daily_trend_labels,
+        daily_trend_chart_data=dict(daily_trend_chart_data),
+        daily_site_trend_chart_data=dict(daily_site_trend_chart_data),
+        daily_band_trend_chart_data=dict(daily_band_trend_chart_data),
+        daily_tech_trend_chart_data=dict(daily_tech_trend_chart_data),
+
+        hourly_trend_labels=hourly_trend_labels,
+        hourly_trend_chart_data=dict(hourly_trend_chart_data),
+        hourly_site_trend_chart_data=dict(hourly_site_trend_chart_data),
+        hourly_band_trend_chart_data=dict(hourly_band_trend_chart_data),
+        hourly_tech_trend_chart_data=dict(hourly_tech_trend_chart_data),
         
         cluster_compare=cluster_compare,
         band_compare=dict(sorted(band_compare.items(), key=lambda x: (len(x[0]), x[0]))),
@@ -674,7 +754,9 @@ def delete_custom_chart():
 def get_filter_list_4g():
     ftype = request.args.get("filter_type", "siteid")
     try:
-        if ftype == "site_cell":
+        if ftype == "city":
+            items, _ = get_city_list_4g()
+        elif ftype == "site_cell":
             items, _ = get_site_cell_list_4g()
         else:
             items, _ = get_site_list_4g()
@@ -709,7 +791,12 @@ def dashboard_4g_tech_api():
                     
         sel_sites_db = [s.strip() for s in sel_sites if s.strip()]
         
-        if filter_type == "site_cell":
+        if filter_type == "city":
+            if not sel_sites_db:
+                sel_sites_db = ['UNKNOWN']
+            where_entity = "city IN %s"
+            sel_sites_param = tuple(sel_sites_db)
+        elif filter_type == "site_cell":
             parsed = []
             for s in sel_sites_db:
                 if '-' in s:
@@ -770,48 +857,69 @@ def dashboard_4g_tech_api():
         result = {
             "success": True,
             "trend_labels": [],
+            "daily_trend_labels": [],
+            "hourly_trend_labels": [],
             "tech_trend_chart_data": defaultdict(lambda: defaultdict(list)),
+            "daily_tech_trend_chart_data": defaultdict(lambda: defaultdict(list)),
+            "hourly_tech_trend_chart_data": defaultdict(lambda: defaultdict(list)),
             "tech_compare": defaultdict(dict)
         }
         
         with db_query() as (conn, cur):
             if has_trend:
-                cur.execute(f"""
-                    SELECT DISTINCT TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') AS dt_label, datehour
-                    FROM "4g_kpi_zte"
-                    WHERE date BETWEEN %s AND %s AND {where_entity}
-                    ORDER BY datehour
-                """, [trend_from_date, trend_to_date, sel_sites_param])
-                rows_trend_dates = cur.fetchall()
-                trend_labels = [r[0] for r in rows_trend_dates]
-                result["trend_labels"] = trend_labels
-                
                 query_trend_tech = f"""
                     SELECT 
-                        TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') AS dt_label,
+                        CASE WHEN GROUPING(datehour) = 1 THEN TO_CHAR(date, 'YYYY-MM-DD') ELSE TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') END AS dt_label,
+                        CASE WHEN GROUPING(datehour) = 1 THEN 'daily' ELSE 'hourly' END AS gran,
+                        date,
                         datehour,
                         {tech_case} AS tech,
                         {kpi_selects}
                     FROM "4g_kpi_zte"
                     WHERE date BETWEEN %s AND %s AND {where_entity}
-                    GROUP BY datehour, dt_label, tech ORDER BY datehour
+                    GROUP BY GROUPING SETS (
+                        (date, {tech_case}),
+                        (date, datehour, {tech_case})
+                    )
+                    ORDER BY gran, date, datehour NULLS FIRST
                 """
-                cur.execute(query_trend_tech, [fdd_tup, tdd_tup, trend_from_date, trend_to_date, sel_sites_param])
+                cur.execute(query_trend_tech, [fdd_tup, tdd_tup, fdd_tup, tdd_tup, trend_from_date, trend_to_date, sel_sites_param])
                 rows_tech_trend = cur.fetchall()
-                tech_trend_map = defaultdict(dict)
+                
+                daily_trend_labels = []
+                hourly_trend_labels = []
+                daily_tech_map = defaultdict(dict)
+                hourly_tech_map = defaultdict(dict)
+
                 for r in rows_tech_trend:
-                    dt_label = r[0]
-                    tech = r[2]
+                    dt_label, gran, d, dh, tech = r[:5]
+                    kpis = r[5:]
                     if tech != 'Unknown':
-                        tech_trend_map[tech][dt_label] = r[3:]
-                        
+                        if gran == 'daily':
+                            if dt_label not in daily_trend_labels:
+                                daily_trend_labels.append(dt_label)
+                            daily_tech_map[tech][dt_label] = kpis
+                        else:
+                            if dt_label not in hourly_trend_labels:
+                                hourly_trend_labels.append(dt_label)
+                            hourly_tech_map[tech][dt_label] = kpis
+
+                result["daily_trend_labels"] = daily_trend_labels
+                result["hourly_trend_labels"] = hourly_trend_labels
+                result["trend_labels"] = daily_trend_labels
+
                 for tech in ['FDD', 'TDD']:
                     for idx, kpi in enumerate(KPI_DEFS):
                         kpi_id = kpi[0]
-                        for hr in trend_labels:
-                            val_row = tech_trend_map[tech].get(hr)
+                        for dt in daily_trend_labels:
+                            val_row = daily_tech_map[tech].get(dt)
                             val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
+                            result["daily_tech_trend_chart_data"][kpi_id][tech].append(val)
                             result["tech_trend_chart_data"][kpi_id][tech].append(val)
+                        for hr in hourly_trend_labels:
+                            val_row = hourly_tech_map[tech].get(hr)
+                            val = round(float(val_row[idx]), 2) if val_row and val_row[idx] is not None else None
+                            result["hourly_tech_trend_chart_data"][kpi_id][tech].append(val)
                             
             if has_compare:
                 def get_tech_compare(from_d, to_d):

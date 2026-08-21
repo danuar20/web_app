@@ -732,21 +732,22 @@
                     <div class="filter-group" style="width: 100%;">
                         <div class="filter-label" id="siteFilterLabel"
                             style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
-                            <span id="filterTitleLabel">SITES</span>
+                            <span id="filterTitleLabel">{% if filter_type == 'city' %}CITIES{% elif filter_type == 'site_cell' %}SITE-CELLS{% else %}SITES{% endif %}</span>
                             <div style="display: flex; gap: 8px; font-weight: 600; font-size: 10px; text-transform: none;">
-                                <label style="cursor:pointer;"><input type="radio" name="filter_type" value="siteid" {% if filter_type != 'site_cell' %}checked{% endif %} onchange="onFilterTypeChange(this.value)"> Site ID</label>
+                                <label style="cursor:pointer;"><input type="radio" name="filter_type" value="siteid" {% if filter_type == 'siteid' or not filter_type %}checked{% endif %} onchange="onFilterTypeChange(this.value)"> Site ID</label>
                                 <label style="cursor:pointer;"><input type="radio" name="filter_type" value="site_cell" {% if filter_type == 'site_cell' %}checked{% endif %} onchange="onFilterTypeChange(this.value)"> Site-Cell</label>
+                                <label style="cursor:pointer;"><input type="radio" name="filter_type" value="city" {% if filter_type == 'city' %}checked{% endif %} onchange="onFilterTypeChange(this.value)"> City</label>
                             </div>
                         </div>
                         <div class="dropdown-container" id="siteDropdownContainer" style="position: relative;">
                             <button type="button" class="dropdown-toggle" onclick="toggleSiteDropdown(event)"
                                 style="width: 100%; height: 36px; justify-content: space-between; padding: 0 12px; border-radius: 8px; font-size: 12px;">
-                                <span id="siteBtnText" style="font-weight: 600;">Select {% if filter_type == 'site_cell' %}Cells{% else %}Sites{% endif %} ({{ sel_sites|length if
+                                <span id="siteBtnText" style="font-weight: 600;">Select {% if filter_type == 'city' %}Cities{% elif filter_type == 'site_cell' %}Cells{% else %}Sites{% endif %} ({{ sel_sites|length if
                                     sel_sites else 0 }})</span> <i class="fas fa-chevron-down"></i>
                             </button>
                             <div class="dropdown-menu" id="siteDropdown"
                                 style="display: none; z-index: 1000; position: absolute; width: 100%; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
-                                <input type="text" id="siteSearch" placeholder="Search {% if filter_type == 'site_cell' %}cells{% else %}sites{% endif %}..." onkeyup="filterSites()"
+                                <input type="text" id="siteSearch" placeholder="Search {% if filter_type == 'city' %}cities{% elif filter_type == 'site_cell' %}cells{% else %}sites{% endif %}..." onkeyup="filterSites()"
                                     style="width: calc(100% - 16px); padding: 6px; margin: 8px; border: 1px solid rgba(128,128,128,0.2); border-radius: 4px; font-size: 12px;">
                                 <label class="checkbox-label"
                                     style="border-bottom: 1px solid rgba(128,128,128,0.1); padding: 6px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;">
@@ -763,7 +764,7 @@
                     <div class="filter-group" style="width: 100%;">
                         <div class="filter-label" id="importLabel"
                             style="font-size: 10px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">
-                            Or import {% if filter_type == 'site_cell' %}cells{% else %}sites{% endif %} from CSV</div>
+                            Or import {% if filter_type == 'city' %}cities{% elif filter_type == 'site_cell' %}cells{% else %}sites{% endif %} from CSV</div>
                         <label class="f-input"
                             style="display:flex; align-items:center; gap:6px; cursor:pointer; width: max-content; padding:4px 10px; height: 32px; border-radius: 6px; background: rgba(128,128,128,0.05) !important;">
                             <i class="fas fa-file-import" style="color: #4facfe; font-size: 12px;"></i>
@@ -772,7 +773,7 @@
                             <span id="siteFileLabel" style="font-weight: 600; font-size: 11px;">Choose CSV
                                 file...</span>
                         </label>
-                        <textarea id="sitePasteArea" name="site_paste" class="f-input" placeholder="Paste {% if filter_type == 'site_cell' %}cell{% else %}site{% endif %} IDs here
+                        <textarea id="sitePasteArea" name="site_paste" class="f-input" placeholder="Paste {% if filter_type == 'city' %}city names{% elif filter_type == 'site_cell' %}cell{% else %}site{% endif %} IDs here
 (one per line or comma-separated)" rows="3"
                             style="width: 100%; resize:vertical; font-size:11px; margin-top:8px; box-sizing: border-box; border-radius: 6px;"
                             oninput="handleInlinePasteAndSelect(this.value)">{{ site_paste if site_paste else '' }}</textarea>
@@ -916,13 +917,25 @@
     {% if trend_from_date and sel_sites %}
     <!-- Tabs Navigation -->
     <div class="nav-tabs"
-        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid rgba(79, 172, 254, 0.2); margin-bottom: 20px;">
+        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid rgba(79, 172, 254, 0.2); margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
         <div style="display: flex; gap: 8px;">
             <div class="nav-tab active" onclick="switchTab('tab-compare', this)">Comparison Table</div>
             <div class="nav-tab" onclick="switchTab('tab-trend', this)">Trend Charts</div>
             <div class="nav-tab" onclick="switchTab('tab-band', this)">Band Level</div>
             <div class="nav-tab" onclick="switchTab('tab-sector', this)">Sector Level</div>
             <div class="nav-tab" onclick="switchTab('tab-custom', this)">Custom Charts</div>
+        </div>
+        <!-- Daily / Hourly Interval Selector -->
+        <div class="interval-selector-wrap" style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
+            <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;"><i class="fas fa-layer-group" style="margin-right: 4px; color: #4facfe;"></i>Interval:</span>
+            <div class="view-btns" style="display: flex; background: rgba(128,128,128,0.1); border-radius: 6px; overflow: hidden; border: 1px solid rgba(79,172,254,0.25);">
+                <button id="btn-interval-daily" class="view-btn active" style="padding: 4px 12px; font-size: 11px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-weight: 600;" onclick="setIntervalView('daily')">
+                    <i class="fas fa-calendar-day"></i> Daily
+                </button>
+                <button id="btn-interval-hourly" class="view-btn" style="padding: 4px 12px; font-size: 11px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-weight: 600;" onclick="setIntervalView('hourly')">
+                    <i class="fas fa-clock"></i> Hourly
+                </button>
+            </div>
         </div>
     </div>
 
@@ -1022,10 +1035,10 @@
             </div>
         </div>
 
-        <!-- Site Level Comparison -->
+        <!-- Site/City Level Comparison -->
         <div class="card" style="margin-top: 16px;">
             <div class="chart-box-header">
-                <div class="card-title">{% if filter_type == 'site_cell' %}Site-cell{% else %}Site{% endif %} Level Comparison</div>
+                <div class="card-title">{% if filter_type == 'city' %}City{% elif filter_type == 'site_cell' %}Site-cell{% else %}Site{% endif %} Level Comparison</div>
                 <button class="btn-apply" onclick="downloadCSV('siteTable')"><i class="fas fa-download"></i>
                     CSV</button>
             </div>
@@ -1034,7 +1047,7 @@
                     <table class="site-table" id="siteTable">
                         <thead>
                             <tr>
-                                <th class="entity-col" rowspan="2" style="background:#1e3a5f;">{% if filter_type == 'site_cell' %}Site-Cell{% else %}Site ID{% endif %}</th>
+                                <th class="entity-col" rowspan="2" style="background:#1e3a5f;">{% if filter_type == 'city' %}City{% elif filter_type == 'site_cell' %}Site-Cell{% else %}Site ID{% endif %}</th>
                                 {% for kpi in kpi_defs %}
                                 <th colspan="4" class="text-center">{{ kpi[1] }}</th>
                                 {% endfor %}
@@ -1120,13 +1133,13 @@
                     <table class="site-table" id="trendTable">
                         <thead>
                             <tr>
-                                <th class="entity-col" style="background:#1e3a5f;">Hour</th>
+                                <th class="entity-col" id="trendTableEntityHeader" style="background:#1e3a5f;">Date</th>
                                 {% for kpi in kpi_defs %}
                                 <th class="text-center">{{ kpi[1] }}</th>
                                 {% endfor %}
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="trendTableBody">
                             {% for i in range(trend_labels|length) %}
                             <tr class="trend-table-row">
                                 <td class="entity-cell" style="white-space: nowrap;">{{ trend_labels[i] }}</td>
@@ -1801,17 +1814,35 @@
         a.click();
     }
 
-    // Chart Configuration
-    const TREND_LABELS = {{ trend_labels| tojson | safe }};
-    const TREND_DATA = {{ trend_chart_data| tojson | safe }};
-    const SITE_TREND_DATA = {{ site_trend_chart_data| tojson | safe }};
-    const BAND_TREND_DATA = {{ band_trend_chart_data| tojson | safe }};
-    const TECH_TREND_DATA = {{ tech_trend_chart_data| tojson | safe }};
+    // Chart Configuration & Granularity Datasets
+    let currentGranularity = 'daily';
+    const DAILY_TREND_LABELS = {{ daily_trend_labels | default(trend_labels) | tojson | safe }};
+    const HOURLY_TREND_LABELS = {{ hourly_trend_labels | default([]) | tojson | safe }};
+    const DAILY_TREND_DATA = {{ daily_trend_chart_data | default(trend_chart_data) | tojson | safe }};
+    const HOURLY_TREND_DATA = {{ hourly_trend_chart_data | default({}) | tojson | safe }};
+    const DAILY_SITE_TREND_DATA = {{ daily_site_trend_chart_data | default(site_trend_chart_data) | tojson | safe }};
+    const HOURLY_SITE_TREND_DATA = {{ hourly_site_trend_chart_data | default({}) | tojson | safe }};
+    const DAILY_BAND_TREND_DATA = {{ daily_band_trend_chart_data | default(band_trend_chart_data) | tojson | safe }};
+    const HOURLY_BAND_TREND_DATA = {{ hourly_band_trend_chart_data | default({}) | tojson | safe }};
+    const DAILY_TECH_TREND_DATA = {{ daily_tech_trend_chart_data | default(tech_trend_chart_data) | tojson | safe }};
+    const HOURLY_TECH_TREND_DATA = {{ hourly_tech_trend_chart_data | default({}) | tojson | safe }};
+
+    let TREND_LABELS = DAILY_TREND_LABELS;
+    let TREND_DATA = DAILY_TREND_DATA;
+    let SITE_TREND_DATA = DAILY_SITE_TREND_DATA;
+    let BAND_TREND_DATA = DAILY_BAND_TREND_DATA;
+    let TECH_TREND_DATA = DAILY_TECH_TREND_DATA;
+
+    let dynamicDailyTechTrendData = DAILY_TECH_TREND_DATA;
+    let dynamicHourlyTechTrendData = HOURLY_TECH_TREND_DATA;
+    let dynamicTechTrendData = DAILY_TECH_TREND_DATA;
+
     const BAND_COMPARE = {{ band_compare| tojson | safe }};
     const TECH_COMPARE = {{ tech_compare| tojson | safe }};
+    let dynamicTechCompareData = typeof TECH_COMPARE !== 'undefined' ? TECH_COMPARE : { 'FDD': {}, 'TDD': {} };
+    let bandMode = 'split';
     const COMPARE_HOURLY_LABELS = {{ compare_hourly_labels| tojson | safe }};
     const COMPARE_HOURLY_DATA = {{ compare_hourly_data| tojson | safe }};
-
 
     const KPI_DEFS = {{ kpi_defs| tojson | safe }};
     const ALL_KPIS = {{ all_kpis| tojson | safe }};
@@ -1841,18 +1872,21 @@
         callback: function (value, index, ticks) {
             const fullLabel = this.getLabelForValue(value);
             if (!fullLabel) return value;
-            const dtStr = fullLabel.split(' ')[0];
-            const parts = dtStr.split('-');
-            if (parts.length === 3) {
-                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                return parts[2] + ' ' + months[parseInt(parts[1]) - 1];
+            const parts = fullLabel.split(' ');
+            const dtStr = parts[0];
+            const timeStr = parts[1] || '';
+            const dtParts = dtStr.split('-');
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            if (dtParts.length === 3) {
+                const dayMonth = dtParts[2] + ' ' + months[parseInt(dtParts[1], 10) - 1];
+                if (currentGranularity === 'hourly' && timeStr) {
+                    return dayMonth + ' ' + timeStr;
+                }
+                return dayMonth;
             }
             return fullLabel;
         }
     };
-
-    // Plugin for background shading (Before/After) and execution lines
-
 
     function resetUI() {
         ['trendColor', 'beforeColor', 'afterColor', 'execColor', 'execWeight', 'execDash', 'showShadingToggle'].forEach(id => {
@@ -1916,22 +1950,23 @@
         id: 'highlightPeriods',
         beforeDraw: (chart) => {
             const uic = getUIConfig();
-            if (!uic.showShading) return; // Don't draw if disabled
+            if (!uic.showShading) return;
 
             const { ctx, chartArea: { top, bottom, left, right }, scales: { x } } = chart;
-            const TREND_LABELS = chart.data.labels;
+            const labels = chart.data.labels;
+            if (!labels || labels.length === 0) return;
 
             ctx.save();
             // Shade Before Period
             if (typeof BEFORE_FROM !== 'undefined' && BEFORE_FROM && typeof BEFORE_TO !== 'undefined' && BEFORE_TO) {
-                let startIdx = TREND_LABELS.findIndex(l => l.startsWith(BEFORE_FROM));
-                let endIdx = TREND_LABELS.slice().reverse().findIndex(l => l.startsWith(BEFORE_TO));
-                if (endIdx !== -1) endIdx = TREND_LABELS.length - 1 - endIdx;
+                let startIdx = labels.findIndex(l => l.startsWith(BEFORE_FROM));
+                let endIdx = labels.slice().reverse().findIndex(l => l.startsWith(BEFORE_TO));
+                if (endIdx !== -1) endIdx = labels.length - 1 - endIdx;
 
                 if (startIdx !== -1 && endIdx !== -1) {
                     let startX = x.getPixelForValue(startIdx);
                     let endX = x.getPixelForValue(endIdx);
-                    ctx.fillStyle = uic.beforeColor + '15'; // 15 = ~8% opacity hex
+                    ctx.fillStyle = uic.beforeColor + '15';
                     ctx.fillRect(startX, top, endX - startX, bottom - top);
                     ctx.beginPath();
                     ctx.strokeStyle = uic.beforeColor + '40';
@@ -1944,14 +1979,14 @@
 
             // Shade After Period
             if (typeof AFTER_FROM !== 'undefined' && AFTER_FROM && typeof AFTER_TO !== 'undefined' && AFTER_TO) {
-                let startIdx = TREND_LABELS.findIndex(l => l.startsWith(AFTER_FROM));
-                let endIdx = TREND_LABELS.slice().reverse().findIndex(l => l.startsWith(AFTER_TO));
-                if (endIdx !== -1) endIdx = TREND_LABELS.length - 1 - endIdx;
+                let startIdx = labels.findIndex(l => l.startsWith(AFTER_FROM));
+                let endIdx = labels.slice().reverse().findIndex(l => l.startsWith(AFTER_TO));
+                if (endIdx !== -1) endIdx = labels.length - 1 - endIdx;
 
                 if (startIdx !== -1 && endIdx !== -1) {
                     let startX = x.getPixelForValue(startIdx);
                     let endX = x.getPixelForValue(endIdx);
-                    ctx.fillStyle = uic.afterColor + '15'; // 15 = ~8% opacity
+                    ctx.fillStyle = uic.afterColor + '15';
                     ctx.fillRect(startX, top, endX - startX, bottom - top);
                     ctx.beginPath();
                     ctx.strokeStyle = uic.afterColor + '40';
@@ -1965,7 +2000,7 @@
             // Draw Execution Dates Lines
             if (typeof EXECUTION_DATES !== 'undefined' && EXECUTION_DATES && EXECUTION_DATES.length > 0) {
                 EXECUTION_DATES.forEach(dStr => {
-                    let dIdx = TREND_LABELS.findIndex(l => l.startsWith(dStr));
+                    let dIdx = labels.findIndex(l => l.startsWith(dStr));
                     if (dIdx !== -1) {
                         let dX = x.getPixelForValue(dIdx);
                         ctx.beginPath();
@@ -1989,7 +2024,6 @@
             const title = kpi[1];
             const yLabel = kpi[3] || kpi[2];
 
-            // Render Cluster Trend Chart
             let cCtx = document.getElementById("trendChart_" + kpiId);
             if (cCtx) {
                 if(chartInstances[cCtx.id]) chartInstances[cCtx.id].destroy();
@@ -2022,6 +2056,76 @@
                 });
             }
         });
+    }
+
+    function renderTrendTable() {
+        const headerEl = document.getElementById('trendTableEntityHeader');
+        if (headerEl) {
+            headerEl.textContent = currentGranularity === 'hourly' ? 'Hour' : 'Date';
+        }
+        const tbody = document.getElementById('trendTableBody');
+        if (!tbody) return;
+
+        let rowsHtml = [];
+        for (let i = 0; i < TREND_LABELS.length; i++) {
+            let cellsHtml = `<td class="entity-cell" style="white-space: nowrap;">${TREND_LABELS[i]}</td>`;
+            KPI_DEFS.forEach(kpi => {
+                const kpiId = kpi[0];
+                const val = TREND_DATA[kpiId]?.total ? TREND_DATA[kpiId].total[i] : null;
+                const displayVal = (val !== null && val !== undefined) ? Number(val).toFixed(2) : '-';
+                cellsHtml += `<td class="text-center trend-val-cell" data-kpi="${kpiId}" data-idx="${i}">${displayVal}</td>`;
+            });
+            rowsHtml.push(`<tr class="trend-table-row">${cellsHtml}</tr>`);
+        }
+        tbody.innerHTML = rowsHtml.join('');
+    }
+
+    function setIntervalView(granularity) {
+        if (currentGranularity === granularity) return;
+        currentGranularity = granularity;
+
+        const btnDaily = document.getElementById('btn-interval-daily');
+        const btnHourly = document.getElementById('btn-interval-hourly');
+        if (btnDaily) btnDaily.classList.toggle('active', granularity === 'daily');
+        if (btnHourly) btnHourly.classList.toggle('active', granularity === 'hourly');
+
+        if (granularity === 'hourly') {
+            TREND_LABELS = HOURLY_TREND_LABELS;
+            TREND_DATA = HOURLY_TREND_DATA;
+            SITE_TREND_DATA = HOURLY_SITE_TREND_DATA;
+            BAND_TREND_DATA = HOURLY_BAND_TREND_DATA;
+            TECH_TREND_DATA = HOURLY_TECH_TREND_DATA;
+            dynamicTechTrendData = dynamicHourlyTechTrendData;
+        } else {
+            TREND_LABELS = DAILY_TREND_LABELS;
+            TREND_DATA = DAILY_TREND_DATA;
+            SITE_TREND_DATA = DAILY_SITE_TREND_DATA;
+            BAND_TREND_DATA = DAILY_BAND_TREND_DATA;
+            TECH_TREND_DATA = DAILY_TECH_TREND_DATA;
+            dynamicTechTrendData = dynamicDailyTechTrendData;
+        }
+
+        // 1. Update Trend Charts
+        KPI_DEFS.forEach(kpi => {
+            const kpiId = kpi[0];
+            const chart = chartInstances["trendChart_" + kpiId];
+            if (chart) {
+                chart.data.labels = TREND_LABELS;
+                chart.data.datasets[0].data = TREND_DATA[kpiId]?.total || [];
+                chart.update('none');
+            }
+        });
+
+        // 2. Update Trend Table
+        renderTrendTable();
+
+        // 3. Update Band Charts
+        renderBandCharts();
+
+        // 4. Update Custom Charts if rendered
+        if (typeof renderCustomCharts === 'function') {
+            renderCustomCharts();
+        }
     }
 
     function renderBandCharts() {
@@ -2709,8 +2813,10 @@
     function updateSiteCount() {
         const count = selectedSitesSet.size;
         const filterTypeNode = document.querySelector('input[name="filter_type"]:checked');
-        const isCell = filterTypeNode && filterTypeNode.value === 'site_cell';
-        const typeStr = isCell ? 'Cells' : 'Sites';
+        const ftype = filterTypeNode ? filterTypeNode.value : 'siteid';
+        let typeStr = 'Sites';
+        if (ftype === 'city') typeStr = 'Cities';
+        else if (ftype === 'site_cell') typeStr = 'Cells';
         const btnText = document.getElementById('siteBtnText');
         if (btnText) {
             btnText.textContent = count > 0 ? `Select ${typeStr} (${count})` : `Select ${typeStr} (0)`;
@@ -2756,7 +2862,9 @@
         }
 
         const filterTypeNode = document.querySelector('input[name="filter_type"]:checked');
-        const isCell = filterTypeNode && filterTypeNode.value === 'site_cell';
+        const ftype = filterTypeNode ? filterTypeNode.value : 'siteid';
+        const isCell = (ftype === 'site_cell');
+        const isCity = (ftype === 'city');
 
         const rawItems = String(text).split(/[\n,;\t]+/).map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
         if (rawItems.length === 0) {
@@ -2778,7 +2886,7 @@
         let matchedCount = 0;
         rawItems.forEach(item => {
             let candidate = item;
-            if (!isCell && candidate.includes('-')) {
+            if (!isCell && !isCity && candidate.includes('-')) {
                 candidate = candidate.split('-')[0].trim();
             }
             if (upperMap.size > 0) {
@@ -2904,12 +3012,24 @@
     }
 
     function onFilterTypeChange(type) {
-        let isCell = (type === "site_cell");
-        document.getElementById("filterTitleLabel").innerText = isCell ? "SITE-CELLS" : "SITES";
-        document.getElementById("siteBtnText").textContent = `Select ${isCell ? 'Cells' : 'Sites'} (0)`;
-        document.getElementById("siteSearch").placeholder = `Search ${isCell ? 'cells' : 'sites'}...`;
-        document.getElementById("importLabel").innerText = `OR IMPORT ${isCell ? 'CELLS' : 'SITES'} FROM CSV`;
-        document.getElementById("sitePasteArea").placeholder = `Paste ${isCell ? 'cell' : 'site'} IDs here\n(one per line or comma-separated)`;
+        let labelStr = "SITES";
+        let singularStr = "site";
+        let pluralStr = "Sites";
+        if (type === "site_cell") {
+            labelStr = "SITE-CELLS";
+            singularStr = "cell";
+            pluralStr = "Cells";
+        } else if (type === "city") {
+            labelStr = "CITIES";
+            singularStr = "city";
+            pluralStr = "Cities";
+        }
+
+        document.getElementById("filterTitleLabel").innerText = labelStr;
+        document.getElementById("siteBtnText").textContent = `Select ${pluralStr} (0)`;
+        document.getElementById("siteSearch").placeholder = `Search ${pluralStr.toLowerCase()}...`;
+        document.getElementById("importLabel").innerText = `OR IMPORT ${labelStr} FROM CSV`;
+        document.getElementById("sitePasteArea").placeholder = type === 'city' ? `Paste city names here\n(one per line or comma-separated)` : `Paste ${singularStr} IDs here\n(one per line or comma-separated)`;
         document.getElementById("siteSearch").value = "";
         document.getElementById("sitePasteArea").value = "";
         const cSpan = document.getElementById('sitePasteCount');
@@ -2977,10 +3097,7 @@
     });
 
     // --- Band Filter Logic ---
-    let bandMode = 'split'; 
     const sumKpis = ['payloadChart', 'volteTrafficChart', 'dlPayloadChart', 'ulPayloadChart', 'dlPayloadCaChart', 'ulPayloadCaChart', 'rrcChart', 'activeUserChart', 'bsrAttemptChart', 'dlTrafficChart', 'ulTrafficChart', 'userChart'];
-    let dynamicTechTrendData = typeof TECH_TREND_DATA !== 'undefined' ? TECH_TREND_DATA : {};
-    let dynamicTechCompareData = typeof TECH_COMPARE !== 'undefined' ? TECH_COMPARE : { 'FDD': {}, 'TDD': {} };
 
     async function updateCombinedTechData(checkedBands) {
         const fddBands = ['L700', 'L900', 'L1800', 'L2100'];
@@ -3014,11 +3131,15 @@
             });
             const data = await resp.json();
             if (data.success) {
-                dynamicTechTrendData = data.tech_trend_chart_data || {};
+                dynamicDailyTechTrendData = data.daily_tech_trend_chart_data || data.tech_trend_chart_data || {};
+                dynamicHourlyTechTrendData = data.hourly_tech_trend_chart_data || {};
+                dynamicTechTrendData = currentGranularity === 'hourly' ? dynamicHourlyTechTrendData : dynamicDailyTechTrendData;
                 dynamicTechCompareData = data.tech_compare || { 'FDD': {}, 'TDD': {} };
             }
         } catch (e) {
             console.error('Error fetching dynamic tech data:', e);
+            dynamicDailyTechTrendData = {};
+            dynamicHourlyTechTrendData = {};
             dynamicTechTrendData = {};
             dynamicTechCompareData = { 'FDD': {}, 'TDD': {} };
         }

@@ -23,6 +23,12 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_4g_kpi_zte_date_cell
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_4g_kpi_zte_daily_kpidate
     ON "4g_kpi_zte_daily" (kpi_date);
 
+-- City level queries
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_4g_kpi_zte_city_date
+    ON "4g_kpi_zte" (city, date);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_4g_kpi_zte_date_city
+    ON "4g_kpi_zte" (date, city);
+
 
 -- ── 5G KPI Tables ──────────────────────────────────────────────────────────────
 
@@ -34,6 +40,10 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_5g_kpi_zte_datehour_siteid
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_5g_kpi_zte_datehour_cellid
     ON "5g_kpi_zte" (datehour, cellid);
 
+-- 5G City level queries
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_5g_kpi_zte_city_date
+    ON "5g_kpi_zte" (city, date);
+
 
 -- ── 2G KPI Tables ──────────────────────────────────────────────────────────────
 
@@ -44,6 +54,12 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_2g_kpi_zte_datehour_siteid
 -- 2G sector queries filter by datehour + bts
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_2g_kpi_zte_datehour_bts
     ON "2g_kpi_zte" (datehour, bts);
+
+-- 2G City level queries
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_2g_kpi_zte_city_date
+    ON "2g_kpi_zte" (city, date);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_2g_kpi_zte_date_city
+    ON "2g_kpi_zte" (date, city);
 
 
 -- ── Traffic Payload Table ──────────────────────────────────────────────────────

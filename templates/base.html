@@ -1,6 +1,8 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="light">
+<html lang="en" class="notranslate" translate="no" data-theme="light">
 <head>
+<meta name="google" content="notranslate">
+<meta name="googlebot" content="notranslate">
 <script>
 /* Apply theme ASAP to prevent flash */
 (function(){
@@ -1754,6 +1756,9 @@ body.mobile-view .sidebar .nav-link {
         <a href="/database/postgres" class="sub-item {% block nav_db_postgres %}{% endblock %}">
           <span class="sub-item-dot"></span> Postgres DB
         </a>
+        <a href="/database/sites_db" class="sub-item {% block nav_db_sites %}{% endblock %}">
+          <span class="sub-item-dot"></span> Sites DB
+        </a>
       </div>
       {% endif %}
     </div>
@@ -1832,6 +1837,9 @@ body.mobile-view .sidebar .nav-link {
         </a>
         <a href="/optim_5g" class="sub-item {% block nav_optim_5g %}{% endblock %}">
           <span class="sub-item-dot"></span> 5G Analysis
+        </a>
+        <a href="/unbalance_prb" class="sub-item {% block nav_unbalance_prb %}{% endblock %}">
+          <span class="sub-item-dot"></span> Unbalance PRB
         </a>
       </div>
       {% endif %}

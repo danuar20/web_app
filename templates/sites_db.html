@@ -1,0 +1,1561 @@
+{% extends "base.html" %}
+
+{% block nav_database %}active sub-open{% endblock %}
+{% block subDB_open %}open{% endblock %}
+{% block nav_db_sites %}active{% endblock %}
+
+{% block page_title %}Sites DB{% endblock %}
+{% block page_sub %}Site Database, CSV Bulk Upsert & Interactive Geolocation Map{% endblock %}
+
+{% block page_content %}
+<!-- Leaflet CSS & JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Leaflet Marker Cluster CDN -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<style>
+/* Custom Marker Cluster Styling */
+.marker-cluster-small {
+    background-color: rgba(79, 172, 254, 0.4) !important;
+}
+.marker-cluster-small div {
+    background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%) !important;
+    color: #0f172a !important;
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 700 !important;
+    box-shadow: 0 4px 12px rgba(0, 242, 254, 0.4) !important;
+}
+.marker-cluster-medium {
+    background-color: rgba(59, 130, 246, 0.4) !important;
+}
+.marker-cluster-medium div {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+    color: #ffffff !important;
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 700 !important;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4) !important;
+}
+.marker-cluster-large {
+    background-color: rgba(168, 85, 247, 0.4) !important;
+}
+.marker-cluster-large div {
+    background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%) !important;
+    color: #ffffff !important;
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 700 !important;
+    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4) !important;
+}
+/* ── Layout & Page Container ── */
+.sites-wrap {
+    flex: 1;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* ── Top Tabs Bar ── */
+.tab-nav {
+    display: flex;
+    gap: 8px;
+    border-bottom: 1px solid rgba(120, 130, 150, 0.15);
+    padding-bottom: 12px;
+}
+.tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+[data-theme="dark"] .tab-btn { color: #a0aec0; }
+[data-theme="light"] .tab-btn { color: #4a5568; }
+
+.tab-btn.active {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: #fff !important;
+    box-shadow: 0 4px 15px rgba(79, 172, 254, 0.35);
+}
+.tab-btn:hover:not(.active) {
+    background: rgba(79, 172, 254, 0.1);
+    color: #4facfe;
+}
+
+/* ── Card Styling ── */
+.sites-card {
+    border-radius: 16px;
+    padding: 20px;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+[data-theme="dark"] .sites-card {
+    background: rgba(26, 31, 55, 0.6);
+    border: 1px solid rgba(79, 172, 254, 0.1);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+[data-theme="light"] .sites-card {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+    backdrop-filter: blur(12px);
+}
+
+/* ── Toolbar & Filters ── */
+.toolbar-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.toolbar-left, .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.search-box {
+    position: relative;
+    min-width: 260px;
+}
+.search-box i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #718096;
+    font-size: 13px;
+}
+.search-input {
+    width: 100%;
+    padding: 9px 12px 9px 36px;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+    transition: all 0.2s ease;
+}
+[data-theme="dark"] .search-input {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #f1f5f9;
+}
+[data-theme="light"] .search-input {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    color: #0f172a;
+}
+.search-input:focus {
+    border-color: #4facfe;
+    box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.2);
+}
+
+.btn-custom {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+}
+.btn-primary-grad {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: #fff !important;
+    box-shadow: 0 4px 12px rgba(79, 172, 254, 0.3);
+}
+.btn-primary-grad:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(79, 172, 254, 0.4);
+}
+.btn-secondary-custom {
+    border: 1px solid rgba(120, 130, 150, 0.25);
+    background: transparent;
+}
+[data-theme="dark"] .btn-secondary-custom { color: #cbd5e1; }
+[data-theme="light"] .btn-secondary-custom { color: #475569; }
+.btn-secondary-custom:hover {
+    background: rgba(79, 172, 254, 0.1);
+    color: #4facfe;
+}
+
+.btn-danger-custom {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.btn-danger-custom:hover {
+    background: #ef4444;
+    color: #fff;
+}
+
+/* ── Table Styling ── */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    border-radius: 12px;
+}
+[data-theme="dark"] .table-responsive { border: 1px solid rgba(255, 255, 255, 0.08); }
+[data-theme="light"] .table-responsive { border: 1px solid #e2e8f0; }
+
+.sites-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    text-align: left;
+}
+.sites-table th {
+    padding: 12px 14px;
+    font-weight: 600;
+    user-select: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+[data-theme="dark"] .sites-table th {
+    background: rgba(15, 23, 42, 0.8);
+    color: #94a3b8;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+[data-theme="light"] .sites-table th {
+    background: #f1f5f9;
+    color: #475569;
+    border-bottom: 2px solid #cbd5e1;
+}
+.sites-table th:hover { color: #4facfe; }
+.sites-table th i.sort-icon { margin-left: 6px; font-size: 11px; opacity: 0.6; }
+
+.sites-table td {
+    padding: 11px 14px;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(120, 130, 150, 0.1);
+}
+[data-theme="dark"] .sites-table tr:hover td { background: rgba(79, 172, 254, 0.05); }
+[data-theme="light"] .sites-table tr:hover td { background: #f8fafc; }
+
+.pk-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    background: rgba(79, 172, 254, 0.15);
+    color: #4facfe;
+    margin-left: 4px;
+}
+
+.action-btns {
+    display: flex;
+    gap: 6px;
+}
+.action-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+.edit-btn { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.edit-btn:hover { background: #3b82f6; color: #fff; }
+.del-btn { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.del-btn:hover { background: #ef4444; color: #fff; }
+
+/* ── Pagination ── */
+.pagination-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 13px;
+}
+.page-info { color: #64748b; }
+.pagination-controls {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+.page-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(120, 130, 150, 0.2);
+    background: transparent;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+[data-theme="dark"] .page-btn { color: #cbd5e1; }
+[data-theme="light"] .page-btn { color: #475569; }
+.page-btn.active {
+    background: #4facfe;
+    color: #fff !important;
+    border-color: #4facfe;
+}
+.page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ── Map Tab Styling ── */
+#mapContainer {
+    width: 100%;
+    height: 600px;
+    border-radius: 12px;
+    z-index: 1;
+}
+.map-stats-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.stat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+[data-theme="dark"] .stat-chip.total { background: rgba(79, 172, 254, 0.15); color: #4facfe; }
+[data-theme="light"] .stat-chip.total { background: #e0f2fe; color: #0284c7; }
+[data-theme="dark"] .stat-chip.valid { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+[data-theme="light"] .stat-chip.valid { background: #dcfce7; color: #16a34a; }
+[data-theme="dark"] .stat-chip.invalid { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+[data-theme="light"] .stat-chip.invalid { background: #fee2e2; color: #dc2626; }
+[data-theme="dark"] .stat-chip.update { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
+[data-theme="light"] .stat-chip.update { background: #f3e8ff; color: #9333ea; }
+
+/* Clean Text Label for Leaflet Marker (No box, no border, no heavy frame) */
+.leaflet-tooltip.clean-text-label {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #00f2fe !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9), 0 0 2px rgba(0, 0, 0, 0.8) !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* 2-Column Table Popup for Site Details */
+.popup-2col-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-top: 6px;
+}
+.popup-2col-table th {
+    text-align: left;
+    padding: 4px 8px 4px 0;
+    color: #64748b;
+    font-weight: 600;
+    width: 40%;
+    border-bottom: 1px solid rgba(120, 130, 150, 0.15);
+}
+.popup-2col-table td {
+    padding: 4px 0 4px 8px;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(120, 130, 150, 0.15);
+}
+
+/* Autocomplete Dropdown List */
+.autocomplete-wrap {
+    position: relative;
+    min-width: 260px;
+}
+.autocomplete-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    border-radius: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 10000;
+    display: none;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+[data-theme="dark"] .autocomplete-list {
+    background: #1e293b;
+    border: 1px solid rgba(79, 172, 254, 0.2);
+}
+[data-theme="light"] .autocomplete-list {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+}
+.autocomplete-item {
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+[data-theme="dark"] .autocomplete-item:hover, .autocomplete-item.active { background: rgba(79, 172, 254, 0.2); color: #4facfe; }
+[data-theme="light"] .autocomplete-item:hover, .autocomplete-item.active { background: #f0f7ff; color: #0284c7; }
+
+/* ── Modal Dialog ── */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+.modal-box {
+    width: 90%;
+    max-width: 580px;
+    max-height: 90vh;
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+}
+[data-theme="dark"] .modal-box {
+    background: #1e293b;
+    border: 1px solid rgba(79, 172, 254, 0.2);
+    color: #f8fafc;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+[data-theme="light"] .modal-box {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    color: #0f172a;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+}
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(120, 130, 150, 0.2);
+    padding-bottom: 12px;
+}
+.modal-title { font-size: 16px; font-weight: 700; }
+.modal-close {
+    background: transparent;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: #94a3b8;
+}
+.modal-close:hover { color: #ef4444; }
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+@media(max-width: 550px) { .form-grid { grid-template-columns: 1fr; } }
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.form-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+}
+.form-control {
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    outline: none;
+}
+[data-theme="dark"] .form-control {
+    background: #0f172a;
+    border: 1px solid #334155;
+    color: #f8fafc;
+}
+[data-theme="light"] .form-control {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    color: #0f172a;
+}
+.form-control:focus { border-color: #4facfe; }
+.form-control:read-only { opacity: 0.6; cursor: not-allowed; }
+
+/* Drag & Drop Upload Zone */
+.drop-zone {
+    border: 2px dashed rgba(79, 172, 254, 0.4);
+    border-radius: 12px;
+    padding: 30px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.drop-zone:hover, .drop-zone.dragover {
+    border-color: #00f2fe;
+    background: rgba(79, 172, 254, 0.08);
+}
+.drop-zone i { font-size: 32px; color: #4facfe; margin-bottom: 8px; }
+
+/* Progress Bar */
+.progress-bar-bg {
+    width: 100%;
+    height: 10px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: rgba(120, 130, 150, 0.2);
+}
+.progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+    transition: width 0.3s ease;
+}
+
+/* Skeleton Loader */
+.skel-row {
+    height: 42px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    background: linear-gradient(90deg, var(--skel-bg) 25%, var(--skel-hl) 50%, var(--skel-bg) 75%);
+    background-size: 400% 100%;
+    animation: skeleton-loading 1.5s infinite ease-in-out;
+}
+</style>
+
+<div class="sites-wrap">
+    <!-- Top Navigation Tabs -->
+    <div class="tab-nav">
+        <button class="tab-btn active" id="tabDataBtn" onclick="switchTab('data')">
+            <i class="fas fa-table"></i> Sites Data
+        </button>
+        <button class="tab-btn" id="tabMapBtn" onclick="switchTab('map')">
+            <i class="fas fa-map-marked-alt"></i> Site Map
+        </button>
+    </div>
+
+    <!-- TAB 1: SITES DATA -->
+    <div id="tabDataView" class="sites-card">
+        <div class="toolbar-row">
+            <div class="toolbar-left">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" class="search-input" placeholder="Search Site ID, NOP, RTPO, Kabupaten..." onkeyup="onSearchInputKeyup(event)">
+                </div>
+                <select id="limitSelect" class="search-input" style="width: auto; padding-left: 12px;" onchange="changeLimit()">
+                    <option value="10">10 / page</option>
+                    <option value="25" selected>25 / page</option>
+                    <option value="50">50 / page</option>
+                    <option value="100">100 / page</option>
+                </select>
+            </div>
+            <div class="toolbar-right">
+                <button class="btn-custom btn-secondary-custom" onclick="loadSitesData()">
+                    <i class="fas fa-sync-alt" id="refreshIcon"></i> Refresh
+                </button>
+                <a href="/api/sites_db/csv_template" class="btn-custom btn-secondary-custom" title="Download CSV Template matching schema">
+                    <i class="fas fa-download"></i> Template CSV
+                </a>
+                {% if role == 'admin' %}
+                <button class="btn-custom btn-secondary-custom" onclick="openCsvModal()" title="Import / Upsert CSV file">
+                    <i class="fas fa-file-import"></i> Import CSV
+                </button>
+                <button class="btn-custom btn-primary-grad" onclick="openAddModal()">
+                    <i class="fas fa-plus"></i> Add Site
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Table View -->
+        <div class="table-responsive">
+            <table class="sites-table" id="sitesTable">
+                <thead id="tableHead">
+                    <!-- Dynamic Headers -->
+                </thead>
+                <tbody id="tableBody">
+                    <!-- Dynamic Rows -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="pagination-row">
+            <div class="page-info" id="pageInfo">Loading site records...</div>
+            <div class="pagination-controls" id="paginationBtns"></div>
+        </div>
+    </div>
+
+    <!-- TAB 2: SITE MAP -->
+    <div id="tabMapView" class="sites-card" style="display: none;">
+        <div class="toolbar-row">
+            <div class="toolbar-left">
+                <div class="autocomplete-wrap">
+                    <div class="search-box">
+                        <i class="fas fa-search-location"></i>
+                        <input type="text" id="mapSearchInput" class="search-input" placeholder="Search Site ID on map..." autocomplete="off" onkeyup="onMapSearchKeyup(event)" onfocus="onMapSearchFocus()">
+                    </div>
+                    <div class="autocomplete-list" id="autoCompleteList"></div>
+                </div>
+                <button class="btn-custom btn-primary-grad" onclick="executeMapSearch()">
+                    <i class="fas fa-crosshairs"></i> Locate
+                </button>
+            </div>
+            <div class="map-stats-bar">
+                <span class="stat-chip total" id="chipTotal">Total: 0</span>
+                <span class="stat-chip valid" id="chipValid">Mapped: 0</span>
+                <span class="stat-chip invalid" id="chipInvalid">Invalid Coords: 0</span>
+            </div>
+        </div>
+
+        <div style="position: relative; width: 100%; height: 600px;">
+            <div id="mapLoadingOverlay" style="position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(15,23,42,0.75); backdrop-filter: blur(4px); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; border-radius: 12px;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 36px; color: #4facfe;"></i>
+                <div style="font-size: 14px; font-weight: 600; color: #fff;">Loading Map Sites Data...</div>
+            </div>
+            <div id="mapContainer" style="width:100%; height:100%; border-radius:12px;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Dynamic Add / Edit Modal -->
+<div class="modal-overlay" id="siteModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <div class="modal-title" id="modalTitle">Add New Site</div>
+            <button class="modal-close" onclick="closeModal('siteModal')">&times;</button>
+        </div>
+        <form id="siteForm" onsubmit="saveSiteRecord(event)">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="form-grid" id="modalFormGrid">
+                <!-- Dynamically populated based on schema -->
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+                <button type="button" class="btn-custom btn-secondary-custom" onclick="closeModal('siteModal')">Cancel</button>
+                <button type="submit" class="btn-custom btn-primary-grad" id="saveBtn">Save Record</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- CSV Upload & Preview Modal -->
+<div class="modal-overlay" id="csvModal">
+    <div class="modal-box" style="max-width: 620px;">
+        <div class="modal-header">
+            <div class="modal-title"><i class="fas fa-file-csv" style="color:#4facfe;"></i> CSV Import & Smart Upsert</div>
+            <button class="modal-close" onclick="closeModal('csvModal')">&times;</button>
+        </div>
+        
+        <!-- Step 1: File Selection -->
+        <div id="csvStep1">
+            <div class="drop-zone" id="dropZone" onclick="document.getElementById('csvFileInput').click()">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <div style="font-size:14px; font-weight:600;">Drag & drop your CSV file here or click to browse</div>
+                <div style="font-size:12px; color:#64748b; margin-top:4px;">Must contain <code>SiteID_v2</code> column. Updates existing sites, inserts new sites.</div>
+            </div>
+            <input type="file" id="csvFileInput" accept=".csv" style="display:none;" onchange="handleCsvFileSelected(event)">
+        </div>
+
+        <!-- Step 2: Preview Screen -->
+        <div id="csvStep2" style="display:none; flex-direction:column; gap:14px;">
+            <div class="map-stats-bar" style="justify-content: space-between;">
+                <span class="stat-chip total" id="prevTotal">Total CSV: 0</span>
+                <span class="stat-chip valid" id="prevNew">INSERT (New): 0</span>
+                <span class="stat-chip update" id="prevUpdate">UPDATE (Exist): 0</span>
+                <span class="stat-chip invalid" id="prevDup">CSV Dups: 0</span>
+            </div>
+
+            <div id="unknownColsWarning" style="display:none; padding:10px; border-radius:8px; background:rgba(234,179,8,0.15); color:#eab308; border:1px solid rgba(234,179,8,0.3); font-size:12px;">
+                <i class="fas fa-exclamation-triangle"></i> Warning: CSV contains unknown columns: <b id="warnColsText"></b>
+            </div>
+
+            <div style="font-size:12px; font-weight:600; color:#64748b;">Preview Sample Data (First 10 rows):</div>
+            <div class="table-responsive" style="max-height: 180px;">
+                <table class="sites-table" style="font-size:12px;">
+                    <thead id="csvPreviewHead"></thead>
+                    <tbody id="csvPreviewBody"></tbody>
+                </table>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+                <button type="button" class="btn-custom btn-secondary-custom" onclick="resetCsvModal()">Back</button>
+                <button type="button" class="btn-custom btn-primary-grad" onclick="executeBatchCsvImport()">Start Import</button>
+            </div>
+        </div>
+
+        <!-- Step 3: Progress & Summary -->
+        <div id="csvStep3" style="display:none; flex-direction:column; gap:14px;">
+            <div style="font-size:14px; font-weight:600;" id="progressTitle">Importing Sites Data...</div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progressBarFill"></div>
+            </div>
+            <div style="font-size:13px; color:#64748b;" id="progressText">Processing batch UPSERT in PostgreSQL...</div>
+
+            <div id="importSummaryBox" style="display:none; flex-direction:column; gap:10px; padding:14px; border-radius:10px; background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3);">
+                <div style="font-weight:700; color:#22c55e;"><i class="fas fa-check-circle"></i> Import Completed Successfully</div>
+                <div style="font-size:13px;" id="summaryMetricsText"></div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                <button type="button" class="btn-custom btn-primary-grad" id="csvFinishBtn" style="display:none;" onclick="finishCsvImport()">Done</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-overlay" id="deleteModal">
+    <div class="modal-box" style="max-width: 400px;">
+        <div class="modal-header">
+            <div class="modal-title">Confirm Delete</div>
+            <button class="modal-close" onclick="closeModal('deleteModal')">&times;</button>
+        </div>
+        <p style="font-size: 13px; color: #64748b;" id="deleteMsg">Are you sure you want to delete this site record?</p>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px;">
+            <button type="button" class="btn-custom btn-secondary-custom" onclick="closeModal('deleteModal')">Cancel</button>
+            <button type="button" class="btn-custom btn-danger-custom" id="confirmDeleteBtn">Delete</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+// ── Global State Variables ──
+let schemaInfo = [];
+let primaryKeys = [];
+let currentPage = 1;
+let currentLimit = 25;
+let currentSearch = "";
+let currentSortBy = "";
+let currentSortOrder = "asc";
+let isEditMode = false;
+let editPkVal = null;
+
+// Map state
+let mapInstance = null;
+let mapPointsLayer = null;
+let siteMapCoords = []; // [{id, lat, lng}]
+let selectedFile = null;
+let activeAutocompleteIndex = -1;
+
+const CSRF_TOKEN = "{{ csrf_token() }}";
+
+// ── DOM Initialization ──
+document.addEventListener("DOMContentLoaded", () => {
+    fetchSchemaAndLoad();
+    setupDropZone();
+
+    // Close autocomplete on click outside
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest(".autocomplete-wrap")) {
+            hideAutocomplete();
+        }
+    });
+});
+
+// ── Tab Switcher ──
+function switchTab(tab) {
+    const dataBtn = document.getElementById("tabDataBtn");
+    const mapBtn = document.getElementById("tabMapBtn");
+    const dataView = document.getElementById("tabDataView");
+    const mapView = document.getElementById("tabMapView");
+
+    if (tab === "data") {
+        dataBtn.classList.add("active");
+        mapBtn.classList.remove("active");
+        dataView.style.display = "flex";
+        mapView.style.display = "none";
+    } else {
+        mapBtn.classList.add("active");
+        dataBtn.classList.remove("active");
+        mapView.style.display = "flex";
+        dataView.style.display = "none";
+        initLeafletMapIfNeeded();
+        setTimeout(() => {
+            if (mapInstance) mapInstance.invalidateSize();
+        }, 150);
+    }
+}
+
+// ── Schema & Data Fetching ──
+function fetchSchemaAndLoad() {
+    fetch("/api/sites_db/schema")
+        .then(r => r.json())
+        .then(res => {
+            if (res.status === "success") {
+                schemaInfo = res.columns || [];
+                primaryKeys = res.primary_keys || [];
+                renderTableHeader();
+                loadSitesData();
+            } else {
+                showToast("Failed to fetch database schema", "error");
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showToast("Database error", "error");
+        });
+}
+
+function renderTableHeader() {
+    const thead = document.getElementById("tableHead");
+    let html = "<tr>";
+    
+    schemaInfo.forEach(col => {
+        const isPk = col.is_pk;
+        const pkBadge = isPk ? '<span class="pk-badge">PK</span>' : '';
+        const sortIcon = (currentSortBy === col.name) 
+            ? (currentSortOrder === "asc" ? '<i class="fas fa-sort-up sort-icon"></i>' : '<i class="fas fa-sort-down sort-icon"></i>')
+            : '<i class="fas fa-sort sort-icon"></i>';
+
+        html += `<th onclick="sortTable('${col.name}')">
+                    ${col.name} ${pkBadge} ${sortIcon}
+                 </th>`;
+    });
+    
+    {% if role == 'admin' %}
+    html += `<th style="width: 80px; text-align: center;">Actions</th>`;
+    {% endif %}
+    
+    html += "</tr>";
+    thead.innerHTML = html;
+}
+
+function loadSitesData() {
+    const tbody = document.getElementById("tableBody");
+    const refreshIcon = document.getElementById("refreshIcon");
+    refreshIcon.classList.add("fa-spin");
+
+    tbody.innerHTML = `<tr><td colspan="${schemaInfo.length + 1}">
+        <div class="skel-row"></div><div class="skel-row"></div><div class="skel-row"></div>
+    </td></tr>`;
+
+    const url = `/api/sites_db/data?page=${currentPage}&limit=${currentLimit}&search=${encodeURIComponent(currentSearch)}&sort_by=${encodeURIComponent(currentSortBy)}&sort_order=${currentSortOrder}`;
+
+    fetch(url)
+        .then(r => r.json())
+        .then(res => {
+            refreshIcon.classList.remove("fa-spin");
+            if (res.status === "success") {
+                renderTableRows(res.data);
+                renderPagination(res.pagination);
+            } else {
+                tbody.innerHTML = `<tr><td colspan="${schemaInfo.length + 1}" style="text-align:center; color:#ef4444; padding:20px;">${res.message || "Failed to load data"}</td></tr>`;
+            }
+        })
+        .catch(err => {
+            refreshIcon.classList.remove("fa-spin");
+            console.error(err);
+            tbody.innerHTML = `<tr><td colspan="${schemaInfo.length + 1}" style="text-align:center; color:#ef4444; padding:20px;">Connection error</td></tr>`;
+        });
+}
+
+function renderTableRows(data) {
+    const tbody = document.getElementById("tableBody");
+    if (!data || data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${schemaInfo.length + 1}" style="text-align:center; padding:30px; opacity:0.6;">No site records found</td></tr>`;
+        return;
+    }
+
+    const pkCol = primaryKeys[0] || "SiteID_v2";
+    let html = "";
+
+    data.forEach(row => {
+        html += "<tr>";
+        schemaInfo.forEach(col => {
+            let val = row[col.name];
+            if (val === null || val === undefined) {
+                val = '<span style="opacity:0.35;">null</span>';
+            }
+            html += `<td>${val}</td>`;
+        });
+
+        {% if role == 'admin' %}
+        const pkVal = row[pkCol] || "";
+        const rowJson = JSON.stringify(row).replace(/'/g, "&apos;");
+        html += `<td>
+            <div class="action-btns" style="justify-content: center;">
+                <button class="action-btn edit-btn" title="Edit" onclick='openEditModal(${rowJson})'><i class="fas fa-pencil-alt"></i></button>
+                <button class="action-btn del-btn" title="Delete" onclick="confirmDeleteSite('${pkVal}')"><i class="fas fa-trash-alt"></i></button>
+            </div>
+        </td>`;
+        {% endif %}
+
+        html += "</tr>";
+    });
+
+    tbody.innerHTML = html;
+}
+
+function renderPagination(pg) {
+    const info = document.getElementById("pageInfo");
+    const container = document.getElementById("paginationBtns");
+
+    if (!pg || pg.total_records === 0) {
+        info.innerText = "Showing 0 entries";
+        container.innerHTML = "";
+        return;
+    }
+
+    const start = (pg.page - 1) * pg.limit + 1;
+    const end = Math.min(pg.page * pg.limit, pg.total_records);
+    info.innerText = `Showing ${start} to ${end} of ${pg.total_records.toLocaleString()} sites`;
+
+    let html = "";
+    html += `<button class="page-btn" ${pg.page === 1 ? "disabled" : ""} onclick="changePage(${pg.page - 1})"><i class="fas fa-chevron-left"></i></button>`;
+
+    let startPage = Math.max(1, pg.page - 2);
+    let endPage = Math.min(pg.total_pages, pg.page + 2);
+
+    for (let p = startPage; p <= endPage; p++) {
+        html += `<button class="page-btn ${p === pg.page ? "active" : ""}" onclick="changePage(${p})">${p}</button>`;
+    }
+
+    html += `<button class="page-btn" ${pg.page === pg.total_pages ? "disabled" : ""} onclick="changePage(${pg.page + 1})"><i class="fas fa-chevron-right"></i></button>`;
+
+    container.innerHTML = html;
+}
+
+// ── Toolbar Handlers ──
+let searchDebounce = null;
+function onSearchInputKeyup(e) {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => {
+        currentSearch = document.getElementById("searchInput").value.trim();
+        currentPage = 1;
+        loadSitesData();
+    }, 350);
+}
+
+function changeLimit() {
+    currentLimit = parseInt(document.getElementById("limitSelect").value, 10);
+    currentPage = 1;
+    loadSitesData();
+}
+
+function changePage(p) {
+    currentPage = p;
+    loadSitesData();
+}
+
+function sortTable(colName) {
+    if (currentSortBy === colName) {
+        currentSortOrder = (currentSortOrder === "asc") ? "desc" : "asc";
+    } else {
+        currentSortBy = colName;
+        currentSortOrder = "asc";
+    }
+    renderTableHeader();
+    loadSitesData();
+}
+
+// ── Dynamic Form Generation for Modal ──
+function generateDynamicForm(data = {}) {
+    const grid = document.getElementById("modalFormGrid");
+    let html = "";
+
+    schemaInfo.forEach(col => {
+        const cName = col.name;
+        const dType = col.type.toLowerCase();
+        const isPk = col.is_pk;
+        const val = data[cName] !== undefined && data[cName] !== null ? data[cName] : "";
+
+        let inputType = "text";
+        let stepAttr = "";
+
+        if (dType.includes("int")) {
+            inputType = "number";
+            stepAttr = 'step="1"';
+        } else if (dType.includes("float") || dType.includes("double") || dType.includes("numeric") || dType.includes("real")) {
+            inputType = "number";
+            stepAttr = 'step="any"';
+        } else if (dType.includes("date")) {
+            inputType = "date";
+        } else if (dType.includes("timestamp")) {
+            inputType = "datetime-local";
+        }
+
+        const readOnlyAttr = (isEditMode && isPk) ? "readonly" : "";
+        const requiredAttr = (!col.nullable && !isPk) ? "required" : "";
+
+        html += `
+        <div class="form-group">
+            <label class="form-label">
+                ${cName} ${isPk ? '<span class="pk-badge">PK</span>' : ''} ${!col.nullable ? '<span style="color:#ef4444;">*</span>' : ''}
+            </label>
+            <input type="${inputType}" name="${cName}" class="form-control" value="${val}" ${stepAttr} ${readOnlyAttr} ${requiredAttr}>
+        </div>`;
+    });
+
+    grid.innerHTML = html;
+}
+
+function openAddModal() {
+    isEditMode = false;
+    editPkVal = null;
+    document.getElementById("modalTitle").innerText = "Add New Site Record";
+    document.getElementById("saveBtn").innerText = "Create Site";
+    generateDynamicForm({});
+    document.getElementById("siteModal").style.display = "flex";
+}
+
+function openEditModal(row) {
+    isEditMode = true;
+    const pkCol = primaryKeys[0] || "SiteID_v2";
+    editPkVal = row[pkCol];
+    document.getElementById("modalTitle").innerText = `Edit Site Record (${editPkVal})`;
+    document.getElementById("saveBtn").innerText = "Save Changes";
+    generateDynamicForm(row);
+    document.getElementById("siteModal").style.display = "flex";
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = "none";
+}
+
+function saveSiteRecord(e) {
+    e.preventDefault();
+    const form = document.getElementById("siteForm");
+    const formData = new FormData(form);
+    const payload = {};
+
+    formData.forEach((value, key) => {
+        if (key !== "csrf_token") {
+            payload[key] = value.trim() === "" ? null : value.trim();
+        }
+    });
+
+    const method = isEditMode ? "PUT" : "POST";
+    const url = isEditMode ? `/api/sites_db/record/${encodeURIComponent(editPkVal)}` : "/api/sites_db/record";
+
+    fetch(url, {
+        method: method,
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": CSRF_TOKEN
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.status === "success") {
+            showToast(res.message, "success");
+            closeModal("siteModal");
+            loadSitesData();
+            if (mapInstance) loadMapSitesData();
+        } else {
+            showToast(res.message || "Failed to save record", "error");
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        showToast("Server error during save", "error");
+    });
+}
+
+function confirmDeleteSite(pkVal) {
+    editPkVal = pkVal;
+    document.getElementById("deleteMsg").innerText = `Are you sure you want to delete site '${pkVal}'? This action cannot be undone.`;
+    document.getElementById("confirmDeleteBtn").onclick = () => executeDeleteSite(pkVal);
+    document.getElementById("deleteModal").style.display = "flex";
+}
+
+function executeDeleteSite(pkVal) {
+    fetch(`/api/sites_db/record/${encodeURIComponent(pkVal)}`, {
+        method: "DELETE",
+        headers: {
+            "X-CSRFToken": CSRF_TOKEN
+        }
+    })
+    .then(r => r.json())
+    .then(res => {
+        closeModal("deleteModal");
+        if (res.status === "success") {
+            showToast(res.message, "success");
+            loadSitesData();
+            if (mapInstance) loadMapSitesData();
+        } else {
+            showToast(res.message || "Failed to delete record", "error");
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        closeModal("deleteModal");
+        showToast("Server error during delete", "error");
+    });
+}
+
+// ── CSV Import Drag & Drop Handlers ──
+function setupDropZone() {
+    const dropZone = document.getElementById("dropZone");
+    if (!dropZone) return;
+
+    ["dragenter", "dragover", "dragleave", "drop"].forEach(eventName => {
+        dropZone.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false);
+    });
+
+    ["dragenter", "dragover"].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add("dragover"), false);
+    });
+
+    ["dragleave", "drop"].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove("dragover"), false);
+    });
+
+    dropZone.addEventListener("drop", e => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files && files.length > 0) {
+            processCsvFile(files[0]);
+        }
+    });
+}
+
+function openCsvModal() {
+    resetCsvModal();
+    document.getElementById("csvModal").style.display = "flex";
+}
+
+function resetCsvModal() {
+    selectedFile = null;
+    document.getElementById("csvFileInput").value = "";
+    document.getElementById("csvStep1").style.display = "block";
+    document.getElementById("csvStep2").style.display = "none";
+    document.getElementById("csvStep3").style.display = "none";
+    document.getElementById("csvFinishBtn").style.display = "none";
+}
+
+function handleCsvFileSelected(e) {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+        processCsvFile(files[0]);
+    }
+}
+
+function processCsvFile(file) {
+    if (!file.name.endsWith(".csv")) {
+        showToast("Please select a .csv file", "error");
+        return;
+    }
+
+    selectedFile = file;
+    const formData = new FormData();
+    formData.append("file", file);
+
+    showToast("Analyzing CSV file...", "info");
+
+    fetch("/api/sites_db/csv_preview", {
+        method: "POST",
+        headers: { "X-CSRFToken": CSRF_TOKEN },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.status === "success") {
+            renderCsvPreview(res);
+        } else {
+            showToast(res.message || "Invalid CSV file", "error");
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        showToast("Error processing CSV file", "error");
+    });
+}
+
+function renderCsvPreview(previewData) {
+    document.getElementById("csvStep1").style.display = "none";
+    document.getElementById("csvStep2").style.display = "flex";
+
+    document.getElementById("prevTotal").innerText = `Total CSV: ${previewData.total_csv_rows.toLocaleString()}`;
+    document.getElementById("prevNew").innerText = `INSERT (New): ${previewData.new_count.toLocaleString()}`;
+    document.getElementById("prevUpdate").innerText = `UPDATE (Exist): ${previewData.update_count.toLocaleString()}`;
+    document.getElementById("prevDup").innerText = `CSV Dups: ${previewData.internal_duplicate_count.toLocaleString()}`;
+
+    const warnBox = document.getElementById("unknownColsWarning");
+    if (previewData.unknown_columns && previewData.unknown_columns.length > 0) {
+        warnBox.style.display = "block";
+        document.getElementById("warnColsText").innerText = previewData.unknown_columns.join(", ");
+    } else {
+        warnBox.style.display = "none";
+    }
+
+    // Render Preview Table
+    const records = previewData.preview_records || [];
+    if (records.length === 0) return;
+
+    const cols = Object.keys(records[0]);
+    let headHtml = "<tr>";
+    cols.forEach(c => headHtml += `<th>${c}</th>`);
+    headHtml += "</tr>";
+    document.getElementById("csvPreviewHead").innerHTML = headHtml;
+
+    let bodyHtml = "";
+    records.forEach(r => {
+        bodyHtml += "<tr>";
+        cols.forEach(c => bodyHtml += `<td>${r[c] !== null ? r[c] : ''}</td>`);
+        bodyHtml += "</tr>";
+    });
+    document.getElementById("csvPreviewBody").innerHTML = bodyHtml;
+}
+
+function executeBatchCsvImport() {
+    if (!selectedFile) return;
+
+    document.getElementById("csvStep2").style.display = "none";
+    document.getElementById("csvStep3").style.display = "flex";
+
+    const progressBar = document.getElementById("progressBarFill");
+    const progressText = document.getElementById("progressText");
+    const summaryBox = document.getElementById("importSummaryBox");
+
+    progressBar.style.width = "40%";
+    progressText.innerText = "Executing PostgreSQL batch UPSERT...";
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+
+    fetch("/api/sites_db/csv_import", {
+        method: "POST",
+        headers: { "X-CSRFToken": CSRF_TOKEN },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(res => {
+        progressBar.style.width = "100%";
+        if (res.status === "success") {
+            const sm = res.summary;
+            progressText.innerText = "Import complete!";
+            summaryBox.style.display = "flex";
+            document.getElementById("summaryMetricsText").innerHTML = `
+                • Total CSV rows: <b>${sm.total_csv_rows.toLocaleString()}</b><br/>
+                • Unique Sites Processed: <b>${sm.processed.toLocaleString()}</b><br/>
+                • New Sites Inserted: <b style="color:#22c55e;">${sm.inserted.toLocaleString()}</b><br/>
+                • Existing Sites Updated: <b style="color:#a855f7;">${sm.updated.toLocaleString()}</b><br/>
+                • Skipped/Invalid: <b>${sm.skipped}</b>
+            `;
+
+            document.getElementById("csvFinishBtn").style.display = "inline-flex";
+            loadSitesData();
+            if (mapInstance) loadMapSitesData();
+        } else {
+            progressText.innerText = `Error: ${res.message}`;
+            progressBar.style.background = "#ef4444";
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        progressText.innerText = "Server error during CSV import";
+        progressBar.style.background = "#ef4444";
+    });
+}
+
+function finishCsvImport() {
+    closeModal("csvModal");
+    showToast("Database successfully updated via CSV import!", "success");
+}
+
+// ── Ultra-Fast Lag-Free Leaflet Marker Cluster Implementation ──
+let allMapSites = []; // [{id, lat, lng}]
+let mapClusterGroup = null;
+
+function initLeafletMapIfNeeded() {
+    if (mapInstance) {
+        mapInstance.invalidateSize();
+        return;
+    }
+
+    mapInstance = L.map("mapContainer", {
+        preferCanvas: true,
+        zoomControl: true
+    }).setView([-2.5489, 118.0149], 5);
+
+    // Tile Layers
+    const streetLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap'
+    });
+
+    const satelliteLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+        maxZoom: 19,
+        attribution: 'Esri World Imagery'
+    });
+
+    streetLayer.addTo(mapInstance);
+    L.control.layers({ "Street Map": streetLayer, "Satellite": satelliteLayer }).addTo(mapInstance);
+
+    // Initialize Marker Cluster Group with chunked loading & dynamic zoom unclustering
+    mapClusterGroup = L.markerClusterGroup({
+        chunkedLoading: true,
+        maxClusterRadius: 50,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        disableClusteringAtZoom: 14
+    });
+
+    mapInstance.addLayer(mapClusterGroup);
+
+    loadMapSitesData();
+}
+
+function loadMapSitesData() {
+    const loadingOverlay = document.getElementById("mapLoadingOverlay");
+    if (loadingOverlay) loadingOverlay.style.display = "flex";
+
+    fetch("/api/sites_db/map")
+        .then(r => r.json())
+        .then(res => {
+            if (loadingOverlay) loadingOverlay.style.display = "none";
+
+            if (res.status === "success") {
+                document.getElementById("chipTotal").innerText = `Total: ${res.total_count.toLocaleString()}`;
+                document.getElementById("chipValid").innerText = `Mapped: ${res.valid_count.toLocaleString()}`;
+                document.getElementById("chipInvalid").innerText = `Invalid Coords: ${res.invalid_count.toLocaleString()}`;
+
+                allMapSites = res.sites || [];
+                renderClusterMarkers(allMapSites);
+
+                // Fit bounds initially if not searched
+                if (allMapSites.length > 0 && !mapInstance._userSearched) {
+                    const bounds = allMapSites.map(s => [parseFloat(s.lat), parseFloat(s.lng)]);
+                    mapInstance.fitBounds(bounds, { padding: [30, 30], maxZoom: 12 });
+                }
+            }
+        })
+        .catch(err => {
+            if (loadingOverlay) loadingOverlay.style.display = "none";
+            console.error(err);
+        });
+}
+
+function renderClusterMarkers(sites) {
+    if (!mapClusterGroup) return;
+    mapClusterGroup.clearLayers();
+
+    const markersList = [];
+
+    sites.forEach(site => {
+        const lat = parseFloat(site.lat);
+        const lng = parseFloat(site.lng);
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        const siteId = site.id;
+
+        const marker = L.circleMarker([lat, lng], {
+            radius: 6,
+            fillColor: "#00f2fe",
+            color: "#0284c7",
+            weight: 1.5,
+            opacity: 0.9,
+            fillOpacity: 0.85
+        });
+
+        // Floating text tooltip
+        marker.bindTooltip(siteId, {
+            permanent: true,
+            direction: "top",
+            offset: [0, -6],
+            className: "clean-text-label"
+        });
+
+        marker.on("click", () => fetchAndShowSitePopup(siteId, marker));
+        marker.siteId = siteId.toLowerCase();
+
+        markersList.push(marker);
+    });
+
+    mapClusterGroup.addLayers(markersList);
+}
+
+// ── On-Demand 2-Column Popup Detail ──
+function fetchAndShowSitePopup(siteId, marker) {
+    fetch(`/api/sites_db/detail/${encodeURIComponent(siteId)}`)
+        .then(r => r.json())
+        .then(res => {
+            if (res.status === "success") {
+                const detail = res.detail;
+                let html = `<div style="min-width:210px; font-family:'Inter',sans-serif;">
+                    <strong style="font-size:14px; color:#4facfe;">${siteId}</strong>
+                    <table class="popup-2col-table">`;
+                
+                Object.keys(detail).forEach(key => {
+                    let val = detail[key];
+                    if (val === null || val === undefined) val = '—';
+                    html += `<tr><th>${key}</th><td>${val}</td></tr>`;
+                });
+
+                html += `</table></div>`;
+                marker.bindPopup(html).openPopup();
+            }
+        })
+        .catch(err => console.error(err));
+}
+
+// ── Map Autocomplete Search Handlers ──
+let mapSearchDebounce = null;
+function onMapSearchKeyup(e) {
+    if (e.key === "Enter") {
+        if (activeAutocompleteIndex >= 0) {
+            const items = document.querySelectorAll(".autocomplete-item");
+            if (items[activeAutocompleteIndex]) {
+                selectAutocompleteItem(items[activeAutocompleteIndex].innerText);
+                return;
+            }
+        }
+        executeMapSearch();
+        return;
+    }
+
+    const q = e.target.value.trim();
+    if (!q || q.length < 1) {
+        hideAutocomplete();
+        return;
+    }
+
+    clearTimeout(mapSearchDebounce);
+    mapSearchDebounce = setTimeout(() => {
+        fetch(`/api/sites_db/autocomplete?q=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then(res => {
+                if (res.status === "success") {
+                    renderAutocompleteDropdown(res.suggestions || []);
+                }
+            })
+            .catch(err => console.error(err));
+    }, 200);
+}
+
+function onMapSearchFocus() {
+    const q = document.getElementById("mapSearchInput").value.trim();
+    if (q.length >= 1) {
+        onMapSearchKeyup({ key: "" });
+    }
+}
+
+function renderAutocompleteDropdown(suggestions) {
+    const list = document.getElementById("autoCompleteList");
+    if (!suggestions || suggestions.length === 0) {
+        list.style.display = "none";
+        return;
+    }
+
+    let html = "";
+    suggestions.forEach(item => {
+        html += `<div class="autocomplete-item" onclick="selectAutocompleteItem('${item}')">${item}</div>`;
+    });
+
+    list.innerHTML = html;
+    list.style.display = "block";
+    activeAutocompleteIndex = -1;
+}
+
+function hideAutocomplete() {
+    document.getElementById("autoCompleteList").style.display = "none";
+}
+
+function selectAutocompleteItem(siteId) {
+    document.getElementById("mapSearchInput").value = siteId;
+    hideAutocomplete();
+    locateSiteOnMap(siteId);
+}
+
+function executeMapSearch() {
+    const q = document.getElementById("mapSearchInput").value.trim();
+    if (!q) return;
+    locateSiteOnMap(q);
+}
+
+function locateSiteOnMap(siteIdQuery) {
+    if (!siteIdQuery || !allMapSites.length) return;
+    const q = siteIdQuery.trim().toLowerCase();
+
+    // Global Dataset Search across all 2,875 sites in memory
+    const targetSite = allMapSites.find(s => s.id && (s.id.toLowerCase() === q || s.id.toLowerCase().startsWith(q)));
+
+    if (!targetSite) {
+        showToast(`Site '${siteIdQuery}' not found on map`, "warning");
+        return;
+    }
+
+    const lat = parseFloat(targetSite.lat);
+    const lng = parseFloat(targetSite.lng);
+
+    if (isNaN(lat) || isNaN(lng)) {
+        showToast(`Site '${targetSite.id}' has invalid coordinates`, "warning");
+        return;
+    }
+
+    if (mapInstance && mapClusterGroup) {
+        mapInstance._userSearched = true;
+
+        let foundMarker = null;
+        mapClusterGroup.eachLayer(layer => {
+            if (layer.siteId && layer.siteId === targetSite.id.toLowerCase()) {
+                foundMarker = layer;
+            }
+        });
+
+        if (foundMarker) {
+            mapClusterGroup.zoomToShowLayer(foundMarker, () => {
+                foundMarker.setStyle({ radius: 10, fillColor: "#ff007f", color: "#ffffff", weight: 2 });
+                fetchAndShowSitePopup(targetSite.id, foundMarker);
+                showToast(`Located site '${targetSite.id}'`, "info");
+            });
+        } else {
+            mapInstance.setView([lat, lng], 15);
+            showToast(`Located site '${targetSite.id}'`, "info");
+        }
+    }
+}
+
+// ── Simple Toast Helper ──
+function showToast(msg, type = "info") {
+    let container = document.getElementById("toastContainer");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "toastContainer";
+        container.style.cssText = "position:fixed; bottom:20px; right:20px; z-index:99999; display:flex; flex-direction:column; gap:8px;";
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement("div");
+    const bg = type === "error" ? "#ef4444" : (type === "success" ? "#22c55e" : (type === "warning" ? "#eab308" : "#4facfe"));
+    toast.style.cssText = `background:${bg}; color:#fff; padding:10px 16px; border-radius:8px; font-size:13px; font-weight:600; box-shadow:0 4px 12px rgba(0,0,0,0.25); transition:all 0.3s ease; opacity:0; transform:translateY(10px);`;
+    toast.innerText = msg;
+
+    container.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = "1"; toast.style.transform = "translateY(0)"; }, 10);
+    setTimeout(() => {
+        toast.style.opacity = "0";
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+</script>
+{% endblock %}

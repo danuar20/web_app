@@ -5,6 +5,7 @@ import tempfile
 import logging
 
 cache = Cache()
+csrf = CSRFProtect()
 
 from datetime import datetime, timedelta
 import os
@@ -64,7 +65,6 @@ def create_app():
     app.config['WTF_CSRF_TIME_LIMIT']  = 3600
 
     # Initialize CSRF protection so `csrf_token()` is available in templates
-    csrf = CSRFProtect()
     csrf.init_app(app)
 
     # ── 4. CUSTOM JINJA2 FILTERS ────────────────────────────────────────────────
@@ -99,7 +99,9 @@ def create_app():
         kpi4g_monitoring,
         kpi5g_monitoring,
         pl_monitoring, ta4g_new, ta5g, dashboard_2g, dashboard_4g, dashboard_5g, coverage, okumura_hata, nettilt3d,
-        optim_4g
+        optim_4g,
+        unbalance_prb,
+        sites_db_bp
     )
     app.register_blueprint(auth)
     app.register_blueprint(admin_bp)
@@ -110,6 +112,8 @@ def create_app():
     app.register_blueprint(wpc_5g_monitoring)
     app.register_blueprint(kpi4g_monitoring)
     app.register_blueprint(optim_4g)
+    app.register_blueprint(unbalance_prb)
+    app.register_blueprint(sites_db_bp)
     app.register_blueprint(kpi5g_monitoring)
     app.register_blueprint(pl_monitoring)
     app.register_blueprint(ta4g_new)

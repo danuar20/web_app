@@ -2,7 +2,7 @@ import psycopg2
 from psycopg2.pool import ThreadedConnectionPool
 import os
 import time
-from flask import g
+from flask import g, has_request_context
 from contextlib import closing
 
 class PooledConnectionWrapper:
@@ -87,15 +87,31 @@ def get_postgres_connection():
     return _get_connection_with_retry(get_postgres_pool())
 
 
-# ── Request-level cache to avoid repeated queries ─────────────────────────────────
+# ── Process-level & Request-level Cache ─────────────────────────────────────────
+
+_GLOBAL_MEM_CACHE = {}
+_GLOBAL_MEM_CACHE_TTL = 900  # 15 minutes
 
 def _get_cached(key, factory_fn):
-    """Get value from request cache, or compute and cache it."""
-    if 'request_cache' not in g:
-        g.request_cache = {}
-    if key not in g.request_cache:
-        g.request_cache[key] = factory_fn()
-    return g.request_cache[key]
+    """Get value from process memory cache or request cache, or compute and cache it."""
+    now = time.time()
+    if key in _GLOBAL_MEM_CACHE:
+        val, expiry = _GLOBAL_MEM_CACHE[key]
+        if now < expiry:
+            return val
+            
+    if has_request_context():
+        if 'request_cache' not in g:
+            g.request_cache = {}
+        if key in g.request_cache:
+            return g.request_cache[key]
+        
+    val = factory_fn()
+    if has_request_context():
+        g.request_cache[key] = val
+    if val and isinstance(val, tuple) and val[0]:
+        _GLOBAL_MEM_CACHE[key] = (val, now + _GLOBAL_MEM_CACHE_TTL)
+    return val
 
 
 
@@ -286,3 +302,116 @@ def _get_site_cell_list_2g_impl():
                 return [r[0] for r in cur.fetchall()], "kpi"
     except Exception as e:
         return [], str(e)
+
+
+# ── City Lists ────────────────────────────────────────────────────────────────
+
+def get_city_list_4g():
+    """Get the list of unique 4G cities using latest date and cache."""
+    return _get_cached("4g_cities", lambda: _get_city_list_4g_impl())
+
+def _get_city_list_4g_impl():
+    # 1. Fast: Query distinct cities from daily table for the latest date
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute("""
+                    SELECT DISTINCT city FROM "4g_kpi_zte_daily"
+                    WHERE kpi_date = (SELECT MAX(kpi_date) FROM "4g_kpi_zte_daily")
+                      AND city IS NOT NULL AND city != ''
+                    ORDER BY city
+                """)
+                cities = [r[0] for r in cur.fetchall()]
+                if cities:
+                    return cities, "daily_latest"
+    except Exception:
+        pass
+    # 2. Fallback: Query from hourly table on the latest date
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute("""
+                    SELECT DISTINCT city FROM "4g_kpi_zte"
+                    WHERE date = (SELECT MAX(date) FROM "4g_kpi_zte")
+                      AND city IS NOT NULL AND city != ''
+                    ORDER BY city
+                """)
+                cities = [r[0] for r in cur.fetchall()]
+                if cities:
+                    return cities, "hourly_latest"
+    except Exception as e:
+        return [], str(e)
+
+
+def get_city_list_2g():
+    """Get the list of unique 2G cities using latest date and cache."""
+    return _get_cached("2g_cities", lambda: _get_city_list_2g_impl())
+
+def _get_city_list_2g_impl():
+    # 1. Fast: Query distinct cities from daily table for the latest date
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute("""
+                    SELECT DISTINCT city FROM "2g_kpi_zte_daily"
+                    WHERE kpi_date = (SELECT MAX(kpi_date) FROM "2g_kpi_zte_daily")
+                      AND city IS NOT NULL AND city != ''
+                    ORDER BY city
+                """)
+                cities = [r[0] for r in cur.fetchall()]
+                if cities:
+                    return cities, "daily_latest"
+    except Exception:
+        pass
+    # 2. Fallback: Query from hourly table on the latest date
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute("""
+                    SELECT DISTINCT city FROM "2g_kpi_zte"
+                    WHERE date = (SELECT MAX(date) FROM "2g_kpi_zte")
+                      AND city IS NOT NULL AND city != ''
+                    ORDER BY city
+                """)
+                cities = [r[0] for r in cur.fetchall()]
+                if cities:
+                    return cities, "hourly_latest"
+    except Exception as e:
+        return [], str(e)
+
+
+def get_city_list_5g():
+    """Get the list of unique 5G cities using latest date and cache."""
+    return _get_cached("5g_cities", lambda: _get_city_list_5g_impl())
+
+def _get_city_list_5g_impl():
+    # Query from 5G table on the latest date
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute("""
+                    SELECT DISTINCT city FROM "5g_kpi_zte"
+                    WHERE date = (SELECT MAX(date) FROM "5g_kpi_zte")
+                      AND city IS NOT NULL AND city != ''
+                    ORDER BY city
+                """)
+                cities = [r[0] for r in cur.fetchall()]
+                if cities:
+                    return cities, "hourly_latest"
+    except Exception:
+        pass
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute("""
+                    SELECT DISTINCT city FROM "5g_kpi_zte"
+                    WHERE datehour >= (SELECT MAX(datehour) - INTERVAL '1 day' FROM "5g_kpi_zte")
+                      AND city IS NOT NULL AND city != ''
+                    ORDER BY city
+                """)
+                cities = [r[0] for r in cur.fetchall()]
+                if cities:
+                    return cities, "datehour_latest"
+    except Exception as e:
+        return [], str(e)
+
