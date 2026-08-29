@@ -13,7 +13,7 @@
 .filter-panel { background: #fff; border-radius: 8px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
 .filter-group { display: flex; flex-direction: column; gap: 6px; }
 .filter-label { font-size: 12px; font-weight: 600; color: #5f6368; text-transform: uppercase; }
-.filter-input { padding: 8px 12px; border: 1px solid #dcdfe6; border-radius: 6px; font-size: 13px; color: #333; outline: none; transition: border-color 0.2s; }
+.filter-input { padding: 8px 12px; border: 1px solid #dcdfe6; border-radius: 6px; font-size: 13px; color: inherit; outline: none; transition: border-color 0.2s; }
 .filter-input:focus { border-color: #4facfe; }
 
 /* Filter Panel Toggle */
@@ -21,7 +21,7 @@
 #filterContainer { overflow: hidden; }
 #filterContainer.collapsed { display: none; }
 .btn-xs { padding: 4px 10px; font-size: 11px; background: transparent; border: 1px solid #dcdfe6; border-radius: 4px; cursor: pointer; color: #5f6368; transition: 0.2s; }
-.btn-xs:hover { background: #f0f2f5; color: #333; }
+.btn-xs:hover { background: #f0f2f5; color: inherit; }
 
 /* Date quick buttons */
 .date-quick-btns { display: flex; gap: 6px; }
@@ -37,7 +37,7 @@
 /* ── Tabs ── */
 .wpc-tabs { display: flex; gap: 4px; background: #fff; padding: 8px 12px; border-radius: 8px 8px 0 0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-bottom: 1px solid #eee; }
 .wpc-tab { padding: 8px 16px; border: none; background: transparent; font-size: 13px; font-weight: 600; color: #5f6368; border-radius: 6px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
-.wpc-tab:hover { background: #f0f2f5; color: #333; }
+.wpc-tab:hover { background: #f0f2f5; color: inherit; }
 .wpc-tab.active { background: rgba(79, 172, 254, 0.1); color: #007bff; }
 
 /* ── Tab Content Sub-filters ── */
@@ -52,19 +52,19 @@
 .kpi-card.kpi-warning::before { background: #ffc107; }
 .kpi-card.kpi-danger::before { background: #dc3545; }
 .kpi-title { font-size: 12px; color: #5f6368; font-weight: 500; }
-.kpi-value { font-size: 20px; font-weight: 700; color: #333; }
+.kpi-value { font-size: 20px; font-weight: 700; color: inherit; }
 
 /* ── WPC Tables ── */
 .wpc-tables-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 @media (max-width: 1200px) { .wpc-tables-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 768px) { .wpc-tables-grid { grid-template-columns: 1fr; } }
 .wpc-table-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; display: flex; flex-direction: column; }
-.wpc-table-header { padding: 12px 16px; background: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; font-size: 14px; color: #333; }
+.wpc-table-header { padding: 12px 16px; background: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 600; font-size: 14px; color: inherit; }
 .wpc-table-wrap { overflow-x: auto; flex: 1; min-height: 150px;}
 .wpc-table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
 .wpc-table th, .wpc-table td { padding: 10px 16px; text-align: left; border-bottom: 1px solid #e9ecef; }
 .wpc-table th { background: #fbfbfb; color: #5f6368; font-weight: 500; }
-.wpc-table tbody tr:hover { background: #f5f7fa; }
+.wpc-table tbody tr:hover {  }
 .wpc-table td.rank-col { font-weight: 600; width: 40px; text-align: center; color: #999; }
 .wpc-table td.value-col { font-weight: 600; font-family: 'IBM Plex Mono', monospace; text-align: right; }
 .wpc-table tbody tr:nth-child(1) .rank-col { color: #dc3545; }
@@ -82,9 +82,9 @@
 
 /* ── Custom Select (Multi) ── */
 .ms-container { position: relative; width: 220px; font-family: inherit; }
-.ms-toggle { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #fff; border: 1px solid #dcdfe6; border-radius: 6px; font-size: 13px; color: #333; cursor: pointer; text-align: left; transition: 0.2s; }
+.ms-toggle { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #fff; border: 1px solid #dcdfe6; border-radius: 6px; font-size: 13px; color: inherit; cursor: pointer; text-align: left; transition: 0.2s; }
 .ms-toggle:hover { border-color: #b4bccc; }
-.ms-toggle.disabled { background: #f5f7fa; color: #a8abb2; cursor: not-allowed; border-color: #e4e7ed; }
+.ms-toggle.disabled {  color: #a8abb2; cursor: not-allowed; border-color: #e4e7ed; }
 .ms-menu { display: none; flex-direction: column; position: absolute; top: 100%; left: 0; width: 100%; background: #fff; border: 1px solid #dcdfe6; border-radius: 6px; margin-top: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; overflow: hidden; }
 .ms-search { padding: 8px; border-bottom: 1px solid #eee; }
 .ms-search input { width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; outline: none; }
@@ -93,7 +93,7 @@
 .ms-actions button:hover { background: #f0f0f0; }
 .ms-list { max-height: 200px; overflow-y: auto; padding: 4px 0; }
 .ms-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
-.ms-item:hover { background: #f5f7fa; }
+.ms-item:hover {  }
 .ms-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .empty-state { text-align: center; padding: 40px; color: #666; font-size: 14px; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
@@ -102,6 +102,240 @@
 #loader-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.7); z-index: 9999; justify-content: center; align-items: center; }
 .spinner { width: 40px; height: 40px; border: 4px solid rgba(79, 172, 254, 0.3); border-top-color: #4facfe; border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ═══════════════════ DARK THEME RULES ═══════════════════ */
+[data-theme="dark"] .wpc-container {
+    color: #c8d0e0;
+}
+[data-theme="dark"] .filter-toggle-bar div {
+    color: #c8d0e0 !important;
+}
+
+/* Filter Card / Panel */
+[data-theme="dark"] .filter-panel,
+[data-theme="dark"] .filter-card {
+    background: rgba(30, 30, 58, 0.6) !important;
+    border: 1px solid rgba(79, 172, 254, 0.12) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+}
+[data-theme="dark"] .filter-label {
+    color: rgba(200, 208, 224, 0.7) !important;
+}
+[data-theme="dark"] .filter-input {
+    background: rgba(20, 20, 44, 0.8) !important;
+    border: 1px solid rgba(79, 172, 254, 0.2) !important;
+    color: #c8d0e0 !important;
+    color-scheme: dark;
+}
+[data-theme="dark"] .filter-input:focus {
+    border-color: #4facfe !important;
+    box-shadow: 0 0 0 2px rgba(79, 172, 254, 0.2) !important;
+}
+[data-theme="dark"] .filter-input option {
+    background: #1a1a2e !important;
+    color: #c8d0e0 !important;
+}
+
+/* Toggle & Quick Select Buttons */
+[data-theme="dark"] .btn-xs {
+    background: rgba(30, 30, 58, 0.5) !important;
+    border: 1px solid rgba(79, 172, 254, 0.2) !important;
+    color: rgba(200, 208, 224, 0.8) !important;
+}
+[data-theme="dark"] .btn-xs:hover {
+    background: rgba(79, 172, 254, 0.15) !important;
+    color: #fff !important;
+}
+[data-theme="dark"] .btn-quick-date {
+    background: rgba(20, 20, 44, 0.7) !important;
+    color: rgba(200, 208, 224, 0.7) !important;
+    border: 1px solid rgba(79, 172, 254, 0.15) !important;
+}
+[data-theme="dark"] .btn-quick-date:hover,
+[data-theme="dark"] .btn-quick-date.active {
+    background: rgba(79, 172, 254, 0.15) !important;
+    color: #4facfe !important;
+    border-color: #4facfe !important;
+}
+
+/* Tabs & Tab-Filters Container */
+[data-theme="dark"] .wpc-tabs {
+    background: rgba(30, 30, 58, 0.6) !important;
+    border: 1px solid rgba(79, 172, 254, 0.12) !important;
+    border-bottom: 1px solid rgba(79, 172, 254, 0.1) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+}
+[data-theme="dark"] .wpc-tab {
+    color: rgba(200, 208, 224, 0.65) !important;
+}
+[data-theme="dark"] .wpc-tab:hover {
+    background: rgba(79, 172, 254, 0.08) !important;
+    color: #c8d0e0 !important;
+}
+[data-theme="dark"] .wpc-tab.active {
+    background: rgba(79, 172, 254, 0.15) !important;
+    color: #4facfe !important;
+}
+[data-theme="dark"] .tab-filters-container {
+    background: rgba(30, 30, 58, 0.6) !important;
+    border: 1px solid rgba(79, 172, 254, 0.12) !important;
+    border-top: none !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Multi-Select Dropdowns */
+[data-theme="dark"] .ms-toggle {
+    background: rgba(20, 20, 44, 0.8) !important;
+    border: 1px solid rgba(79, 172, 254, 0.2) !important;
+    color: #c8d0e0 !important;
+}
+[data-theme="dark"] .ms-toggle:hover {
+    border-color: #4facfe !important;
+}
+[data-theme="dark"] .ms-toggle.disabled {
+    background: rgba(20, 20, 44, 0.4) !important;
+    color: rgba(200, 208, 224, 0.3) !important;
+    border-color: rgba(79, 172, 254, 0.1) !important;
+}
+[data-theme="dark"] .ms-menu {
+    background: #1a1a32 !important;
+    border: 1px solid rgba(79, 172, 254, 0.2) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+}
+[data-theme="dark"] .ms-search {
+    border-bottom: 1px solid rgba(79, 172, 254, 0.12) !important;
+}
+[data-theme="dark"] .ms-search input {
+    background: rgba(20, 20, 44, 0.8) !important;
+    border: 1px solid rgba(79, 172, 254, 0.2) !important;
+    color: #c8d0e0 !important;
+}
+[data-theme="dark"] .ms-actions {
+    background: rgba(20, 20, 44, 0.6) !important;
+    border-bottom: 1px solid rgba(79, 172, 254, 0.12) !important;
+}
+[data-theme="dark"] .ms-actions button {
+    background: rgba(30, 30, 58, 0.8) !important;
+    border: 1px solid rgba(79, 172, 254, 0.2) !important;
+    color: #4facfe !important;
+}
+[data-theme="dark"] .ms-actions button:hover {
+    background: rgba(79, 172, 254, 0.15) !important;
+}
+[data-theme="dark"] .ms-item {
+    color: #c8d0e0 !important;
+}
+[data-theme="dark"] .ms-item:hover {
+    background: rgba(79, 172, 254, 0.1) !important;
+}
+
+/* Results & KPI Cards */
+#wpc-results {
+    
+}
+[data-theme="dark"] #wpc-results {
+    background: rgba(13, 13, 26, 0.4) !important;
+}
+[data-theme="dark"] .kpi-card {
+    background: rgba(30, 30, 58, 0.6) !important;
+    border: 1px solid rgba(79, 172, 254, 0.12) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+}
+[data-theme="dark"] .kpi-card::before {
+    background: rgba(79, 172, 254, 0.3);
+}
+[data-theme="dark"] .kpi-card.kpi-success::before {
+    background: #28a745 !important;
+}
+[data-theme="dark"] .kpi-card.kpi-warning::before {
+    background: #ffc107 !important;
+}
+[data-theme="dark"] .kpi-card.kpi-danger::before {
+    background: #dc3545 !important;
+}
+[data-theme="dark"] .kpi-title,
+[data-theme="dark"] .kpi-card-title {
+    color: rgba(200, 208, 224, 0.7) !important;
+}
+[data-theme="dark"] .kpi-value,
+[data-theme="dark"] .kpi-card-val {
+    color: #ffffff !important;
+}
+[data-theme="dark"] .kpi-card-sub {
+    color: rgba(200, 208, 224, 0.5) !important;
+}
+
+/* Table Cards & Tables */
+[data-theme="dark"] .wpc-table-card {
+    background: rgba(30, 30, 58, 0.6) !important;
+    border: 1px solid rgba(79, 172, 254, 0.1) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+}
+[data-theme="dark"] .wpc-table-header {
+    background: rgba(20, 20, 44, 0.7) !important;
+    border-bottom: 1px solid rgba(79, 172, 254, 0.1) !important;
+    color: #e2e8f0 !important;
+}
+[data-theme="dark"] .wpc-table th {
+    background: rgba(20, 20, 44, 0.9) !important;
+    color: rgba(200, 208, 224, 0.6) !important;
+    border-bottom: 1px solid rgba(79, 172, 254, 0.12) !important;
+}
+[data-theme="dark"] .wpc-table td {
+    color: #c8d0e0 !important;
+    border-bottom: 1px solid rgba(79, 172, 254, 0.08) !important;
+}
+[data-theme="dark"] .wpc-table tbody tr:hover td,
+[data-theme="dark"] .wpc-table tbody tr:hover {
+    background: rgba(79, 172, 254, 0.05) !important;
+}
+[data-theme="dark"] .wpc-table td.rank-col {
+    color: rgba(200, 208, 224, 0.4) !important;
+}
+[data-theme="dark"] .wpc-table tbody tr:nth-child(1) .rank-col {
+    color: #ff6b6b !important;
+}
+[data-theme="dark"] .wpc-table tbody tr:nth-child(2) .rank-col {
+    color: #ffa94d !important;
+}
+[data-theme="dark"] .wpc-table tbody tr:nth-child(3) .rank-col {
+    color: #ffd43b !important;
+}
+
+/* Export Buttons & Empty State */
+[data-theme="dark"] .btn-export {
+    background: rgba(30, 30, 58, 0.7) !important;
+    border: 1px solid #4facfe !important;
+    color: #4facfe !important;
+}
+[data-theme="dark"] .btn-export:hover {
+    background: rgba(79, 172, 254, 0.15) !important;
+}
+[data-theme="dark"] .btn-export[style*="#28a745"],
+[data-theme="dark"] .btn-export[style*="28a745"] {
+    background: rgba(30, 30, 58, 0.7) !important;
+    border-color: #22c55e !important;
+    color: #22c55e !important;
+}
+[data-theme="dark"] .btn-export[style*="#28a745"]:hover,
+[data-theme="dark"] .btn-export[style*="28a745"]:hover {
+    background: rgba(34, 197, 94, 0.15) !important;
+}
+[data-theme="dark"] .empty-state {
+    background: rgba(30, 30, 58, 0.5) !important;
+    border: 1px solid rgba(79, 172, 254, 0.1) !important;
+    color: rgba(200, 208, 224, 0.7) !important;
+}
+[data-theme="dark"] .empty-state div {
+    color: inherit !important;
+}
+[data-theme="dark"] #loader-overlay {
+    background: rgba(13, 13, 26, 0.8) !important;
+}
+[data-theme="dark"] #loader-overlay div {
+    color: #c8d0e0 !important;
+}
+
 </style>
 
 <!-- html2canvas -->
@@ -239,10 +473,10 @@
             </div>
         </div>
 
-        <div id="wpc-results" style="display:none; flex-direction:column; gap:16px; background:#f5f7fa; padding:10px; border-radius:8px;">
+        <div id="wpc-results" style="display:none; flex-direction:column; gap:16px;  padding:10px; border-radius:8px;">
             <!-- Summary Cards -->
             
-        <div id="wpc-empty-state" class="empty-state" style="display:none; text-align:center; padding:40px; color:#666;">
+        <div id="wpc-empty-state" class="empty-state" style="display:none; text-align:center; padding:40px; ">
             Please select at least one filter above to view data.
         </div>
 
@@ -427,7 +661,7 @@
             return;
         }
         document.getElementById('loader-overlay').style.display = 'flex';
-        html2canvas(container, { backgroundColor: '#f5f7fa', scale: 2 }).then(canvas => {
+        html2canvas(container, { backgroundColor: (document.documentElement.getAttribute('data-theme') === 'dark' ? '#0d0d1a' : '#f5f7fa'), scale: 2 }).then(canvas => {
             let link = document.createElement('a');
             link.download = `WPC_4G_${activeTab}_${new Date().getTime()}.png`;
             link.href = canvas.toDataURL("image/png");

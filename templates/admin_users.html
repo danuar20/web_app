@@ -78,10 +78,41 @@ body {
 .page-wrap { max-width: 1280px; margin: 0 auto; padding: 24px 20px; }
 
 /* ── Page Header ── */
-.page-header { margin-bottom: 24px; }
+.page-header { margin-bottom: 20px; }
 .page-title { font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 10px; }
 .page-title i { color: #4facfe; }
 .page-subtitle { margin-top: 4px; font-size: 0.88rem; opacity: 0.65; }
+
+/* ── Stat Summary Cards ── */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-bottom: 22px;
+}
+.stat-card {
+    border-radius: 14px;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+[data-theme="dark"] .stat-card { background: rgba(22,22,44,0.7); border: 1px solid rgba(79,172,254,0.12); }
+[data-theme="light"] .stat-card { background: #fff; border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 2px 10px rgba(0,0,0,0.04); }
+.stat-card:hover { transform: translateY(-2px); }
+.stat-info { display: flex; flex-direction: column; }
+.stat-label { font-size: 0.76rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.6; }
+.stat-value { font-size: 1.6rem; font-weight: 700; line-height: 1.2; margin-top: 4px; }
+.stat-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+}
+.stat-icon.blue   { background: rgba(79,172,254,0.15); color: #4facfe; }
+.stat-icon.green  { background: rgba(80,220,120,0.15); color: #50dc78; }
+.stat-icon.purple { background: rgba(168,85,247,0.15); color: #a855f7; }
+.stat-icon.orange { background: rgba(255,140,0,0.15); color: #ff8c00; }
 
 /* ── Tab nav ── */
 .tab-nav { display: flex; gap: 8px; margin-bottom: 20px; }
@@ -117,6 +148,66 @@ body {
 }
 [data-theme="dark"]  .card { background: rgba(22,22,44,0.85); border: 1px solid rgba(79,172,254,0.1); }
 [data-theme="light"] .card { background: #fff; border: 1px solid rgba(0,0,0,0.07); box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+
+/* ── Table Toolbar ── */
+.table-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    gap: 12px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid rgba(79,172,254,0.08);
+}
+[data-theme="light"] .table-toolbar { border-bottom: 1px solid rgba(0,0,0,0.06); }
+
+.search-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    min-width: 260px;
+    flex-grow: 1;
+    max-width: 380px;
+    transition: border-color 0.2s;
+}
+[data-theme="dark"] .search-box { background: rgba(30,30,60,0.6); border: 1px solid rgba(79,172,254,0.18); color: #c8d0e0; }
+[data-theme="light"] .search-box { background: #f5f7fa; border: 1px solid rgba(0,0,0,0.1); color: #1e2235; }
+.search-box:focus-within { border-color: #4facfe; box-shadow: 0 0 0 3px rgba(79,172,254,0.12); }
+.search-box input {
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 0.85rem;
+    color: inherit;
+    font-family: inherit;
+    width: 100%;
+}
+.search-box i { opacity: 0.5; font-size: 0.85rem; }
+
+.btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: none;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(79,172,254,0.3);
+    transition: all 0.2s;
+    font-family: inherit;
+}
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(79,172,254,0.45);
+    filter: brightness(1.05);
+}
+.btn-primary:active { transform: translateY(0); }
 
 /* ── Table ── */
 .table-wrap { overflow-x: auto; }
@@ -156,11 +247,11 @@ td { padding: 12px 14px; vertical-align: middle; }
 [data-theme="light"] .pill-gray   { background: #f0f2f5; color: #5a6a85; border-color: #d0d8e8; }
 
 /* ── Action buttons ── */
-.action-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.action-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 
 .btn-action {
     display: inline-flex; align-items: center; gap: 5px;
-    padding: 5px 11px; border-radius: 7px; border: none;
+    padding: 5px 10px; border-radius: 7px; border: none;
     font-size: 0.78rem; font-weight: 500; cursor: pointer;
     transition: all 0.18s; font-family: inherit; white-space: nowrap;
 }
@@ -178,7 +269,7 @@ td { padding: 12px 14px; vertical-align: middle; }
 /* ── Max session inline form ── */
 .max-sess-form { display: flex; align-items: center; gap: 4px; }
 .max-sess-form input[type="number"] {
-    width: 60px; padding: 4px 8px; border-radius: 6px;
+    width: 58px; padding: 4px 6px; border-radius: 6px;
     font-size: 0.82rem; font-family: inherit; text-align: center;
 }
 [data-theme="dark"]  .max-sess-form input { background: rgba(30,30,60,0.8); border: 1px solid rgba(79,172,254,0.2); color: #c8d0e0; }
@@ -195,10 +286,139 @@ td { padding: 12px 14px; vertical-align: middle; }
 [data-theme="light"] .log-failed   { color: #c0392b; }
 [data-theme="light"] .log-locked   { color: #e65100; }
 
+/* ── Modal Dialog ── */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(6px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s, visibility 0.25s;
+}
+.modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+.modal-box {
+    width: 92%;
+    max-width: 480px;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+    transform: scale(0.94) translateY(10px);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-overlay.active .modal-box {
+    transform: scale(1) translateY(0);
+}
+[data-theme="dark"] .modal-box { background: #16162c; border: 1px solid rgba(79,172,254,0.2); }
+[data-theme="light"] .modal-box { background: #ffffff; border: 1px solid rgba(0,0,0,0.1); }
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(79,172,254,0.1);
+}
+[data-theme="light"] .modal-header { border-bottom: 1px solid rgba(0,0,0,0.08); background: #f9fafb; }
+.modal-title { font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.modal-title i { color: #4facfe; }
+.modal-close {
+    background: transparent; border: none; font-size: 1.2rem; cursor: pointer;
+    color: inherit; opacity: 0.6; transition: opacity 0.2s, transform 0.2s;
+}
+.modal-close:hover { opacity: 1; transform: scale(1.1); color: #ff5252; }
+
+.modal-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-label { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.75; }
+.input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.input-wrap i.input-icon {
+    position: absolute; left: 12px; font-size: 0.9rem; opacity: 0.5; pointer-events: none;
+}
+.form-input {
+    width: 100%;
+    padding: 9px 12px 9px 36px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-input.no-icon { padding-left: 12px; }
+[data-theme="dark"] .form-input { background: rgba(30,30,60,0.7); border: 1px solid rgba(79,172,254,0.18); color: #c8d0e0; }
+[data-theme="light"] .form-input { background: #f7f9fc; border: 1px solid rgba(0,0,0,0.12); color: #1e2235; }
+.form-input:focus { border-color: #4facfe; box-shadow: 0 0 0 3px rgba(79,172,254,0.15); }
+
+.toggle-pwd-btn {
+    position: absolute;
+    right: 10px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: inherit;
+    opacity: 0.5;
+    font-size: 0.9rem;
+    padding: 4px;
+    transition: opacity 0.2s;
+}
+.toggle-pwd-btn:hover { opacity: 1; color: #4facfe; }
+
+.role-radio-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.role-card-opt {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+[data-theme="dark"] .role-card-opt { background: rgba(30,30,60,0.5); border: 1px solid rgba(79,172,254,0.12); }
+[data-theme="light"] .role-card-opt { background: #f7f9fc; border: 1px solid rgba(0,0,0,0.08); }
+.role-card-opt input[type="radio"] { position: absolute; opacity: 0; }
+.role-card-opt.selected { border-color: #4facfe; background: rgba(79,172,254,0.12); }
+.role-title { font-size: 0.88rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.role-desc { font-size: 0.72rem; opacity: 0.6; margin-top: 2px; }
+
+.modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 20px;
+    border-top: 1px solid rgba(79,172,254,0.1);
+}
+[data-theme="light"] .modal-footer { border-top: 1px solid rgba(0,0,0,0.08); background: #f9fafb; }
+.btn-secondary {
+    padding: 8px 16px; border-radius: 8px; border: 1px solid rgba(79,172,254,0.2);
+    font-size: 0.85rem; font-weight: 500; cursor: pointer; background: transparent;
+    color: inherit; transition: all 0.2s; font-family: inherit;
+}
+[data-theme="light"] .btn-secondary { border-color: rgba(0,0,0,0.15); }
+.btn-secondary:hover { background: rgba(79,172,254,0.1); color: #4facfe; }
+
 /* ── Responsive ── */
 @media (max-width: 640px) {
-    .action-group { flex-direction: column; }
+    .action-group { flex-direction: column; align-items: flex-start; }
     .page-title { font-size: 1.2rem; }
+    .table-toolbar { flex-direction: column; align-items: stretch; }
+    .search-box { max-width: none; }
+    .role-radio-group { grid-template-columns: 1fr; }
 }
 </style>
 </head>
@@ -251,7 +471,7 @@ td { padding: 12px 14px; vertical-align: middle; }
             {% if view == 'logs' %}
             Last 200 login attempts — monitor authentication activity
             {% else %}
-            Manage user accounts, roles, locks, and active sessions
+            Manage user accounts, privileges, concurrent session limits, and security status
             {% endif %}
         </p>
     </div>
@@ -266,9 +486,67 @@ td { padding: 12px 14px; vertical-align: middle; }
         </a>
     </div>
 
-    <!-- ── USERS TABLE ─────────────────────────────────────────────────────── -->
+    <!-- ── USERS VIEW ──────────────────────────────────────────────────────── -->
     {% if view != 'logs' and users is not none %}
+
+    <!-- Stat Summary Cards -->
+    {% set total_users = users|length %}
+    {% set active_users = users|selectattr('is_active')|list|length %}
+    {% set admin_count = users|selectattr('role', 'equalto', 'admin')|list|length %}
+    {% set locked_count = users|selectattr('is_locked')|list|length %}
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-info">
+                <span class="stat-label">Total Users</span>
+                <span class="stat-value">{{ total_users }}</span>
+            </div>
+            <div class="stat-icon blue">
+                <i class="fas fa-users"></i>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-info">
+                <span class="stat-label">Active Users</span>
+                <span class="stat-value" style="color:#50dc78">{{ active_users }}</span>
+            </div>
+            <div class="stat-icon green">
+                <i class="fas fa-user-check"></i>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-info">
+                <span class="stat-label">Admin Accounts</span>
+                <span class="stat-value" style="color:#a855f7">{{ admin_count }}</span>
+            </div>
+            <div class="stat-icon purple">
+                <i class="fas fa-crown"></i>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-info">
+                <span class="stat-label">Locked / Blocked</span>
+                <span class="stat-value" style="color:{% if locked_count > 0 %}#ff8c00{% else %}inherit{% endif %}">
+                    {{ locked_count + (total_users - active_users) }}
+                </span>
+            </div>
+            <div class="stat-icon orange">
+                <i class="fas fa-user-shield"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Card with Toolbar -->
     <div class="card">
+        <div class="table-toolbar">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="userSearchInput" placeholder="Filter by username, role, or status..." oninput="filterUsersTable()">
+            </div>
+            <button type="button" class="btn-primary" onclick="openAddUserModal()">
+                <i class="fas fa-user-plus"></i> Add New User
+            </button>
+        </div>
+
         <div class="table-wrap">
             <table id="usersTable">
                 <thead>
@@ -284,9 +562,9 @@ td { padding: 12px 14px; vertical-align: middle; }
                         <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="usersTableBody">
                 {% for u in users %}
-                <tr>
+                <tr class="user-row" data-search="{{ u.username|lower }} {{ u.role|lower }} {% if u.is_active %}active{% else %}blocked{% endif %}">
                     <td style="opacity:0.5">{{ u.id }}</td>
 
                     <!-- Username -->
@@ -355,6 +633,7 @@ td { padding: 12px 14px; vertical-align: middle; }
                     <td>
                         <div class="action-group">
                             <!-- Block / Unblock -->
+                            {% if u.id != session.get('user_id') %}
                             <form method="POST" action="/admin/users/{{ u.id }}/toggle_active" style="display:inline">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 {% if u.is_active %}
@@ -371,6 +650,7 @@ td { padding: 12px 14px; vertical-align: middle; }
                                 </button>
                                 {% endif %}
                             </form>
+                            {% endif %}
 
                             <!-- Unlock (reset failed attempts) -->
                             {% if u.is_locked or u.failed_attempts > 0 %}
@@ -390,16 +670,110 @@ td { padding: 12px 14px; vertical-align: middle; }
                                 <button type="submit" class="btn-action btn-red"
                                     onclick="return confirm('Terminate all {{ u.active_sessions }} session(s) for {{ u.username }}?')"
                                     title="Terminate all active sessions">
-                                    <i class="fas fa-plug"></i> Kill Sessions ({{ u.active_sessions }})
+                                    <i class="fas fa-plug"></i> Kill ({{ u.active_sessions }})
                                 </button>
                             </form>
+                            {% endif %}
+
+                            <!-- Delete / Remove User -->
+                            {% if u.id != session.get('user_id') %}
+                            <form method="POST" action="/admin/users/{{ u.id }}/delete" style="display:inline"
+                                  onsubmit="return confirm('Are you sure you want to permanently delete user \'{{ u.username }}\'? This will also terminate any active sessions and remove custom configurations.')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn-action btn-red" title="Permanently delete user account">
+                                    <i class="fas fa-trash-alt"></i> Delete
+                                </button>
+                            </form>
+                            {% else %}
+                            <span class="pill pill-gray" style="font-size:0.72rem" title="You cannot delete your own account"><i class="fas fa-shield-alt"></i> Self</span>
                             {% endif %}
                         </div>
                     </td>
                 </tr>
                 {% endfor %}
+                <tr id="noUsersFoundRow" style="display:none">
+                    <td colspan="9" style="text-align:center; padding: 32px 14px; opacity:0.6;">
+                        <i class="fas fa-user-slash" style="font-size:1.6rem; margin-bottom:8px; display:block;"></i>
+                        No users match your search query.
+                    </td>
+                </tr>
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- ── ADD USER MODAL ──────────────────────────────────────────────────── -->
+    <div class="modal-overlay" id="addUserModal" onclick="handleModalBackdropClick(event)">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 class="modal-title">
+                    <i class="fas fa-user-plus"></i> Create New User
+                </h3>
+                <button type="button" class="modal-close" onclick="closeAddUserModal()">&times;</button>
+            </div>
+            <form method="POST" action="/admin/users/create" id="addUserForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <div class="modal-body">
+                    <!-- Username -->
+                    <div class="form-group">
+                        <label class="form-label" for="newUsername">Username</label>
+                        <div class="input-wrap">
+                            <i class="fas fa-user input-icon"></i>
+                            <input type="text" id="newUsername" name="username" class="form-input"
+                                   placeholder="e.g. john_doe" required autocomplete="off">
+                        </div>
+                    </div>
+
+                    <!-- Password -->
+                    <div class="form-group">
+                        <label class="form-label" for="newPassword">Password</label>
+                        <div class="input-wrap">
+                            <i class="fas fa-key input-icon"></i>
+                            <input type="password" id="newPassword" name="password" class="form-input"
+                                   placeholder="Enter strong password (min. 4 chars)" required autocomplete="new-password">
+                            <button type="button" class="toggle-pwd-btn" onclick="togglePasswordVisibility('newPassword', this)" title="Toggle password visibility">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Role -->
+                    <div class="form-group">
+                        <label class="form-label">User Role</label>
+                        <div class="role-radio-group">
+                            <label class="role-card-opt selected" id="roleViewerCard" onclick="selectRole('viewer')">
+                                <input type="radio" name="role" value="viewer" checked>
+                                <div class="role-title"><i class="fas fa-eye" style="color:#8899aa"></i> Viewer</div>
+                                <div class="role-desc">Standard access to network dashboards & KPIs</div>
+                            </label>
+                            <label class="role-card-opt" id="roleAdminCard" onclick="selectRole('admin')">
+                                <input type="radio" name="role" value="admin">
+                                <div class="role-title"><i class="fas fa-crown" style="color:#4facfe"></i> Admin</div>
+                                <div class="role-desc">Full system & user administration access</div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Max Sessions -->
+                    <div class="form-group">
+                        <label class="form-label" for="newMaxSession">Max Concurrent Sessions</label>
+                        <div class="input-wrap">
+                            <i class="fas fa-laptop input-icon"></i>
+                            <input type="number" id="newMaxSession" name="max_session" class="form-input"
+                                   value="5" min="1" max="50" required>
+                        </div>
+                        <small style="font-size:0.72rem; opacity:0.6; margin-top:2px;">Maximum devices / browser sessions allowed simultaneously.</small>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeAddUserModal()">Cancel</button>
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-check"></i> Create User
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
     {% endif %}
@@ -489,6 +863,105 @@ setTimeout(function(){
         setTimeout(function(){ el.remove(); }, 500);
     });
 }, 5000);
+
+// ── Modal Management ──────────────────────────────────────────────────────────
+function openAddUserModal() {
+    var modal = document.getElementById("addUserModal");
+    if (modal) {
+        modal.classList.add("active");
+        setTimeout(function() {
+            var input = document.getElementById("newUsername");
+            if (input) input.focus();
+        }, 100);
+    }
+}
+
+function closeAddUserModal() {
+    var modal = document.getElementById("addUserModal");
+    if (modal) {
+        modal.classList.remove("active");
+        var form = document.getElementById("addUserForm");
+        if (form) form.reset();
+        selectRole('viewer');
+    }
+}
+
+function handleModalBackdropClick(event) {
+    if (event.target && event.target.id === "addUserModal") {
+        closeAddUserModal();
+    }
+}
+
+// ── Role Selection in Modal ───────────────────────────────────────────────────
+function selectRole(role) {
+    var viewerCard = document.getElementById("roleViewerCard");
+    var adminCard  = document.getElementById("roleAdminCard");
+    
+    if (role === 'admin') {
+        if (adminCard) {
+            adminCard.classList.add("selected");
+            var r = adminCard.querySelector('input[type="radio"]');
+            if (r) r.checked = true;
+        }
+        if (viewerCard) {
+            viewerCard.classList.remove("selected");
+        }
+    } else {
+        if (viewerCard) {
+            viewerCard.classList.add("selected");
+            var r = viewerCard.querySelector('input[type="radio"]');
+            if (r) r.checked = true;
+        }
+        if (adminCard) {
+            adminCard.classList.remove("selected");
+        }
+    }
+}
+
+// ── Password Visibility Toggle ────────────────────────────────────────────────
+function togglePasswordVisibility(inputId, btn) {
+    var input = document.getElementById(inputId);
+    if (!input) return;
+    var icon = btn.querySelector("i");
+    if (input.type === "password") {
+        input.type = "text";
+        if (icon) icon.className = "fas fa-eye-slash";
+    } else {
+        input.type = "password";
+        if (icon) icon.className = "fas fa-eye";
+    }
+}
+
+// ── Real-time Search Filter for Users Table ───────────────────────────────────
+function filterUsersTable() {
+    var input = document.getElementById("userSearchInput");
+    if (!input) return;
+    var query = input.value.toLowerCase().trim();
+    var rows = document.querySelectorAll("#usersTableBody .user-row");
+    var visibleCount = 0;
+
+    rows.forEach(function(row) {
+        var searchData = row.getAttribute("data-search") || "";
+        if (!query || searchData.indexOf(query) !== -1) {
+            row.style.display = "";
+            visibleCount++;
+        } else {
+            row.style.display = "none";
+        }
+    });
+
+    var noDataRow = document.getElementById("noUsersFoundRow");
+    if (noDataRow) {
+        noDataRow.style.display = (visibleCount === 0) ? "" : "none";
+    }
+}
+
+// ── Keyboard Shortcuts ────────────────────────────────────────────────────────
+document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape") {
+        closeAddUserModal();
+    }
+});
 </script>
 </body>
 </html>

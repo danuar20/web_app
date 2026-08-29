@@ -185,7 +185,7 @@ def api_sites_db_data():
 @login_required
 @viewer_blocked
 def api_sites_db_map():
-    """Optimized lightweight map API returning only coordinates & SiteID_v2."""
+    """Optimized lightweight map API returning only coordinates, SiteID_v2, and provider."""
     try:
         search = request.args.get("search", "").strip()
 
@@ -196,6 +196,7 @@ def api_sites_db_map():
             lat_col = next((c for c in valid_cols if c.lower() == "latitude"), "latitude")
             lng_col = next((c for c in valid_cols if c.lower() == "longitude"), "longitude")
             id_col = "SiteID_v2" if "SiteID_v2" in valid_cols else ("SiteID" if "SiteID" in valid_cols else valid_cols[0])
+            provider_col = next((c for c in valid_cols if c.lower() == "provider"), None)
 
             cur.execute(f'SELECT COUNT(*) FROM "{TABLE_NAME}"')
             total_count = cur.fetchone()[0]
@@ -211,22 +212,39 @@ def api_sites_db_map():
                 where_clause += f' AND "{id_col}"::text ILIKE %s'
                 params.append(f"%{search}%")
 
-            # Return lightweight tuple (SiteID_v2, lat, lng)
-            query = f'SELECT "{id_col}", "{lat_col}", "{lng_col}" FROM "{TABLE_NAME}" {where_clause}'
-            cur.execute(query, params)
-            rows = cur.fetchall()
-
-            sites = [
-                {"id": r[0], "lat": r[1], "lng": r[2]}
-                for r in rows
-            ]
+            if provider_col:
+                query = f'SELECT "{id_col}", "{lat_col}", "{lng_col}", COALESCE("{provider_col}", \'Telkomsel\') FROM "{TABLE_NAME}" {where_clause}'
+                cur.execute(query, params)
+                rows = cur.fetchall()
+                sites = [
+                    {"id": r[0], "lat": r[1], "lng": r[2], "provider": str(r[3]).strip() if r[3] else "Telkomsel"}
+                    for r in rows
+                ]
+            else:
+                query = f'SELECT "{id_col}", "{lat_col}", "{lng_col}" FROM "{TABLE_NAME}" {where_clause}'
+                cur.execute(query, params)
+                rows = cur.fetchall()
+                sites = [
+                    {"id": r[0], "lat": r[1], "lng": r[2], "provider": "Telkomsel"}
+                    for r in rows
+                ]
 
             valid_count = len(sites)
             invalid_count = max(0, total_count - valid_count)
 
+            providers_set = set()
+            for s in sites:
+                if s.get("provider"):
+                    providers_set.add(s["provider"])
+            if not providers_set:
+                providers_set.add("Telkomsel")
+
+            providers = sorted(list(providers_set), key=lambda x: (x.lower() != "telkomsel", x.lower()))
+
             return json_response({
                 "status": "success",
                 "sites": sites,
+                "providers": providers,
                 "total_count": total_count,
                 "valid_count": valid_count,
                 "invalid_count": invalid_count
@@ -294,6 +312,92 @@ def api_sites_db_autocomplete():
         return json_response({"status": "error", "message": str(e)}, 500)
 
 
+from datetime import datetime
+
+
+def _normalize_val(val, d_type):
+    """
+    Normalize value for semantic comparison.
+    - None, '', and 'null' (case-insensitive) are normalized to None.
+    - Numeric floats are converted to float and rounded to 6 decimal places.
+    - Integers are converted to int.
+    - Strings are stripped of leading/trailing whitespace.
+    """
+    if val is None:
+        return None
+    
+    if isinstance(val, (int, float)):
+        d_type_lower = (d_type or "").lower()
+        if "int" in d_type_lower:
+            return int(val)
+        return round(float(val), 6)
+    
+    val_str = str(val).strip()
+    if val_str == "" or val_str.lower() == "null":
+        return None
+    
+    d_type_lower = (d_type or "").lower()
+    if "int" in d_type_lower:
+        try:
+            return int(float(val_str))
+        except (ValueError, TypeError):
+            return val_str
+    elif any(t in d_type_lower for t in ("float", "double", "numeric", "real", "decimal")):
+        try:
+            return round(float(val_str), 6)
+        except (ValueError, TypeError):
+            return val_str
+            
+    return val_str
+
+
+def _format_display_val(val):
+    if val is None:
+        return "NULL"
+    return str(val)
+
+
+@sites_db_bp.route("/api/sites_db/export_csv")
+@login_required
+@viewer_blocked
+def api_sites_db_export_csv():
+    """Export complete sites_db data dynamically to CSV with UTF-8 encoding."""
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            schema, pk_cols = _get_table_schema(cur)
+            valid_cols = [c["name"] for c in schema]
+            id_col = pk_cols[0] if pk_cols else "SiteID_v2"
+            
+            select_cols = ", ".join([f'"{c}"' for c in valid_cols])
+            cur.execute(f'SELECT {select_cols} FROM "{TABLE_NAME}" ORDER BY "{id_col}" ASC')
+            rows = cur.fetchall()
+            
+            output = io.StringIO()
+            output.write('\ufeff')  # UTF-8 BOM for seamless Excel compatibility
+            writer = csv.writer(output)
+            writer.writerow(valid_cols)
+            
+            for row in rows:
+                clean_row = []
+                for val in row:
+                    clean_row.append("" if val is None else str(val))
+                writer.writerow(clean_row)
+                
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            filename = f"sites_db_{today_str}.csv"
+            
+            resp = make_response(output.getvalue())
+            resp.headers["Content-Type"] = "text/csv; charset=utf-8"
+            resp.headers["Content-Disposition"] = f"attachment; filename={filename}"
+            resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            resp.headers["Pragma"] = "no-cache"
+            resp.headers["Expires"] = "0"
+            return resp
+    except Exception as e:
+        logger.exception("Error exporting sites_db to CSV")
+        return json_response({"status": "error", "message": str(e)}, 500)
+
+
 @sites_db_bp.route("/api/sites_db/csv_template")
 @login_required
 @viewer_blocked
@@ -322,6 +426,8 @@ def api_sites_db_csv_template():
                     sample_row.append("TO JAKARTA")
                 elif cname.lower() == "kabupaten":
                     sample_row.append("JAKARTA PUSAT")
+                elif cname.lower() == "provider":
+                    sample_row.append("Telkomsel")
                 else:
                     sample_row.append("SAMPLE")
 
@@ -331,17 +437,20 @@ def api_sites_db_csv_template():
         return json_response({"status": "error", "message": str(e)}, 500)
 
 
-@sites_db_bp.route("/api/sites_db/csv_preview", methods=["POST"])
+@sites_db_bp.route("/api/sites_db/csv_compare", methods=["POST"])
 @login_required
 @viewer_blocked
-def api_sites_db_csv_preview():
-    """Parse CSV, validate schema & headers, detect internal duplicates, check existing DB records."""
+def api_sites_db_csv_compare():
+    """
+    Parse CSV and compare against existing sites_db records without modifying database.
+    Performs semantic normalization, detects duplicates, identifies unchanged/changed/new records.
+    """
     try:
         if "file" not in request.files:
             return json_response({"status": "error", "message": "No CSV file provided"}, 400)
 
         file = request.files["file"]
-        if not file.filename.endswith(".csv"):
+        if not file.filename.lower().endswith(".csv"):
             return json_response({"status": "error", "message": "Invalid file format. Please upload a .csv file"}, 400)
 
         stream = io.StringIO(file.stream.read().decode("utf-8-sig"), newline=None)
@@ -355,6 +464,7 @@ def api_sites_db_csv_preview():
         with db_query(get_postgres_connection) as (conn, cur):
             schema, pk_cols = _get_table_schema(cur)
             valid_cols = [c["name"] for c in schema]
+            col_type_map = {c["name"]: c["type"] for c in schema}
             id_col = "SiteID_v2" if "SiteID_v2" in valid_cols else ("SiteID" if "SiteID" in valid_cols else valid_cols[0])
 
             if id_col not in csv_headers:
@@ -363,66 +473,247 @@ def api_sites_db_csv_preview():
                     "message": f"Mandatory column '{id_col}' is missing from CSV headers"
                 }, 400)
 
-            # Check unknown columns
             unknown_cols = [h for h in csv_headers if h not in valid_cols]
 
-            # Read existing site IDs from DB for comparison
-            cur.execute(f'SELECT "{id_col}" FROM "{TABLE_NAME}" WHERE "{id_col}" IS NOT NULL')
-            existing_site_ids = set(r[0] for r in cur.fetchall())
+            # Fetch all existing records from DB in a single efficient query
+            select_cols = ", ".join([f'"{c}"' for c in valid_cols])
+            cur.execute(f'SELECT {select_cols} FROM "{TABLE_NAME}" WHERE "{id_col}" IS NOT NULL')
+            db_rows = cur.fetchall()
+
+            # In-memory lookup map: site_id -> { col: val }
+            db_map = {}
+            for r in db_rows:
+                row_dict = {valid_cols[i]: r[i] for i in range(len(valid_cols))}
+                site_key = str(row_dict.get(id_col, "")).strip()
+                if site_key:
+                    db_map[site_key] = row_dict
 
             total_csv_rows = 0
             invalid_rows = []
-            valid_map = {} # site_id -> (row_num, row_data)  -- deterministic last occurrence!
-            internal_duplicate_count = 0
+            seen_site_counts = {}
+            csv_rows_ordered = []
 
-            for idx, row in enumerate(reader, start=2): # line 2 is first data row
+            for idx, row in enumerate(reader, start=2):
                 total_csv_rows += 1
-                site_id_val = row.get(id_col, "").strip() if row.get(id_col) else ""
+                raw_id = row.get(id_col)
+                site_id_val = str(raw_id).strip() if raw_id is not None else ""
 
                 if not site_id_val:
-                    invalid_rows.append({"row": idx, "reason": f"Empty {id_col}"})
+                    invalid_rows.append({
+                        "row": idx,
+                        "site_id": "",
+                        "reason": f"Missing or empty {id_col}"
+                    })
                     continue
 
-                if site_id_val in valid_map:
-                    internal_duplicate_count += 1
+                if site_id_val not in seen_site_counts:
+                    seen_site_counts[site_id_val] = []
+                seen_site_counts[site_id_val].append(idx)
 
-                # Clean row values
+                # Clean and extract valid fields from CSV row
                 clean_row = {}
                 for col in csv_headers:
                     if col in valid_cols:
-                        v = row.get(col, "").strip() if row.get(col) else None
-                        clean_row[col] = v
+                        v = row.get(col)
+                        clean_row[col] = v.strip() if v is not None else None
 
+                csv_rows_ordered.append((idx, site_id_val, clean_row))
+
+            # Identify duplicates
+            duplicate_records = []
+            for s_id, row_idxs in seen_site_counts.items():
+                if len(row_idxs) > 1:
+                    duplicate_records.append({
+                        "site_id": s_id,
+                        "count": len(row_idxs),
+                        "rows": row_idxs
+                    })
+
+            # Deduplicate deterministically (last occurrence wins)
+            valid_map = {}
+            for idx, site_id_val, clean_row in csv_rows_ordered:
                 valid_map[site_id_val] = (idx, clean_row)
 
-            # Calculate INSERT vs UPDATE
+            # Compare each valid CSV row against database
+            unchanged_sites = []
+            changed_sites = []
             new_sites = []
-            update_sites = []
 
-            for site_id, (row_num, clean_row) in valid_map.items():
-                if site_id in existing_site_ids:
-                    update_sites.append(clean_row)
+            for site_id, (row_num, csv_row) in valid_map.items():
+                if site_id not in db_map:
+                    # New record to be inserted
+                    new_sites.append({
+                        "row_num": row_num,
+                        "site_id": site_id,
+                        "data": csv_row
+                    })
                 else:
-                    new_sites.append(clean_row)
+                    db_row = db_map[site_id]
+                    field_changes = []
 
-            preview_records = (new_sites[:5] + update_sites[:5])
+                    # Check each column present in CSV that exists in DB
+                    for col in csv_headers:
+                        if col not in valid_cols:
+                            continue
+                        col_type = col_type_map.get(col, "text")
+                        csv_norm = _normalize_val(csv_row.get(col), col_type)
+                        db_norm = _normalize_val(db_row.get(col), col_type)
+
+                        if csv_norm != db_norm:
+                            field_changes.append({
+                                "field": col,
+                                "old_val": db_row.get(col),
+                                "new_val": csv_row.get(col),
+                                "old_display": _format_display_val(db_row.get(col)),
+                                "new_display": _format_display_val(csv_row.get(col))
+                            })
+
+                    if field_changes:
+                        changed_sites.append({
+                            "row_num": row_num,
+                            "site_id": site_id,
+                            "changes": field_changes,
+                            "changes_count": len(field_changes),
+                            "new_data": csv_row,
+                            "old_data": db_row
+                        })
+                    else:
+                        unchanged_sites.append({
+                            "row_num": row_num,
+                            "site_id": site_id,
+                            "data": db_row
+                        })
 
             return json_response({
                 "status": "success",
-                "total_csv_rows": total_csv_rows,
-                "unique_csv_rows": len(valid_map),
-                "new_count": len(new_sites),
-                "update_count": len(update_sites),
-                "internal_duplicate_count": internal_duplicate_count,
-                "invalid_count": len(invalid_rows),
-                "invalid_rows": invalid_rows[:10],
+                "filename": file.filename,
+                "summary": {
+                    "total_csv_records": total_csv_rows,
+                    "unique_sites": len(valid_map),
+                    "unchanged_count": len(unchanged_sites),
+                    "changed_count": len(changed_sites),
+                    "new_count": len(new_sites),
+                    "duplicate_count": len(duplicate_records),
+                    "duplicate_rows_count": sum(d["count"] - 1 for d in duplicate_records),
+                    "error_count": len(invalid_rows)
+                },
                 "unknown_columns": unknown_cols,
-                "preview_records": preview_records,
+                "changed_sites": changed_sites,
+                "new_sites": new_sites,
+                "unchanged_sites": unchanged_sites,
+                "duplicates": duplicate_records,
+                "errors": invalid_rows,
+                "columns": valid_cols,
                 "id_column": id_col
             })
     except Exception as e:
-        logger.exception("Error previewing CSV import")
-        return json_response({"status": "error", "message": f"CSV parse error: {str(e)}"}, 500)
+        logger.exception("Error executing CSV comparison")
+        return json_response({"status": "error", "message": f"CSV comparison failed: {str(e)}"}, 500)
+
+
+@sites_db_bp.route("/api/sites_db/csv_confirm_import", methods=["POST"])
+@login_required
+@viewer_blocked
+def api_sites_db_csv_confirm_import():
+    """
+    Execute transactional batch import of confirmed changed and new site records.
+    Updates only changed records, inserts only new records, leaves unchanged records untouched.
+    """
+    try:
+        payload = request.get_json() or {}
+        changed_records = payload.get("changed_records", [])
+        new_records = payload.get("new_records", [])
+
+        if not changed_records and not new_records:
+            return json_response({
+                "status": "error",
+                "message": "No new or updated records provided for import"
+            }, 400)
+
+        with db_query(get_postgres_connection) as (conn, cur):
+            schema, pk_cols = _get_table_schema(cur)
+            valid_cols = [c["name"] for c in schema]
+            col_type_map = {c["name"]: c["type"] for c in schema}
+            id_col = "SiteID_v2" if "SiteID_v2" in valid_cols else ("SiteID" if "SiteID" in valid_cols else valid_cols[0])
+
+            updated_count = 0
+            inserted_count = 0
+
+            # 1. Process UPDATES for changed records
+            for item in changed_records:
+                site_id = item.get("site_id")
+                new_data = item.get("new_data") or {}
+                if not site_id or not new_data:
+                    continue
+
+                set_clauses = []
+                update_vals = []
+
+                for col in valid_cols:
+                    if col in new_data and col != id_col:
+                        val = new_data[col]
+                        norm_val = _normalize_val(val, col_type_map.get(col, "text"))
+                        set_clauses.append(f'"{col}" = %s')
+                        update_vals.append(norm_val)
+
+                if set_clauses:
+                    update_vals.append(site_id)
+                    update_sql = f'UPDATE "{TABLE_NAME}" SET {", ".join(set_clauses)} WHERE "{id_col}"::text = %s'
+                    cur.execute(update_sql, update_vals)
+                    updated_count += cur.rowcount
+
+            # 2. Process INSERTS for new records
+            if new_records:
+                insert_cols = valid_cols
+                cols_sql = ", ".join([f'"{c}"' for c in insert_cols])
+                placeholders = ", ".join(["%s"] * len(insert_cols))
+                insert_sql = f'INSERT INTO "{TABLE_NAME}" ({cols_sql}) VALUES ({placeholders})'
+
+                insert_batch = []
+                for item in new_records:
+                    data = item.get("data") if "data" in item else item
+                    if not data:
+                        continue
+                    row_vals = []
+                    for col in insert_cols:
+                        raw_v = data.get(col)
+                        norm_v = _normalize_val(raw_v, col_type_map.get(col, "text"))
+                        row_vals.append(norm_v)
+                    insert_batch.append(tuple(row_vals))
+
+                if insert_batch:
+                    psycopg2.extras.execute_batch(cur, insert_sql, insert_batch, page_size=250)
+                    inserted_count = len(insert_batch)
+
+            # Transaction commit
+            conn.commit()
+
+            return json_response({
+                "status": "success",
+                "message": f"Successfully imported {updated_count + inserted_count} site changes ({inserted_count} inserted, {updated_count} updated).",
+                "summary": {
+                    "updated": updated_count,
+                    "inserted": inserted_count,
+                    "total_imported": updated_count + inserted_count
+                }
+            })
+    except psycopg2.errors.UniqueViolation as ue:
+        logger.exception("Unique constraint violation during CSV import")
+        return json_response({
+            "status": "error",
+            "message": f"Import aborted due to duplicate key: {str(ue)}"
+        }, 400)
+    except Exception as e:
+        logger.exception("Error executing confirmed CSV import")
+        return json_response({"status": "error", "message": f"Import failed: {str(e)}"}, 500)
+
+
+@sites_db_bp.route("/api/sites_db/csv_preview", methods=["POST"])
+@login_required
+@viewer_blocked
+def api_sites_db_csv_preview():
+    """Parse CSV, validate schema & headers, detect internal duplicates, check existing DB records."""
+    return api_sites_db_csv_compare()
 
 
 @sites_db_bp.route("/api/sites_db/csv_import", methods=["POST"])

@@ -1,5 +1,7 @@
 from flask import Blueprint, make_response, render_template, request, redirect, url_for, session, flash, jsonify
-from app.db.db_webapp import get_connection
+from werkzeug.security import generate_password_hash
+import psycopg2.errors
+from app.db.db_webapp import get_connection, get_postgres_connection
 from ._utils import login_required, admin_required, json_response, db_query, _no_cache
 import logging
 
@@ -190,6 +192,108 @@ def update_max_session(user_id):
             flash("User not found.", "danger")
     except Exception as e:
         flash(f"Error updating max session: {e}", "danger")
+
+    return redirect(url_for("admin_bp.user_list"))
+
+
+# ── Create / Add User ─────────────────────────────────────────────────────────
+@admin_bp.route("/users/create", methods=["POST"])
+@login_required
+@admin_required
+def create_user():
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "").strip()
+    role = request.form.get("role", "viewer").strip().lower()
+    
+    try:
+        max_session = int(request.form.get("max_session", 5))
+        if max_session < 1:
+            max_session = 1
+    except (ValueError, TypeError):
+        max_session = 5
+
+    # Validation
+    if not username:
+        flash("Username is required.", "danger")
+        return redirect(url_for("admin_bp.user_list"))
+
+    if not password:
+        flash("Password is required.", "danger")
+        return redirect(url_for("admin_bp.user_list"))
+
+    if len(password) < 4:
+        flash("Password must be at least 4 characters long.", "warning")
+        return redirect(url_for("admin_bp.user_list"))
+
+    if role not in ["viewer", "admin"]:
+        role = "viewer"
+
+    hashed = generate_password_hash(password)
+
+    try:
+        with db_query(get_connection) as (conn, cur):
+            cur.execute(
+                """
+                INSERT INTO users (username, password, role, is_active, failed_attempts, max_session)
+                VALUES (%s, %s, %s, TRUE, 0, %s)
+                """,
+                (username, hashed, role, max_session)
+            )
+            conn.commit()
+
+        flash(f"User '{username}' created successfully with role '{role}' (max {max_session} sessions).", "success")
+    except psycopg2.errors.UniqueViolation:
+        flash(f"Username '{username}' already exists. Please choose a different username.", "danger")
+    except Exception as e:
+        if "unique" in str(e).lower() or "duplicate" in str(e).lower():
+            flash(f"Username '{username}' already exists. Please choose a different username.", "danger")
+        else:
+            logger.exception("Failed to create user: %s", e)
+            flash(f"Failed to create user: {e}", "danger")
+
+    return redirect(url_for("admin_bp.user_list"))
+
+
+# ── Delete / Remove User ──────────────────────────────────────────────────────
+@admin_bp.route("/users/<int:user_id>/delete", methods=["POST"])
+@login_required
+@admin_required
+def delete_user(user_id):
+    # Prevent admin from deleting themselves
+    if user_id == session.get("user_id"):
+        flash("You cannot delete your own account.", "warning")
+        return redirect(url_for("admin_bp.user_list"))
+
+    try:
+        with db_query(get_connection) as (conn, cur):
+            # Check user existence and get username
+            cur.execute("SELECT username FROM users WHERE id = %s", (user_id,))
+            row = cur.fetchone()
+            if not row:
+                flash("User not found.", "danger")
+                return redirect(url_for("admin_bp.user_list"))
+
+            username = row[0]
+
+            # Clean up active user sessions
+            cur.execute("DELETE FROM user_sessions WHERE user_id = %s", (user_id,))
+            
+            # Delete user record
+            cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
+            conn.commit()
+
+        # Optional: clean up custom charts if any
+        try:
+            with db_query(get_postgres_connection) as (pg_conn, pg_cur):
+                pg_cur.execute("DELETE FROM user_custom_charts WHERE username = %s", (username,))
+                pg_conn.commit()
+        except Exception:
+            pass
+
+        flash(f"User '{username}' has been successfully removed.", "success")
+    except Exception as e:
+        logger.exception("Failed to delete user: %s", e)
+        flash(f"Failed to delete user: {e}", "danger")
 
     return redirect(url_for("admin_bp.user_list"))
 

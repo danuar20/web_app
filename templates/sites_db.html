@@ -278,10 +278,129 @@
     font-size: 12px;
     transition: all 0.2s ease;
 }
+.map-btn { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.map-btn:hover { background: #10b981; color: #fff; }
 .edit-btn { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
 .edit-btn:hover { background: #3b82f6; color: #fff; }
 .del-btn { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
 .del-btn:hover { background: #ef4444; color: #fff; }
+
+/* ── CSV Pre-Import Comparison Styling ── */
+.cmp-nav {
+    display: flex;
+    gap: 6px;
+    border-bottom: 1px solid rgba(120, 130, 150, 0.2);
+    padding-bottom: 8px;
+    overflow-x: auto;
+}
+.cmp-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+[data-theme="dark"] .cmp-tab-btn { color: #94a3b8; }
+[data-theme="light"] .cmp-tab-btn { color: #475569; }
+.cmp-tab-btn.active {
+    background: #4facfe;
+    color: #fff !important;
+    box-shadow: 0 4px 12px rgba(79, 172, 254, 0.35);
+}
+.cmp-tab-btn:hover:not(.active) {
+    background: rgba(79, 172, 254, 0.12);
+    color: #4facfe;
+}
+.diff-old {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 11px;
+    text-decoration: line-through;
+    margin-right: 4px;
+    display: inline-block;
+}
+.diff-new {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 11px;
+    display: inline-block;
+}
+.badge-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+}
+.badge-stat.changed { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
+.badge-stat.new { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+.badge-stat.unchanged { background: rgba(100, 116, 139, 0.2); color: #94a3b8; }
+.badge-stat.error { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+.badge-stat.dup { background: rgba(234, 179, 8, 0.2); color: #eab308; }
+
+.cmp-card-box {
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 10px;
+    transition: all 0.2s ease;
+}
+[data-theme="dark"] .cmp-card-box { background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); }
+[data-theme="light"] .cmp-card-box { background: #f8fafc; border: 1px solid #e2e8f0; }
+
+.cmp-action-card {
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 10px;
+    transition: all 0.25s ease;
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+    border: 2px solid transparent;
+}
+.cmp-action-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+[data-theme="dark"] .cmp-action-card { background: rgba(15, 23, 42, 0.6); border: 2px solid rgba(255, 255, 255, 0.08); }
+[data-theme="light"] .cmp-action-card { background: #f8fafc; border: 2px solid #e2e8f0; }
+
+.cmp-action-card.active.updates {
+    border-color: #c084fc !important;
+    background: rgba(168, 85, 247, 0.08) !important;
+    box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.3);
+}
+.cmp-action-card.active.inserts {
+    border-color: #22c55e !important;
+    background: rgba(34, 197, 94, 0.08) !important;
+    box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.3);
+}
+.cmp-action-card.inactive {
+    opacity: 0.55;
+    border-color: rgba(148, 163, 184, 0.3) !important;
+    background: transparent !important;
+}
+
+.action-checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: #4facfe;
+    cursor: pointer;
+}
 
 /* ── Pagination ── */
 .pagination-row {
@@ -386,10 +505,150 @@
     border-bottom: 1px solid rgba(120, 130, 150, 0.15);
 }
 
+/* ── Provider Legend & Color Customizer ── */
+.provider-legend-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(120, 130, 150, 0.15);
+    transition: all 0.2s ease;
+}
+[data-theme="dark"] .provider-legend-container {
+    background: rgba(15, 23, 42, 0.55);
+    border-color: rgba(79, 172, 254, 0.15);
+}
+[data-theme="light"] .provider-legend-container {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+.legend-items-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.legend-actions-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.legend-quick-btn {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid rgba(120, 130, 150, 0.2);
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+[data-theme="dark"] .legend-quick-btn { color: #94a3b8; }
+[data-theme="light"] .legend-quick-btn { color: #64748b; }
+.legend-quick-btn:hover {
+    background: rgba(79, 172, 254, 0.15);
+    color: #4facfe;
+    border-color: #4facfe;
+}
+
+.provider-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    border: 1.5px solid rgba(120, 130, 150, 0.25);
+    background: transparent;
+    transition: all 0.2s ease;
+}
+[data-theme="dark"] .provider-chip { color: #cbd5e1; }
+[data-theme="light"] .provider-chip { color: #334155; }
+
+.provider-chip.active {
+    background: rgba(79, 172, 254, 0.15);
+    border-color: #4facfe;
+    color: #4facfe !important;
+    box-shadow: 0 2px 8px rgba(79, 172, 254, 0.2);
+}
+.provider-chip input[type="checkbox"] {
+    accent-color: #4facfe;
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+    margin: 0;
+}
+.provider-color-input {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    padding: 0;
+    background: transparent;
+    vertical-align: middle;
+}
+.provider-color-input::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+.provider-color-input::-webkit-color-swatch {
+    border: 1.5px solid #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 0 4px rgba(0,0,0,0.4);
+}
+.provider-color-input::-moz-color-swatch {
+    border: 1.5px solid #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 0 4px rgba(0,0,0,0.4);
+}
+
+/* ── Pulsing Pin Marker Animation ── */
+.temp-pin-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.pulse-pin-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #f43f5e;
+    border: 3px solid #ffffff;
+    box-shadow: 0 0 12px #f43f5e;
+    animation: temp-pin-pulse 1.6s infinite ease-out;
+}
+@keyframes temp-pin-pulse {
+    0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.8); }
+    70% { transform: scale(1.15); box-shadow: 0 0 0 14px rgba(244, 63, 94, 0); }
+    100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+}
+
+/* Custom Point Pin */
+.custom-pin-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2.5px solid #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 /* Autocomplete Dropdown List */
 .autocomplete-wrap {
     position: relative;
-    min-width: 260px;
+    min-width: 240px;
 }
 .autocomplete-list {
     position: absolute;
@@ -581,8 +840,11 @@
                 <a href="/api/sites_db/csv_template" class="btn-custom btn-secondary-custom" title="Download CSV Template matching schema">
                     <i class="fas fa-download"></i> Template CSV
                 </a>
+                <button class="btn-custom btn-secondary-custom" onclick="exportSitesCsv()" title="Export complete sites database to CSV">
+                    <i class="fas fa-file-export"></i> Export CSV
+                </button>
                 {% if role == 'admin' %}
-                <button class="btn-custom btn-secondary-custom" onclick="openCsvModal()" title="Import / Upsert CSV file">
+                <button class="btn-custom btn-secondary-custom" onclick="openCsvModal()" title="Import CSV with Pre-Import Comparison">
                     <i class="fas fa-file-import"></i> Import CSV
                 </button>
                 <button class="btn-custom btn-primary-grad" onclick="openAddModal()">
@@ -613,32 +875,173 @@
 
     <!-- TAB 2: SITE MAP -->
     <div id="tabMapView" class="sites-card" style="display: none;">
+        <!-- Row 1: Site Search, Coordinate Finder, Custom Points & Stats -->
         <div class="toolbar-row">
             <div class="toolbar-left">
+                <!-- Site ID Autocomplete Search -->
                 <div class="autocomplete-wrap">
                     <div class="search-box">
                         <i class="fas fa-search-location"></i>
-                        <input type="text" id="mapSearchInput" class="search-input" placeholder="Search Site ID on map..." autocomplete="off" onkeyup="onMapSearchKeyup(event)" onfocus="onMapSearchFocus()">
+                        <input type="text" id="mapSearchInput" class="search-input" placeholder="Search Site ID..." autocomplete="off" onkeyup="onMapSearchKeyup(event)" onfocus="onMapSearchFocus()">
                     </div>
                     <div class="autocomplete-list" id="autoCompleteList"></div>
                 </div>
-                <button class="btn-custom btn-primary-grad" onclick="executeMapSearch()">
+                <button class="btn-custom btn-primary-grad" onclick="executeMapSearch()" title="Locate Site on map">
                     <i class="fas fa-crosshairs"></i> Locate
                 </button>
+
+                <!-- Coordinate Finder & Pin Dropper -->
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <div class="search-box" style="min-width: 220px;">
+                        <i class="fas fa-map-pin" style="color: #f43f5e;"></i>
+                        <input type="text" id="coordSearchInput" class="search-input" placeholder="Lat, Long (-6.208, 106.845)" onkeyup="onCoordInputKeyup(event)">
+                    </div>
+                    <button class="btn-custom btn-secondary-custom" onclick="pinCoordinatesFromInput()" title="Find and drop temporary pin at coordinates">
+                        <i class="fas fa-thumbtack" style="color: #f43f5e;"></i> Pin Coords
+                    </button>
+                </div>
+
+                <!-- Custom Point Action Button -->
+                <button class="btn-custom btn-secondary-custom" onclick="openAddCustomPointModal()" title="Add custom marker with label, color, and notes">
+                    <i class="fas fa-plus-circle" style="color: #a855f7;"></i> Custom Point
+                </button>
+
+                <!-- Clear Active Temp Pin Button (hidden when no temp pin) -->
+                <button class="btn-custom btn-secondary-custom" id="clearTempPinBtn" style="display:none; color:#ef4444; border-color:rgba(239,68,68,0.3);" onclick="clearTemporaryPin()" title="Clear active temporary pin">
+                    <i class="fas fa-times-circle"></i> Clear Pin
+                </button>
             </div>
+
             <div class="map-stats-bar">
-                <span class="stat-chip total" id="chipTotal">Total: 0</span>
-                <span class="stat-chip valid" id="chipValid">Mapped: 0</span>
-                <span class="stat-chip invalid" id="chipInvalid">Invalid Coords: 0</span>
+                <span class="stat-chip total" id="chipTotal" title="Total site records in database">Total: 0</span>
+                <span class="stat-chip valid" id="chipValid" title="Sites matching selected providers displayed on map">Mapped: 0</span>
+                <span class="stat-chip" id="chipCustomPoints" style="background: rgba(168,85,247,0.15); color: #c084fc; cursor: pointer;" onclick="openCustomPointsListModal()" title="Click to manage custom points">
+                    <i class="fas fa-star"></i> Custom Points: <span id="customPointsCount">0</span>
+                </span>
+                <span class="stat-chip invalid" id="chipInvalid" title="Sites with missing or invalid coordinates">Invalid Coords: 0</span>
             </div>
         </div>
 
-        <div style="position: relative; width: 100%; height: 600px;">
+        <!-- Row 2: Dynamic Provider Legend, Multi-Select & Color Pickers -->
+        <div class="provider-legend-container" id="providerLegendContainer">
+            <div class="legend-items-wrap" id="legendItemsWrap">
+                <div style="font-size:12px; font-weight:700; color:#64748b; margin-right:4px;">
+                    <i class="fas fa-layer-group" style="color:#4facfe;"></i> Providers:
+                </div>
+                <!-- Dynamic provider chips rendered here -->
+                <span style="font-size:12px; color:#94a3b8;"><i class="fas fa-spinner fa-spin"></i> Loading providers...</span>
+            </div>
+            <div class="legend-actions-wrap">
+                <button type="button" class="legend-quick-btn" onclick="selectOnlyDefaultProvider('Telkomsel')" title="Select only Telkomsel">
+                    <i class="fas fa-check"></i> Telkomsel
+                </button>
+                <button type="button" class="legend-quick-btn" onclick="selectAllProviders()" title="Select all available providers">
+                    All
+                </button>
+                <button type="button" class="legend-quick-btn" onclick="deselectAllProviders()" title="Deselect all providers">
+                    Clear
+                </button>
+            </div>
+        </div>
+
+        <!-- Map Container -->
+        <div style="position: relative; width: 100%; height: 620px;">
             <div id="mapLoadingOverlay" style="position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(15,23,42,0.75); backdrop-filter: blur(4px); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; border-radius: 12px;">
                 <i class="fas fa-spinner fa-spin" style="font-size: 36px; color: #4facfe;"></i>
                 <div style="font-size: 14px; font-weight: 600; color: #fff;">Loading Map Sites Data...</div>
             </div>
             <div id="mapContainer" style="width:100%; height:100%; border-radius:12px;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Add / Edit Custom Point -->
+<div class="modal-overlay" id="customPointModal" style="z-index: 10002;">
+    <div class="modal-box" style="max-width: 500px;">
+        <div class="modal-header">
+            <div class="modal-title" id="customPointModalTitle">
+                <i class="fas fa-map-marker-alt" style="color: #a855f7;"></i> Add Custom Point
+            </div>
+            <button class="modal-close" onclick="closeModal('customPointModal')">&times;</button>
+        </div>
+        <form id="customPointForm" onsubmit="saveCustomPoint(event)">
+            <input type="hidden" id="customPointId" value="">
+            <div class="form-grid">
+                <div class="form-group" style="grid-column: span 2;">
+                    <label class="form-label">Point Label / Name <span style="color:#ef4444;">*</span></label>
+                    <input type="text" id="cpLabel" class="form-control" placeholder="e.g. Branch Office, VIP Cluster, Hub A" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Latitude <span style="color:#ef4444;">*</span></label>
+                    <input type="number" step="any" id="cpLat" class="form-control" placeholder="-6.2088" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Longitude <span style="color:#ef4444;">*</span></label>
+                    <input type="number" step="any" id="cpLng" class="form-control" placeholder="106.8451" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Point Color</label>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input type="color" id="cpColor" value="#a855f7" class="provider-color-input" style="width:34px; height:34px;">
+                        <span id="cpColorHex" style="font-size:12px; font-weight:700; color:#94a3b8;">#a855f7</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category / Tag</label>
+                    <input type="text" id="cpTag" class="form-control" placeholder="e.g. Competitor, VIP, Office">
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label class="form-label">Description / Notes</label>
+                    <textarea id="cpNotes" class="form-control" rows="3" placeholder="Add additional details, remarks, or metadata..."></textarea>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+                <button type="button" class="btn-custom btn-secondary-custom" onclick="closeModal('customPointModal')">Cancel</button>
+                <button type="submit" class="btn-custom btn-primary-grad" id="saveCpBtn">Save Custom Point</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Custom Points Manager -->
+<div class="modal-overlay" id="customPointsListModal" style="z-index: 10002;">
+    <div class="modal-box" style="max-width: 680px; max-height: 85vh;">
+        <div class="modal-header">
+            <div class="modal-title">
+                <i class="fas fa-star" style="color: #c084fc;"></i> Custom Map Points (<span id="cpListHeaderCount">0</span>)
+            </div>
+            <button class="modal-close" onclick="closeModal('customPointsListModal')">&times;</button>
+        </div>
+        <div style="font-size: 13px; color: #64748b;">
+            Custom points are saved in your browser session and plotted directly on the map.
+        </div>
+        <div class="table-responsive" style="max-height: 360px; overflow-y: auto;">
+            <table class="sites-table" style="font-size: 12px;">
+                <thead>
+                    <tr>
+                        <th style="width: 30px;">Color</th>
+                        <th>Label</th>
+                        <th>Coordinates</th>
+                        <th>Tag</th>
+                        <th>Notes</th>
+                        <th style="width: 80px; text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="customPointsTableBody">
+                    <!-- Populated dynamically -->
+                </tbody>
+            </table>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+            <button type="button" class="btn-custom btn-danger-custom" onclick="clearAllCustomPoints()" style="font-size: 12px;">
+                <i class="fas fa-trash-alt"></i> Clear All Custom Points
+            </button>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="btn-custom btn-secondary-custom" onclick="closeModal('customPointsListModal')">Close</button>
+                <button type="button" class="btn-custom btn-primary-grad" onclick="closeModal('customPointsListModal'); openAddCustomPointModal();">
+                    <i class="fas fa-plus"></i> Add New Point
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -663,67 +1066,146 @@
     </div>
 </div>
 
-<!-- CSV Upload & Preview Modal -->
+<!-- CSV Upload & Pre-Import Comparison Modal -->
 <div class="modal-overlay" id="csvModal">
-    <div class="modal-box" style="max-width: 620px;">
+    <div class="modal-box" id="csvModalBox" style="max-width: 960px; width: 92%; max-height: 92vh;">
         <div class="modal-header">
-            <div class="modal-title"><i class="fas fa-file-csv" style="color:#4facfe;"></i> CSV Import & Smart Upsert</div>
-            <button class="modal-close" onclick="closeModal('csvModal')">&times;</button>
+            <div class="modal-title" id="csvModalHeaderTitle">
+                <i class="fas fa-file-csv" style="color:#4facfe;"></i> CSV Import & Pre-Import Comparison
+            </div>
+            <button class="modal-close" onclick="cancelCsvImport()">&times;</button>
         </div>
         
         <!-- Step 1: File Selection -->
-        <div id="csvStep1">
+        <div id="csvStep1" style="display: flex; flex-direction: column; gap: 14px;">
             <div class="drop-zone" id="dropZone" onclick="document.getElementById('csvFileInput').click()">
                 <i class="fas fa-cloud-upload-alt"></i>
-                <div style="font-size:14px; font-weight:600;">Drag & drop your CSV file here or click to browse</div>
-                <div style="font-size:12px; color:#64748b; margin-top:4px;">Must contain <code>SiteID_v2</code> column. Updates existing sites, inserts new sites.</div>
+                <div style="font-size:15px; font-weight:700;">Drag & drop your CSV file here or click to browse</div>
+                <div style="font-size:12px; color:#64748b; margin-top:6px;">
+                    Must contain <code>SiteID_v2</code> column. Uploaded data will be <b>validated and compared</b> against PostgreSQL before applying any changes.
+                </div>
             </div>
             <input type="file" id="csvFileInput" accept=".csv" style="display:none;" onchange="handleCsvFileSelected(event)">
-        </div>
-
-        <!-- Step 2: Preview Screen -->
-        <div id="csvStep2" style="display:none; flex-direction:column; gap:14px;">
-            <div class="map-stats-bar" style="justify-content: space-between;">
-                <span class="stat-chip total" id="prevTotal">Total CSV: 0</span>
-                <span class="stat-chip valid" id="prevNew">INSERT (New): 0</span>
-                <span class="stat-chip update" id="prevUpdate">UPDATE (Exist): 0</span>
-                <span class="stat-chip invalid" id="prevDup">CSV Dups: 0</span>
-            </div>
-
-            <div id="unknownColsWarning" style="display:none; padding:10px; border-radius:8px; background:rgba(234,179,8,0.15); color:#eab308; border:1px solid rgba(234,179,8,0.3); font-size:12px;">
-                <i class="fas fa-exclamation-triangle"></i> Warning: CSV contains unknown columns: <b id="warnColsText"></b>
-            </div>
-
-            <div style="font-size:12px; font-weight:600; color:#64748b;">Preview Sample Data (First 10 rows):</div>
-            <div class="table-responsive" style="max-height: 180px;">
-                <table class="sites-table" style="font-size:12px;">
-                    <thead id="csvPreviewHead"></thead>
-                    <tbody id="csvPreviewBody"></tbody>
-                </table>
-            </div>
-
-            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
-                <button type="button" class="btn-custom btn-secondary-custom" onclick="resetCsvModal()">Back</button>
-                <button type="button" class="btn-custom btn-primary-grad" onclick="executeBatchCsvImport()">Start Import</button>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #64748b; padding: 0 4px;">
+                <div><i class="fas fa-shield-alt" style="color: #22c55e;"></i> Safety Guarantee: No database records will be modified until you confirm after review.</div>
+                <a href="/api/sites_db/csv_template" class="btn-custom btn-secondary-custom" style="padding: 6px 12px; font-size: 12px;">
+                    <i class="fas fa-download"></i> Get Template CSV
+                </a>
             </div>
         </div>
 
-        <!-- Step 3: Progress & Summary -->
+        <!-- Step 2: Comparing in Progress -->
+        <div id="csvStep2" style="display:none; flex-direction:column; align-items:center; justify-content:center; padding: 40px 20px; gap: 16px; text-align: center;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 40px; color: #4facfe;"></i>
+            <div style="font-size: 16px; font-weight: 700;">Validating & Comparing CSV with Database...</div>
+            <div style="font-size: 13px; color: #64748b; max-width: 480px;">
+                Checking column schema, identifying duplicates, and comparing against existing PostgreSQL records...
+            </div>
+        </div>
+
+        <!-- Step 3: Comparison Review Dashboard -->
         <div id="csvStep3" style="display:none; flex-direction:column; gap:14px;">
-            <div style="font-size:14px; font-weight:600;" id="progressTitle">Importing Sites Data...</div>
-            <div class="progress-bar-bg">
-                <div class="progress-bar-fill" id="progressBarFill"></div>
+            <!-- Summary KPI Chips -->
+            <div class="map-stats-bar" style="justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                <span class="stat-chip total" id="cmpChipTotal">Total CSV: 0</span>
+                <span class="stat-chip unchanged" id="cmpChipUnchanged" style="background: rgba(100,116,139,0.15); color: #94a3b8;">Unchanged: 0</span>
+                <span class="stat-chip update" id="cmpChipChanged">Changed: 0</span>
+                <span class="stat-chip valid" id="cmpChipNew">New: 0</span>
+                <span class="stat-chip invalid" id="cmpChipError">Errors: 0</span>
+                <span class="stat-chip dup" id="cmpChipDup" style="background: rgba(234,179,8,0.15); color: #eab308;">Dups: 0</span>
             </div>
-            <div style="font-size:13px; color:#64748b;" id="progressText">Processing batch UPSERT in PostgreSQL...</div>
 
-            <div id="importSummaryBox" style="display:none; flex-direction:column; gap:10px; padding:14px; border-radius:10px; background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3);">
-                <div style="font-weight:700; color:#22c55e;"><i class="fas fa-check-circle"></i> Import Completed Successfully</div>
-                <div style="font-size:13px;" id="summaryMetricsText"></div>
+            <!-- Unknown Columns Warning -->
+            <div id="cmpUnknownColsWarning" style="display:none; padding:10px 14px; border-radius:8px; background:rgba(234,179,8,0.15); color:#eab308; border:1px solid rgba(234,179,8,0.3); font-size:12px;">
+                <i class="fas fa-exclamation-triangle"></i> <b>Notice:</b> The CSV contains unknown columns that do not exist in <code>sites_db</code>: <span id="cmpWarnColsText" style="font-weight:700;"></span>
+            </div>
+
+            <!-- Comparison Sub Navigation Tabs -->
+            <div class="cmp-nav">
+                <button type="button" class="cmp-tab-btn active" id="cmpTabSummaryBtn" onclick="switchCmpTab('summary')">
+                    <i class="fas fa-chart-pie"></i> Summary
+                </button>
+                <button type="button" class="cmp-tab-btn" id="cmpTabChangedBtn" onclick="switchCmpTab('changed')">
+                    <i class="fas fa-exchange-alt"></i> Changed Sites <span class="badge-stat changed" id="cmpBadgeChangedCount">0</span>
+                </button>
+                <button type="button" class="cmp-tab-btn" id="cmpTabNewBtn" onclick="switchCmpTab('new')">
+                    <i class="fas fa-plus-circle"></i> New Sites <span class="badge-stat new" id="cmpBadgeNewCount">0</span>
+                </button>
+                <button type="button" class="cmp-tab-btn" id="cmpTabUnchangedBtn" onclick="switchCmpTab('unchanged')">
+                    <i class="fas fa-check"></i> Unchanged <span class="badge-stat unchanged" id="cmpBadgeUnchangedCount">0</span>
+                </button>
+                <button type="button" class="cmp-tab-btn" id="cmpTabErrorsBtn" onclick="switchCmpTab('errors')">
+                    <i class="fas fa-exclamation-circle"></i> Errors & Duplicates <span class="badge-stat error" id="cmpBadgeErrorsCount">0</span>
+                </button>
+            </div>
+
+            <!-- Filter Search Bar within comparison tabs (hidden on summary) -->
+            <div id="cmpSearchWrap" style="display: none;">
+                <div class="search-box" style="width: 100%;">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="cmpSearchInput" class="search-input" placeholder="Filter sites in this tab..." onkeyup="filterCmpList()">
+                </div>
+            </div>
+
+            <!-- Sub Tab Views Container -->
+            <div id="cmpTabContent" style="min-height: 220px; max-height: 380px; overflow-y: auto; border-radius: 8px;">
+                <!-- Dynamically populated by switchCmpTab / renderCmpTabContent -->
+            </div>
+
+            <!-- Modal Action Footer -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(120, 130, 150, 0.2); padding-top: 12px; margin-top: 4px;">
+                <button type="button" class="btn-custom btn-secondary-custom" onclick="cancelCsvImport()">
+                    <i class="fas fa-times"></i> Cancel Import
+                </button>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn-custom btn-secondary-custom" onclick="resetCsvModal()">
+                        <i class="fas fa-redo"></i> Select Another File
+                    </button>
+                    <button type="button" class="btn-custom btn-primary-grad" id="cmpConfirmBtn" onclick="showImportConfirmModal()">
+                        <i class="fas fa-check-double"></i> Confirm & Import
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: Import Progress & Summary -->
+        <div id="csvStep4" style="display:none; flex-direction:column; gap:16px;">
+            <div style="font-size:15px; font-weight:700;" id="cmpProgressTitle">Importing Changes to Database...</div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="cmpProgressBarFill"></div>
+            </div>
+            <div style="font-size:13px; color:#64748b;" id="cmpProgressText">Executing transactional database updates and inserts...</div>
+
+            <div id="cmpImportResultCard" style="display:none; flex-direction:column; gap:12px; padding:16px; border-radius:12px; background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3);">
+                <div style="display: flex; align-items: center; gap: 8px; font-weight:700; color:#22c55e; font-size: 15px;">
+                    <i class="fas fa-check-circle" style="font-size: 20px;"></i> Database Import Completed Successfully
+                </div>
+                <div style="font-size:13px; line-height: 1.6;" id="cmpSummaryMetricsText"></div>
             </div>
 
             <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
-                <button type="button" class="btn-custom btn-primary-grad" id="csvFinishBtn" style="display:none;" onclick="finishCsvImport()">Done</button>
+                <button type="button" class="btn-custom btn-primary-grad" id="cmpFinishBtn" style="display:none;" onclick="finishCsvImport()">
+                    <i class="fas fa-check"></i> Done
+                </button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import Confirmation Prompt Modal -->
+<div class="modal-overlay" id="importConfirmModal" style="z-index: 10001;">
+    <div class="modal-box" style="max-width: 480px;">
+        <div class="modal-header">
+            <div class="modal-title"><i class="fas fa-question-circle" style="color: #4facfe;"></i> Confirm Database Import</div>
+            <button class="modal-close" onclick="closeModal('importConfirmModal')">&times;</button>
+        </div>
+        <div style="font-size: 14px; line-height: 1.6;" id="importConfirmMsg"></div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+            <button type="button" class="btn-custom btn-secondary-custom" onclick="closeModal('importConfirmModal')">Cancel</button>
+            <button type="button" class="btn-custom btn-primary-grad" onclick="executeConfirmedImport()">
+                <i class="fas fa-check"></i> Yes, Proceed with Import
+            </button>
         </div>
     </div>
 </div>
@@ -742,9 +1224,7 @@
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block page_scripts %}
 <script>
 // ── Global State Variables ──
 let schemaInfo = [];
@@ -759,17 +1239,46 @@ let editPkVal = null;
 
 // Map state
 let mapInstance = null;
-let mapPointsLayer = null;
-let siteMapCoords = []; // [{id, lat, lng}]
-let selectedFile = null;
+let allMapSites = []; // [{id, lat, lng, provider}]
+let mapClusterGroup = null;
 let activeAutocompleteIndex = -1;
+
+// Provider Legend & Color Customizer State
+let availableProviders = [];
+let selectedProviders = new Set(["Telkomsel"]);
+let providerColors = {
+    "Telkomsel": "#00f2fe",
+    "Indosat": "#f59e0b",
+    "XL": "#3b82f6",
+    "Smartfren": "#ec4899",
+    "Tri": "#a855f7",
+    "Other": "#10b981"
+};
+const DEFAULT_PALETTE = ["#00f2fe", "#f59e0b", "#3b82f6", "#ec4899", "#10b981", "#a855f7", "#ef4444", "#f97316"];
+
+// Temporary Coordinate Pin Marker State
+let temporaryPinMarker = null;
+
+// Custom Points State (persistent in localStorage)
+let customPointsList = [];
+let customPointsLayerGroup = null;
+
+// CSV Comparison Wizard State
+let selectedFile = null;
+let comparisonData = null; // Full JSON response from /api/sites_db/csv_compare
+let activeCmpTab = "summary";
+let cmpSearchTerm = "";
+let includeUpdates = true;
+let includeNew = true;
 
 const CSRF_TOKEN = "{{ csrf_token() }}";
 
 // ── DOM Initialization ──
 document.addEventListener("DOMContentLoaded", () => {
+    loadCustomPointsFromStorage();
     fetchSchemaAndLoad();
     setupDropZone();
+    setupColorPickerSync();
 
     // Close autocomplete on click outside
     document.addEventListener("click", (e) => {
@@ -778,6 +1287,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 });
+
+// ── Utility Helper ──
+function escapeHtml(text) {
+    if (text === null || text === undefined) return "";
+    const div = document.createElement("div");
+    div.innerText = String(text);
+    return div.innerHTML;
+}
 
 // ── Tab Switcher ──
 function switchTab(tab) {
@@ -839,10 +1356,7 @@ function renderTableHeader() {
                  </th>`;
     });
     
-    {% if role == 'admin' %}
-    html += `<th style="width: 80px; text-align: center;">Actions</th>`;
-    {% endif %}
-    
+    html += `<th style="width: 110px; text-align: center;">Actions</th>`;
     html += "</tr>";
     thead.innerHTML = html;
 }
@@ -896,16 +1410,20 @@ function renderTableRows(data) {
             html += `<td>${val}</td>`;
         });
 
-        {% if role == 'admin' %}
         const pkVal = row[pkCol] || "";
         const rowJson = JSON.stringify(row).replace(/'/g, "&apos;");
+        const latVal = row.latitude !== undefined && row.latitude !== null ? row.latitude : 'null';
+        const lngVal = row.longitude !== undefined && row.longitude !== null ? row.longitude : 'null';
+
         html += `<td>
             <div class="action-btns" style="justify-content: center;">
+                <button class="action-btn map-btn" title="View on Map" onclick="viewSiteOnMap('${pkVal}', ${latVal}, ${lngVal})"><i class="fas fa-map-marker-alt"></i></button>
+                {% if role == 'admin' %}
                 <button class="action-btn edit-btn" title="Edit" onclick='openEditModal(${rowJson})'><i class="fas fa-pencil-alt"></i></button>
                 <button class="action-btn del-btn" title="Delete" onclick="confirmDeleteSite('${pkVal}')"><i class="fas fa-trash-alt"></i></button>
+                {% endif %}
             </div>
         </td>`;
-        {% endif %}
 
         html += "</tr>";
     });
@@ -940,6 +1458,32 @@ function renderPagination(pg) {
     html += `<button class="page-btn" ${pg.page === pg.total_pages ? "disabled" : ""} onclick="changePage(${pg.page + 1})"><i class="fas fa-chevron-right"></i></button>`;
 
     container.innerHTML = html;
+}
+
+// ── Export CSV Handler ──
+function exportSitesCsv() {
+    showToast("Exporting complete sites database to CSV...", "info");
+    window.location.href = "/api/sites_db/export_csv";
+}
+
+// ── View on Map Action Handler ──
+function viewSiteOnMap(siteId, lat, lng) {
+    const parsedLat = parseFloat(lat);
+    const parsedLng = parseFloat(lng);
+
+    if (lat === null || lng === null || isNaN(parsedLat) || isNaN(parsedLng) || parsedLat < -90 || parsedLat > 90 || parsedLng < -180 || parsedLng > 180) {
+        showToast(`Site '${siteId}' does not have valid latitude/longitude coordinates.`, "warning");
+        return;
+    }
+
+    switchTab('map');
+
+    const mapSearch = document.getElementById("mapSearchInput");
+    if (mapSearch) mapSearch.value = siteId;
+
+    setTimeout(() => {
+        locateSiteOnMap(siteId);
+    }, 250);
 }
 
 // ── Toolbar Handlers ──
@@ -1111,7 +1655,7 @@ function executeDeleteSite(pkVal) {
     });
 }
 
-// ── CSV Import Drag & Drop Handlers ──
+// ── CSV Pre-Import Comparison Wizard Handlers ──
 function setupDropZone() {
     const dropZone = document.getElementById("dropZone");
     if (!dropZone) return;
@@ -1144,11 +1688,24 @@ function openCsvModal() {
 
 function resetCsvModal() {
     selectedFile = null;
+    comparisonData = null;
+    activeCmpTab = "summary";
+    cmpSearchTerm = "";
+    includeUpdates = true;
+    includeNew = true;
     document.getElementById("csvFileInput").value = "";
-    document.getElementById("csvStep1").style.display = "block";
+    document.getElementById("csvStep1").style.display = "flex";
     document.getElementById("csvStep2").style.display = "none";
     document.getElementById("csvStep3").style.display = "none";
-    document.getElementById("csvFinishBtn").style.display = "none";
+    document.getElementById("csvStep4").style.display = "none";
+    document.getElementById("cmpFinishBtn").style.display = "none";
+    updateConfirmButtonState();
+}
+
+function cancelCsvImport() {
+    closeModal("csvModal");
+    showToast("Import cancelled. Database was not modified.", "info");
+    resetCsvModal();
 }
 
 function handleCsvFileSelected(e) {
@@ -1159,18 +1716,19 @@ function handleCsvFileSelected(e) {
 }
 
 function processCsvFile(file) {
-    if (!file.name.endsWith(".csv")) {
-        showToast("Please select a .csv file", "error");
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+        showToast("Please select a valid .csv file", "error");
         return;
     }
 
     selectedFile = file;
+    document.getElementById("csvStep1").style.display = "none";
+    document.getElementById("csvStep2").style.display = "flex";
+
     const formData = new FormData();
     formData.append("file", file);
 
-    showToast("Analyzing CSV file...", "info");
-
-    fetch("/api/sites_db/csv_preview", {
+    fetch("/api/sites_db/csv_compare", {
         method: "POST",
         headers: { "X-CSRFToken": CSRF_TOKEN },
         body: formData
@@ -1178,90 +1736,511 @@ function processCsvFile(file) {
     .then(r => r.json())
     .then(res => {
         if (res.status === "success") {
-            renderCsvPreview(res);
+            renderComparisonDashboard(res);
         } else {
-            showToast(res.message || "Invalid CSV file", "error");
+            document.getElementById("csvStep2").style.display = "none";
+            document.getElementById("csvStep1").style.display = "flex";
+            showToast(res.message || "CSV comparison failed", "error");
         }
     })
     .catch(err => {
         console.error(err);
-        showToast("Error processing CSV file", "error");
+        document.getElementById("csvStep2").style.display = "none";
+        document.getElementById("csvStep1").style.display = "flex";
+        showToast("Server error during CSV comparison", "error");
     });
 }
 
-function renderCsvPreview(previewData) {
-    document.getElementById("csvStep1").style.display = "none";
-    document.getElementById("csvStep2").style.display = "flex";
+function renderComparisonDashboard(data) {
+    comparisonData = data;
+    document.getElementById("csvStep2").style.display = "none";
+    document.getElementById("csvStep3").style.display = "flex";
 
-    document.getElementById("prevTotal").innerText = `Total CSV: ${previewData.total_csv_rows.toLocaleString()}`;
-    document.getElementById("prevNew").innerText = `INSERT (New): ${previewData.new_count.toLocaleString()}`;
-    document.getElementById("prevUpdate").innerText = `UPDATE (Exist): ${previewData.update_count.toLocaleString()}`;
-    document.getElementById("prevDup").innerText = `CSV Dups: ${previewData.internal_duplicate_count.toLocaleString()}`;
+    const sum = data.summary;
+    includeUpdates = (sum.changed_count > 0);
+    includeNew = (sum.new_count > 0);
 
-    const warnBox = document.getElementById("unknownColsWarning");
-    if (previewData.unknown_columns && previewData.unknown_columns.length > 0) {
+    document.getElementById("cmpChipTotal").innerText = `Total CSV: ${sum.total_csv_records.toLocaleString()}`;
+    document.getElementById("cmpChipUnchanged").innerText = `Unchanged: ${sum.unchanged_count.toLocaleString()}`;
+    document.getElementById("cmpChipChanged").innerText = `Changed: ${sum.changed_count.toLocaleString()}`;
+    document.getElementById("cmpChipNew").innerText = `New: ${sum.new_count.toLocaleString()}`;
+    document.getElementById("cmpChipError").innerText = `Errors: ${sum.error_count.toLocaleString()}`;
+    document.getElementById("cmpChipDup").innerText = `Dups: ${sum.duplicate_count.toLocaleString()}`;
+
+    // Badges on sub-tabs
+    document.getElementById("cmpBadgeChangedCount").innerText = sum.changed_count;
+    document.getElementById("cmpBadgeNewCount").innerText = sum.new_count;
+    document.getElementById("cmpBadgeUnchangedCount").innerText = sum.unchanged_count;
+    document.getElementById("cmpBadgeErrorsCount").innerText = (sum.error_count + sum.duplicate_count);
+
+    // Unknown columns notice
+    const warnBox = document.getElementById("cmpUnknownColsWarning");
+    if (data.unknown_columns && data.unknown_columns.length > 0) {
         warnBox.style.display = "block";
-        document.getElementById("warnColsText").innerText = previewData.unknown_columns.join(", ");
+        document.getElementById("cmpWarnColsText").innerText = data.unknown_columns.join(", ");
     } else {
         warnBox.style.display = "none";
     }
 
-    // Render Preview Table
-    const records = previewData.preview_records || [];
-    if (records.length === 0) return;
-
-    const cols = Object.keys(records[0]);
-    let headHtml = "<tr>";
-    cols.forEach(c => headHtml += `<th>${c}</th>`);
-    headHtml += "</tr>";
-    document.getElementById("csvPreviewHead").innerHTML = headHtml;
-
-    let bodyHtml = "";
-    records.forEach(r => {
-        bodyHtml += "<tr>";
-        cols.forEach(c => bodyHtml += `<td>${r[c] !== null ? r[c] : ''}</td>`);
-        bodyHtml += "</tr>";
-    });
-    document.getElementById("csvPreviewBody").innerHTML = bodyHtml;
+    updateConfirmButtonState();
+    switchCmpTab("summary");
 }
 
-function executeBatchCsvImport() {
-    if (!selectedFile) return;
+function toggleImportAction(action) {
+    if (action === 'updates') {
+        includeUpdates = !includeUpdates;
+    } else if (action === 'new') {
+        includeNew = !includeNew;
+    }
+    renderCmpTabContent();
+    updateConfirmButtonState();
+}
 
-    document.getElementById("csvStep2").style.display = "none";
-    document.getElementById("csvStep3").style.display = "flex";
+function updateConfirmButtonState() {
+    const btn = document.getElementById("cmpConfirmBtn");
+    if (!btn) return;
+    if (!comparisonData) {
+        btn.disabled = false;
+        btn.style.opacity = "1";
+        btn.style.cursor = "pointer";
+        return;
+    }
+    const hasSelection = (includeUpdates && comparisonData.summary.changed_count > 0) ||
+                         (includeNew && comparisonData.summary.new_count > 0);
+    btn.disabled = !hasSelection;
+    if (!hasSelection) {
+        btn.style.opacity = "0.45";
+        btn.style.cursor = "not-allowed";
+        btn.title = "Select at least one action (Updates or New Sites) to proceed.";
+    } else {
+        btn.style.opacity = "1";
+        btn.style.cursor = "pointer";
+        btn.title = "Proceed to confirm and import selected changes";
+    }
+}
 
-    const progressBar = document.getElementById("progressBarFill");
-    const progressText = document.getElementById("progressText");
-    const summaryBox = document.getElementById("importSummaryBox");
+function switchCmpTab(tabName) {
+    activeCmpTab = tabName;
+    cmpSearchTerm = "";
+    const searchInput = document.getElementById("cmpSearchInput");
+    if (searchInput) searchInput.value = "";
 
-    progressBar.style.width = "40%";
-    progressText.innerText = "Executing PostgreSQL batch UPSERT...";
+    const tabs = ["summary", "changed", "new", "unchanged", "errors"];
+    tabs.forEach(t => {
+        const btn = document.getElementById(`cmpTab${t.charAt(0).toUpperCase() + t.slice(1)}Btn`);
+        if (btn) {
+            if (t === tabName) btn.classList.add("active");
+            else btn.classList.remove("active");
+        }
+    });
 
-    const formData = new FormData();
-    formData.append("file", selectedFile);
+    renderCmpTabContent();
+}
 
-    fetch("/api/sites_db/csv_import", {
+function filterCmpList() {
+    cmpSearchTerm = document.getElementById("cmpSearchInput").value.trim();
+    renderCmpTabContent();
+}
+
+function renderCmpTabContent() {
+    const container = document.getElementById("cmpTabContent");
+    const searchWrap = document.getElementById("cmpSearchWrap");
+    if (!comparisonData) return;
+
+    searchWrap.style.display = (activeCmpTab === "summary") ? "none" : "block";
+    const q = cmpSearchTerm.toLowerCase();
+
+    if (activeCmpTab === "summary") {
+        const sum = comparisonData.summary;
+
+        let summaryDescHtml = "";
+        if (includeUpdates && includeNew) {
+            summaryDescHtml = `
+                <div style="padding:12px 14px; border-radius:10px; background:rgba(79,172,254,0.1); border:1px solid rgba(79,172,254,0.25); font-size:12px; line-height:1.6;">
+                    <i class="fas fa-info-circle" style="color:#4facfe;"></i> <b>Summary:</b> 
+                    Confirming this import will apply <b style="color:#c084fc;">${sum.changed_count.toLocaleString()} updates</b> and <b style="color:#22c55e;">${sum.new_count.toLocaleString()} new inserts</b> in a single safe transaction. 
+                    <b>${sum.unchanged_count.toLocaleString()}</b> unchanged sites will be skipped with zero unnecessary database writes.
+                </div>
+            `;
+        } else if (!includeUpdates && includeNew) {
+            summaryDescHtml = `
+                <div style="padding:12px 14px; border-radius:10px; background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); font-size:12px; line-height:1.6;">
+                    <i class="fas fa-check-circle" style="color:#22c55e;"></i> <b>Summary (New Sites Only):</b> 
+                    Confirming this import will <b>only insert ${sum.new_count.toLocaleString()} new sites</b>. 
+                    ${sum.changed_count > 0 ? `<b>${sum.changed_count.toLocaleString()}</b> changed sites in the CSV will be <b style="color:#ef4444;">ignored</b> and kept unchanged in your database.` : ''}
+                    <b>${sum.unchanged_count.toLocaleString()}</b> unchanged sites will be kept as-is.
+                </div>
+            `;
+        } else if (includeUpdates && !includeNew) {
+            summaryDescHtml = `
+                <div style="padding:12px 14px; border-radius:10px; background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.3); font-size:12px; line-height:1.6;">
+                    <i class="fas fa-sync-alt" style="color:#c084fc;"></i> <b>Summary (Updates Only):</b> 
+                    Confirming this import will <b>only update ${sum.changed_count.toLocaleString()} existing sites</b>. 
+                    ${sum.new_count > 0 ? `<b>${sum.new_count.toLocaleString()}</b> new sites in the CSV will be <b style="color:#ef4444;">ignored</b> and not added to the database.` : ''}
+                    <b>${sum.unchanged_count.toLocaleString()}</b> unchanged sites will be kept as-is.
+                </div>
+            `;
+        } else {
+            summaryDescHtml = `
+                <div style="padding:12px 14px; border-radius:10px; background:rgba(234,179,8,0.15); border:1px solid rgba(234,179,8,0.35); font-size:12px; line-height:1.6; color:#eab308;">
+                    <i class="fas fa-exclamation-triangle"></i> <b>No Actions Selected:</b> 
+                    Please select at least one action above (<b>Changed Sites</b> or <b>New Sites</b>) to proceed with the database import.
+                </div>
+            `;
+        }
+
+        container.innerHTML = `
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                <div class="cmp-card-box" style="border-left: 4px solid #4facfe;">
+                    <div style="font-size:14px; font-weight:700; color:#4facfe; margin-bottom:4px;">
+                        <i class="fas fa-file-alt"></i> File: ${escapeHtml(comparisonData.filename || 'Uploaded CSV')}
+                    </div>
+                    <div style="font-size:13px; color:#64748b;">
+                        CSV contains <b>${sum.total_csv_records.toLocaleString()}</b> total rows (${sum.unique_sites.toLocaleString()} unique sites).
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+                    <!-- Unchanged Sites Card -->
+                    <div class="cmp-card-box">
+                        <div style="font-size:12px; color:#64748b; font-weight:600;">Unchanged Sites</div>
+                        <div style="font-size:24px; font-weight:800; color:#94a3b8;">${sum.unchanged_count.toLocaleString()}</div>
+                        <div style="font-size:11px; color:#64748b; margin-top:2px;">No database write required</div>
+                    </div>
+
+                    <!-- Selectable Changed Sites Card -->
+                    <div class="cmp-action-card ${includeUpdates ? 'active updates' : 'inactive'}" onclick="toggleImportAction('updates')">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
+                            <div style="font-size:12px; font-weight:700; color:#c084fc; display:flex; align-items:center; gap:6px;">
+                                <i class="fas fa-sync-alt"></i> Changed Sites (Updates)
+                            </div>
+                            <input type="checkbox" class="action-checkbox" ${includeUpdates ? 'checked' : ''} onclick="event.stopPropagation(); toggleImportAction('updates')">
+                        </div>
+                        <div style="font-size:24px; font-weight:800; color:#c084fc;">${sum.changed_count.toLocaleString()}</div>
+                        <div style="font-size:11px; margin-top:2px;">
+                            ${includeUpdates ? '<span style="color:#c084fc; font-weight:600;"><i class="fas fa-check-circle"></i> Selected:</span> <span style="color:#64748b;">Will update existing records</span>' : '<span style="color:#ef4444; font-weight:600;"><i class="fas fa-ban"></i> Skipped:</span> <span style="color:#94a3b8;">Will keep existing database</span>'}
+                        </div>
+                    </div>
+
+                    <!-- Selectable New Sites Card -->
+                    <div class="cmp-action-card ${includeNew ? 'active inserts' : 'inactive'}" onclick="toggleImportAction('new')">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
+                            <div style="font-size:12px; font-weight:700; color:#22c55e; display:flex; align-items:center; gap:6px;">
+                                <i class="fas fa-plus-circle"></i> New Sites (Inserts)
+                            </div>
+                            <input type="checkbox" class="action-checkbox" ${includeNew ? 'checked' : ''} onclick="event.stopPropagation(); toggleImportAction('new')">
+                        </div>
+                        <div style="font-size:24px; font-weight:800; color:#22c55e;">${sum.new_count.toLocaleString()}</div>
+                        <div style="font-size:11px; margin-top:2px;">
+                            ${includeNew ? '<span style="color:#22c55e; font-weight:600;"><i class="fas fa-check-circle"></i> Selected:</span> <span style="color:#64748b;">Will insert new records</span>' : '<span style="color:#ef4444; font-weight:600;"><i class="fas fa-ban"></i> Skipped:</span> <span style="color:#94a3b8;">Will not insert new records</span>'}
+                        </div>
+                    </div>
+
+                    <!-- Errors & Duplicates Card -->
+                    <div class="cmp-card-box">
+                        <div style="font-size:12px; color:#64748b; font-weight:600;">Errors & Duplicates</div>
+                        <div style="font-size:24px; font-weight:800; color:#ef4444;">${(sum.error_count + sum.duplicate_count).toLocaleString()}</div>
+                        <div style="font-size:11px; color:#64748b; margin-top:2px;">${sum.error_count} invalid, ${sum.duplicate_count} duplicates</div>
+                    </div>
+                </div>
+
+                ${summaryDescHtml}
+            </div>
+        `;
+    } else if (activeCmpTab === "changed") {
+        let list = comparisonData.changed_sites || [];
+        if (q) {
+            list = list.filter(item => item.site_id.toLowerCase().includes(q) || (item.changes && item.changes.some(c => c.field.toLowerCase().includes(q))));
+        }
+
+        let headerStatusHtml = `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-radius:8px; margin-bottom:10px; ${includeUpdates ? 'background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.25);' : 'background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25);'} font-size:12px;">
+                <div>
+                    ${includeUpdates 
+                        ? '<span style="color:#c084fc; font-weight:700;"><i class="fas fa-check-circle"></i> Updates are ENABLED for import</span>' 
+                        : '<span style="color:#ef4444; font-weight:700;"><i class="fas fa-ban"></i> Updates are SKIPPED (these changes will NOT be applied to database)</span>'}
+                </div>
+                <button type="button" class="btn-custom btn-secondary-custom" style="padding:4px 10px; font-size:11px;" onclick="toggleImportAction('updates')">
+                    ${includeUpdates ? '<i class="fas fa-times"></i> Skip Updates' : '<i class="fas fa-check"></i> Enable Updates'}
+                </button>
+            </div>
+        `;
+
+        if (list.length === 0) {
+            container.innerHTML = headerStatusHtml + `<div style="text-align:center; padding:30px; color:#64748b; font-size:13px;">No changed sites matching criteria</div>`;
+            return;
+        }
+
+        let html = headerStatusHtml + `<div style="display:flex; flex-direction:column; gap:10px;">`;
+        list.forEach(item => {
+            html += `
+            <div class="cmp-card-box">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <div style="font-size:14px; font-weight:700; color:#4facfe;">
+                        <i class="fas fa-broadcast-tower"></i> ${escapeHtml(item.site_id)}
+                    </div>
+                    <span class="badge-stat changed">${item.changes.length} field${item.changes.length > 1 ? 's' : ''} changed</span>
+                </div>
+                <table class="sites-table" style="font-size:12px; border-radius:6px; overflow:hidden;">
+                    <thead>
+                        <tr>
+                            <th style="width: 28%;">Field</th>
+                            <th style="width: 36%;">Existing (Database)</th>
+                            <th style="width: 36%;">Incoming (CSV)</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+            
+            item.changes.forEach(ch => {
+                html += `
+                    <tr>
+                        <td><b>${escapeHtml(ch.field)}</b></td>
+                        <td><span class="diff-old">${escapeHtml(ch.old_display)}</span></td>
+                        <td><span class="diff-new">${escapeHtml(ch.new_display)}</span></td>
+                    </tr>`;
+            });
+
+            html += `</tbody></table></div>`;
+        });
+        html += `</div>`;
+        container.innerHTML = html;
+    } else if (activeCmpTab === "new") {
+        let list = comparisonData.new_sites || [];
+        if (q) {
+            list = list.filter(item => item.site_id.toLowerCase().includes(q) || JSON.stringify(item.data).toLowerCase().includes(q));
+        }
+
+        let headerStatusHtml = `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-radius:8px; margin-bottom:10px; ${includeNew ? 'background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.25);' : 'background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25);'} font-size:12px;">
+                <div>
+                    ${includeNew 
+                        ? '<span style="color:#22c55e; font-weight:700;"><i class="fas fa-check-circle"></i> New site inserts are ENABLED</span>' 
+                        : '<span style="color:#ef4444; font-weight:700;"><i class="fas fa-ban"></i> New site inserts are SKIPPED (these sites will NOT be added to database)</span>'}
+                </div>
+                <button type="button" class="btn-custom btn-secondary-custom" style="padding:4px 10px; font-size:11px;" onclick="toggleImportAction('new')">
+                    ${includeNew ? '<i class="fas fa-times"></i> Skip Inserts' : '<i class="fas fa-check"></i> Enable Inserts'}
+                </button>
+            </div>
+        `;
+
+        if (list.length === 0) {
+            container.innerHTML = headerStatusHtml + `<div style="text-align:center; padding:30px; color:#64748b; font-size:13px;">No new sites found</div>`;
+            return;
+        }
+
+        const cols = comparisonData.columns || Object.keys(list[0].data || {});
+        let html = headerStatusHtml + `
+        <div class="table-responsive">
+            <table class="sites-table" style="font-size:12px;">
+                <thead>
+                    <tr>${cols.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr>
+                </thead>
+                <tbody>`;
+
+        list.forEach(item => {
+            html += `<tr>`;
+            cols.forEach(c => {
+                const val = item.data[c];
+                html += `<td>${val !== null && val !== undefined ? escapeHtml(String(val)) : '<span style="opacity:0.35;">null</span>'}</td>`;
+            });
+            html += `</tr>`;
+        });
+
+        html += `</tbody></table></div>`;
+        container.innerHTML = html;
+    } else if (activeCmpTab === "unchanged") {
+        let list = comparisonData.unchanged_sites || [];
+        if (q) {
+            list = list.filter(item => item.site_id.toLowerCase().includes(q));
+        }
+
+        if (list.length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding:30px; color:#64748b; font-size:13px;">No unchanged sites found</div>`;
+            return;
+        }
+
+        let html = `
+        <div class="table-responsive">
+            <table class="sites-table" style="font-size:12px;">
+                <thead>
+                    <tr>
+                        <th style="width: 60px;">#</th>
+                        <th>SiteID_v2</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+        list.forEach((item, idx) => {
+            html += `
+                <tr>
+                    <td>${idx + 1}</td>
+                    <td><b>${escapeHtml(item.site_id)}</b></td>
+                    <td><span class="badge-stat unchanged"><i class="fas fa-check"></i> Identical to Database</span></td>
+                </tr>`;
+        });
+
+        html += `</tbody></table></div>`;
+        container.innerHTML = html;
+    } else if (activeCmpTab === "errors") {
+        const errs = comparisonData.errors || [];
+        const dups = comparisonData.duplicates || [];
+
+        if (errs.length === 0 && dups.length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding:30px; color:#22c55e; font-size:13px;"><i class="fas fa-check-circle"></i> No errors or duplicate records found!</div>`;
+            return;
+        }
+
+        let html = `<div style="display:flex; flex-direction:column; gap:14px;">`;
+
+        if (dups.length > 0) {
+            html += `
+            <div class="cmp-card-box">
+                <div style="font-size:13px; font-weight:700; color:#eab308; margin-bottom:8px;">
+                    <i class="fas fa-copy"></i> Duplicate SiteID_v2 in CSV (${dups.length} sites with multiple occurrences)
+                </div>
+                <div style="font-size:12px; color:#64748b; margin-bottom:10px;">
+                    Deduplication rule applied: <b>Last occurrence in CSV is used</b>.
+                </div>
+                <table class="sites-table" style="font-size:12px;">
+                    <thead>
+                        <tr>
+                            <th>SiteID_v2</th>
+                            <th>Count</th>
+                            <th>CSV Row Numbers</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+            dups.forEach(d => {
+                html += `
+                    <tr>
+                        <td><b>${escapeHtml(d.site_id)}</b></td>
+                        <td><span class="badge-stat dup">${d.count} occurrences</span></td>
+                        <td>Rows: ${d.rows.join(", ")}</td>
+                    </tr>`;
+            });
+            html += `</tbody></table></div>`;
+        }
+
+        if (errs.length > 0) {
+            html += `
+            <div class="cmp-card-box">
+                <div style="font-size:13px; font-weight:700; color:#ef4444; margin-bottom:8px;">
+                    <i class="fas fa-exclamation-triangle"></i> Invalid CSV Rows (${errs.length})
+                </div>
+                <table class="sites-table" style="font-size:12px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 90px;">CSV Row</th>
+                            <th>SiteID</th>
+                            <th>Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+            errs.forEach(e => {
+                html += `
+                    <tr>
+                        <td>Row ${e.row}</td>
+                        <td>${escapeHtml(e.site_id || '—')}</td>
+                        <td><span class="badge-stat error">${escapeHtml(e.reason)}</span></td>
+                    </tr>`;
+            });
+            html += `</tbody></table></div>`;
+        }
+
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+}
+
+function showImportConfirmModal() {
+    if (!comparisonData) return;
+    const sum = comparisonData.summary;
+
+    const selectedUpdatesCount = (includeUpdates && sum.changed_count > 0) ? sum.changed_count : 0;
+    const selectedNewCount = (includeNew && sum.new_count > 0) ? sum.new_count : 0;
+
+    if (selectedUpdatesCount === 0 && selectedNewCount === 0) {
+        showToast("Please select at least one action (Updates or New Sites) to proceed.", "warning");
+        return;
+    }
+
+    let actionLines = "";
+    if (includeUpdates && sum.changed_count > 0) {
+        actionLines += `• <b style="color:#c084fc;">${sum.changed_count.toLocaleString()}</b> site updates will be applied.<br/>`;
+    } else if (sum.changed_count > 0) {
+        actionLines += `• <span style="color:#94a3b8;">${sum.changed_count.toLocaleString()} changed sites in CSV will be <b>SKIPPED (no changes)</b>.</span><br/>`;
+    }
+
+    if (includeNew && sum.new_count > 0) {
+        actionLines += `• <b style="color:#22c55e;">${sum.new_count.toLocaleString()}</b> new sites will be inserted.<br/>`;
+    } else if (sum.new_count > 0) {
+        actionLines += `• <span style="color:#94a3b8;">${sum.new_count.toLocaleString()} new sites in CSV will be <b>IGNORED (no inserts)</b>.</span><br/>`;
+    }
+
+    actionLines += `<br/><span style="color:#94a3b8;">${sum.unchanged_count.toLocaleString()} unchanged sites will remain untouched in PostgreSQL.</span>`;
+
+    const msg = `
+        You are about to perform the following database import:<br/><br/>
+        ${actionLines}<br/><br/>
+        Do you want to continue with the database import?
+    `;
+
+    document.getElementById("importConfirmMsg").innerHTML = msg;
+    document.getElementById("importConfirmModal").style.display = "flex";
+}
+
+function executeConfirmedImport() {
+    closeModal("importConfirmModal");
+    if (!comparisonData) return;
+
+    const selectedUpdates = includeUpdates ? (comparisonData.changed_sites || []) : [];
+    const selectedNew = includeNew ? (comparisonData.new_sites || []) : [];
+
+    if (selectedUpdates.length === 0 && selectedNew.length === 0) {
+        showToast("No actions selected to import.", "warning");
+        return;
+    }
+
+    document.getElementById("csvStep3").style.display = "none";
+    document.getElementById("csvStep4").style.display = "flex";
+
+    const progressBar = document.getElementById("cmpProgressBarFill");
+    const progressText = document.getElementById("cmpProgressText");
+    const resultCard = document.getElementById("cmpImportResultCard");
+
+    progressBar.style.width = "45%";
+    progressText.innerText = "Executing transactional database changes in PostgreSQL...";
+
+    const payload = {
+        changed_records: selectedUpdates,
+        new_records: selectedNew
+    };
+
+    fetch("/api/sites_db/csv_confirm_import", {
         method: "POST",
-        headers: { "X-CSRFToken": CSRF_TOKEN },
-        body: formData
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": CSRF_TOKEN
+        },
+        body: JSON.stringify(payload)
     })
     .then(r => r.json())
     .then(res => {
         progressBar.style.width = "100%";
         if (res.status === "success") {
-            const sm = res.summary;
-            progressText.innerText = "Import complete!";
-            summaryBox.style.display = "flex";
-            document.getElementById("summaryMetricsText").innerHTML = `
-                • Total CSV rows: <b>${sm.total_csv_rows.toLocaleString()}</b><br/>
-                • Unique Sites Processed: <b>${sm.processed.toLocaleString()}</b><br/>
-                • New Sites Inserted: <b style="color:#22c55e;">${sm.inserted.toLocaleString()}</b><br/>
-                • Existing Sites Updated: <b style="color:#a855f7;">${sm.updated.toLocaleString()}</b><br/>
-                • Skipped/Invalid: <b>${sm.skipped}</b>
+            const sum = comparisonData.summary;
+            progressText.innerText = "Import completed!";
+            resultCard.style.display = "flex";
+            document.getElementById("cmpSummaryMetricsText").innerHTML = `
+                • Total CSV Records: <b>${sum.total_csv_records.toLocaleString()}</b><br/>
+                • Existing / Unchanged (Skipped): <b>${sum.unchanged_count.toLocaleString()}</b><br/>
+                • Existing Sites Updated: <b style="color:#a855f7;">${res.summary.updated.toLocaleString()}</b> (of ${sum.changed_count} detected)<br/>
+                • New Sites Inserted: <b style="color:#22c55e;">${res.summary.inserted.toLocaleString()}</b> (of ${sum.new_count} detected)<br/>
+                • Errors: <b>${sum.error_count}</b>
             `;
 
-            document.getElementById("csvFinishBtn").style.display = "inline-flex";
+            document.getElementById("cmpFinishBtn").style.display = "inline-flex";
             loadSitesData();
             if (mapInstance) loadMapSitesData();
         } else {
@@ -1271,20 +2250,18 @@ function executeBatchCsvImport() {
     })
     .catch(err => {
         console.error(err);
-        progressText.innerText = "Server error during CSV import";
+        progressText.innerText = "Server error during import execution";
         progressBar.style.background = "#ef4444";
     });
 }
 
 function finishCsvImport() {
     closeModal("csvModal");
-    showToast("Database successfully updated via CSV import!", "success");
+    showToast("Sites database successfully updated!", "success");
+    resetCsvModal();
 }
 
-// ── Ultra-Fast Lag-Free Leaflet Marker Cluster Implementation ──
-let allMapSites = []; // [{id, lat, lng}]
-let mapClusterGroup = null;
-
+// ── Ultra-Fast Lag-Free Leaflet Marker Cluster & Custom Points Implementation ──
 function initLeafletMapIfNeeded() {
     if (mapInstance) {
         mapInstance.invalidateSize();
@@ -1310,7 +2287,7 @@ function initLeafletMapIfNeeded() {
     streetLayer.addTo(mapInstance);
     L.control.layers({ "Street Map": streetLayer, "Satellite": satelliteLayer }).addTo(mapInstance);
 
-    // Initialize Marker Cluster Group with chunked loading & dynamic zoom unclustering
+    // Initialize Marker Cluster Group for sites
     mapClusterGroup = L.markerClusterGroup({
         chunkedLoading: true,
         maxClusterRadius: 50,
@@ -1319,10 +2296,19 @@ function initLeafletMapIfNeeded() {
         zoomToBoundsOnClick: true,
         disableClusteringAtZoom: 14
     });
-
     mapInstance.addLayer(mapClusterGroup);
 
+    // Dedicated Layer Group for Custom User Points
+    customPointsLayerGroup = L.layerGroup();
+    mapInstance.addLayer(customPointsLayerGroup);
+
+    // Map Click Listener to drop temporary coordinate pin
+    mapInstance.on("click", (e) => {
+        dropTemporaryPin(e.latlng.lat, e.latlng.lng, false);
+    });
+
     loadMapSitesData();
+    renderCustomPointsMarkers();
 }
 
 function loadMapSitesData() {
@@ -1336,16 +2322,33 @@ function loadMapSitesData() {
 
             if (res.status === "success") {
                 document.getElementById("chipTotal").innerText = `Total: ${res.total_count.toLocaleString()}`;
-                document.getElementById("chipValid").innerText = `Mapped: ${res.valid_count.toLocaleString()}`;
                 document.getElementById("chipInvalid").innerText = `Invalid Coords: ${res.invalid_count.toLocaleString()}`;
 
                 allMapSites = res.sites || [];
-                renderClusterMarkers(allMapSites);
+                availableProviders = res.providers || ["Telkomsel"];
+
+                // Assign default colors if not defined
+                availableProviders.forEach((prov, idx) => {
+                    if (!providerColors[prov]) {
+                        providerColors[prov] = DEFAULT_PALETTE[idx % DEFAULT_PALETTE.length];
+                    }
+                });
+
+                // Default selection: Telkomsel selected
+                if (!selectedProviders || selectedProviders.size === 0) {
+                    selectedProviders = new Set(["Telkomsel"]);
+                }
+
+                renderProviderLegend();
+                applyMapFilters();
 
                 // Fit bounds initially if not searched
                 if (allMapSites.length > 0 && !mapInstance._userSearched) {
-                    const bounds = allMapSites.map(s => [parseFloat(s.lat), parseFloat(s.lng)]);
-                    mapInstance.fitBounds(bounds, { padding: [30, 30], maxZoom: 12 });
+                    const validSites = allMapSites.filter(s => selectedProviders.has(s.provider || "Telkomsel"));
+                    if (validSites.length > 0) {
+                        const bounds = validSites.map(s => [parseFloat(s.lat), parseFloat(s.lng)]);
+                        mapInstance.fitBounds(bounds, { padding: [30, 30], maxZoom: 12 });
+                    }
                 }
             }
         })
@@ -1353,6 +2356,92 @@ function loadMapSitesData() {
             if (loadingOverlay) loadingOverlay.style.display = "none";
             console.error(err);
         });
+}
+
+// ── Provider Legend & Multi-Select Filter ──
+function renderProviderLegend() {
+    const container = document.getElementById("legendItemsWrap");
+    if (!container) return;
+
+    let html = `
+        <div style="font-size:12px; font-weight:700; color:#64748b; margin-right:4px; display:inline-flex; align-items:center; gap:4px;">
+            <i class="fas fa-layer-group" style="color:#4facfe;"></i> Providers:
+        </div>
+    `;
+
+    // Calculate site count per provider
+    const counts = {};
+    allMapSites.forEach(s => {
+        const p = s.provider || "Telkomsel";
+        counts[p] = (counts[p] || 0) + 1;
+    });
+
+    availableProviders.forEach(prov => {
+        const isChecked = selectedProviders.has(prov);
+        const color = providerColors[prov] || "#00f2fe";
+        const count = counts[prov] || 0;
+
+        html += `
+            <label class="provider-chip ${isChecked ? 'active' : ''}" id="chip_prov_${escapeHtml(prov)}" title="Click to filter by ${escapeHtml(prov)}">
+                <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleProvider('${escapeHtml(prov)}', this.checked)">
+                <input type="color" value="${color}" class="provider-color-input" title="Change point color for ${escapeHtml(prov)}" onclick="event.stopPropagation()" onchange="updateProviderColor('${escapeHtml(prov)}', this.value)">
+                <span>${escapeHtml(prov)}</span>
+                <span style="font-size:11px; opacity:0.75; font-weight:700;">(${count.toLocaleString()})</span>
+            </label>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function toggleProvider(prov, isChecked) {
+    if (isChecked) {
+        selectedProviders.add(prov);
+    } else {
+        selectedProviders.delete(prov);
+    }
+
+    const chipEl = document.getElementById(`chip_prov_${prov}`);
+    if (chipEl) {
+        if (isChecked) chipEl.classList.add("active");
+        else chipEl.classList.remove("active");
+    }
+
+    applyMapFilters();
+}
+
+function updateProviderColor(prov, newColor) {
+    providerColors[prov] = newColor;
+    applyMapFilters();
+}
+
+function selectOnlyDefaultProvider(defProv) {
+    selectedProviders = new Set([defProv]);
+    renderProviderLegend();
+    applyMapFilters();
+}
+
+function selectAllProviders() {
+    selectedProviders = new Set(availableProviders);
+    renderProviderLegend();
+    applyMapFilters();
+}
+
+function deselectAllProviders() {
+    selectedProviders = new Set();
+    renderProviderLegend();
+    applyMapFilters();
+}
+
+function applyMapFilters() {
+    if (!allMapSites) return;
+
+    const filteredSites = allMapSites.filter(site => {
+        const prov = site.provider || "Telkomsel";
+        return selectedProviders.has(prov);
+    });
+
+    renderClusterMarkers(filteredSites);
 }
 
 function renderClusterMarkers(sites) {
@@ -1367,17 +2456,19 @@ function renderClusterMarkers(sites) {
         if (isNaN(lat) || isNaN(lng)) return;
 
         const siteId = site.id;
+        const prov = site.provider || "Telkomsel";
+        const color = providerColors[prov] || "#00f2fe";
 
         const marker = L.circleMarker([lat, lng], {
             radius: 6,
-            fillColor: "#00f2fe",
-            color: "#0284c7",
+            fillColor: color,
+            color: "#ffffff",
             weight: 1.5,
-            opacity: 0.9,
+            opacity: 0.95,
             fillOpacity: 0.85
         });
 
-        // Floating text tooltip
+        // Clean Floating Text Tooltip
         marker.bindTooltip(siteId, {
             permanent: true,
             direction: "top",
@@ -1392,6 +2483,9 @@ function renderClusterMarkers(sites) {
     });
 
     mapClusterGroup.addLayers(markersList);
+
+    // Update Mapped count chip
+    document.getElementById("chipValid").innerText = `Mapped: ${sites.length.toLocaleString()}`;
 }
 
 // ── On-Demand 2-Column Popup Detail ──
@@ -1401,21 +2495,396 @@ function fetchAndShowSitePopup(siteId, marker) {
         .then(res => {
             if (res.status === "success") {
                 const detail = res.detail;
-                let html = `<div style="min-width:210px; font-family:'Inter',sans-serif;">
-                    <strong style="font-size:14px; color:#4facfe;">${siteId}</strong>
+                let html = `<div style="min-width:220px; font-family:'Inter',sans-serif;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(120,130,150,0.2); padding-bottom:4px;">
+                        <strong style="font-size:14px; color:#4facfe;">${escapeHtml(siteId)}</strong>
+                        <span style="font-size:11px; padding:2px 6px; border-radius:4px; background:rgba(79,172,254,0.15); color:#4facfe; font-weight:700;">${escapeHtml(detail.Provider || detail.provider || 'Telkomsel')}</span>
+                    </div>
                     <table class="popup-2col-table">`;
                 
                 Object.keys(detail).forEach(key => {
                     let val = detail[key];
                     if (val === null || val === undefined) val = '—';
-                    html += `<tr><th>${key}</th><td>${val}</td></tr>`;
+                    html += `<tr><th>${escapeHtml(key)}</th><td>${escapeHtml(String(val))}</td></tr>`;
                 });
 
-                html += `</table></div>`;
+                html += `</table>
+                    <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:8px;">
+                        <button type="button" class="btn-custom btn-secondary-custom" style="padding:4px 8px; font-size:11px;" onclick="copyCoordinates(${detail.latitude || 0}, ${detail.longitude || 0})">
+                            <i class="fas fa-copy"></i> Copy Coords
+                        </button>
+                    </div>
+                </div>`;
                 marker.bindPopup(html).openPopup();
             }
         })
         .catch(err => console.error(err));
+}
+
+// ── Coordinate Finder & Temporary Pin Dropper ──
+function onCoordInputKeyup(e) {
+    if (e.key === "Enter") {
+        pinCoordinatesFromInput();
+    }
+}
+
+function pinCoordinatesFromInput() {
+    const input = document.getElementById("coordSearchInput");
+    if (!input) return;
+    const val = input.value.trim();
+    if (!val) {
+        showToast("Please enter latitude and longitude coordinates.", "warning");
+        return;
+    }
+
+    // Parse lat & lng with regex supporting comma, space, or colon separators
+    const match = val.match(/([+-]?\d+(?:\.\d+)?)[,\s:]+([+-]?\d+(?:\.\d+)?)/);
+    if (!match) {
+        showToast("Invalid format. Use: latitude, longitude (e.g. -6.2088, 106.8451)", "warning");
+        return;
+    }
+
+    const lat = parseFloat(match[1]);
+    const lng = parseFloat(match[2]);
+
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        showToast("Coordinates out of valid range (Lat: -90 to 90, Lng: -180 to 180).", "error");
+        return;
+    }
+
+    dropTemporaryPin(lat, lng, true);
+}
+
+function dropTemporaryPin(lat, lng, panTo = true) {
+    if (!mapInstance) return;
+
+    const latFixed = parseFloat(lat).toFixed(6);
+    const lngFixed = parseFloat(lng).toFixed(6);
+
+    // Remove existing temporary pin
+    if (temporaryPinMarker) {
+        mapInstance.removeLayer(temporaryPinMarker);
+        temporaryPinMarker = null;
+    }
+
+    const pulseIcon = L.divIcon({
+        className: 'temp-pin-wrapper',
+        html: `<div class="pulse-pin-dot" title="Temporary Pin: ${latFixed}, ${lngFixed}"></div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+    });
+
+    temporaryPinMarker = L.marker([lat, lng], { icon: pulseIcon, zIndexOffset: 1000 }).addTo(mapInstance);
+
+    const popupContent = `
+        <div style="min-width: 220px; font-family: 'Inter', sans-serif;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <strong style="color: #f43f5e; font-size: 13px;"><i class="fas fa-thumbtack"></i> Temporary Pin</strong>
+                <span style="font-size: 10px; background: rgba(244,63,94,0.15); color: #f43f5e; padding: 2px 6px; border-radius: 4px; font-weight: 700;">Unsaved</span>
+            </div>
+            <table class="popup-2col-table">
+                <tr><th>Latitude</th><td>${latFixed}</td></tr>
+                <tr><th>Longitude</th><td>${lngFixed}</td></tr>
+            </table>
+            <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 10px;">
+                <div style="display: flex; gap: 6px;">
+                    <button type="button" class="btn-custom btn-primary-grad" style="flex:1; padding: 5px 8px; font-size: 11px; justify-content: center;" onclick="openAddModalWithCoords(${lat}, ${lng})">
+                        <i class="fas fa-plus"></i> Save as Site
+                    </button>
+                    <button type="button" class="btn-custom btn-secondary-custom" style="flex:1; padding: 5px 8px; font-size: 11px; justify-content: center;" onclick="openAddCustomPointModal(${lat}, ${lng})">
+                        <i class="fas fa-star" style="color:#c084fc;"></i> Custom Point
+                    </button>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    <button type="button" class="btn-custom btn-secondary-custom" style="flex:1; padding: 4px 8px; font-size: 11px; justify-content: center;" onclick="copyCoordinates(${lat}, ${lng})">
+                        <i class="fas fa-copy"></i> Copy Coords
+                    </button>
+                    <button type="button" class="btn-custom btn-danger-custom" style="padding: 4px 8px; font-size: 11px;" onclick="clearTemporaryPin()" title="Clear Pin">
+                        <i class="fas fa-trash"></i> Clear
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    temporaryPinMarker.bindPopup(popupContent).openPopup();
+
+    if (panTo) {
+        mapInstance.setView([lat, lng], 15);
+    }
+
+    // Update coordinate input field & show toolbar clear button
+    const coordInput = document.getElementById("coordSearchInput");
+    if (coordInput) coordInput.value = `${latFixed}, ${lngFixed}`;
+
+    const clearBtn = document.getElementById("clearTempPinBtn");
+    if (clearBtn) clearBtn.style.display = "inline-flex";
+
+    showToast(`Temporary pin placed at ${latFixed}, ${lngFixed}`, "info");
+}
+
+function clearTemporaryPin() {
+    if (temporaryPinMarker && mapInstance) {
+        mapInstance.removeLayer(temporaryPinMarker);
+        temporaryPinMarker = null;
+    }
+    const coordInput = document.getElementById("coordSearchInput");
+    if (coordInput) coordInput.value = "";
+
+    const clearBtn = document.getElementById("clearTempPinBtn");
+    if (clearBtn) clearBtn.style.display = "none";
+
+    showToast("Temporary pin cleared", "info");
+}
+
+function copyCoordinates(lat, lng) {
+    const text = `${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}`;
+    navigator.clipboard.writeText(text).then(() => {
+        showToast(`Copied coordinates: ${text}`, "success");
+    }).catch(() => {
+        showToast(`Coordinates: ${text}`, "info");
+    });
+}
+
+function openAddModalWithCoords(lat, lng) {
+    openAddModal();
+    setTimeout(() => {
+        const form = document.getElementById("siteForm");
+        if (form) {
+            const latInput = form.querySelector('[name="latitude"], [name="Latitude"]');
+            const lngInput = form.querySelector('[name="longitude"], [name="Longitude"]');
+            const provInput = form.querySelector('[name="Provider"], [name="provider"]');
+            if (latInput) latInput.value = parseFloat(lat).toFixed(6);
+            if (lngInput) lngInput.value = parseFloat(lng).toFixed(6);
+            if (provInput && !provInput.value) provInput.value = "Telkomsel";
+        }
+    }, 100);
+}
+
+// ── Custom Points Management ──
+function loadCustomPointsFromStorage() {
+    try {
+        const stored = localStorage.getItem("sites_db_custom_points");
+        customPointsList = stored ? JSON.parse(stored) : [];
+    } catch (e) {
+        customPointsList = [];
+    }
+    updateCustomPointsBadge();
+}
+
+function saveCustomPointsToStorage() {
+    try {
+        localStorage.setItem("sites_db_custom_points", JSON.stringify(customPointsList));
+    } catch (e) {
+        console.error("Storage error:", e);
+    }
+    updateCustomPointsBadge();
+    renderCustomPointsMarkers();
+}
+
+function updateCustomPointsBadge() {
+    const chip = document.getElementById("chipCustomPoints");
+    const countEl = document.getElementById("customPointsCount");
+    const count = customPointsList.length;
+
+    if (countEl) countEl.innerText = count;
+    if (chip) chip.style.display = count > 0 ? "inline-flex" : "none";
+}
+
+function renderCustomPointsMarkers() {
+    if (!customPointsLayerGroup) return;
+    customPointsLayerGroup.clearLayers();
+
+    customPointsList.forEach(cp => {
+        const lat = parseFloat(cp.lat);
+        const lng = parseFloat(cp.lng);
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        const color = cp.color || "#a855f7";
+
+        const icon = L.divIcon({
+            className: 'custom-pin-wrapper',
+            html: `<div class="custom-pin-dot" style="background:${color}; border-color:#ffffff; box-shadow:0 0 10px ${color};" title="${escapeHtml(cp.label)}"></div>`,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        });
+
+        const marker = L.marker([lat, lng], { icon: icon }).addTo(customPointsLayerGroup);
+
+        // Floating Text Tooltip
+        marker.bindTooltip(cp.label, {
+            permanent: true,
+            direction: "top",
+            offset: [0, -8],
+            className: "clean-text-label"
+        });
+
+        const popupHtml = `
+            <div style="min-width: 210px; font-family: 'Inter', sans-serif;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; border-bottom:1px solid rgba(120,130,150,0.2); padding-bottom:4px;">
+                    <strong style="color: ${color}; font-size: 14px;"><i class="fas fa-star"></i> ${escapeHtml(cp.label)}</strong>
+                    ${cp.tag ? `<span style="font-size:10px; background:rgba(168,85,247,0.15); color:#c084fc; padding:2px 6px; border-radius:4px; font-weight:700;">${escapeHtml(cp.tag)}</span>` : ''}
+                </div>
+                <table class="popup-2col-table">
+                    <tr><th>Coordinates</th><td>${lat.toFixed(6)}, ${lng.toFixed(6)}</td></tr>
+                    ${cp.notes ? `<tr><th>Notes</th><td>${escapeHtml(cp.notes)}</td></tr>` : ''}
+                </table>
+                <div style="display: flex; justify-content: flex-end; gap: 6px; margin-top: 10px;">
+                    <button type="button" class="btn-custom btn-secondary-custom" style="padding: 4px 8px; font-size: 11px;" onclick="copyCoordinates(${lat}, ${lng})">
+                        <i class="fas fa-copy"></i> Copy
+                    </button>
+                    <button type="button" class="btn-custom btn-danger-custom" style="padding: 4px 8px; font-size: 11px;" onclick="deleteCustomPoint('${cp.id}')">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+        `;
+
+        marker.bindPopup(popupHtml);
+    });
+}
+
+function openAddCustomPointModal(lat = null, lng = null, editId = null) {
+    document.getElementById("customPointForm").reset();
+    document.getElementById("customPointId").value = "";
+
+    if (editId) {
+        const cp = customPointsList.find(p => p.id === editId);
+        if (cp) {
+            document.getElementById("customPointId").value = cp.id;
+            document.getElementById("cpLabel").value = cp.label || "";
+            document.getElementById("cpLat").value = cp.lat;
+            document.getElementById("cpLng").value = cp.lng;
+            document.getElementById("cpColor").value = cp.color || "#a855f7";
+            document.getElementById("cpColorHex").innerText = cp.color || "#a855f7";
+            document.getElementById("cpTag").value = cp.tag || "";
+            document.getElementById("cpNotes").value = cp.notes || "";
+            document.getElementById("customPointModalTitle").innerHTML = `<i class="fas fa-pencil-alt" style="color:#a855f7;"></i> Edit Custom Point`;
+        }
+    } else {
+        document.getElementById("customPointModalTitle").innerHTML = `<i class="fas fa-map-marker-alt" style="color:#a855f7;"></i> Add Custom Point`;
+        if (lat !== null && lng !== null) {
+            document.getElementById("cpLat").value = parseFloat(lat).toFixed(6);
+            document.getElementById("cpLng").value = parseFloat(lng).toFixed(6);
+        }
+        document.getElementById("cpColor").value = "#a855f7";
+        document.getElementById("cpColorHex").innerText = "#a855f7";
+    }
+
+    document.getElementById("customPointModal").style.display = "flex";
+}
+
+function saveCustomPoint(e) {
+    e.preventDefault();
+    const id = document.getElementById("customPointId").value || "cp_" + Date.now();
+    const label = document.getElementById("cpLabel").value.trim();
+    const lat = parseFloat(document.getElementById("cpLat").value);
+    const lng = parseFloat(document.getElementById("cpLng").value);
+    const color = document.getElementById("cpColor").value;
+    const tag = document.getElementById("cpTag").value.trim();
+    const notes = document.getElementById("cpNotes").value.trim();
+
+    if (!label || isNaN(lat) || isNaN(lng)) {
+        showToast("Please fill in Label and valid Coordinates", "error");
+        return;
+    }
+
+    const existingIdx = customPointsList.findIndex(p => p.id === id);
+    const pointData = { id, label, lat, lng, color, tag, notes, createdAt: new Date().toISOString() };
+
+    if (existingIdx >= 0) {
+        customPointsList[existingIdx] = pointData;
+        showToast(`Updated custom point '${label}'`, "success");
+    } else {
+        customPointsList.push(pointData);
+        showToast(`Added custom point '${label}'`, "success");
+    }
+
+    saveCustomPointsToStorage();
+    closeModal("customPointModal");
+
+    if (temporaryPinMarker && mapInstance) {
+        mapInstance.removeLayer(temporaryPinMarker);
+        temporaryPinMarker = null;
+    }
+}
+
+function deleteCustomPoint(id) {
+    customPointsList = customPointsList.filter(p => p.id !== id);
+    saveCustomPointsToStorage();
+    renderCustomPointsTable();
+    showToast("Custom point deleted", "info");
+}
+
+function clearAllCustomPoints() {
+    if (!confirm("Are you sure you want to clear all custom points?")) return;
+    customPointsList = [];
+    saveCustomPointsToStorage();
+    renderCustomPointsTable();
+    closeModal("customPointsListModal");
+    showToast("All custom points cleared", "info");
+}
+
+function openCustomPointsListModal() {
+    renderCustomPointsTable();
+    document.getElementById("customPointsListModal").style.display = "flex";
+}
+
+function renderCustomPointsTable() {
+    const tbody = document.getElementById("customPointsTableBody");
+    const countHeader = document.getElementById("cpListHeaderCount");
+    if (countHeader) countHeader.innerText = customPointsList.length;
+
+    if (!tbody) return;
+
+    if (customPointsList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:24px; opacity:0.6;">No custom points saved yet. Click "+ Add New Point" or drop pins on the map!</td></tr>`;
+        return;
+    }
+
+    let html = "";
+    customPointsList.forEach(cp => {
+        const color = cp.color || "#a855f7";
+        html += `
+            <tr>
+                <td style="text-align:center;">
+                    <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:${color}; border:1.5px solid #fff; box-shadow:0 0 4px ${color};"></span>
+                </td>
+                <td><b>${escapeHtml(cp.label)}</b></td>
+                <td><code>${parseFloat(cp.lat).toFixed(4)}, ${parseFloat(cp.lng).toFixed(4)}</code></td>
+                <td><span class="badge-stat" style="background:rgba(168,85,247,0.15); color:#c084fc;">${escapeHtml(cp.tag || 'Custom')}</span></td>
+                <td style="max-width:180px; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(cp.notes || '—')}</td>
+                <td>
+                    <div class="action-btns" style="justify-content:center;">
+                        <button class="action-btn map-btn" title="Locate on Map" onclick="locateCustomPoint('${cp.id}')"><i class="fas fa-crosshairs"></i></button>
+                        <button class="action-btn edit-btn" title="Edit" onclick="openAddCustomPointModal(null, null, '${cp.id}')"><i class="fas fa-pencil-alt"></i></button>
+                        <button class="action-btn del-btn" title="Delete" onclick="deleteCustomPoint('${cp.id}')"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function locateCustomPoint(id) {
+    const cp = customPointsList.find(p => p.id === id);
+    if (!cp || !mapInstance) return;
+
+    closeModal("customPointsListModal");
+    mapInstance.setView([cp.lat, cp.lng], 16);
+    showToast(`Centered on custom point '${cp.label}'`, "info");
+}
+
+function setupColorPickerSync() {
+    const colorInput = document.getElementById("cpColor");
+    const hexSpan = document.getElementById("cpColorHex");
+    if (colorInput && hexSpan) {
+        colorInput.addEventListener("input", (e) => {
+            hexSpan.innerText = e.target.value;
+        });
+    }
 }
 
 // ── Map Autocomplete Search Handlers ──
@@ -1468,7 +2937,7 @@ function renderAutocompleteDropdown(suggestions) {
 
     let html = "";
     suggestions.forEach(item => {
-        html += `<div class="autocomplete-item" onclick="selectAutocompleteItem('${item}')">${item}</div>`;
+        html += `<div class="autocomplete-item" onclick="selectAutocompleteItem('${item}')">${escapeHtml(item)}</div>`;
     });
 
     list.innerHTML = html;
@@ -1496,7 +2965,7 @@ function locateSiteOnMap(siteIdQuery) {
     if (!siteIdQuery || !allMapSites.length) return;
     const q = siteIdQuery.trim().toLowerCase();
 
-    // Global Dataset Search across all 2,875 sites in memory
+    // Global Dataset Search across all sites in memory
     const targetSite = allMapSites.find(s => s.id && (s.id.toLowerCase() === q || s.id.toLowerCase().startsWith(q)));
 
     if (!targetSite) {
@@ -1512,6 +2981,14 @@ function locateSiteOnMap(siteIdQuery) {
         return;
     }
 
+    // Ensure site's provider is selected so marker is visible
+    const targetProv = targetSite.provider || "Telkomsel";
+    if (!selectedProviders.has(targetProv)) {
+        selectedProviders.add(targetProv);
+        renderProviderLegend();
+        applyMapFilters();
+    }
+
     if (mapInstance && mapClusterGroup) {
         mapInstance._userSearched = true;
 
@@ -1524,13 +3001,13 @@ function locateSiteOnMap(siteIdQuery) {
 
         if (foundMarker) {
             mapClusterGroup.zoomToShowLayer(foundMarker, () => {
-                foundMarker.setStyle({ radius: 10, fillColor: "#ff007f", color: "#ffffff", weight: 2 });
+                foundMarker.setStyle({ radius: 10, fillColor: "#ff007f", color: "#ffffff", weight: 3, fillOpacity: 1 });
                 fetchAndShowSitePopup(targetSite.id, foundMarker);
-                showToast(`Located site '${targetSite.id}'`, "info");
+                showToast(`Located site '${targetSite.id}' on map`, "info");
             });
         } else {
-            mapInstance.setView([lat, lng], 15);
-            showToast(`Located site '${targetSite.id}'`, "info");
+            mapInstance.setView([lat, lng], 16);
+            showToast(`Located site '${targetSite.id}' on map`, "info");
         }
     }
 }
@@ -1555,7 +3032,7 @@ function showToast(msg, type = "info") {
     setTimeout(() => {
         toast.style.opacity = "0";
         setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    }, 3200);
 }
 </script>
 {% endblock %}

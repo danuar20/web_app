@@ -24,7 +24,8 @@ def create_table(cur):
             "latitude"    DOUBLE PRECISION,
             "NOP"         VARCHAR(100),
             "RTPO"        VARCHAR(100),
-            "kabupaten"   VARCHAR(100)
+            "kabupaten"   VARCHAR(100),
+            "Provider"    VARCHAR(100) DEFAULT 'Telkomsel'
         )
     """)
 
@@ -34,6 +35,7 @@ def import_csv(cur, filepath):
         reader = csv.DictReader(f)
         rows = []
         for row in reader:
+            provider = row.get("Provider") or "Telkomsel"
             rows.append((
                 row["SiteID"].strip() if row["SiteID"] else None,
                 row["SiteID_v2"].strip() if row["SiteID_v2"] else None,
@@ -43,11 +45,12 @@ def import_csv(cur, filepath):
                 row["NOP"].strip() if row["NOP"] else None,
                 row["RTPO"].strip() if row["RTPO"] else None,
                 row["kabupaten"].strip() if row["kabupaten"] else None,
+                provider.strip() if provider else "Telkomsel",
             ))
 
     insert_sql = f"""
-        INSERT INTO "{TABLE_NAME}" ("SiteID", "SiteID_v2", "tac", "longitude", "latitude", "NOP", "RTPO", "kabupaten")
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO "{TABLE_NAME}" ("SiteID", "SiteID_v2", "tac", "longitude", "latitude", "NOP", "RTPO", "kabupaten", "Provider")
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     cur.executemany(insert_sql, rows)
     return len(rows)
