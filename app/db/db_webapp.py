@@ -344,22 +344,24 @@ def _get_city_list_4g_impl():
 
 
 def get_city_list_2g():
-    """Get the list of unique 2G cities using latest date and cache."""
-    return _get_cached("2g_cities", lambda: _get_city_list_2g_impl())
+    """Get the list of unique 2G cities grouped by NSA using latest date and cache."""
+    return _get_cached("2g_cities_grouped", lambda: _get_city_list_2g_impl())
 
 def _get_city_list_2g_impl():
-    # 1. Fast: Query distinct cities from daily table for the latest date
+    # 1. Fast: Query distinct NSA and city from daily table for the latest date
     try:
         with closing(get_postgres_connection()) as conn:
             with closing(conn.cursor()) as cur:
                 cur.execute("""
-                    SELECT DISTINCT city FROM "2g_kpi_zte_daily"
+                    SELECT DISTINCT COALESCE(nsa, 'UNKNOWN') AS nsa, city
+                    FROM "2g_kpi_zte_daily"
                     WHERE kpi_date = (SELECT MAX(kpi_date) FROM "2g_kpi_zte_daily")
                       AND city IS NOT NULL AND city != ''
-                    ORDER BY city
+                    ORDER BY nsa, city
                 """)
-                cities = [r[0] for r in cur.fetchall()]
-                if cities:
+                rows = cur.fetchall()
+                if rows:
+                    cities = [{"name": r[1], "group": r[0]} for r in rows]
                     return cities, "daily_latest"
     except Exception:
         pass
@@ -368,14 +370,57 @@ def _get_city_list_2g_impl():
         with closing(get_postgres_connection()) as conn:
             with closing(conn.cursor()) as cur:
                 cur.execute("""
-                    SELECT DISTINCT city FROM "2g_kpi_zte"
+                    SELECT DISTINCT COALESCE(nsa, 'UNKNOWN') AS nsa, city
+                    FROM "2g_kpi_zte"
                     WHERE date = (SELECT MAX(date) FROM "2g_kpi_zte")
                       AND city IS NOT NULL AND city != ''
-                    ORDER BY city
+                    ORDER BY nsa, city
                 """)
-                cities = [r[0] for r in cur.fetchall()]
-                if cities:
+                rows = cur.fetchall()
+                if rows:
+                    cities = [{"name": r[1], "group": r[0]} for r in rows]
                     return cities, "hourly_latest"
+    except Exception as e:
+        return [], str(e)
+
+
+def get_bsc_list_2g():
+    """Get the list of unique 2G BSCs (me_name) grouped by NSA using latest date and cache."""
+    return _get_cached("2g_bscs_grouped", lambda: _get_bsc_list_2g_impl())
+
+def _get_bsc_list_2g_impl():
+    # 1. Fast: Query distinct NSA and BSC from daily table for the latest date
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute("""
+                    SELECT DISTINCT COALESCE(nsa, 'UNKNOWN') AS nsa, me_name
+                    FROM "2g_kpi_zte_daily"
+                    WHERE kpi_date = (SELECT MAX(kpi_date) FROM "2g_kpi_zte_daily")
+                      AND me_name IS NOT NULL AND me_name != ''
+                    ORDER BY nsa, me_name
+                """)
+                rows = cur.fetchall()
+                if rows:
+                    bscs = [{"name": r[1], "group": r[0]} for r in rows]
+                    return bscs, "daily_latest"
+    except Exception:
+        pass
+    # 2. Fallback: Query from hourly table on the latest date
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute("""
+                    SELECT DISTINCT COALESCE(nsa, 'UNKNOWN') AS nsa, me_name
+                    FROM "2g_kpi_zte"
+                    WHERE date = (SELECT MAX(date) FROM "2g_kpi_zte")
+                      AND me_name IS NOT NULL AND me_name != ''
+                    ORDER BY nsa, me_name
+                """)
+                rows = cur.fetchall()
+                if rows:
+                    bscs = [{"name": r[1], "group": r[0]} for r in rows]
+                    return bscs, "hourly_latest"
     except Exception as e:
         return [], str(e)
 

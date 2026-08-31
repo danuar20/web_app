@@ -1,6 +1,6 @@
 """2G Dashboard Routes — /dashboard_2g"""
 from flask import Blueprint, render_template, request, session, flash, make_response, jsonify
-from app.db.db_webapp import get_postgres_connection, get_site_list_2g, get_site_cell_list_2g, get_city_list_2g
+from app.db.db_webapp import get_postgres_connection, get_site_list_2g, get_site_cell_list_2g, get_city_list_2g, get_bsc_list_2g
 from ._utils import login_required, _no_cache, json_response, db_query
 import psycopg2
 import psycopg2.extras
@@ -159,6 +159,12 @@ def dashboard_2g_view():
         where_entity = "(siteid, bts) IN %s"
         sel_sites_param = tuple(parsed)
         group_entity = "siteid || '-' || bts"
+    elif filter_type == "bsc":
+        if not sel_sites_db:
+            sel_sites_db = ['UNKNOWN']
+        where_entity = "me_name IN %s"
+        sel_sites_param = tuple(sel_sites_db)
+        group_entity = "me_name"
     else:
         if not sel_sites_db:
             sel_sites_db = ['UNKNOWN']
@@ -178,6 +184,8 @@ def dashboard_2g_view():
             sites_list, _ = get_city_list_2g()
         elif filter_type == "site_cell":
             sites_list, _ = get_site_cell_list_2g()
+        elif filter_type == "bsc":
+            sites_list, _ = get_bsc_list_2g()
         else:
             sites_list, _ = get_site_list_2g()
     except Exception:
@@ -636,6 +644,8 @@ def get_filter_list_2g():
             items, _ = get_city_list_2g()
         elif ftype == "site_cell":
             items, _ = get_site_cell_list_2g()
+        elif ftype == "bsc":
+            items, _ = get_bsc_list_2g()
         else:
             items, _ = get_site_list_2g()
         return jsonify({"success": True, "items": items})

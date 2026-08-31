@@ -732,22 +732,23 @@
                     <div class="filter-group" style="width: 100%;">
                         <div class="filter-label" id="siteFilterLabel"
                             style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
-                            <span id="filterTitleLabel">{% if filter_type == 'city' %}CITIES{% elif filter_type == 'site_cell' %}SITE-CELLS{% else %}SITES{% endif %}</span>
+                            <span id="filterTitleLabel">{% if filter_type == 'city' %}CITIES{% elif filter_type == 'site_cell' %}SITE-CELLS{% elif filter_type == 'bsc' %}BSCS{% else %}SITES{% endif %}</span>
                             <div style="display: flex; gap: 8px; font-weight: 600; font-size: 10px; text-transform: none;">
                                 <label style="cursor:pointer;"><input type="radio" name="filter_type" value="siteid" {% if filter_type == 'siteid' or not filter_type %}checked{% endif %} onchange="onFilterTypeChange(this.value)"> Site ID</label>
                                 <label style="cursor:pointer;"><input type="radio" name="filter_type" value="site_cell" {% if filter_type == 'site_cell' %}checked{% endif %} onchange="onFilterTypeChange(this.value)"> Site-Cell</label>
                                 <label style="cursor:pointer;"><input type="radio" name="filter_type" value="city" {% if filter_type == 'city' %}checked{% endif %} onchange="onFilterTypeChange(this.value)"> City</label>
+                                <label style="cursor:pointer;"><input type="radio" name="filter_type" value="bsc" {% if filter_type == 'bsc' %}checked{% endif %} onchange="onFilterTypeChange(this.value)"> BSC</label>
                             </div>
                         </div>
                         <div class="dropdown-container" id="siteDropdownContainer" style="position: relative;">
                             <button type="button" class="dropdown-toggle" onclick="toggleSiteDropdown(event)"
                                 style="width: 100%; height: 36px; justify-content: space-between; padding: 0 12px; border-radius: 8px; font-size: 12px;">
-                                <span id="siteBtnText" style="font-weight: 600;">Select {% if filter_type == 'city' %}Cities{% elif filter_type == 'site_cell' %}Cells{% else %}Sites{% endif %} ({{ sel_sites|length if
+                                <span id="siteBtnText" style="font-weight: 600;">Select {% if filter_type == 'city' %}Cities{% elif filter_type == 'site_cell' %}Cells{% elif filter_type == 'bsc' %}BSCs{% else %}Sites{% endif %} ({{ sel_sites|length if
                                     sel_sites else 0 }})</span> <i class="fas fa-chevron-down"></i>
                             </button>
                             <div class="dropdown-menu" id="siteDropdown"
                                 style="display: none; z-index: 1000; position: absolute; width: 100%; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
-                                <input type="text" id="siteSearch" placeholder="Search {% if filter_type == 'city' %}cities{% elif filter_type == 'site_cell' %}cells{% else %}sites{% endif %}..." onkeyup="filterSites()"
+                                <input type="text" id="siteSearch" placeholder="Search {% if filter_type == 'city' %}cities{% elif filter_type == 'site_cell' %}cells{% elif filter_type == 'bsc' %}BSCs{% else %}sites{% endif %}..." onkeyup="filterSites()"
                                     style="width: calc(100% - 16px); padding: 6px; margin: 8px; border: 1px solid rgba(128,128,128,0.2); border-radius: 4px; font-size: 12px;">
                                 <label class="checkbox-label"
                                     style="border-bottom: 1px solid rgba(128,128,128,0.1); padding: 6px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;">
@@ -764,7 +765,7 @@
                     <div class="filter-group" style="width: 100%;">
                         <div class="filter-label" id="importLabel"
                             style="font-size: 10px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">
-                            Or import {% if filter_type == 'city' %}cities{% elif filter_type == 'site_cell' %}cells{% else %}sites{% endif %} from CSV</div>
+                            Or import {% if filter_type == 'city' %}cities{% elif filter_type == 'site_cell' %}cells{% elif filter_type == 'bsc' %}BSCs{% else %}sites{% endif %} from CSV</div>
                         <label class="f-input"
                             style="display:flex; align-items:center; gap:6px; cursor:pointer; width: max-content; padding:4px 10px; height: 32px; border-radius: 6px; background: rgba(128,128,128,0.05) !important;">
                             <i class="fas fa-file-import" style="color: #4facfe; font-size: 12px;"></i>
@@ -773,7 +774,7 @@
                             <span id="siteFileLabel" style="font-weight: 600; font-size: 11px;">Choose CSV
                                 file...</span>
                         </label>
-                        <textarea id="sitePasteArea" name="site_paste" class="f-input" placeholder="Paste {% if filter_type == 'city' %}city names{% elif filter_type == 'site_cell' %}cell{% else %}site{% endif %} IDs here
+                        <textarea id="sitePasteArea" name="site_paste" class="f-input" placeholder="Paste {% if filter_type == 'city' %}city names{% elif filter_type == 'site_cell' %}cell{% elif filter_type == 'bsc' %}BSC names{% else %}site{% endif %} IDs here
 (one per line or comma-separated)" rows="3"
                             style="width: 100%; resize:vertical; font-size:11px; margin-top:8px; box-sizing: border-box; border-radius: 6px;"
                             oninput="handleInlinePasteAndSelect(this.value)">{{ site_paste if site_paste else '' }}</textarea>
@@ -1004,7 +1005,7 @@
         <!-- Site/City Level Comparison -->
         <div class="card" style="margin-top: 16px;">
             <div class="chart-box-header">
-                <div class="card-title">{% if filter_type == 'city' %}City{% elif filter_type == 'site_cell' %}Site-cell{% else %}Site{% endif %} Level Comparison</div>
+                <div class="card-title">{% if filter_type == 'city' %}City{% elif filter_type == 'site_cell' %}Site-cell{% elif filter_type == 'bsc' %}BSC{% else %}Site{% endif %} Level Comparison</div>
                 <button class="btn-apply" onclick="downloadCSV('siteTable')"><i class="fas fa-download"></i>
                     CSV</button>
             </div>
@@ -1013,7 +1014,7 @@
                     <table class="site-table" id="siteTable">
                         <thead>
                             <tr>
-                                <th class="entity-col" rowspan="2" style="background:#1e3a5f;">{% if filter_type == 'city' %}City{% elif filter_type == 'site_cell' %}Site-Cell{% else %}Site ID{% endif %}</th>
+                                <th class="entity-col" rowspan="2" style="background:#1e3a5f;">{% if filter_type == 'city' %}City{% elif filter_type == 'site_cell' %}Site-Cell{% elif filter_type == 'bsc' %}BSC{% else %}Site ID{% endif %}</th>
                                 {% for kpi in kpi_defs %}
                                 <th colspan="4" class="text-center">{{ kpi[1] }}</th>
                                 {% endfor %}
@@ -2474,59 +2475,106 @@
         const queryInput = document.getElementById('siteSearch');
         const query = queryInput ? queryInput.value.toLowerCase().trim() : '';
 
-        let itemsToRender = [];
-        let totalMatches = 0;
+        const hasGroups = allSitesList.some(item => typeof item === 'object' && item !== null && item.group);
 
-        if (!query) {
-            const selectedArr = [];
-            const unselectedArr = [];
-            for (let i = 0; i < allSitesList.length; i++) {
-                const item = allSitesList[i];
-                if (selectedSitesSet.has(item)) {
-                    selectedArr.push(item);
-                } else {
-                    unselectedArr.push(item);
+        let filteredItems = [];
+        for (let i = 0; i < allSitesList.length; i++) {
+            const rawItem = allSitesList[i];
+            const name = typeof rawItem === 'object' && rawItem !== null ? rawItem.name : rawItem;
+            const group = typeof rawItem === 'object' && rawItem !== null ? rawItem.group : null;
+
+            if (!query) {
+                filteredItems.push({ raw: rawItem, name: name, group: group });
+            } else {
+                if (name.toLowerCase().includes(query) || (group && group.toLowerCase().includes(query))) {
+                    filteredItems.push({ raw: rawItem, name: name, group: group });
                 }
             }
-            totalMatches = allSitesList.length;
-            itemsToRender = selectedArr.concat(unselectedArr).slice(0, SITE_RENDER_LIMIT);
-        } else {
-            const matches = [];
-            for (let i = 0; i < allSitesList.length; i++) {
-                const item = allSitesList[i];
-                if (item.toLowerCase().includes(query)) {
-                    matches.push(item);
-                }
-            }
-            totalMatches = matches.length;
-            const selectedMatches = [];
-            const unselectedMatches = [];
-            for (let i = 0; i < matches.length; i++) {
-                const item = matches[i];
-                if (selectedSitesSet.has(item)) {
-                    selectedMatches.push(item);
-                } else {
-                    unselectedMatches.push(item);
-                }
-            }
-            itemsToRender = selectedMatches.concat(unselectedMatches).slice(0, SITE_RENDER_LIMIT);
         }
 
+        const totalMatches = filteredItems.length;
         let html = [];
-        itemsToRender.forEach(item => {
-            const isChecked = selectedSitesSet.has(item) ? 'checked' : '';
-            html.push(`
-                <label class="checkbox-label" style="cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;">
-                    <input type="checkbox" value="${escapeHtml(item)}" ${isChecked} onchange="toggleSiteSelection('${escapeJs(item)}', this.checked)">
-                    <span>${escapeHtml(item)}</span>
-                </label>
-            `);
-        });
+
+        if (hasGroups) {
+            // Group the filtered items by group name (e.g. NSA)
+            const groupsMap = new Map();
+            filteredItems.forEach(itemObj => {
+                const grp = itemObj.group || 'Other';
+                if (!groupsMap.has(grp)) {
+                    groupsMap.set(grp, []);
+                }
+                groupsMap.get(grp).push(itemObj);
+            });
+
+            let renderedCount = 0;
+            for (const [grpName, items] of groupsMap.entries()) {
+                if (renderedCount >= SITE_RENDER_LIMIT) break;
+
+                html.push(`
+                    <div style="font-size: 10px; font-weight: 800; color: #94a3b8; margin: 8px 0 4px 2px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(128,128,128,0.15); padding-bottom: 2px;">
+                        ${escapeHtml(grpName)}
+                    </div>
+                `);
+
+                for (let j = 0; j < items.length; j++) {
+                    if (renderedCount >= SITE_RENDER_LIMIT) break;
+                    const itemObj = items[j];
+                    const itemName = itemObj.name;
+                    const isChecked = selectedSitesSet.has(itemName) ? 'checked' : '';
+                    html.push(`
+                        <label class="checkbox-label" style="cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 2px 4px;">
+                            <input type="checkbox" value="${escapeHtml(itemName)}" ${isChecked} onchange="toggleSiteSelection('${escapeJs(itemName)}', this.checked)">
+                            <span>${escapeHtml(itemName)}</span>
+                        </label>
+                    `);
+                    renderedCount++;
+                }
+            }
+        } else {
+            // Flat list (Site ID, Site-Cell, City)
+            let itemsToRender = [];
+            if (!query) {
+                const selectedArr = [];
+                const unselectedArr = [];
+                for (let i = 0; i < filteredItems.length; i++) {
+                    const itemObj = filteredItems[i];
+                    if (selectedSitesSet.has(itemObj.name)) {
+                        selectedArr.push(itemObj);
+                    } else {
+                        unselectedArr.push(itemObj);
+                    }
+                }
+                itemsToRender = selectedArr.concat(unselectedArr).slice(0, SITE_RENDER_LIMIT);
+            } else {
+                const selectedMatches = [];
+                const unselectedMatches = [];
+                for (let i = 0; i < filteredItems.length; i++) {
+                    const itemObj = filteredItems[i];
+                    if (selectedSitesSet.has(itemObj.name)) {
+                        selectedMatches.push(itemObj);
+                    } else {
+                        unselectedMatches.push(itemObj);
+                    }
+                }
+                itemsToRender = selectedMatches.concat(unselectedMatches).slice(0, SITE_RENDER_LIMIT);
+            }
+
+            itemsToRender.forEach(itemObj => {
+                const itemName = itemObj.name;
+                const isChecked = selectedSitesSet.has(itemName) ? 'checked' : '';
+                html.push(`
+                    <label class="checkbox-label" style="cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                        <input type="checkbox" value="${escapeHtml(itemName)}" ${isChecked} onchange="toggleSiteSelection('${escapeJs(itemName)}', this.checked)">
+                        <span>${escapeHtml(itemName)}</span>
+                    </label>
+                `);
+            });
+        }
 
         if (totalMatches > SITE_RENDER_LIMIT) {
             html.push(`
                 <div style="font-size: 10px; color: #888; text-align: center; padding: 4px; font-style: italic;">
-                    Showing ${itemsToRender.length} of ${totalMatches} matches. Refine search if needed.
+                    Showing ${Math.min(totalMatches, SITE_RENDER_LIMIT)} of ${totalMatches} matches. Refine search if needed.
                 </div>
             `);
         } else if (totalMatches === 0) {
@@ -2631,8 +2679,10 @@
         const query = queryInput ? queryInput.value.toLowerCase().trim() : '';
 
         if (query) {
-            allSitesList.forEach(item => {
-                if (item.toLowerCase().includes(query)) {
+            allSitesList.forEach(rawItem => {
+                const item = typeof rawItem === 'object' && rawItem !== null ? rawItem.name : rawItem;
+                const group = typeof rawItem === 'object' && rawItem !== null ? rawItem.group : '';
+                if (item.toLowerCase().includes(query) || (group && group.toLowerCase().includes(query))) {
                     if (source.checked) {
                         selectedSitesSet.add(item);
                     } else {
@@ -2642,7 +2692,10 @@
             });
         } else {
             if (source.checked) {
-                allSitesList.forEach(item => selectedSitesSet.add(item));
+                allSitesList.forEach(rawItem => {
+                    const item = typeof rawItem === 'object' && rawItem !== null ? rawItem.name : rawItem;
+                    selectedSitesSet.add(item);
+                });
             } else {
                 selectedSitesSet.clear();
             }
@@ -2664,6 +2717,7 @@
         let typeStr = 'Sites';
         if (ftype === 'city') typeStr = 'Cities';
         else if (ftype === 'site_cell') typeStr = 'Cells';
+        else if (ftype === 'bsc') typeStr = 'BSCs';
         const btnText = document.getElementById('siteBtnText');
         if (btnText) {
             btnText.textContent = count > 0 ? `Select ${typeStr} (${count})` : `Select ${typeStr} (0)`;
@@ -2712,6 +2766,7 @@
         const ftype = filterTypeNode ? filterTypeNode.value : 'siteid';
         const isCell = (ftype === 'site_cell');
         const isCity = (ftype === 'city');
+        const isBsc = (ftype === 'bsc');
 
         const rawItems = String(text).split(/[\n,;\t]+/).map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
         if (rawItems.length === 0) {
@@ -2725,7 +2780,8 @@
         const upperMap = new Map();
         if (allSitesList && allSitesList.length > 0) {
             for (let i = 0; i < allSitesList.length; i++) {
-                const item = allSitesList[i];
+                const rawItem = allSitesList[i];
+                const item = typeof rawItem === 'object' && rawItem !== null ? rawItem.name : rawItem;
                 upperMap.set(item.toUpperCase(), item);
             }
         }
@@ -2733,7 +2789,7 @@
         let matchedCount = 0;
         rawItems.forEach(item => {
             let candidate = item;
-            if (!isCell && !isCity && candidate.includes('-')) {
+            if (!isCell && !isCity && !isBsc && candidate.includes('-')) {
                 candidate = candidate.split('-')[0].trim();
             }
             if (upperMap.size > 0) {
@@ -2870,13 +2926,17 @@
             labelStr = "CITIES";
             singularStr = "city";
             pluralStr = "Cities";
+        } else if (type === "bsc") {
+            labelStr = "BSCS";
+            singularStr = "bsc";
+            pluralStr = "BSCs";
         }
 
         document.getElementById("filterTitleLabel").innerText = labelStr;
         document.getElementById("siteBtnText").textContent = `Select ${pluralStr} (0)`;
         document.getElementById("siteSearch").placeholder = `Search ${pluralStr.toLowerCase()}...`;
         document.getElementById("importLabel").innerText = `OR IMPORT ${labelStr} FROM CSV`;
-        document.getElementById("sitePasteArea").placeholder = type === 'city' ? `Paste city names here\n(one per line or comma-separated)` : `Paste ${singularStr} IDs here\n(one per line or comma-separated)`;
+        document.getElementById("sitePasteArea").placeholder = (type === 'city' || type === 'bsc') ? `Paste ${singularStr} names here\n(one per line or comma-separated)` : `Paste ${singularStr} IDs here\n(one per line or comma-separated)`;
         document.getElementById("siteSearch").value = "";
         document.getElementById("sitePasteArea").value = "";
         const cSpan = document.getElementById('sitePasteCount');
