@@ -12,7 +12,6 @@ unbalance_prb = Blueprint("unbalance_prb", __name__)
 
 @unbalance_prb.route("/unbalance_prb")
 @login_required
-@viewer_blocked
 def unbalance_prb_page():
     from datetime import date, timedelta
     import re

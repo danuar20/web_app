@@ -74,7 +74,6 @@ def _get_table_schema(cur):
 
 @sites_db_bp.route("/database/sites_db")
 @login_required
-@viewer_blocked
 def sites_db_page():
     response = make_response(render_template(
         "sites_db.html",
@@ -86,7 +85,6 @@ def sites_db_page():
 
 @sites_db_bp.route("/api/sites_db/schema")
 @login_required
-@viewer_blocked
 def api_sites_db_schema():
     try:
         with db_query(get_postgres_connection) as (conn, cur):
@@ -104,7 +102,6 @@ def api_sites_db_schema():
 
 @sites_db_bp.route("/api/sites_db/data")
 @login_required
-@viewer_blocked
 def api_sites_db_data():
     try:
         page = max(1, int(request.args.get("page", 1)))
@@ -183,7 +180,6 @@ def api_sites_db_data():
 
 @sites_db_bp.route("/api/sites_db/map")
 @login_required
-@viewer_blocked
 def api_sites_db_map():
     """Optimized lightweight map API returning only coordinates, SiteID_v2, and provider."""
     try:
@@ -197,6 +193,7 @@ def api_sites_db_map():
             lng_col = next((c for c in valid_cols if c.lower() == "longitude"), "longitude")
             id_col = "SiteID_v2" if "SiteID_v2" in valid_cols else ("SiteID" if "SiteID" in valid_cols else valid_cols[0])
             provider_col = next((c for c in valid_cols if c.lower() == "provider"), None)
+            site_name_col = next((c for c in valid_cols if c.lower() == "site_name"), None)
 
             cur.execute(f'SELECT COUNT(*) FROM "{TABLE_NAME}"')
             total_count = cur.fetchone()[0]
@@ -212,22 +209,30 @@ def api_sites_db_map():
                 where_clause += f' AND "{id_col}"::text ILIKE %s'
                 params.append(f"%{search}%")
 
+            select_items = [f'"{id_col}"', f'"{lat_col}"', f'"{lng_col}"']
             if provider_col:
-                query = f'SELECT "{id_col}", "{lat_col}", "{lng_col}", COALESCE("{provider_col}", \'Telkomsel\') FROM "{TABLE_NAME}" {where_clause}'
-                cur.execute(query, params)
-                rows = cur.fetchall()
-                sites = [
-                    {"id": r[0], "lat": r[1], "lng": r[2], "provider": str(r[3]).strip() if r[3] else "Telkomsel"}
-                    for r in rows
-                ]
+                select_items.append(f'COALESCE("{provider_col}", \'Telkomsel\')')
             else:
-                query = f'SELECT "{id_col}", "{lat_col}", "{lng_col}" FROM "{TABLE_NAME}" {where_clause}'
-                cur.execute(query, params)
-                rows = cur.fetchall()
-                sites = [
-                    {"id": r[0], "lat": r[1], "lng": r[2], "provider": "Telkomsel"}
-                    for r in rows
-                ]
+                select_items.append("'Telkomsel'")
+
+            if site_name_col:
+                select_items.append(f'COALESCE("{site_name_col}", \'\')')
+            else:
+                select_items.append("''")
+
+            query = f'SELECT {", ".join(select_items)} FROM "{TABLE_NAME}" {where_clause}'
+            cur.execute(query, params)
+            rows = cur.fetchall()
+            sites = [
+                {
+                    "id": r[0],
+                    "lat": r[1],
+                    "lng": r[2],
+                    "provider": str(r[3]).strip() if r[3] else "Telkomsel",
+                    "name": str(r[4]).strip() if r[4] else ""
+                }
+                for r in rows
+            ]
 
             valid_count = len(sites)
             invalid_count = max(0, total_count - valid_count)
@@ -256,7 +261,6 @@ def api_sites_db_map():
 
 @sites_db_bp.route("/api/sites_db/detail/<path:site_id>")
 @login_required
-@viewer_blocked
 def api_sites_db_detail(site_id):
     """Fetch complete site metadata for map popup on-demand."""
     try:
@@ -282,7 +286,6 @@ def api_sites_db_detail(site_id):
 
 @sites_db_bp.route("/api/sites_db/autocomplete")
 @login_required
-@viewer_blocked
 def api_sites_db_autocomplete():
     """Autocomplete suggestions for SiteID_v2 (max 10 prefix matches)."""
     try:
@@ -294,17 +297,43 @@ def api_sites_db_autocomplete():
             schema, pk_cols = _get_table_schema(cur)
             valid_cols = [c["name"] for c in schema]
             id_col = "SiteID_v2" if "SiteID_v2" in valid_cols else ("SiteID" if "SiteID" in valid_cols else valid_cols[0])
+            site_name_col = next((c for c in valid_cols if c.lower() == "site_name"), None)
 
-            query = f"""
-                SELECT DISTINCT "{id_col}"
-                FROM "{TABLE_NAME}"
-                WHERE "{id_col}"::text ILIKE %s
-                ORDER BY "{id_col}" ASC
-                LIMIT 10
-            """
-            cur.execute(query, [f"{q}%"])
-            rows = cur.fetchall()
-            suggestions = [r[0] for r in rows if r[0]]
+            if site_name_col:
+                query = f"""
+                    SELECT "{id_col}", COALESCE("{site_name_col}", '')
+                    FROM "{TABLE_NAME}"
+                    WHERE "{id_col}"::text ILIKE %s OR "{site_name_col}"::text ILIKE %s
+                    GROUP BY "{id_col}", "{site_name_col}"
+                    ORDER BY 
+                        CASE 
+                            WHEN "{id_col}"::text ILIKE %s THEN 1
+                            WHEN "{site_name_col}"::text ILIKE %s THEN 2
+                            ELSE 3
+                        END,
+                        "{id_col}" ASC
+                    LIMIT 15
+                """
+                cur.execute(query, [f"%{q}%", f"%{q}%", f"{q}%", f"{q}%"])
+                rows = cur.fetchall()
+                suggestions = [{"id": r[0], "name": r[1]} for r in rows if r[0]]
+            else:
+                query = f"""
+                    SELECT "{id_col}"
+                    FROM "{TABLE_NAME}"
+                    WHERE "{id_col}"::text ILIKE %s
+                    GROUP BY "{id_col}"
+                    ORDER BY 
+                        CASE 
+                            WHEN "{id_col}"::text ILIKE %s THEN 1
+                            ELSE 2
+                        END,
+                        "{id_col}" ASC
+                    LIMIT 15
+                """
+                cur.execute(query, [f"%{q}%", f"{q}%"])
+                rows = cur.fetchall()
+                suggestions = [{"id": r[0], "name": ""} for r in rows if r[0]]
 
             return json_response({"status": "success", "suggestions": suggestions})
     except Exception as e:
@@ -359,7 +388,6 @@ def _format_display_val(val):
 
 @sites_db_bp.route("/api/sites_db/export_csv")
 @login_required
-@viewer_blocked
 def api_sites_db_export_csv():
     """Export complete sites_db data dynamically to CSV with UTF-8 encoding."""
     try:
@@ -400,7 +428,6 @@ def api_sites_db_export_csv():
 
 @sites_db_bp.route("/api/sites_db/csv_template")
 @login_required
-@viewer_blocked
 def api_sites_db_csv_template():
     """Download dynamic CSV header template matching sites_db schema."""
     try:
@@ -428,6 +455,8 @@ def api_sites_db_csv_template():
                     sample_row.append("JAKARTA PUSAT")
                 elif cname.lower() == "provider":
                     sample_row.append("Telkomsel")
+                elif cname.lower() in ("site_name", "sitename"):
+                    sample_row.append("SAMPLE SITE NAME")
                 else:
                     sample_row.append("SAMPLE")
 

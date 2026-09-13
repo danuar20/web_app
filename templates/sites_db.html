@@ -446,20 +446,69 @@
     border-radius: 12px;
     z-index: 1;
 }
+.map-toolbar-row {
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    width: 100% !important;
+    position: relative !important;
+    z-index: 50 !important;
+    overflow: visible !important;
+}
+.map-toolbar-row .autocomplete-wrap {
+    flex: 0 0 160px !important;
+    min-width: 130px !important;
+    max-width: 170px !important;
+    position: relative !important;
+}
+.map-toolbar-row .coord-search-box {
+    flex: 0 0 150px !important;
+    min-width: 125px !important;
+    max-width: 160px !important;
+}
+.map-toolbar-row .search-box {
+    min-width: unset !important;
+    width: 100% !important;
+    position: relative !important;
+}
+.map-toolbar-row .search-input {
+    height: 32px !important;
+    padding: 5px 8px 5px 28px !important;
+    font-size: 11.5px !important;
+    border-radius: 6px !important;
+}
+.map-toolbar-row .search-box i {
+    left: 9px !important;
+    font-size: 11px !important;
+}
+.map-toolbar-row .btn-custom {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    padding: 5px 9px !important;
+    font-size: 11.5px !important;
+    height: 32px !important;
+    border-radius: 6px !important;
+    gap: 5px !important;
+}
 .map-stats-bar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    flex-wrap: nowrap !important;
+    flex-shrink: 0 !important;
 }
 .stat-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 4px 8px !important;
+    border-radius: 14px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    height: 28px !important;
 }
 [data-theme="dark"] .stat-chip.total { background: rgba(79, 172, 254, 0.15); color: #4facfe; }
 [data-theme="light"] .stat-chip.total { background: #e0f2fe; color: #0284c7; }
@@ -652,33 +701,85 @@
 }
 .autocomplete-list {
     position: absolute;
-    top: 100%;
+    top: calc(100% + 4px);
     left: 0;
-    right: 0;
-    margin-top: 4px;
+    min-width: 320px;
+    max-width: 420px;
+    width: max-content;
     border-radius: 8px;
-    max-height: 220px;
+    max-height: 280px;
     overflow-y: auto;
-    z-index: 10000;
+    z-index: 99999;
     display: none;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
 }
 [data-theme="dark"] .autocomplete-list {
     background: #1e293b;
-    border: 1px solid rgba(79, 172, 254, 0.2);
+    border: 1px solid rgba(79, 172, 254, 0.25);
 }
 [data-theme="light"] .autocomplete-list {
     background: #ffffff;
     border: 1px solid #cbd5e1;
 }
 .autocomplete-item {
-    padding: 8px 14px;
-    font-size: 13px;
+    padding: 8px 12px;
     cursor: pointer;
-    transition: background 0.15s ease;
+    transition: all 0.15s ease;
+    border-bottom: 1px solid rgba(120, 130, 150, 0.1);
 }
-[data-theme="dark"] .autocomplete-item:hover, .autocomplete-item.active { background: rgba(79, 172, 254, 0.2); color: #4facfe; }
-[data-theme="light"] .autocomplete-item:hover, .autocomplete-item.active { background: #f0f7ff; color: #0284c7; }
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+[data-theme="dark"] .autocomplete-item:hover, .autocomplete-item.active {
+    background: rgba(79, 172, 254, 0.18);
+}
+[data-theme="light"] .autocomplete-item:hover, .autocomplete-item.active {
+    background: #f0f7ff;
+}
+.ac-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+}
+[data-theme="dark"] .ac-badge {
+    background: rgba(79, 172, 254, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+[data-theme="light"] .ac-badge {
+    background: #e0f2fe;
+    color: #0284c7;
+    border: 1px solid #bae6fd;
+}
+.ac-name {
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+[data-theme="dark"] .ac-name {
+    color: #e2e8f0;
+}
+[data-theme="light"] .ac-name {
+    color: #334155;
+}
+.ac-highlight {
+    background: rgba(250, 204, 21, 0.3);
+    color: #facc15;
+    font-weight: 700;
+    padding: 1px 3px;
+    border-radius: 3px;
+}
+[data-theme="light"] .ac-highlight {
+    background: #fef08a;
+    color: #b45309;
+}
 
 /* ── Modal Dialog ── */
 .modal-overlay {
@@ -875,50 +976,47 @@
 
     <!-- TAB 2: SITE MAP -->
     <div id="tabMapView" class="sites-card" style="display: none;">
-        <!-- Row 1: Site Search, Coordinate Finder, Custom Points & Stats -->
-        <div class="toolbar-row">
-            <div class="toolbar-left">
-                <!-- Site ID Autocomplete Search -->
-                <div class="autocomplete-wrap">
-                    <div class="search-box">
-                        <i class="fas fa-search-location"></i>
-                        <input type="text" id="mapSearchInput" class="search-input" placeholder="Search Site ID..." autocomplete="off" onkeyup="onMapSearchKeyup(event)" onfocus="onMapSearchFocus()">
-                    </div>
-                    <div class="autocomplete-list" id="autoCompleteList"></div>
+        <!-- Row 1: Site Search, Coordinate Finder, Custom Points & Stats (Single Flat Line) -->
+        <div class="map-toolbar-row">
+            <!-- Site ID Autocomplete Search -->
+            <div class="autocomplete-wrap">
+                <div class="search-box">
+                    <i class="fas fa-search-location"></i>
+                    <input type="text" id="mapSearchInput" class="search-input" placeholder="Search Site ID or Name..." autocomplete="off" oninput="onMapSearchKeyup(event)" onkeyup="onMapSearchKeyup(event)" onfocus="onMapSearchFocus()">
                 </div>
-                <button class="btn-custom btn-primary-grad" onclick="executeMapSearch()" title="Locate Site on map">
-                    <i class="fas fa-crosshairs"></i> Locate
-                </button>
-
-                <!-- Coordinate Finder & Pin Dropper -->
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <div class="search-box" style="min-width: 220px;">
-                        <i class="fas fa-map-pin" style="color: #f43f5e;"></i>
-                        <input type="text" id="coordSearchInput" class="search-input" placeholder="Lat, Long (-6.208, 106.845)" onkeyup="onCoordInputKeyup(event)">
-                    </div>
-                    <button class="btn-custom btn-secondary-custom" onclick="pinCoordinatesFromInput()" title="Find and drop temporary pin at coordinates">
-                        <i class="fas fa-thumbtack" style="color: #f43f5e;"></i> Pin Coords
-                    </button>
-                </div>
-
-                <!-- Custom Point Action Button -->
-                <button class="btn-custom btn-secondary-custom" onclick="openAddCustomPointModal()" title="Add custom marker with label, color, and notes">
-                    <i class="fas fa-plus-circle" style="color: #a855f7;"></i> Custom Point
-                </button>
-
-                <!-- Clear Active Temp Pin Button (hidden when no temp pin) -->
-                <button class="btn-custom btn-secondary-custom" id="clearTempPinBtn" style="display:none; color:#ef4444; border-color:rgba(239,68,68,0.3);" onclick="clearTemporaryPin()" title="Clear active temporary pin">
-                    <i class="fas fa-times-circle"></i> Clear Pin
-                </button>
+                <div class="autocomplete-list" id="autoCompleteList"></div>
             </div>
+            <button class="btn-custom btn-primary-grad" onclick="executeMapSearch()" title="Locate Site on map">
+                <i class="fas fa-crosshairs"></i> Locate
+            </button>
 
+            <!-- Coordinate Finder & Pin Dropper -->
+            <div class="search-box coord-search-box">
+                <i class="fas fa-map-pin" style="color: #f43f5e;"></i>
+                <input type="text" id="coordSearchInput" class="search-input" placeholder="Lat, Long (-6.2, 106.8)" onkeyup="onCoordInputKeyup(event)">
+            </div>
+            <button class="btn-custom btn-secondary-custom" onclick="pinCoordinatesFromInput()" title="Find and drop temporary pin at coordinates">
+                <i class="fas fa-thumbtack" style="color: #f43f5e;"></i> Pin Coords
+            </button>
+
+            <!-- Custom Point Action Button -->
+            <button class="btn-custom btn-secondary-custom" onclick="openAddCustomPointModal()" title="Add custom marker with label, color, and notes">
+                <i class="fas fa-plus-circle" style="color: #a855f7;"></i> Custom Point
+            </button>
+
+            <!-- Clear Active Temp Pin Button (hidden when no temp pin) -->
+            <button class="btn-custom btn-secondary-custom" id="clearTempPinBtn" style="display:none; color:#ef4444; border-color:rgba(239,68,68,0.3);" onclick="clearTemporaryPin()" title="Clear active temporary pin">
+                <i class="fas fa-times-circle"></i> Clear Pin
+            </button>
+
+            <!-- Stats: Total, Mapped, Invalid Coords ALWAYS in 1 line directly after Custom Point -->
             <div class="map-stats-bar">
                 <span class="stat-chip total" id="chipTotal" title="Total site records in database">Total: 0</span>
                 <span class="stat-chip valid" id="chipValid" title="Sites matching selected providers displayed on map">Mapped: 0</span>
-                <span class="stat-chip" id="chipCustomPoints" style="background: rgba(168,85,247,0.15); color: #c084fc; cursor: pointer;" onclick="openCustomPointsListModal()" title="Click to manage custom points">
+                <span class="stat-chip invalid" id="chipInvalid" title="Sites with missing or invalid coordinates">Invalid Coords: 0</span>
+                <span class="stat-chip" id="chipCustomPoints" style="background: rgba(168,85,247,0.15); color: #c084fc; cursor: pointer; display: none;" onclick="openCustomPointsListModal()" title="Click to manage custom points">
                     <i class="fas fa-star"></i> Custom Points: <span id="customPointsCount">0</span>
                 </span>
-                <span class="stat-chip invalid" id="chipInvalid" title="Sites with missing or invalid coordinates">Invalid Coords: 0</span>
             </div>
         </div>
 
@@ -932,9 +1030,6 @@
                 <span style="font-size:12px; color:#94a3b8;"><i class="fas fa-spinner fa-spin"></i> Loading providers...</span>
             </div>
             <div class="legend-actions-wrap">
-                <button type="button" class="legend-quick-btn" onclick="selectOnlyDefaultProvider('Telkomsel')" title="Select only Telkomsel">
-                    <i class="fas fa-check"></i> Telkomsel
-                </button>
                 <button type="button" class="legend-quick-btn" onclick="selectAllProviders()" title="Select all available providers">
                     All
                 </button>
@@ -1612,7 +1707,11 @@ function saveSiteRecord(e) {
             showToast(res.message, "success");
             closeModal("siteModal");
             loadSitesData();
-            if (mapInstance) loadMapSitesData();
+            if (mapInstance) {
+                mapInstance.closePopup();
+                loadMapSitesData();
+            }
+            window._currentSiteDetails = {};
         } else {
             showToast(res.message || "Failed to save record", "error");
         }
@@ -2488,17 +2587,28 @@ function renderClusterMarkers(sites) {
     document.getElementById("chipValid").innerText = `Mapped: ${sites.length.toLocaleString()}`;
 }
 
-// ── On-Demand 2-Column Popup Detail ──
+// ── On-Demand 2-Column Popup Detail with Edit Modal Option ──
+window._currentSiteDetails = window._currentSiteDetails || {};
+
 function fetchAndShowSitePopup(siteId, marker) {
     fetch(`/api/sites_db/detail/${encodeURIComponent(siteId)}`)
         .then(r => r.json())
         .then(res => {
             if (res.status === "success") {
                 const detail = res.detail;
-                let html = `<div style="min-width:220px; font-family:'Inter',sans-serif;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(120,130,150,0.2); padding-bottom:4px;">
-                        <strong style="font-size:14px; color:#4facfe;">${escapeHtml(siteId)}</strong>
-                        <span style="font-size:11px; padding:2px 6px; border-radius:4px; background:rgba(79,172,254,0.15); color:#4facfe; font-weight:700;">${escapeHtml(detail.Provider || detail.provider || 'Telkomsel')}</span>
+                window._currentSiteDetails[siteId] = detail;
+
+                const siteName = detail.site_name || detail.SiteName || "";
+                const providerName = detail.Provider || detail.provider || 'Telkomsel';
+
+                let html = `
+                <div style="min-width:260px; max-width:320px; font-family:'Inter',sans-serif;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid rgba(120,130,150,0.2); padding-bottom:6px; gap:8px;">
+                        <div>
+                            <strong style="font-size:14px; color:#4facfe;">${escapeHtml(siteId)}</strong>
+                            ${siteName ? `<div style="font-size:12px; color:#94a3b8; font-weight:600; margin-top:2px;"><i class="fas fa-tag" style="font-size:10px; margin-right:4px;"></i>${escapeHtml(siteName)}</div>` : ''}
+                        </div>
+                        <span style="font-size:11px; padding:2px 6px; border-radius:4px; background:rgba(79,172,254,0.15); color:#4facfe; font-weight:700; white-space:nowrap;">${escapeHtml(providerName)}</span>
                     </div>
                     <table class="popup-2col-table">`;
                 
@@ -2509,16 +2619,65 @@ function fetchAndShowSitePopup(siteId, marker) {
                 });
 
                 html += `</table>
-                    <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:10px; border-top:1px solid rgba(120,130,150,0.15); padding-top:8px;">
                         <button type="button" class="btn-custom btn-secondary-custom" style="padding:4px 8px; font-size:11px;" onclick="copyCoordinates(${detail.latitude || 0}, ${detail.longitude || 0})">
                             <i class="fas fa-copy"></i> Copy Coords
                         </button>
+                        <button type="button" class="btn-custom btn-primary-grad" style="padding:4px 12px; font-size:11px; font-weight:600;" onclick="openEditModalForSite('${escapeHtml(siteId)}')">
+                            <i class="fas fa-pencil-alt"></i> Edit Site
+                        </button>
                     </div>
                 </div>`;
-                marker.bindPopup(html).openPopup();
+                marker.bindPopup(html, { maxWidth: 360, minWidth: 260 }).openPopup();
             }
         })
-        .catch(err => console.error(err));
+        .catch(err => console.error("Error loading site popup:", err));
+}
+
+function openEditModalForSite(siteId) {
+    if (!siteId) return;
+
+    const doLaunch = (detail) => {
+        if (!schemaInfo || schemaInfo.length === 0) {
+            fetch("/api/sites_db/schema")
+                .then(r => r.json())
+                .then(res => {
+                    if (res.status === "success") {
+                        schemaInfo = res.columns || [];
+                        primaryKeys = res.primary_keys || [];
+                        openEditModal(detail);
+                    } else {
+                        showToast("Failed to load schema for editing", "error");
+                    }
+                })
+                .catch(err => {
+                    console.error("Schema fetch error:", err);
+                    showToast("Error loading schema for editing", "error");
+                });
+        } else {
+            openEditModal(detail);
+        }
+    };
+
+    const cachedDetail = window._currentSiteDetails ? window._currentSiteDetails[siteId] : null;
+    if (cachedDetail) {
+        doLaunch(cachedDetail);
+    } else {
+        fetch(`/api/sites_db/detail/${encodeURIComponent(siteId)}`)
+            .then(r => r.json())
+            .then(res => {
+                if (res.status === "success" && res.detail) {
+                    window._currentSiteDetails[siteId] = res.detail;
+                    doLaunch(res.detail);
+                } else {
+                    showToast("Failed to fetch site details for editing", "error");
+                }
+            })
+            .catch(err => {
+                console.error("Site detail fetch error:", err);
+                showToast("Error loading site for editing", "error");
+            });
+    }
 }
 
 // ── Coordinate Finder & Temporary Pin Dropper ──
@@ -2889,20 +3048,42 @@ function setupColorPickerSync() {
 
 // ── Map Autocomplete Search Handlers ──
 let mapSearchDebounce = null;
+
 function onMapSearchKeyup(e) {
-    if (e.key === "Enter") {
-        if (activeAutocompleteIndex >= 0) {
-            const items = document.querySelectorAll(".autocomplete-item");
-            if (items[activeAutocompleteIndex]) {
-                selectAutocompleteItem(items[activeAutocompleteIndex].innerText);
-                return;
-            }
+    const list = document.getElementById("autoCompleteList");
+    const items = list ? list.querySelectorAll(".autocomplete-item") : [];
+
+    if (e && e.key === "ArrowDown") {
+        if (e.preventDefault) e.preventDefault();
+        if (items.length > 0) {
+            activeAutocompleteIndex = (activeAutocompleteIndex + 1) % items.length;
+            updateAutocompleteHighlight(items);
+        }
+        return;
+    }
+    if (e && e.key === "ArrowUp") {
+        if (e.preventDefault) e.preventDefault();
+        if (items.length > 0) {
+            activeAutocompleteIndex = (activeAutocompleteIndex - 1 + items.length) % items.length;
+            updateAutocompleteHighlight(items);
+        }
+        return;
+    }
+    if (e && e.key === "Enter") {
+        if (activeAutocompleteIndex >= 0 && items[activeAutocompleteIndex]) {
+            items[activeAutocompleteIndex].click();
+            return;
         }
         executeMapSearch();
         return;
     }
+    if (e && e.key === "Escape") {
+        hideAutocomplete();
+        return;
+    }
 
-    const q = e.target.value.trim();
+    const input = (e && e.target) ? e.target : document.getElementById("mapSearchInput");
+    const q = input ? input.value.trim() : "";
     if (!q || q.length < 1) {
         hideAutocomplete();
         return;
@@ -2914,30 +3095,65 @@ function onMapSearchKeyup(e) {
             .then(r => r.json())
             .then(res => {
                 if (res.status === "success") {
-                    renderAutocompleteDropdown(res.suggestions || []);
+                    renderAutocompleteDropdown(res.suggestions || [], q);
                 }
             })
-            .catch(err => console.error(err));
-    }, 200);
+            .catch(err => console.error("Autocomplete error:", err));
+    }, 150);
+}
+
+function updateAutocompleteHighlight(items) {
+    items.forEach((it, idx) => {
+        if (idx === activeAutocompleteIndex) {
+            it.classList.add("active");
+            it.scrollIntoView({ block: "nearest" });
+        } else {
+            it.classList.remove("active");
+        }
+    });
 }
 
 function onMapSearchFocus() {
-    const q = document.getElementById("mapSearchInput").value.trim();
+    const input = document.getElementById("mapSearchInput");
+    const q = input ? input.value.trim() : "";
     if (q.length >= 1) {
-        onMapSearchKeyup({ key: "" });
+        onMapSearchKeyup({ target: input });
     }
 }
 
-function renderAutocompleteDropdown(suggestions) {
+function highlightMatch(text, query) {
+    if (!text) return "";
+    const safeText = escapeHtml(String(text));
+    if (!query) return safeText;
+    const cleanQ = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${cleanQ})`, "gi");
+    return safeText.replace(regex, '<span class="ac-highlight">$1</span>');
+}
+
+function renderAutocompleteDropdown(suggestions, currentQuery = "") {
     const list = document.getElementById("autoCompleteList");
+    if (!list) return;
+
     if (!suggestions || suggestions.length === 0) {
         list.style.display = "none";
+        list.innerHTML = "";
         return;
     }
 
     let html = "";
-    suggestions.forEach(item => {
-        html += `<div class="autocomplete-item" onclick="selectAutocompleteItem('${item}')">${escapeHtml(item)}</div>`;
+    suggestions.forEach((item, idx) => {
+        const siteId = typeof item === "object" ? item.id : item;
+        const siteName = (typeof item === "object" && item.name) ? item.name : "";
+        html += `
+        <div class="autocomplete-item" data-index="${idx}" onclick="selectAutocompleteItem('${escapeHtml(siteId)}')">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+                    <span class="ac-badge">${highlightMatch(siteId, currentQuery)}</span>
+                    <span class="ac-name" title="${escapeHtml(siteName)}">${siteName ? highlightMatch(siteName, currentQuery) : '<span style="opacity:0.35; font-style:italic;">No Name</span>'}</span>
+                </div>
+                <i class="fas fa-location-arrow" style="font-size:10px; color:#4facfe; opacity:0.6; flex-shrink:0;"></i>
+            </div>
+        </div>`;
     });
 
     list.innerHTML = html;
@@ -2946,14 +3162,26 @@ function renderAutocompleteDropdown(suggestions) {
 }
 
 function hideAutocomplete() {
-    document.getElementById("autoCompleteList").style.display = "none";
+    const list = document.getElementById("autoCompleteList");
+    if (list) {
+        list.style.display = "none";
+    }
+    activeAutocompleteIndex = -1;
 }
 
 function selectAutocompleteItem(siteId) {
-    document.getElementById("mapSearchInput").value = siteId;
+    const input = document.getElementById("mapSearchInput");
+    if (input) input.value = siteId;
     hideAutocomplete();
     locateSiteOnMap(siteId);
 }
+
+document.addEventListener("click", (e) => {
+    const wrap = document.querySelector(".autocomplete-wrap");
+    if (wrap && !wrap.contains(e.target)) {
+        hideAutocomplete();
+    }
+});
 
 function executeMapSearch() {
     const q = document.getElementById("mapSearchInput").value.trim();
@@ -2965,8 +3193,11 @@ function locateSiteOnMap(siteIdQuery) {
     if (!siteIdQuery || !allMapSites.length) return;
     const q = siteIdQuery.trim().toLowerCase();
 
-    // Global Dataset Search across all sites in memory
-    const targetSite = allMapSites.find(s => s.id && (s.id.toLowerCase() === q || s.id.toLowerCase().startsWith(q)));
+    // Global Dataset Search across all sites in memory (matches SiteID or Site Name)
+    const targetSite = allMapSites.find(s => 
+        (s.id && (s.id.toLowerCase() === q || s.id.toLowerCase().startsWith(q))) ||
+        (s.name && (s.name.toLowerCase() === q || s.name.toLowerCase().includes(q)))
+    );
 
     if (!targetSite) {
         showToast(`Site '${siteIdQuery}' not found on map`, "warning");

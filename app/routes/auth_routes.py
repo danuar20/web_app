@@ -450,7 +450,6 @@ def api_home():
 # ── Database Status Page ──────────────────────────────────────────────────────
 @auth.route("/database/<db_type>")
 @login_required
-@viewer_blocked
 def database_page(db_type):
     from ._utils import _no_cache
     if db_type != "postgres":
@@ -466,7 +465,6 @@ def database_page(db_type):
 
 @auth.route("/api/database_status/<db_type>")
 @login_required
-@viewer_blocked
 def api_database_status(db_type):
     from app import cache
     from app.db.db_webapp import get_postgres_connection

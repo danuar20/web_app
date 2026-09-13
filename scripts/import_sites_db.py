@@ -25,7 +25,8 @@ def create_table(cur):
             "NOP"         VARCHAR(100),
             "RTPO"        VARCHAR(100),
             "kabupaten"   VARCHAR(100),
-            "Provider"    VARCHAR(100) DEFAULT 'Telkomsel'
+            "Provider"    VARCHAR(100) DEFAULT 'Telkomsel',
+            "site_name"   VARCHAR(150)
         )
     """)
 
@@ -36,21 +37,23 @@ def import_csv(cur, filepath):
         rows = []
         for row in reader:
             provider = row.get("Provider") or "Telkomsel"
+            site_name = row.get("site_name") or row.get("SiteName") or row.get("SITE_NAME") or None
             rows.append((
-                row["SiteID"].strip() if row["SiteID"] else None,
-                row["SiteID_v2"].strip() if row["SiteID_v2"] else None,
-                int(row["tac"]) if row["tac"] else None,
-                float(row["longitude"]) if row["longitude"] else None,
-                float(row["latitude"]) if row["latitude"] else None,
-                row["NOP"].strip() if row["NOP"] else None,
-                row["RTPO"].strip() if row["RTPO"] else None,
-                row["kabupaten"].strip() if row["kabupaten"] else None,
+                row["SiteID"].strip() if row.get("SiteID") else None,
+                row["SiteID_v2"].strip() if row.get("SiteID_v2") else None,
+                int(row["tac"]) if row.get("tac") else None,
+                float(row["longitude"]) if row.get("longitude") else None,
+                float(row["latitude"]) if row.get("latitude") else None,
+                row["NOP"].strip() if row.get("NOP") else None,
+                row["RTPO"].strip() if row.get("RTPO") else None,
+                row["kabupaten"].strip() if row.get("kabupaten") else None,
                 provider.strip() if provider else "Telkomsel",
+                site_name.strip() if site_name else None,
             ))
 
     insert_sql = f"""
-        INSERT INTO "{TABLE_NAME}" ("SiteID", "SiteID_v2", "tac", "longitude", "latitude", "NOP", "RTPO", "kabupaten", "Provider")
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO "{TABLE_NAME}" ("SiteID", "SiteID_v2", "tac", "longitude", "latitude", "NOP", "RTPO", "kabupaten", "Provider", "site_name")
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     cur.executemany(insert_sql, rows)
     return len(rows)

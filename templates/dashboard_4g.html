@@ -57,6 +57,26 @@
         display: block;
         animation: fadeIn 0.3s ease;
     }
+    .cluster-pill-toggle:hover {
+        border-color: rgba(79, 172, 254, 0.7) !important;
+        background: linear-gradient(135deg, rgba(79, 172, 254, 0.25), rgba(0, 242, 254, 0.1)) !important;
+        box-shadow: 0 4px 12px rgba(79, 172, 254, 0.2) !important;
+    }
+    .cluster-item-label:hover {
+        background: rgba(79, 172, 254, 0.12) !important;
+    }
+    .cluster-dropdown-menu {
+        background: #1e293b !important;
+        color: #f8fafc !important;
+    }
+    [data-theme="light"] .cluster-dropdown-menu {
+        background: #ffffff !important;
+        color: #1e293b !important;
+        box-shadow: 0 12px 30px rgba(0,0,0,0.15) !important;
+    }
+    [data-theme="light"] .cluster-item-label:hover {
+        background: rgba(79, 172, 254, 0.08) !important;
+    }
 
     @keyframes fadeIn {
         from {
@@ -762,17 +782,33 @@
                     </div>
 
                     <div class="filter-group" style="width: 100%;">
-                        <div class="filter-label" id="importLabel"
-                            style="font-size: 10px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase;">
-                            Or import {% if filter_type == 'city' %}cities{% elif filter_type == 'site_cell' %}cells{% else %}sites{% endif %} from CSV</div>
-                        <label class="f-input"
-                            style="display:flex; align-items:center; gap:6px; cursor:pointer; width: max-content; padding:4px 10px; height: 32px; border-radius: 6px; background: rgba(128,128,128,0.05) !important;">
-                            <i class="fas fa-file-import" style="color: #4facfe; font-size: 12px;"></i>
-                            <input type="file" id="siteFileInput" accept=".csv,.txt" style="display:none;"
-                                onchange="handleSiteFileImport(this)">
-                            <span id="siteFileLabel" style="font-weight: 600; font-size: 11px;">Choose CSV
-                                file...</span>
-                        </label>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <div class="filter-label" id="importLabel"
+                                style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">
+                                Or import {% if filter_type == 'city' %}cities{% elif filter_type == 'site_cell' %}cells{% else %}sites{% endif %} from CSV</div>
+                            <span id="sitePasteCount" style="font-size: 10px; color: #4facfe; font-weight: 600;"></span>
+                        </div>
+                        <input type="hidden" name="cluster_mapping" id="clusterMappingHidden" value="{{ cluster_mapping_json if cluster_mapping_json else '' }}">
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <label class="f-input"
+                                style="display:flex; align-items:center; gap:6px; cursor:pointer; width: max-content; padding:4px 10px; height: 32px; border-radius: 6px; background: rgba(128,128,128,0.05) !important;">
+                                <i class="fas fa-file-import" style="color: #4facfe; font-size: 12px;"></i>
+                                <input type="file" id="siteFileInput" accept=".csv,.txt" style="display:none;"
+                                    onchange="handleSiteFileImport(this)">
+                                <span id="siteFileLabel" style="font-weight: 600; font-size: 11px;">Choose CSV
+                                    file...</span>
+                            </label>
+                            <button type="button" class="btn-xs" onclick="downloadCsvTemplate()"
+                                style="display:inline-flex; align-items:center; gap:5px; height: 32px; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(79,172,254,0.3); background: rgba(79,172,254,0.08); color: #4facfe; cursor: pointer; font-size: 11px; font-weight: 600;"
+                                title="Download CSV template with Cluster grouping">
+                                <i class="fas fa-file-download"></i> Template CSV
+                            </button>
+                        </div>
+                        <div id="clusterStatusBadge" style="display: {% if is_cluster_mode %}flex{% else %}none{% endif %}; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; padding: 4px 8px; border-radius: 4px; background: rgba(0,230,118,0.1); border: 1px solid rgba(0,230,118,0.3); color: #00e676;">
+                            <i class="fas fa-check-circle"></i>
+                            <span id="clusterStatusText">{% if is_cluster_mode %}Cluster grouping active: {{ cluster_list|join(', ') }} ({{ cluster_list|length }} clusters){% endif %}</span>
+                            <i class="fas fa-times" style="cursor: pointer; margin-left: auto; opacity: 0.7;" onclick="clearClusterMapping()" title="Clear cluster grouping"></i>
+                        </div>
                         <textarea id="sitePasteArea" name="site_paste" class="f-input" placeholder="Paste {% if filter_type == 'city' %}city names{% elif filter_type == 'site_cell' %}cell{% else %}site{% endif %} IDs here
 (one per line or comma-separated)" rows="3"
                             style="width: 100%; resize:vertical; font-size:11px; margin-top:8px; box-sizing: border-box; border-radius: 6px;"
@@ -925,16 +961,70 @@
             <div class="nav-tab" onclick="switchTab('tab-sector', this)">Sector Level</div>
             <div class="nav-tab" onclick="switchTab('tab-custom', this)">Custom Charts</div>
         </div>
-        <!-- Daily / Hourly Interval Selector -->
-        <div class="interval-selector-wrap" style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
-            <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;"><i class="fas fa-layer-group" style="margin-right: 4px; color: #4facfe;"></i>Interval:</span>
-            <div class="view-btns" style="display: flex; background: rgba(128,128,128,0.1); border-radius: 6px; overflow: hidden; border: 1px solid rgba(79,172,254,0.25);">
-                <button id="btn-interval-daily" class="view-btn active" style="padding: 4px 12px; font-size: 11px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-weight: 600;" onclick="setIntervalView('daily')">
-                    <i class="fas fa-calendar-day"></i> Daily
+        <!-- Right side: Filter Cluster (if cluster mode) + Interval Selector -->
+        <div style="display: flex; align-items: center; gap: 12px; margin-left: auto;">
+            {% if is_cluster_mode and cluster_list %}
+            <!-- Filter Cluster Dropdown -->
+            <div class="ms-container" id="clusterFilterWrap" style="position: relative; width: auto;">
+                <button type="button" class="cluster-pill-toggle" onclick="toggleDropdown('clusterFilterDropdown')" 
+                    style="height: 32px; padding: 4px 12px; border-radius: 8px; border: 1px solid rgba(79,172,254,0.4); display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; white-space: nowrap; background: linear-gradient(135deg, rgba(79,172,254,0.15), rgba(0,242,254,0.05)); cursor: pointer; transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+                    <span style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #4facfe; font-size: 11px;">
+                        <i class="fas fa-cubes" style="color: #4facfe; font-size: 12px;"></i>
+                        <span style="opacity: 0.85;">Cluster:</span>
+                        <span id="clusterFilterBtnText" style="color: inherit; font-weight: 700; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">All</span>
+                    </span>
+                    <span id="clusterFilterBadge" style="background: rgba(79,172,254,0.25); color: #4facfe; border: 1px solid rgba(79,172,254,0.4); padding: 1px 7px; border-radius: 12px; font-size: 10px; font-weight: 700;">{{ cluster_list|length }}</span>
+                    <i class="fas fa-chevron-down" style="font-size: 9px; opacity: 0.7; margin-left: 2px;"></i>
                 </button>
-                <button id="btn-interval-hourly" class="view-btn" style="padding: 4px 12px; font-size: 11px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-weight: 600;" onclick="setIntervalView('hourly')">
-                    <i class="fas fa-clock"></i> Hourly
-                </button>
+                <div id="clusterFilterDropdown" class="ms-menu cluster-dropdown-menu" 
+                    style="display: none; padding: 10px; width: 230px; right: 0; left: auto; position: absolute; z-index: 1050; border-radius: 10px; border: 1px solid rgba(79,172,254,0.25); box-shadow: 0 12px 30px rgba(0,0,0,0.35); flex-direction: column; gap: 6px;">
+                    
+                    <!-- Header with Title & Quick Buttons -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 6px; border-bottom: 1px solid rgba(128,128,128,0.15);">
+                        <span style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 5px;">
+                            <i class="fas fa-layer-group" style="color: #4facfe;"></i> Filter Clusters
+                        </span>
+                        <div style="display: flex; gap: 4px;">
+                            <button type="button" onclick="setAllClusters(true)" style="background: rgba(79,172,254,0.12); border: 1px solid rgba(79,172,254,0.3); color: #4facfe; font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 4px; cursor: pointer;">All</button>
+                            <button type="button" onclick="setAllClusters(false)" style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.25); color: #94a3b8; font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 4px; cursor: pointer;">Clear</button>
+                        </div>
+                    </div>
+
+                    {% if cluster_list|length > 4 %}
+                    <!-- Search input -->
+                    <div style="position: relative; margin-top: 2px;">
+                        <input type="text" id="clusterSearchInput" placeholder="Search cluster..." oninput="filterClusterDropdownList(this.value)"
+                            style="width: 100%; height: 26px; font-size: 11px; padding: 2px 8px 2px 24px; border-radius: 6px; border: 1px solid rgba(128,128,128,0.25); background: rgba(128,128,128,0.08); color: inherit; box-sizing: border-box;">
+                        <i class="fas fa-search" style="position: absolute; left: 8px; top: 7px; font-size: 10px; opacity: 0.4;"></i>
+                    </div>
+                    {% endif %}
+
+                    <!-- Cluster Checkboxes List -->
+                    <div id="clusterFilterCheckboxes" style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding: 2px 0;">
+                        {% for cname in cluster_list %}
+                        <label class="cluster-item-label" data-name="{{ cname }}"
+                            style="display: flex; align-items: center; gap: 8px; font-size: 11px; cursor: pointer; padding: 5px 8px; border-radius: 6px; transition: background 0.15s ease; user-select: none;">
+                            <input type="checkbox" class="cluster-filter-cb" value="{{ cname }}" checked onchange="onClusterFilterChange()"
+                                style="accent-color: #4facfe; width: 14px; height: 14px; cursor: pointer;">
+                            <span style="font-weight: 600; flex: 1;">{{ cname }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Daily / Hourly Interval Selector -->
+            <div class="interval-selector-wrap" style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;"><i class="fas fa-layer-group" style="margin-right: 4px; color: #4facfe;"></i>Interval:</span>
+                <div class="view-btns" style="display: flex; background: rgba(128,128,128,0.1); border-radius: 6px; overflow: hidden; border: 1px solid rgba(79,172,254,0.25);">
+                    <button id="btn-interval-daily" class="view-btn active" style="padding: 4px 12px; font-size: 11px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-weight: 600;" onclick="setIntervalView('daily')">
+                        <i class="fas fa-calendar-day"></i> Daily
+                    </button>
+                    <button id="btn-interval-hourly" class="view-btn" style="padding: 4px 12px; font-size: 11px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-weight: 600;" onclick="setIntervalView('hourly')">
+                        <i class="fas fa-clock"></i> Hourly
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -973,7 +1063,7 @@
 
         <div class="card">
             <div class="chart-box-header">
-                <div class="card-title">Cluster Comparison</div>
+                <div class="card-title" id="topCompareTableTitle">{% if is_cluster_mode %}Cluster Comparison (Overall){% else %}Cluster Comparison{% endif %}</div>
                 <button class="btn-apply" onclick="downloadCSV('compareTable')"><i class="fas fa-download"></i>
                     CSV</button>
             </div>
@@ -999,8 +1089,8 @@
                             <td class="text-left" data-label="KPI" style="font-weight:600;">{{ d.get('title') }} {% if d.get('unit') %}({{ d.get('unit') }}){% endif %}</td>
                             <td data-label="Before" class="before-val">{{ "%.2f"|format(d.get('before')) }}</td>
                             <td data-label="After" class="after-val">{{ "%.2f"|format(d.get('after')) }}</td>
-                            <td data-label="Delta">{{ "+%.2f"|format(d.get('delta')) if d.get('delta') > 0 else "%.2f"|format(d.get('delta')) }}</td>
-                            <td data-label="Growth">
+                            <td data-label="Delta" class="delta-val">{{ "+%.2f"|format(d.get('delta')) if d.get('delta') > 0 else "%.2f"|format(d.get('delta')) }}</td>
+                            <td data-label="Growth" class="growth-val">
                                 {% set pct = d.get('delta_pct') %}
                                 {% if pct is not none %}
                                 {{ "+%.1f"|format(pct) if pct > 0 else "%.1f"|format(pct) }}%
@@ -1008,7 +1098,7 @@
                                 -
                                 {% endif %}
                             </td>
-                            <td class="text-center" data-label="Remark">
+                            <td class="text-center remark-cell" data-label="Remark">
                                 {% set pct = d.get('delta_pct') %}
                                 {% if pct is not none %}
                                 {% set is_lower_better = d.get('is_lower_better') %}
@@ -1035,10 +1125,10 @@
             </div>
         </div>
 
-        <!-- Site/City Level Comparison -->
+        <!-- Site/City/Cluster Level Comparison -->
         <div class="card" style="margin-top: 16px;">
             <div class="chart-box-header">
-                <div class="card-title">{% if filter_type == 'city' %}City{% elif filter_type == 'site_cell' %}Site-cell{% else %}Site{% endif %} Level Comparison</div>
+                <div class="card-title" id="siteTableTitle">{% if is_cluster_mode %}Cluster{% elif filter_type == 'city' %}City{% elif filter_type == 'site_cell' %}Site-cell{% else %}Site{% endif %} Level Comparison</div>
                 <button class="btn-apply" onclick="downloadCSV('siteTable')"><i class="fas fa-download"></i>
                     CSV</button>
             </div>
@@ -1047,7 +1137,7 @@
                     <table class="site-table" id="siteTable">
                         <thead>
                             <tr>
-                                <th class="entity-col" rowspan="2" style="background:#1e3a5f;">{% if filter_type == 'city' %}City{% elif filter_type == 'site_cell' %}Site-Cell{% else %}Site ID{% endif %}</th>
+                                <th class="entity-col" rowspan="2" style="background:#1e3a5f;" id="siteTableEntityHeader">{% if is_cluster_mode %}Cluster{% elif filter_type == 'city' %}City{% elif filter_type == 'site_cell' %}Site-Cell{% else %}Site ID{% endif %}</th>
                                 {% for kpi in kpi_defs %}
                                 <th colspan="4" class="text-center">{{ kpi[1] }}</th>
                                 {% endfor %}
@@ -1065,8 +1155,8 @@
                             {% set sorted_sites = site_compare.keys() | sort %}
                             {% for site in sorted_sites %}
                             {% set metrics = site_compare[site] %}
-                            <tr>
-                                <td class="entity-cell">{{ site }}</td>
+                            <tr class="site-compare-row" data-cluster="{{ site }}">
+                                <td class="entity-cell" style="font-weight: 700; color: #4facfe;">{{ site }}</td>
                                 {% for kpi in kpi_defs %}
                                 {% set m = metrics.get(kpi[0], {}) %}
                                 <td class="before-val">{% if m.get('before') is not none %}{{
@@ -1298,8 +1388,8 @@
                             {% set m = metrics.get(kpi[0], {}) %}
                             <td class="before-val kpi-col-{{ kpi[0] }}">{% if m.get('before') is not none %}{{ "%.2f"|format(m.get('before')) }}{% else %}-{% endif %}</td>
                             <td class="after-val kpi-col-{{ kpi[0] }}">{% if m.get('after') is not none %}{{ "%.2f"|format(m.get('after')) }}{% else %}-{% endif %}</td>
-                            <td class="kpi-col-{{ kpi[0] }}">{% if m.get('delta') is not none %}{{ "+%.2f"|format(m.get('delta')) if m.get('delta')>0 else "%.2f"|format(m.get('delta')) }}{% else %}-{% endif %}</td>
-                            <td class="kpi-col-{{ kpi[0] }}" style="font-weight: 600;">
+                            <td class="delta-val kpi-col-{{ kpi[0] }}">{% if m.get('delta') is not none %}{{ "+%.2f"|format(m.get('delta')) if m.get('delta')>0 else "%.2f"|format(m.get('delta')) }}{% else %}-{% endif %}</td>
+                            <td class="pct-val kpi-col-{{ kpi[0] }}" style="font-weight: 600;">
                                 {% if m.get('delta_pct') is not none %}
                                 {% set pct = m.get('delta_pct') %}
                                 {% set is_lb = kpi[7] %}
@@ -1373,7 +1463,7 @@
         {{ render_tab_controls('tab-sector', show_toggle=False) }}
         <div class="card">
             <div class="chart-box-header">
-                <div class="card-title">Sector Comparison Table</div>
+                <div class="card-title">{% if is_cluster_mode %}Cluster Sector Comparison Table{% else %}Sector Comparison Table{% endif %}</div>
                 <button class="btn-apply" onclick="downloadCSV('sectorTable')"><i class="fas fa-download"></i>
                     CSV</button>
             </div>
@@ -1382,7 +1472,7 @@
                     <table class="site-table" id="sectorTable">
                         <thead>
                             <tr>
-                                <th rowspan="2" class="entity-col">Site_Sector</th>
+                                <th rowspan="2" class="entity-col">{% if is_cluster_mode %}Cluster_Sector{% elif filter_type == 'site_cell' %}Cell_Sector{% elif filter_type == 'city' %}City_Sector{% else %}Site_Sector{% endif %}</th>
                                 {% for kpi in kpi_defs %}
                                 <th colspan="4" class="text-center">{{ kpi[1] }}</th>
                                 {% endfor %}
@@ -1400,7 +1490,8 @@
                             {% set sorted_sectors = sector_compare.keys() | sort %}
                             {% for sector in sorted_sectors %}
                             {% set metrics = sector_compare[sector] %}
-                            <tr>
+                            {% set sec_cluster = sector.split('_Sec')[0] %}
+                            <tr class="sector-compare-row" data-cluster="{{ sec_cluster }}">
                                 <td class="entity-cell">{{ sector }}</td>
                                 {% for kpi in kpi_defs %}
                                 {% set m = metrics.get(kpi[0], {}) %}
@@ -1451,7 +1542,7 @@
                         onclick="setGridColLocal(3, 'customChartGrid')">3</button>
                 </div>
                 <button class="btn-apply" onclick="addCustomChart()"><i class="fas fa-plus"></i> Add Chart</button>
-                <button class="btn-apply" onclick="renderCustomCharts()"
+                <button class="btn-apply" onclick="renderCustomCharts(activeCustomChartCluster)"
                     style="background:linear-gradient(135deg, #00c853, #009624);"><i class="fas fa-paint-brush"></i>
                     Render Charts</button>
                 <button class="btn-apply" onclick="openExportModal('customChart', 'customChartGrid')"><i class="fas fa-camera"></i> Export PNG</button>
@@ -1641,6 +1732,7 @@
             }
             csv.push([quote(siteLabel), quote('KPI'), quote('Before'), quote('After'), quote('Delta'), quote('%')].join(','));
             table.querySelectorAll('tbody tr').forEach(row => {
+                if (row.style.display === 'none') return;
                 const cols = row.querySelectorAll('td');
                 if (cols.length === 0) return;
                 const site = cols[0].innerText.trim();
@@ -1843,6 +1935,15 @@
     let bandMode = 'split';
     const COMPARE_HOURLY_LABELS = {{ compare_hourly_labels| tojson | safe }};
     const COMPARE_HOURLY_DATA = {{ compare_hourly_data| tojson | safe }};
+    const SITE_COMPARE_HOURLY_DATA = {{ site_compare_hourly_data | default({}) | tojson | safe }};
+    const IS_CLUSTER_MODE = {{ 'true' if is_cluster_mode else 'false' }};
+    const CLUSTER_LIST = {{ cluster_list | default([]) | tojson | safe }};
+    const SITE_COMPARE_DATA = {{ site_compare | default({}) | tojson | safe }};
+    const OVERALL_COMPARE_DATA = {{ cluster_compare | default({}) | tojson | safe }};
+    const CLUSTER_BAND_COMPARE = {{ cluster_band_compare | default({}) | tojson | safe }};
+    const DAILY_CLUSTER_BAND_TREND_DATA = {{ daily_cluster_band_trend_chart_data | default({}) | tojson | safe }};
+    const HOURLY_CLUSTER_BAND_TREND_DATA = {{ hourly_cluster_band_trend_chart_data | default({}) | tojson | safe }};
+    let activeCustomChartCluster = 'ALL';
 
     const KPI_DEFS = {{ kpi_defs| tojson | safe }};
     const ALL_KPIS = {{ all_kpis| tojson | safe }};
@@ -2067,11 +2168,20 @@
         if (!tbody) return;
 
         let rowsHtml = [];
+        const selectedClustersList = (typeof getSelectedClusters === 'function') ? getSelectedClusters() : [];
+        const isSingleCluster = (selectedClustersList.length === 1);
+        const singleClusterName = isSingleCluster ? selectedClustersList[0] : null;
+
         for (let i = 0; i < TREND_LABELS.length; i++) {
             let cellsHtml = `<td class="entity-cell" style="white-space: nowrap;">${TREND_LABELS[i]}</td>`;
             KPI_DEFS.forEach(kpi => {
                 const kpiId = kpi[0];
-                const val = TREND_DATA[kpiId]?.total ? TREND_DATA[kpiId].total[i] : null;
+                let val = null;
+                if (isSingleCluster && SITE_TREND_DATA && SITE_TREND_DATA[kpiId]) {
+                    val = SITE_TREND_DATA[kpiId]?.[singleClusterName]?.[i];
+                } else if (TREND_DATA && TREND_DATA[kpiId]) {
+                    val = TREND_DATA[kpiId]?.total ? TREND_DATA[kpiId].total[i] : null;
+                }
                 const displayVal = (val !== null && val !== undefined) ? Number(val).toFixed(2) : '-';
                 cellsHtml += `<td class="text-center trend-val-cell" data-kpi="${kpiId}" data-idx="${i}">${displayVal}</td>`;
             });
@@ -2089,18 +2199,28 @@
         if (btnDaily) btnDaily.classList.toggle('active', granularity === 'daily');
         if (btnHourly) btnHourly.classList.toggle('active', granularity === 'hourly');
 
+        let isSingleCluster = false;
+        let selectedClusterName = null;
+        if (IS_CLUSTER_MODE && typeof getSelectedClusters === 'function') {
+            const selClust = getSelectedClusters();
+            if (selClust.length === 1) {
+                isSingleCluster = true;
+                selectedClusterName = selClust[0];
+            }
+        }
+
         if (granularity === 'hourly') {
             TREND_LABELS = HOURLY_TREND_LABELS;
             TREND_DATA = HOURLY_TREND_DATA;
             SITE_TREND_DATA = HOURLY_SITE_TREND_DATA;
-            BAND_TREND_DATA = HOURLY_BAND_TREND_DATA;
+            BAND_TREND_DATA = isSingleCluster ? (HOURLY_CLUSTER_BAND_TREND_DATA[selectedClusterName] || {}) : HOURLY_BAND_TREND_DATA;
             TECH_TREND_DATA = HOURLY_TECH_TREND_DATA;
             dynamicTechTrendData = dynamicHourlyTechTrendData;
         } else {
             TREND_LABELS = DAILY_TREND_LABELS;
             TREND_DATA = DAILY_TREND_DATA;
             SITE_TREND_DATA = DAILY_SITE_TREND_DATA;
-            BAND_TREND_DATA = DAILY_BAND_TREND_DATA;
+            BAND_TREND_DATA = isSingleCluster ? (DAILY_CLUSTER_BAND_TREND_DATA[selectedClusterName] || {}) : DAILY_BAND_TREND_DATA;
             TECH_TREND_DATA = DAILY_TECH_TREND_DATA;
             dynamicTechTrendData = dynamicDailyTechTrendData;
         }
@@ -2111,7 +2231,17 @@
             const chart = chartInstances["trendChart_" + kpiId];
             if (chart) {
                 chart.data.labels = TREND_LABELS;
-                chart.data.datasets[0].data = TREND_DATA[kpiId]?.total || [];
+                let lineData = [];
+                let lineLabel = 'Total';
+                if (isSingleCluster && SITE_TREND_DATA && SITE_TREND_DATA[kpiId]) {
+                    lineData = SITE_TREND_DATA[kpiId]?.[selectedClusterName] || [];
+                    lineLabel = selectedClusterName;
+                } else {
+                    lineData = TREND_DATA[kpiId]?.total || [];
+                    lineLabel = 'Total';
+                }
+                chart.data.datasets[0].data = lineData;
+                chart.data.datasets[0].label = lineLabel;
                 chart.update('none');
             }
         });
@@ -2124,7 +2254,7 @@
 
         // 4. Update Custom Charts if rendered
         if (typeof renderCustomCharts === 'function') {
-            renderCustomCharts();
+            renderCustomCharts(activeCustomChartCluster);
         }
     }
 
@@ -2432,7 +2562,7 @@
     }
 
     // Render logic
-    function renderCustomCharts(site = 'ALL') {
+    function renderCustomCharts(site = (typeof activeCustomChartCluster !== 'undefined' ? activeCustomChartCluster : 'ALL')) {
         if (!TREND_LABELS || TREND_LABELS.length === 0) return alert("No trend data available to render charts.");
 
         customChartInstances.forEach(c => c.destroy());
@@ -2769,6 +2899,11 @@
             const kpiMenu = document.getElementById('kpiDropdown');
             if (kpiMenu) kpiMenu.style.display = 'none';
         }
+        if (!e.target.closest('.ms-container') && !e.target.closest('.ms-menu')) {
+            document.querySelectorAll('.ms-menu').forEach(menu => {
+                menu.style.display = 'none';
+            });
+        }
     });
 
     let searchDebounceTimer = null;
@@ -2829,28 +2964,77 @@
         document.getElementById('kpiBtnText').textContent = `${count} KPI(s) Selected`;
     }
 
+    function sortSitesToTop() {
+        let container = document.getElementById('siteCheckboxes');
+        if (!container) return;
+        
+        let checkedBoxes = container.querySelectorAll('input[type="checkbox"]:checked');
+        if (checkedBoxes.length === 0) return;
+        
+        container.style.display = 'none';
+        checkedBoxes.forEach(cb => {
+            let label = cb.closest('.checkbox-label');
+            if (label) container.insertBefore(label, container.firstChild);
+        });
+        container.style.display = 'flex';
+    }
+
     // -- CSV / Paste Logic --
     function handleSiteFileImport(input) {
         if (!input.files || !input.files[0]) return;
         const file = input.files[0];
-        document.getElementById('siteFileLabel').textContent = file.name;
+        const label = document.getElementById('siteFileLabel');
+        if (label) label.textContent = file.name;
         const reader = new FileReader();
         reader.onload = function (e) {
-            parseSiteText(e.target.result);
+            parseCsvFileImport(e.target.result);
             input.value = ""; // reset
         };
         reader.readAsText(file);
     }
 
+    function downloadCsvTemplate() {
+        const filterTypeNode = document.querySelector('input[name="filter_type"]:checked');
+        const ftype = filterTypeNode ? filterTypeNode.value : 'siteid';
+        let csvContent = "";
+        let filename = "template_site_cluster.csv";
+
+        if (ftype === 'city') {
+            csvContent = "City,Cluster\r\nAMBON,MALUKU\r\nAGATS,PAPUA\r\nTUAL,MALUKU\r\n";
+            filename = "template_city_cluster.csv";
+        } else if (ftype === 'site_cell') {
+            csvContent = "Site-Cell,Cluster\r\nAMB004-11,AMBON\r\nAMB004-12,AMBON\r\nAMB004-13,AMBON\r\nAGA002-11,AGATS\r\nAGA002-13,AGATS\r\n";
+            filename = "template_site_cell_cluster.csv";
+        } else {
+            csvContent = "Site,Cluster\r\nAMB004,AMBON\r\nAMB002,AMBON\r\nAMB008,AMBON\r\nAGA006,AGATS\r\nAGA002,AGATS\r\n";
+            filename = "template_site_cluster.csv";
+        }
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function clearClusterMapping() {
+        const clusterHidden = document.getElementById('clusterMappingHidden');
+        if (clusterHidden) clusterHidden.value = '';
+        const badge = document.getElementById('clusterStatusBadge');
+        if (badge) badge.style.display = 'none';
+        const fileLabel = document.getElementById('siteFileLabel');
+        if (fileLabel) fileLabel.textContent = 'Choose CSV file...';
+        const fileInput = document.getElementById('siteFileInput');
+        if (fileInput) fileInput.value = '';
+    }
+
     function handleInlinePasteAndSelect(text) {
-        parseSiteText(text);
-    }
-
-    function handleInlinePaste(text) {
-        parseSiteText(text);
-    }
-
-    function parseSiteText(text) {
+        // Text input strictly supports site/cell/city IDs only (one per line or comma-separated)
+        // Clusters are strictly from CSV import
+        clearClusterMapping();
         selectedSitesSet.clear();
         const cSpan = document.getElementById('sitePasteCount');
 
@@ -2866,52 +3050,503 @@
         const isCell = (ftype === 'site_cell');
         const isCity = (ftype === 'city');
 
-        const rawItems = String(text).split(/[\n,;\t]+/).map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
-        if (rawItems.length === 0) {
+        // Strictly split by newlines and commas
+        const tokens = String(text)
+            .split(/[\r\n,]+/)
+            .map(s => s.trim())
+            .filter(s => s.length > 0);
+
+        const upperMap = new Map();
+        if (allSitesList && allSitesList.length > 0) {
+            for (let i = 0; i < allSitesList.length; i++) {
+                const item = allSitesList[i];
+                if (item) {
+                    upperMap.set(String(item).trim().toUpperCase(), item);
+                }
+            }
+        }
+
+        let matchedCount = 0;
+        tokens.forEach(tok => {
+            let candidate = tok;
+            if (!isCell && !isCity && candidate.includes('-')) {
+                candidate = candidate.split('-')[0].trim();
+            }
+            const upperCand = candidate.toUpperCase();
+            if (upperMap.has(upperCand)) {
+                selectedSitesSet.add(upperMap.get(upperCand));
+                matchedCount++;
+            }
+        });
+
+        renderSiteCheckboxes();
+        updateSiteCount();
+        sortSitesToTop();
+
+        if (cSpan) {
+            if (matchedCount > 0) {
+                cSpan.textContent = `Matched: ${matchedCount}`;
+                cSpan.style.color = '#00e676';
+            } else if (tokens.length > 0) {
+                cSpan.textContent = `No matches found`;
+                cSpan.style.color = '#ff5252';
+            } else {
+                cSpan.textContent = "";
+            }
+            setTimeout(() => { if (cSpan) cSpan.textContent = ""; }, 4000);
+        }
+    }
+
+    function parseSiteText(text) {
+        handleInlinePasteAndSelect(text);
+    }
+
+    function handleInlinePaste(text) {
+        handleInlinePasteAndSelect(text);
+    }
+
+    function parseCsvFileImport(csvText) {
+        selectedSitesSet.clear();
+        const cSpan = document.getElementById('sitePasteCount');
+        const clusterHidden = document.getElementById('clusterMappingHidden');
+        const badge = document.getElementById('clusterStatusBadge');
+        const textEl = document.getElementById('clusterStatusText');
+        const pasteArea = document.getElementById('sitePasteArea');
+        if (pasteArea) pasteArea.value = '';
+
+        if (!csvText || !String(csvText).trim()) {
+            clearClusterMapping();
             renderSiteCheckboxes();
             updateSiteCount();
             if (cSpan) cSpan.textContent = "";
             return;
         }
 
-        // Build uppercase lookup map for O(1) matching against allSitesList
+        const filterTypeNode = document.querySelector('input[name="filter_type"]:checked');
+        const ftype = filterTypeNode ? filterTypeNode.value : 'siteid';
+        const isCell = (ftype === 'site_cell');
+        const isCity = (ftype === 'city');
+
+        const rawLines = String(csvText).split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+        if (rawLines.length === 0) {
+            clearClusterMapping();
+            renderSiteCheckboxes();
+            updateSiteCount();
+            return;
+        }
+
+        let clusterMap = {};
+        let parsedEntities = [];
+        let hasClusterColumn = false;
+
+        // Check header in row 0
+        let startIdx = 0;
+        const firstLineParts = rawLines[0].split(/[\t,;|]+/).map(p => p.trim().replace(/^["']|["']$/g, ''));
+        if (firstLineParts.length >= 2) {
+            const h0 = firstLineParts[0].toLowerCase();
+            const h1 = firstLineParts[1].toLowerCase();
+            if ((h0.includes('site') || h0.includes('cell') || h0.includes('city')) && (h1.includes('clust') || h1.includes('group'))) {
+                startIdx = 1;
+                hasClusterColumn = true;
+            }
+        }
+
+        for (let i = startIdx; i < rawLines.length; i++) {
+            const line = rawLines[i];
+            const parts = line.split(/[\t,;|]+/).map(p => p.trim().replace(/^["']|["']$/g, ''));
+            if (parts.length >= 2 && parts[0] && parts[1]) {
+                const ent = parts[0].toUpperCase();
+                const clust = parts[1].toUpperCase();
+                clusterMap[ent] = clust;
+                parsedEntities.push(ent);
+                hasClusterColumn = true;
+            } else if (parts.length >= 1 && parts[0]) {
+                const ent = parts[0].toUpperCase();
+                parsedEntities.push(ent);
+            }
+        }
+
         const upperMap = new Map();
         if (allSitesList && allSitesList.length > 0) {
             for (let i = 0; i < allSitesList.length; i++) {
                 const item = allSitesList[i];
-                upperMap.set(item.toUpperCase(), item);
+                if (item) {
+                    upperMap.set(String(item).trim().toUpperCase(), item);
+                }
             }
         }
 
+        let finalClusterMap = {};
         let matchedCount = 0;
-        rawItems.forEach(item => {
+        let unmatchedCount = 0;
+
+        parsedEntities.forEach(item => {
             let candidate = item;
             if (!isCell && !isCity && candidate.includes('-')) {
                 candidate = candidate.split('-')[0].trim();
             }
+
             if (upperMap.size > 0) {
-                if (upperMap.has(candidate)) {
-                    selectedSitesSet.add(upperMap.get(candidate));
+                let matchKey = null;
+                const upperCand = candidate.toUpperCase();
+                if (upperMap.has(upperCand)) {
+                    matchKey = upperMap.get(upperCand);
+                }
+
+                if (matchKey) {
+                    selectedSitesSet.add(matchKey);
                     matchedCount++;
+                    if (hasClusterColumn) {
+                        const cVal = clusterMap[item] || clusterMap[candidate] || clusterMap[matchKey];
+                        if (cVal) finalClusterMap[matchKey] = cVal;
+                    }
+                } else {
+                    unmatchedCount++;
                 }
             } else {
                 if (candidate) {
                     selectedSitesSet.add(candidate);
                     matchedCount++;
+                    if (hasClusterColumn) {
+                        const cVal = clusterMap[item] || clusterMap[candidate];
+                        if (cVal) finalClusterMap[candidate] = cVal;
+                    }
                 }
             }
         });
 
+        const clusterKeys = Object.keys(finalClusterMap);
+        if (hasClusterColumn && clusterKeys.length > 0 && matchedCount > 0) {
+            if (clusterHidden) clusterHidden.value = JSON.stringify(finalClusterMap);
+            const distinctClusters = [...new Set(Object.values(finalClusterMap))];
+            if (badge && textEl) {
+                badge.style.display = 'flex';
+                textEl.textContent = `✓ ${matchedCount} items in ${distinctClusters.length} clusters: ${distinctClusters.join(', ')}`;
+            }
+        } else {
+            if (clusterHidden) clusterHidden.value = '';
+            if (badge) badge.style.display = 'none';
+        }
+
         renderSiteCheckboxes();
         updateSiteCount();
+        sortSitesToTop();
 
         if (cSpan) {
-            if (upperMap.size > 0) {
-                cSpan.textContent = `Matched: ${matchedCount} of ${rawItems.length}`;
+            if (matchedCount === 0 && parsedEntities.length > 0) {
+                cSpan.textContent = `No matches found (${parsedEntities.length} in file)`;
+                cSpan.style.color = '#ff5252';
+            } else if (unmatchedCount > 0) {
+                cSpan.textContent = `Matched ${matchedCount} of ${parsedEntities.length}`;
+                cSpan.style.color = '#ff9f40';
             } else {
-                cSpan.textContent = `Pasted: ${matchedCount}`;
+                cSpan.textContent = `Matched all ${matchedCount}`;
+                cSpan.style.color = '#00e676';
             }
-            setTimeout(() => { if (cSpan) cSpan.textContent = ""; }, 4000);
+            setTimeout(() => { if (cSpan) cSpan.textContent = ""; }, 5000);
+        }
+    }
+
+    // ── Cluster Filter Reactive Handlers (Picture 1 & Picture 2) ──
+    function getSelectedClusters() {
+        const cbs = document.querySelectorAll('.cluster-filter-cb:checked');
+        return Array.from(cbs).map(cb => cb.value);
+    }
+
+    function toggleAllClusters(source) {
+        const cbs = document.querySelectorAll('.cluster-filter-cb');
+        cbs.forEach(cb => cb.checked = source.checked);
+        onClusterFilterChange();
+    }
+
+    function setAllClusters(selectAll) {
+        const cbs = document.querySelectorAll('.cluster-filter-cb');
+        cbs.forEach(cb => cb.checked = !!selectAll);
+        onClusterFilterChange();
+    }
+
+    function filterClusterDropdownList(val) {
+        const query = (val || '').trim().toUpperCase();
+        document.querySelectorAll('#clusterFilterCheckboxes .cluster-item-label').forEach(el => {
+            const name = (el.getAttribute('data-name') || '').toUpperCase();
+            el.style.display = (!query || name.includes(query)) ? 'flex' : 'none';
+        });
+    }
+
+    function onClusterFilterChange() {
+        if (!IS_CLUSTER_MODE || !CLUSTER_LIST || CLUSTER_LIST.length === 0) return;
+        const selected = getSelectedClusters();
+        const allCb = document.getElementById('clusterFilterSelectAll');
+        const totalCount = CLUSTER_LIST.length;
+
+        if (allCb) {
+            allCb.checked = (selected.length === totalCount);
+            allCb.indeterminate = (selected.length > 0 && selected.length < totalCount);
+        }
+
+        const btnText = document.getElementById('clusterFilterBtnText');
+        const badgeEl = document.getElementById('clusterFilterBadge');
+        if (btnText) {
+            if (selected.length === totalCount) {
+                btnText.textContent = "All";
+                if (badgeEl) badgeEl.textContent = totalCount;
+            } else if (selected.length === 1) {
+                btnText.textContent = selected[0];
+                if (badgeEl) badgeEl.textContent = "1";
+            } else if (selected.length === 0) {
+                btnText.textContent = "None";
+                if (badgeEl) badgeEl.textContent = "0";
+            } else {
+                btnText.textContent = `${selected.length} Sel`;
+                if (badgeEl) badgeEl.textContent = `${selected.length}/${totalCount}`;
+            }
+        }
+
+        // 1. Filter rows in Cluster Level Comparison table
+        document.querySelectorAll('.site-compare-row').forEach(row => {
+            const c = row.getAttribute('data-cluster');
+            row.style.display = selected.includes(c) ? '' : 'none';
+        });
+
+        // 2. Update Top Summary Comparison Table
+        updateTopComparisonTable(selected);
+
+        // 3. Update Hourly Comparison Charts
+        updateCompareHourlyCharts(selected);
+
+        // 4. Update Trend Charts & Trend Table
+        updateTrendChartsForCluster(selected);
+
+        // 5. Update Band Level Table & Charts
+        updateBandTableForCluster(selected);
+        updateBandChartsForCluster(selected);
+
+        // 6. Update Sector Level Table
+        updateSectorTableForCluster(selected);
+
+        // 7. Update Custom Charts Tab
+        updateCustomChartsForCluster(selected);
+    }
+
+    function updateTopComparisonTable(selected) {
+        const table = document.getElementById('compareTable');
+        if (!table) return;
+        const title = document.getElementById('topCompareTableTitle');
+
+        const isSingle = (selected.length === 1);
+        const sourceData = isSingle ? (SITE_COMPARE_DATA[selected[0]] || {}) : OVERALL_COMPARE_DATA;
+
+        if (title) {
+            title.textContent = isSingle ? `${selected[0]} Comparison` : 'Cluster Comparison (Overall)';
+        }
+
+        table.querySelectorAll('tbody tr').forEach(row => {
+            const kpiId = row.getAttribute('data-kpi');
+            if (!kpiId) return;
+            const m = sourceData[kpiId];
+            const isLb = row.getAttribute('data-lb') === 'true';
+
+            const beforeCell = row.querySelector('.before-val');
+            const afterCell = row.querySelector('.after-val');
+            const deltaCell = row.querySelector('.delta-val');
+            const growthCell = row.querySelector('.growth-val');
+            const remarkCell = row.querySelector('.remark-cell');
+
+            if (!m || m.before === null || m.before === undefined) {
+                if (beforeCell) beforeCell.textContent = '-';
+                if (afterCell) afterCell.textContent = '-';
+                if (deltaCell) deltaCell.textContent = '-';
+                if (growthCell) growthCell.textContent = '-';
+                if (remarkCell) remarkCell.textContent = '-';
+                return;
+            }
+
+            const b = m.before;
+            const a = m.after;
+            const d = m.delta;
+            const pct = (m.delta_pct !== undefined) ? m.delta_pct : m.perc;
+
+            if (beforeCell) beforeCell.textContent = b !== null ? Number(b).toFixed(2) : '-';
+            if (afterCell) afterCell.textContent = a !== null ? Number(a).toFixed(2) : '-';
+            if (deltaCell) deltaCell.textContent = d !== null ? (d > 0 ? `+${Number(d).toFixed(2)}` : Number(d).toFixed(2)) : '-';
+
+            if (growthCell) {
+                if (pct !== null && pct !== undefined) {
+                    growthCell.textContent = (pct > 0 ? `+${Number(pct).toFixed(1)}` : Number(pct).toFixed(1)) + '%';
+                } else {
+                    growthCell.textContent = '-';
+                }
+            }
+
+            if (remarkCell) {
+                if (pct !== null && pct !== undefined) {
+                    let remark = "Maintain";
+                    let badgeClass = "remark-maintain";
+                    if (!isLb) {
+                        if (pct >= 5.0) { remark = "Improve"; badgeClass = "remark-improve"; }
+                        else if (pct <= -5.0) { remark = "Degraded"; badgeClass = "remark-degraded"; }
+                    } else {
+                        if (pct >= 5.0) { remark = "Degraded"; badgeClass = "remark-degraded"; }
+                        else if (pct <= -5.0) { remark = "Improve"; badgeClass = "remark-improve"; }
+                    }
+                    remarkCell.innerHTML = `<span class="${badgeClass}">${remark}</span>`;
+                } else {
+                    remarkCell.textContent = '-';
+                }
+            }
+        });
+    }
+
+    function updateCompareHourlyCharts(selected) {
+        if (typeof chartInstances === 'undefined') return;
+        const isSingle = (selected.length === 1);
+        const clusterKey = isSingle ? selected[0] : null;
+
+        KPI_DEFS.forEach(kpi => {
+            const kpiId = kpi[0];
+            const chart = chartInstances["compareChart_" + kpiId];
+            if (!chart) return;
+
+            let beforeData = [];
+            let afterData = [];
+
+            if (isSingle && SITE_COMPARE_HOURLY_DATA && SITE_COMPARE_HOURLY_DATA[kpiId]) {
+                beforeData = SITE_COMPARE_HOURLY_DATA[kpiId]?.before?.[clusterKey] || [];
+                afterData = SITE_COMPARE_HOURLY_DATA[kpiId]?.after?.[clusterKey] || [];
+            } else if (COMPARE_HOURLY_DATA && COMPARE_HOURLY_DATA[kpiId]) {
+                beforeData = COMPARE_HOURLY_DATA[kpiId]?.before || [];
+                afterData = COMPARE_HOURLY_DATA[kpiId]?.after || [];
+            }
+
+            if (chart.data && chart.data.datasets.length >= 2) {
+                chart.data.datasets[0].data = beforeData;
+                chart.data.datasets[1].data = afterData;
+                chart.update('none');
+            }
+        });
+    }
+
+    function updateTrendChartsForCluster(selected) {
+        if (typeof chartInstances === 'undefined') return;
+        const isSingle = (selected.length === 1);
+        const clusterKey = isSingle ? selected[0] : null;
+
+        KPI_DEFS.forEach(kpi => {
+            const kpiId = kpi[0];
+            const chart = chartInstances["trendChart_" + kpiId];
+            if (!chart) return;
+
+            let lineData = [];
+            let lineLabel = 'Total';
+
+            if (isSingle && SITE_TREND_DATA && SITE_TREND_DATA[kpiId]) {
+                lineData = SITE_TREND_DATA[kpiId]?.[clusterKey] || [];
+                lineLabel = clusterKey;
+            } else if (TREND_DATA && TREND_DATA[kpiId]) {
+                lineData = TREND_DATA[kpiId]?.total || [];
+                lineLabel = 'Total';
+            }
+
+            if (chart.data && chart.data.datasets.length > 0) {
+                chart.data.datasets[0].data = lineData;
+                chart.data.datasets[0].label = lineLabel;
+                chart.update('none');
+            }
+        });
+
+        renderTrendTable();
+    }
+
+    function updateBandTableForCluster(selected) {
+        if (!IS_CLUSTER_MODE) return;
+        const isSingle = (selected.length === 1);
+        const sourceBandCompare = isSingle ? (CLUSTER_BAND_COMPARE[selected[0]] || {}) : BAND_COMPARE;
+
+        document.querySelectorAll('#bandTable tbody tr.mode-split').forEach(row => {
+            const band = row.getAttribute('data-band');
+            const bandMetrics = sourceBandCompare[band];
+
+            if (isSingle && (!bandMetrics || Object.keys(bandMetrics).length === 0)) {
+                row.style.display = 'none';
+                return;
+            }
+            row.style.display = '';
+
+            KPI_DEFS.forEach(kpi => {
+                const kpiId = kpi[0];
+                const isLb = kpi[7] === true && kpiId !== 'dlPrbChart' && kpiId !== 'ulPrbChart';
+                const m = bandMetrics ? bandMetrics[kpiId] : null;
+
+                const beforeCell = row.querySelector(`.before-val.kpi-col-${kpiId}`);
+                const afterCell = row.querySelector(`.after-val.kpi-col-${kpiId}`);
+                const deltaCell = row.querySelector(`.delta-val.kpi-col-${kpiId}`);
+                const pctCell = row.querySelector(`.pct-val.kpi-col-${kpiId}`);
+
+                if (!m || m.before === null || m.before === undefined) {
+                    if (beforeCell) beforeCell.textContent = '-';
+                    if (afterCell) afterCell.textContent = '-';
+                    if (deltaCell) deltaCell.textContent = '-';
+                    if (pctCell) pctCell.textContent = '-';
+                    return;
+                }
+
+                const b = m.before;
+                const a = m.after;
+                const d = m.delta;
+                const pct = (m.delta_pct !== undefined) ? m.delta_pct : m.perc;
+
+                if (beforeCell) beforeCell.textContent = b !== null ? Number(b).toFixed(2) : '-';
+                if (afterCell) afterCell.textContent = a !== null ? Number(a).toFixed(2) : '-';
+                if (deltaCell) deltaCell.textContent = d !== null ? (d > 0 ? `+${Number(d).toFixed(2)}` : Number(d).toFixed(2)) : '-';
+
+                if (pctCell) {
+                    if (pct !== null && pct !== undefined) {
+                        let c = '#4facfe';
+                        if (!isLb) {
+                            if (pct >= 5.0) c = '#00e676';
+                            else if (pct <= -5.0) c = '#ff5252';
+                        } else {
+                            if (pct >= 5.0) c = '#ff5252';
+                            else if (pct <= -5.0) c = '#00e676';
+                        }
+                        pctCell.innerHTML = `<span style="color: ${c};">${pct > 0 ? '+' : ''}${Number(pct).toFixed(1)}%</span>`;
+                    } else {
+                        pctCell.textContent = '-';
+                    }
+                }
+            });
+        });
+    }
+
+    function updateBandChartsForCluster(selected) {
+        if (!IS_CLUSTER_MODE) return;
+        const isSingle = (selected.length === 1);
+        if (isSingle) {
+            BAND_TREND_DATA = (currentGranularity === 'hourly')
+                ? (HOURLY_CLUSTER_BAND_TREND_DATA[selected[0]] || {})
+                : (DAILY_CLUSTER_BAND_TREND_DATA[selected[0]] || {});
+        } else {
+            BAND_TREND_DATA = (currentGranularity === 'hourly')
+                ? HOURLY_BAND_TREND_DATA
+                : DAILY_BAND_TREND_DATA;
+        }
+        renderBandCharts();
+    }
+
+    function updateSectorTableForCluster(selected) {
+        if (!IS_CLUSTER_MODE) return;
+        document.querySelectorAll('.sector-compare-row').forEach(row => {
+            const c = row.getAttribute('data-cluster');
+            row.style.display = selected.includes(c) ? '' : 'none';
+        });
+    }
+
+    function updateCustomChartsForCluster(selected) {
+        if (!IS_CLUSTER_MODE) return;
+        const isSingle = (selected.length === 1);
+        activeCustomChartCluster = isSingle ? selected[0] : 'ALL';
+        if (typeof renderCustomCharts === 'function' && customChartsConfig && customChartsConfig.length > 0) {
+            renderCustomCharts(activeCustomChartCluster);
         }
     }
 
@@ -2966,7 +3601,7 @@
         }
         const pasteArea = document.getElementById('sitePasteArea');
         if (pasteArea && pasteArea.value.trim()) {
-            parseSiteText(pasteArea.value);
+            handleInlinePasteAndSelect(pasteArea.value);
         }
         renderSiteCheckboxes();
         updateSiteCount();
@@ -3032,6 +3667,7 @@
         document.getElementById("sitePasteArea").placeholder = type === 'city' ? `Paste city names here\n(one per line or comma-separated)` : `Paste ${singularStr} IDs here\n(one per line or comma-separated)`;
         document.getElementById("siteSearch").value = "";
         document.getElementById("sitePasteArea").value = "";
+        clearClusterMapping();
         const cSpan = document.getElementById('sitePasteCount');
         if (cSpan) cSpan.textContent = "";
         
@@ -3048,7 +3684,7 @@
                     allSitesList = data.items;
                     const pasteArea = document.getElementById('sitePasteArea');
                     if (pasteArea && pasteArea.value.trim()) {
-                        parseSiteText(pasteArea.value);
+                        handleInlinePasteAndSelect(pasteArea.value);
                     } else {
                         renderSiteCheckboxes();
                         updateSiteCount();
@@ -3093,6 +3729,11 @@
         const dd = document.getElementById('bandFilterDropdown');
         if (dd && dd.style.display !== 'none' && !event.target.closest('#bandFilterDropdownContainer')) {
             dd.style.display = 'none';
+        }
+
+        const cdd = document.getElementById('clusterFilterDropdown');
+        if (cdd && cdd.style.display !== 'none' && !event.target.closest('#clusterFilterWrap')) {
+            cdd.style.display = 'none';
         }
     });
 
@@ -3303,6 +3944,10 @@
 
     // Auto-close filter dropdowns when clicking outside
     document.addEventListener('click', function(event) {
+        if (!event.target.closest('#clusterFilterWrap')) {
+            const cdd = document.getElementById('clusterFilterDropdown');
+            if (cdd) cdd.style.display = 'none';
+        }
         if (!event.target.closest('#bandFilterDropdownContainer')) {
             const dd1 = document.getElementById('bandFilterDropdown');
             if (dd1) dd1.style.display = 'none';
