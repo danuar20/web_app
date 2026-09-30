@@ -605,6 +605,116 @@
     [data-theme="light"] .modal-content {
         background: #ffffff;
     }
+
+    .modal-content.export-modal-lg {
+        width: 780px;
+        max-width: 95vw;
+        max-height: 90vh;
+        overflow-y: auto;
+        padding: 20px 24px;
+    }
+    .smart-fit-section {
+        margin-top: 14px;
+        padding: 12px 16px;
+        border-radius: 12px;
+        border: 1px solid rgba(79,172,254,0.25);
+        background: rgba(79,172,254,0.03);
+    }
+    [data-theme="dark"] .smart-fit-section { background: rgba(255,255,255,0.025); border-color: rgba(79,172,254,0.25); }
+    [data-theme="light"] .smart-fit-section { background: #f8fafc; border-color: #e2e8f0; }
+
+    .smart-fit-title {
+        font-size: 12.5px;
+        font-weight: 700;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .smart-fit-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 10px;
+    }
+    .smart-fit-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .smart-fit-label {
+        font-size: 11px;
+        font-weight: 600;
+        opacity: 0.8;
+    }
+    .smart-fit-select, .smart-fit-input {
+        padding: 6px 10px;
+        font-size: 12px;
+        border-radius: 6px;
+        border: 1px solid rgba(128,128,128,0.25);
+        background: inherit;
+        color: inherit;
+        outline: none;
+        cursor: pointer;
+    }
+    [data-theme="dark"] .smart-fit-select { background: #16162a; color: #f1f5f9; border-color: rgba(79,172,254,0.3); }
+    [data-theme="light"] .smart-fit-select { background: #ffffff; color: #1e293b; border-color: #cbd5e1; }
+
+    .smart-fit-badge {
+        margin-top: 10px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 11.5px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    [data-theme="dark"] .smart-fit-badge { background: rgba(79,172,254,0.12); color: #70c4ff; border: 1px solid rgba(79,172,254,0.3); }
+    [data-theme="light"] .smart-fit-badge { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+
+    .btn-clipboard {
+        background: #0284c7;
+        color: #fff;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s ease;
+    }
+    .btn-clipboard:hover {
+        background: #0369a1;
+        transform: translateY(-1px);
+    }
+    .btn-clipboard:active {
+        transform: translateY(0);
+    }
+
+    .png-kpi-search {
+        padding: 4px 10px;
+        font-size: 11.5px;
+        border-radius: 6px;
+        border: 1px solid rgba(128,128,128,0.25);
+        background: transparent;
+        color: inherit;
+        outline: none;
+        width: 160px;
+    }
+    [data-theme="dark"] .png-kpi-search { background: #111124; border-color: rgba(79,172,254,0.3); color: #f1f5f9; }
+    [data-theme="light"] .png-kpi-search { background: #ffffff; border-color: #cbd5e1; color: #1e293b; }
+
+    .slide-pager {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-right: auto;
+        font-size: 12px;
+        font-weight: 600;
+    }
     
     /* Fallback layout for mobile: Dashboard 2G filter bar should remain flex, not grid */
     body.mobile-view .dashboard-top .filter-bar {
@@ -1434,27 +1544,119 @@
     {% endif %}
 </div>
 
-<!-- Advanced PNG Export Modal -->
+<!-- ═══════════════════ ADVANCED PNG EXPORT MODAL (SMART IMAGE FIT) ═══════════════════ -->
 <div id="exportModal" class="modal-overlay" style="display: none;">
-    <div class="modal-content" style="max-width: 500px; padding: 24px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 style="margin: 0; font-size: 16px; color: #4facfe;">Export PNG Settings</h3>
-            <button class="btn-xs" onclick="document.getElementById('exportModal').style.display='none'" style="border:none; font-size:16px; background:transparent;"><i class="fas fa-times"></i></button>
+    <div class="modal-content export-modal-lg">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <h3 style="margin: 0; font-size: 16px; color: #4facfe;">🖼️ Export Charts as PNG</h3>
+                <span style="font-size:11px;font-weight:700;letter-spacing:0.4px;background:rgba(14,165,233,0.15);color:#0284c7;border:1px solid rgba(14,165,233,0.3);padding:2px 8px;border-radius:12px;">
+                    <i class="fas fa-magic" style="margin-right:4px;"></i>Smart Image Fit
+                </span>
+            </div>
+            <button class="btn-xs" onclick="closeExportModal()" style="border:none; font-size:16px; background:transparent; cursor:pointer;"><i class="fas fa-times"></i></button>
         </div>
         
-        <p style="font-size: 12px; opacity: 0.8; margin-bottom: 12px;">Select the KPIs you want to include in the exported image:</p>
-        
-        <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(128,128,128,0.2);">
-            <label class="checkbox-label" style="margin:0;"><input type="checkbox" id="exportSelectAll" checked onchange="toggleAllExportKPIs(this)"> <span style="font-weight:bold; color:#4facfe;">Select All KPIs</span></label>
+        <!-- Search & KPI Selection Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+            <div style="font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;">
+                <span>Select Charts:</span>
+                <span id="exportKpiCountBadge" style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(128,128,128,0.15);font-weight:600;">0 selected</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <input type="text" class="png-kpi-search" id="exportKpiSearch" placeholder="Search chart..." oninput="filterExportKpis(this.value)">
+                <button type="button" class="btn-xs" onclick="toggleAllExportKPIs(true)" style="padding:4px 10px;">All</button>
+                <button type="button" class="btn-xs" onclick="toggleAllExportKPIs(false)" style="padding:4px 10px;">Clear</button>
+            </div>
         </div>
         
-        <div id="exportKpiList" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 300px; overflow-y: auto; font-size: 12px; margin-bottom: 20px;">
-            <!-- Javascript will inject options here -->
+        <div id="exportKpiList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; max-height: 150px; overflow-y: auto; font-size: 12px; padding: 6px; border: 1px solid rgba(128,128,128,0.15); border-radius: 8px;">
+            <!-- Javascript injects checkboxes here -->
+        </div>
+
+        <!-- Smart Fit Options Panel -->
+        <div class="smart-fit-section">
+            <div class="smart-fit-title">
+                <span style="display:flex;align-items:center;gap:6px;color:#0ea5e9;">
+                    <i class="fas fa-sliders-h"></i> Presentation &amp; Smart Aspect Ratio Settings
+                </span>
+                <span style="font-size:11px;font-weight:normal;opacity:0.7;">Auto-optimizes layout for PowerPoint</span>
+            </div>
+            <div class="smart-fit-grid">
+                <div class="smart-fit-field">
+                    <label class="smart-fit-label">Aspect Ratio</label>
+                    <select class="smart-fit-select" id="exportAspectSelect" onchange="onExportAspectChange()">
+                        <option value="16:9" selected>16:9 Widescreen (PPT)</option>
+                        <option value="4:3">4:3 Standard Slide</option>
+                        <option value="auto">Auto Grid (Balanced)</option>
+                        <option value="custom">Custom Columns</option>
+                    </select>
+                </div>
+                <div class="smart-fit-field" id="exportCustomColField" style="display:none;">
+                    <label class="smart-fit-label">Columns</label>
+                    <select class="smart-fit-select" id="exportCustomCols" onchange="updateExportSmartFitPreview()">
+                        <option value="1">1 Column</option>
+                        <option value="2">2 Columns</option>
+                        <option value="3" selected>3 Columns</option>
+                        <option value="4">4 Columns</option>
+                        <option value="5">5 Columns</option>
+                        <option value="6">6 Columns</option>
+                    </select>
+                </div>
+                <div class="smart-fit-field">
+                    <label class="smart-fit-label">Charts / Slide</label>
+                    <select class="smart-fit-select" id="exportPerSlideSelect" onchange="updateExportSmartFitPreview()">
+                        <option value="0" selected>All-in-1 Slide (Smart Fit)</option>
+                        <option value="4">4 per Slide (2×2 Detail)</option>
+                        <option value="6">6 per Slide (3×2 Standard)</option>
+                        <option value="8">8 per Slide (4×2)</option>
+                        <option value="9">9 per Slide (3×3)</option>
+                        <option value="12">12 per Slide (4×3)</option>
+                    </select>
+                </div>
+                <div class="smart-fit-field">
+                    <label class="smart-fit-label">Background</label>
+                    <select class="smart-fit-select" id="exportThemeSelect" onchange="updateExportSmartFitPreview()">
+                        <option value="white" selected>Presentation White</option>
+                        <option value="dark">Dark Theme</option>
+                        <option value="transparent">Transparent</option>
+                    </select>
+                </div>
+                <div class="smart-fit-field">
+                    <label class="smart-fit-label">Resolution</label>
+                    <select class="smart-fit-select" id="exportResSelect" onchange="updateExportSmartFitPreview()">
+                        <option value="1080p" selected>Full HD (1080p)</option>
+                        <option value="4k">Ultra HD 4K (2× Crisp)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Additional toggles -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;flex-wrap:wrap;gap:8px;">
+                <label style="font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+                    <input type="checkbox" id="exportShowHeaderCheck" checked onchange="updateExportSmartFitPreview()">
+                    <span>Include Presentation Header (Title, Date &amp; Scope)</span>
+                </label>
+            </div>
+
+            <!-- Dynamic Live Status Banner -->
+            <div class="smart-fit-badge" id="exportSmartFitBadge">
+                <i class="fas fa-sparkles"></i>
+                <span id="exportSmartFitText">Calculating optimal layout...</span>
+            </div>
         </div>
         
-        <div style="display: flex; justify-content: flex-end; gap: 12px;">
-            <button class="btn-xs" style="padding: 8px 16px; font-size: 12px;" onclick="document.getElementById('exportModal').style.display='none'">Cancel</button>
-            <button class="btn-apply" style="padding: 8px 16px; font-size: 12px;" onclick="executeAdvancedExport()"><i class="fas fa-camera"></i> Export Now</button>
+        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 18px;">
+            <!-- Slide pager for multi-slide mode -->
+            <div class="slide-pager" id="exportSlidePager" style="display:none;">
+                <button type="button" class="btn-xs" style="padding:4px 8px;" onclick="changeExportSlide(-1)"><i class="fas fa-chevron-left"></i></button>
+                <span id="exportSlideCounterText" style="padding:0 4px;">Slide 1 of 1</span>
+                <button type="button" class="btn-xs" style="padding:4px 8px;" onclick="changeExportSlide(1)"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            
+            <button class="btn-xs" style="padding: 8px 16px; font-size: 12px;" onclick="closeExportModal()">Cancel</button>
+            <button class="btn-clipboard" id="btnExportClipboard" onclick="doCopyExportClipboard()"><i class="fas fa-copy"></i> <span id="btnExportClipboardText">Copy to Clipboard</span></button>
+            <button class="btn-apply" id="btnExportDownload" style="padding: 8px 16px; font-size: 12px;" onclick="executeAdvancedExport()"><i class="fas fa-camera"></i> <span id="btnExportDownloadText">Download PNG</span></button>
         </div>
     </div>
 </div>
@@ -1650,66 +1852,177 @@
         document.body.removeChild(dlLink);
     }
 
-    // Export PNG Logic
-    let currentExportPrefix = '';
-    let currentExportGrid = '';
+    // ═══════════════════ SMART FIT PNG EXPORT SUITE ═══════════════════
+    var DASHBOARD_GEN = "2G";
+    var currentExportPrefix = '';
+    var currentExportGrid = '';
+    var _exportCurrentSlide = 1;
+
+    function showPngToast(msg, type = "info") {
+        var toast = document.createElement("div");
+        toast.className = "png-toast " + (type === "success" ? "png-toast-success" : "");
+        toast.innerHTML = (type === "success" ? '<i class="fas fa-check-circle" style="color:#22c55e;"></i> ' : '<i class="fas fa-info-circle" style="color:#38bdf8;"></i> ') + msg;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.style.animation = "pngToastFade 0.3s ease reverse forwards";
+            setTimeout(() => toast.remove(), 300);
+        }, 3200);
+    }
 
     function openExportModal(prefix, gridId) {
         currentExportPrefix = prefix;
         currentExportGrid = gridId;
+        _exportCurrentSlide = 1;
         
         var html = "";
-        
         if (prefix === 'customChart') {
             if (!customChartsConfig || customChartsConfig.length === 0) return alert("No custom charts to export.");
             html = customChartsConfig.map(function(cfg, idx) {
                 var title = cfg.title || "Custom Chart " + (idx + 1);
-                return '<label class="checkbox-label" style="margin:0;"><input type="checkbox" value="' + idx + '" data-title="' + title + '" checked onchange="checkExportAllSync()"> ' + title + '</label>';
+                return '<label class="checkbox-label kpi-check-label" style="margin:0; display:flex; align-items:center; gap:6px;"><input type="checkbox" class="export-kpi-check" value="' + idx + '" data-title="' + title + '" checked onchange="checkExportAllSync()"> <span>' + title + '</span></label>';
             }).join("");
         } else {
             if (!KPI_DEFS || KPI_DEFS.length === 0) return alert("No KPIs active.");
             html = KPI_DEFS.map(function(kpi) {
-                return '<label class="checkbox-label" style="margin:0;"><input type="checkbox" value="' + kpi[0] + '" data-title="' + kpi[1] + '" checked onchange="checkExportAllSync()"> ' + kpi[1] + ' (' + kpi[2] + ')</label>';
+                var title = kpi[1] + (kpi[2] ? ' (' + kpi[2] + ')' : '');
+                return '<label class="checkbox-label kpi-check-label" style="margin:0; display:flex; align-items:center; gap:6px;"><input type="checkbox" class="export-kpi-check" value="' + kpi[0] + '" data-title="' + title + '" checked onchange="checkExportAllSync()"> <span>' + title + '</span></label>';
             }).join("");
         }
         
-        document.getElementById("exportKpiList").innerHTML = html;
-        document.getElementById("exportSelectAll").checked = true;
-        document.getElementById("exportModal").style.display = "flex";
+        var listEl = document.getElementById("exportKpiList");
+        if (listEl) listEl.innerHTML = html;
+        
+        var searchInp = document.getElementById("exportKpiSearch");
+        if (searchInp) { searchInp.value = ""; filterExportKpis(""); }
+        
+        updateExportSmartFitPreview();
+        var modal = document.getElementById("exportModal");
+        if (modal) modal.style.display = "flex";
     }
 
-    function toggleAllExportKPIs(cb) {
-        document.querySelectorAll("#exportKpiList input[type='checkbox']").forEach(function(c){
-            c.checked = cb.checked;
+    function closeExportModal() {
+        var modal = document.getElementById("exportModal");
+        if (modal) modal.style.display = "none";
+    }
+
+    function toggleAllExportKPIs(val) {
+        var isChecked = (typeof val === 'boolean') ? val : (val && val.checked);
+        document.querySelectorAll("#exportKpiList .kpi-check-label").forEach(function(lbl){
+            if (lbl.style.display !== "none") {
+                var cb = lbl.querySelector("input[type='checkbox']");
+                if (cb) cb.checked = isChecked;
+            }
         });
+        updateExportSmartFitPreview();
     }
 
     function checkExportAllSync() {
-        var total = document.querySelectorAll("#exportKpiList input[type='checkbox']").length;
-        var checked = document.querySelectorAll("#exportKpiList input[type='checkbox']:checked").length;
-        document.getElementById("exportSelectAll").checked = (total === checked);
+        updateExportSmartFitPreview();
     }
 
-    async function executeAdvancedExport() {
+    function filterExportKpis(query) {
+        query = (query || "").toLowerCase().trim();
+        document.querySelectorAll("#exportKpiList .kpi-check-label").forEach(function(lbl) {
+            var txt = lbl.textContent.toLowerCase();
+            lbl.style.display = (!query || txt.includes(query)) ? "flex" : "none";
+        });
+    }
+
+    function onExportAspectChange() {
+        var asp = document.getElementById("exportAspectSelect").value;
+        var fld = document.getElementById("exportCustomColField");
+        if (fld) fld.style.display = (asp === "custom") ? "flex" : "none";
+        updateExportSmartFitPreview();
+    }
+
+    function changeExportSlide(delta) {
+        var items = getValidExportItems();
+        var cfg = getExportConfig();
+        var totalSlides = cfg.perSlide > 0 ? Math.ceil(items.length / cfg.perSlide) : 1;
+        _exportCurrentSlide = Math.max(1, Math.min(totalSlides, _exportCurrentSlide + delta));
+        updateExportSmartFitPreview();
+    }
+
+    function drawRoundRect(ctx, x, y, w, h, r) {
+        if (w < 2 * r) r = w / 2;
+        if (h < 2 * r) r = h / 2;
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+    }
+
+    function getExportSmartGrid(count, targetAspect, customCols) {
+        if (count <= 0) return { cols: 1, rows: 1, cardRatio: 1.6 };
+        
+        if (targetAspect === "custom" && customCols > 0) {
+            var cols = Math.min(count, Math.max(1, customCols));
+            var rows = Math.ceil(count / cols);
+            return { cols: cols, rows: rows, cardRatio: 1.6 };
+        }
+        
+        if (targetAspect === "auto") {
+            var cols = Math.round(Math.sqrt(count * 1.5));
+            cols = Math.max(1, Math.min(6, cols));
+            var rows = Math.ceil(count / cols);
+            return { cols: cols, rows: rows, cardRatio: 1.6 };
+        }
+        
+        var targetRatio = targetAspect === "4:3" ? (4 / 3) : (16 / 9);
+        var bestGrid = null;
+        var bestPenalty = Infinity;
+        
+        var maxC = Math.min(count, 8);
+        for (var c = 1; c <= maxC; c++) {
+            var r = Math.ceil(count / c);
+            if (r > 8) continue;
+            
+            var emptySlots = (c * r) - count;
+            var cardRatio = (targetRatio / c) * r;
+            var ratioDiff = Math.abs(cardRatio - 1.6);
+            
+            var penalty = ratioDiff * 15;
+            if (cardRatio < 1.0) penalty += (1.0 - cardRatio) * 60;
+            if (cardRatio < 0.75) penalty += 100;
+            if (cardRatio > 2.6) penalty += (cardRatio - 2.6) * 40;
+            penalty += emptySlots * 4;
+            if (c < r) penalty += 12;
+            if (c > 6) penalty += (c - 6) * 15;
+            if (r > 5) penalty += (r - 5) * 20;
+            
+            if (penalty < bestPenalty) {
+                bestPenalty = penalty;
+                bestGrid = { cols: c, rows: r, cardRatio: cardRatio };
+            }
+        }
+        
+        return bestGrid || { cols: Math.min(count, 3), rows: Math.ceil(count / 3), cardRatio: 1.6 };
+    }
+
+    function getExportConfig() {
+        var aspEl = document.getElementById("exportAspectSelect");
+        var colEl = document.getElementById("exportCustomCols");
+        var sldEl = document.getElementById("exportPerSlideSelect");
+        var thmEl = document.getElementById("exportThemeSelect");
+        var resEl = document.getElementById("exportResSelect");
+        var hdrEl = document.getElementById("exportShowHeaderCheck");
+        
+        return {
+            aspectRatio: aspEl ? aspEl.value : "16:9",
+            customCols: colEl ? parseInt(colEl.value, 10) : 3,
+            perSlide: sldEl ? parseInt(sldEl.value, 10) : 0,
+            theme: thmEl ? thmEl.value : "white",
+            resolution: resEl ? resEl.value : "1080p",
+            showHeader: hdrEl ? hdrEl.checked : true
+        };
+    }
+
+    function getValidExportItems() {
         var checkedBoxes = document.querySelectorAll("#exportKpiList input[type='checkbox']:checked");
-        if(checkedBoxes.length === 0) return alert("Please select at least one KPI to export.");
-        
-        document.getElementById("exportModal").style.display = "none";
-        
-        var activeBtn = document.querySelector("." + currentExportGrid + "-row-btn.active");
-        var cols = parseInt(activeBtn ? activeBtn.textContent.trim() : 3);
-        
-        var dpr = window.devicePixelRatio || 1;
-        var cardPad = 8 * dpr;
-        var titleHeight = 36 * dpr;
-        var gridPad = 12 * dpr;
-        
-        var renderItems = [];
-        var totalWidth = 0;
-        var totalHeight = gridPad;
-        
-        var sampleChart = null;
-        
+        var items = [];
         checkedBoxes.forEach(function(cb) {
             var chartId;
             if (currentExportPrefix === 'customChart') {
@@ -1717,77 +2030,432 @@
             } else {
                 chartId = currentExportPrefix + "_" + cb.value;
             }
-            
             var chart = chartInstances[chartId];
-            if(!chart) return;
-            
-            if(!sampleChart) sampleChart = chart;
-            
-            var cWidth = chart.canvas ? chart.canvas.width : 800;
-            var cHeight = chart.canvas ? chart.canvas.height : 400;
-            var cardWidth = cWidth + (cardPad * 2);
-            var cardHeight = cHeight + titleHeight + (cardPad * 2);
-            
-            renderItems.push({
+            if (!chart) return;
+            items.push({
                 chartId: chartId,
-                kpiTitle: cb.getAttribute("data-title"),
-                cardWidth: cardWidth,
-                cardHeight: cardHeight
+                kpiTitle: cb.getAttribute("data-title") || cb.value,
+                chart: chart
             });
         });
+        return items;
+    }
+
+    function updateExportSmartFitPreview() {
+        var items = getValidExportItems();
+        var cfg = getExportConfig();
+        var count = items.length;
         
-        if(!sampleChart) return alert("No valid charts found.");
+        var countBadge = document.getElementById("exportKpiCountBadge");
+        if (countBadge) countBadge.textContent = count + " selected";
         
-        // Calculate dimensions
-        var rows = Math.ceil(renderItems.length / cols);
-        totalWidth = cols * renderItems[0].cardWidth + (cols + 1) * gridPad;
-        totalHeight += rows * renderItems[0].cardHeight + rows * gridPad;
+        var totalSlides = cfg.perSlide > 0 ? Math.ceil(count / cfg.perSlide) : 1;
+        if (_exportCurrentSlide > totalSlides) _exportCurrentSlide = 1;
         
-        var tempCanvas = document.createElement('canvas');
-        tempCanvas.width = totalWidth;
-        tempCanvas.height = totalHeight;
-        var ctx = tempCanvas.getContext('2d');
-        
-        var isDark = document.documentElement.getAttribute("data-theme") === "dark";
-        ctx.clearRect(0, 0, totalWidth, totalHeight);
-        
-        var currentY = 0;
-        
-        renderItems.forEach(function(item, idx) {
-            var chart = chartInstances[item.chartId];
-            var col = idx % cols;
-            var row = Math.floor(idx / cols);
-            var cx = gridPad + col * (item.cardWidth + gridPad);
-            var cy = currentY + gridPad + row * (item.cardHeight + gridPad);
-            
-            ctx.fillStyle = isDark ? 'rgba(30,30,58,1)' : '#ffffff';
-            ctx.fillRect(cx, cy, item.cardWidth, item.cardHeight);
-            
-            ctx.strokeStyle = isDark ? 'rgba(79,172,254,0.2)' : 'rgba(0,0,0,0.1)';
-            ctx.lineWidth = 1 * dpr;
-            ctx.strokeRect(cx, cy, item.cardWidth, item.cardHeight);
-            
-            ctx.font = "bold " + (15 * dpr) + "px Inter, sans-serif";
-            ctx.fillStyle = isDark ? '#ffffff' : '#1e293b';
-            ctx.textAlign = "left";
-            var headerText = item.kpiTitle;
-            if (currentExportPrefix === "bandChart") headerText += " (Band Level)";
-            ctx.fillText(headerText, cx + cardPad, cy + cardPad + (16 * dpr));
-            
-            ctx.drawImage(chart.canvas, cx + cardPad, cy + cardPad + titleHeight);
-        });
-        
-        var a = document.createElement('a');
-        a.href = tempCanvas.toDataURL('image/png');
-        
-        var dlName = 'Dashboard_2G_' + currentExportPrefix + '_Export.png';
-        if (currentExportPrefix === 'customChart') {
-            var dbName = document.getElementById("dashboardNameInput").value.trim() || "Custom_Dashboard";
-            dlName = dbName + '_Charts.png';
+        var pager = document.getElementById("exportSlidePager");
+        var pagerTxt = document.getElementById("exportSlideCounterText");
+        if (pager) {
+            pager.style.display = totalSlides > 1 ? "inline-flex" : "none";
+            if (pagerTxt) pagerTxt.textContent = "Slide " + _exportCurrentSlide + " of " + totalSlides;
         }
         
-        a.download = dlName;
-        a.click();
+        var curCount = count;
+        if (cfg.perSlide > 0) {
+            var start = (_exportCurrentSlide - 1) * cfg.perSlide;
+            var end = Math.min(count, start + cfg.perSlide);
+            curCount = Math.max(0, end - start);
+        }
+        
+        var grid = getExportSmartGrid(curCount, cfg.aspectRatio, cfg.customCols);
+        var scale = cfg.resolution === "4k" ? 2 : 1;
+        var resText = cfg.aspectRatio === "16:9" ? (1920 * scale + "×" + 1080 * scale + " (16:9 Widescreen)") :
+                      cfg.aspectRatio === "4:3" ? (1440 * scale + "×" + 1080 * scale + " (4:3 Standard)") :
+                      "Auto Fit Canvas";
+        
+        var badgeTxt = document.getElementById("exportSmartFitText");
+        if (badgeTxt) {
+            if (count === 0) {
+                badgeTxt.innerHTML = "Please select at least one chart to export.";
+            } else {
+                var slideNote = totalSlides > 1 ? " • Slide " + _exportCurrentSlide + "/" + totalSlides + " (" + curCount + " charts)" : " • " + count + " charts";
+                badgeTxt.innerHTML = "<strong>✨ Smart Fit:</strong> " + grid.cols + " cols × " + grid.rows + " rows • " + resText + slideNote;
+            }
+        }
+        
+        var clipBtnTxt = document.getElementById("btnExportClipboardText");
+        if (clipBtnTxt) {
+            clipBtnTxt.textContent = totalSlides > 1 ? "Copy Slide " + _exportCurrentSlide : "Copy to Clipboard";
+        }
+        var dlBtnTxt = document.getElementById("btnExportDownloadText");
+        if (dlBtnTxt) {
+            dlBtnTxt.textContent = totalSlides > 1 ? "Download All Slides (" + totalSlides + ")" : "Download PNG";
+        }
+    }
+
+    function renderExportSlide(slideItems, slideIndex, totalSlides, config) {
+        var scale = config.resolution === "4k" ? 2 : 1;
+        var isDark = config.theme === "dark";
+        var count = slideItems.length;
+        var grid = getExportSmartGrid(count, config.aspectRatio, config.customCols);
+        var C = grid.cols;
+        var R = grid.rows;
+        
+        var W, H;
+        var PadX = 24 * scale;
+        var PadY = 20 * scale;
+        var GapX = 14 * scale;
+        var GapY = 14 * scale;
+        var Hhead = config.showHeader ? Math.round(68 * scale) : 0;
+        
+        if (config.aspectRatio === "16:9") {
+            W = 1920 * scale;
+            H = 1080 * scale;
+        } else if (config.aspectRatio === "4:3") {
+            W = 1440 * scale;
+            H = 1080 * scale;
+        } else {
+            var cwBase = 480 * scale;
+            var chBase = 290 * scale;
+            W = C * cwBase + (C - 1) * GapX + 2 * PadX;
+            H = Hhead + R * chBase + (R - 1) * GapY + 2 * PadY;
+        }
+        
+        var canvas = document.createElement("canvas");
+        canvas.width = W;
+        canvas.height = H;
+        var ctx = canvas.getContext("2d");
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        
+        // 1. Background Fill
+        if (config.theme === "white") {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, W, H);
+        } else if (config.theme === "dark") {
+            ctx.fillStyle = "#121226";
+            ctx.fillRect(0, 0, W, H);
+        } else {
+            ctx.clearRect(0, 0, W, H);
+        }
+        
+        // 2. Presentation Header Banner
+        if (config.showHeader) {
+            var sectionTitle = "KPI ANALYSIS";
+            if (currentExportPrefix === "compareChart") sectionTitle = "BEFORE VS AFTER COMPARISON";
+            else if (currentExportPrefix === "trendChart") sectionTitle = "KPI TREND";
+            else if (currentExportPrefix === "bandChart") sectionTitle = "BAND LEVEL TREND";
+            else if (currentExportPrefix === "customChart") {
+                var cName = (document.getElementById("dashboardNameInput")?.value || "").trim();
+                sectionTitle = cName ? ("CUSTOM ANALYSIS — " + cName.toUpperCase()) : "CUSTOM CHARTS";
+            }
+            
+            var subText = "";
+            if (currentExportPrefix === "compareChart") {
+                var bFrom = document.querySelector('input[name="before_from_date"]')?.value || "";
+                var bTo = document.querySelector('input[name="before_to_date"]')?.value || "";
+                var aFrom = document.querySelector('input[name="after_from_date"]')?.value || "";
+                var aTo = document.querySelector('input[name="after_to_date"]')?.value || "";
+                subText = "Before: " + bFrom + " to " + bTo + " | After: " + aFrom + " to " + aTo;
+            } else {
+                var tFrom = document.querySelector('input[name="trend_from_date"]')?.value || "";
+                var tTo = document.querySelector('input[name="trend_to_date"]')?.value || "";
+                var gran = (typeof currentGranularity !== "undefined" ? currentGranularity.toUpperCase() : "DAILY");
+                subText = (tFrom && tTo) ? ("Date: " + tFrom + " to " + tTo + " | Granularity: " + gran) : ("Granularity: " + gran);
+            }
+            
+            var siteText = document.getElementById("sitePasteArea")?.value.trim() || "";
+            if (siteText) {
+                var sites = siteText.split(/\s+/).filter(Boolean);
+                if (sites.length > 0) {
+                    subText += " | Sites: " + sites.slice(0, 3).join(", ") + (sites.length > 3 ? " (+" + (sites.length - 3) + " more)" : "");
+                }
+            }
+            
+            // Left Accent Bar
+            ctx.fillStyle = "#0ea5e9";
+            drawRoundRect(ctx, PadX, PadY + 2 * scale, 4 * scale, 34 * scale, 2 * scale);
+            ctx.fill();
+            
+            // Main Title
+            ctx.font = "700 " + Math.round(18 * scale) + "px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+            ctx.fillStyle = isDark ? "#f8fafc" : "#0f172a";
+            ctx.textAlign = "left";
+            ctx.fillText(DASHBOARD_GEN + " DASHBOARD — " + sectionTitle, PadX + 12 * scale, PadY + 16 * scale);
+            
+            // Subtitle / Scope
+            ctx.font = "500 " + Math.round(11 * scale) + "px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+            ctx.fillStyle = isDark ? "rgba(248,250,252,0.65)" : "rgba(15,23,42,0.6)";
+            ctx.fillText(subText, PadX + 12 * scale, PadY + 34 * scale);
+            
+            // Right side badge and timestamp
+            if (totalSlides > 1) {
+                ctx.font = "700 " + Math.round(12 * scale) + "px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+                ctx.fillStyle = "#0ea5e9";
+                ctx.textAlign = "right";
+                ctx.fillText("Slide " + slideIndex + " of " + totalSlides, W - PadX, PadY + 16 * scale);
+            }
+            var nowStr = new Date().toISOString().slice(0, 10);
+            ctx.font = "400 " + Math.round(10 * scale) + "px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+            ctx.fillStyle = isDark ? "rgba(248,250,252,0.4)" : "rgba(15,23,42,0.4)";
+            ctx.textAlign = "right";
+            ctx.fillText("Exported: " + nowStr, W - PadX, PadY + 34 * scale);
+            ctx.textAlign = "left";
+            
+            // Divider line
+            ctx.strokeStyle = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+            ctx.lineWidth = 1 * scale;
+            ctx.beginPath();
+            ctx.moveTo(PadX, PadY + 48 * scale);
+            ctx.lineTo(W - PadX, PadY + 48 * scale);
+            ctx.stroke();
+        }
+        
+        // 3. Calculate Card Dimensions
+        var Y0 = PadY + Hhead;
+        var Wavail = W - 2 * PadX - (C - 1) * GapX;
+        var Havail = H - Y0 - PadY - (R - 1) * GapY;
+        var cw = Math.floor(Wavail / C);
+        var ch = Math.floor(Havail / R);
+        
+        // 4. Update chart colors in-place for export theme without affecting layout
+        var origColors = [];
+        slideItems.forEach(function(item) {
+            if (!item.chart || !item.chart.options) return;
+            var chObj = item.chart;
+            var orig = {
+                chart: chObj,
+                legendColor: chObj.options.plugins && chObj.options.plugins.legend && chObj.options.plugins.legend.labels ? chObj.options.plugins.legend.labels.color : null,
+                xTickColor: chObj.options.scales && chObj.options.scales.x && chObj.options.scales.x.ticks ? chObj.options.scales.x.ticks.color : null,
+                xGridColor: chObj.options.scales && chObj.options.scales.x && chObj.options.scales.x.grid ? chObj.options.scales.x.grid.color : null,
+                yTickColor: chObj.options.scales && chObj.options.scales.y && chObj.options.scales.y.ticks ? chObj.options.scales.y.ticks.color : null,
+                yGridColor: chObj.options.scales && chObj.options.scales.y && chObj.options.scales.y.grid ? chObj.options.scales.y.grid.color : null,
+                yTitleColor: chObj.options.scales && chObj.options.scales.y && chObj.options.scales.y.title ? chObj.options.scales.y.title.color : null
+            };
+            origColors.push(orig);
+            
+            var textColor = isDark ? "#e2e8f0" : "#475569";
+            var subTextColor = isDark ? "#94a3b8" : "#64748b";
+            var gridColor = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.05)";
+            
+            if (chObj.options.plugins && chObj.options.plugins.legend && chObj.options.plugins.legend.labels) {
+                chObj.options.plugins.legend.labels.color = textColor;
+            }
+            if (chObj.options.scales) {
+                if (chObj.options.scales.x) {
+                    if (chObj.options.scales.x.ticks) chObj.options.scales.x.ticks.color = textColor;
+                    if (chObj.options.scales.x.grid) chObj.options.scales.x.grid.color = gridColor;
+                }
+                if (chObj.options.scales.y) {
+                    if (chObj.options.scales.y.ticks) chObj.options.scales.y.ticks.color = textColor;
+                    if (chObj.options.scales.y.grid) chObj.options.scales.y.grid.color = gridColor;
+                    if (chObj.options.scales.y.title) chObj.options.scales.y.title.color = subTextColor;
+                }
+            }
+            try { chObj.update('none'); } catch(e){}
+        });
+
+        // 5. Render Individual Chart Cards
+        slideItems.forEach(function(item, idx) {
+            var c = idx % C;
+            var r = Math.floor(idx / C);
+            var cx = PadX + c * (cw + GapX);
+            var cy = Y0 + r * (ch + GapY);
+            
+            var cardBg = isDark ? "#1c1c38" : "#ffffff";
+            var cardBorder = isDark ? "rgba(79,172,254,0.2)" : "rgba(226,232,240,0.95)";
+            var cardRadius = 8 * scale;
+            
+            ctx.save();
+            drawRoundRect(ctx, cx, cy, cw, ch, cardRadius);
+            ctx.clip();
+
+            ctx.fillStyle = cardBg;
+            ctx.fillRect(cx, cy, cw, ch);
+            
+            ctx.strokeStyle = cardBorder;
+            ctx.lineWidth = 1 * scale;
+            drawRoundRect(ctx, cx, cy, cw, ch, cardRadius);
+            ctx.stroke();
+            
+            // Card Title
+            var titleH = Math.max(18 * scale, Math.min(26 * scale, Math.round(ch * 0.08)));
+            var fontSz = Math.max(10 * scale, Math.min(13 * scale, Math.round(ch * 0.048)));
+            ctx.font = "600 " + fontSz + "px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+            ctx.fillStyle = isDark ? "#f1f5f9" : "#1e293b";
+            
+            var plotPadX = Math.max(4 * scale, Math.round(cw * 0.008));
+            var titlePadX = Math.max(8 * scale, plotPadX + (3 * scale));
+            var maxTitleW = cw - (titlePadX * 2);
+            
+            var titleText = item.kpiTitle;
+            if (currentExportPrefix === "bandChart" && !titleText.includes("Band")) titleText += " (Band Level)";
+            if (ctx.measureText(titleText).width > maxTitleW) {
+                while (titleText.length > 3 && ctx.measureText(titleText + "...").width > maxTitleW) {
+                    titleText = titleText.slice(0, -1);
+                }
+                titleText += "...";
+            }
+            ctx.fillText(titleText, cx + titlePadX, cy + (5 * scale) + (fontSz * 1.05));
+            
+            // Chart Canvas - expanded full width and height for optimal presentation
+            if (item.chart && item.chart.canvas) {
+                var plotPadY = Math.max(3 * scale, Math.round(ch * 0.01));
+                var plotX = cx + plotPadX;
+                var plotY = cy + titleH + (2 * scale);
+                var plotW = Math.max(10, cw - (plotPadX * 2));
+                var plotH = Math.max(10, ch - titleH - plotPadY - (4 * scale));
+                
+                var srcW = item.chart.canvas.width;
+                var srcH = item.chart.canvas.height;
+                if (srcW > 0 && srcH > 0 && plotW > 10 && plotH > 10) {
+                    ctx.drawImage(item.chart.canvas, 0, 0, srcW, srcH, plotX, plotY, plotW, plotH);
+                }
+            }
+            ctx.restore();
+        });
+
+        // 6. Restore original colors to on-screen charts
+        origColors.forEach(function(orig) {
+            var ch = orig.chart;
+            if (ch.options) {
+                if (ch.options.plugins && ch.options.plugins.legend && ch.options.plugins.legend.labels) {
+                    ch.options.plugins.legend.labels.color = orig.legendColor;
+                }
+                if (ch.options.scales) {
+                    if (ch.options.scales.x) {
+                        if (ch.options.scales.x.ticks) ch.options.scales.x.ticks.color = orig.xTickColor;
+                        if (ch.options.scales.x.grid) ch.options.scales.x.grid.color = orig.xGridColor;
+                    }
+                    if (ch.options.scales.y) {
+                        if (ch.options.scales.y.ticks) ch.options.scales.y.ticks.color = orig.yTickColor;
+                        if (ch.options.scales.y.grid) ch.options.scales.y.grid.color = orig.yGridColor;
+                        if (ch.options.scales.y.title) ch.options.scales.y.title.color = orig.yTitleColor;
+                    }
+                }
+                try { ch.update('none'); } catch(e){}
+            }
+        });
+        
+        return canvas;
+    }
+
+    async function doCopyExportClipboard() {
+        var items = getValidExportItems();
+        if (items.length === 0) { alert("Please select at least one chart."); return; }
+        
+        var btn = document.getElementById("btnExportClipboard");
+        var origText = document.getElementById("btnExportClipboardText").textContent;
+        btn.disabled = true;
+        document.getElementById("btnExportClipboardText").textContent = "Rendering...";
+
+        var cg = document.getElementById(currentExportGrid);
+        var cgWasHidden = cg && cg.style.display === "none";
+        if (cgWasHidden) cg.style.display = "";
+
+        setTimeout(async () => {
+            try {
+                var config = getExportConfig();
+                var perSlide = config.perSlide;
+                var totalSlides = perSlide > 0 ? Math.ceil(items.length / perSlide) : 1;
+                var curSlide = Math.min(_exportCurrentSlide, totalSlides);
+                
+                var slideItems = items;
+                if (perSlide > 0) {
+                    var start = (curSlide - 1) * perSlide;
+                    slideItems = items.slice(start, start + perSlide);
+                }
+                
+                var canvas = renderExportSlide(slideItems, curSlide, totalSlides, config);
+                
+                canvas.toBlob(async function(blob) {
+                    if (!blob) throw new Error("Canvas blob conversion failed");
+                    try {
+                        if (navigator.clipboard && window.ClipboardItem) {
+                            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                            showPngToast("✨ Copied Slide " + curSlide + " to clipboard! Ready to paste (Ctrl+V) into PowerPoint.", "success");
+                        } else {
+                            throw new Error("Clipboard API not available");
+                        }
+                    } catch(clipErr) {
+                        var filename = "Dashboard_" + DASHBOARD_GEN + "_" + currentExportPrefix + "_Slide_" + curSlide + ".png";
+                        var a = document.createElement("a");
+                        a.href = URL.createObjectURL(blob);
+                        a.download = filename;
+                        a.click();
+                        showPngToast("Downloaded Slide " + curSlide + " PNG (Clipboard not permitted in browser).", "info");
+                    }
+                }, "image/png");
+            } catch(e) {
+                console.error(e);
+                alert("Failed to render chart image: " + e.message);
+            } finally {
+                if (cgWasHidden) cg.style.display = "none";
+                btn.disabled = false;
+                document.getElementById("btnExportClipboardText").textContent = origText;
+            }
+        }, 100);
+    }
+
+    function executeAdvancedExport() {
+        var items = getValidExportItems();
+        if (items.length === 0) { alert("Please select at least one chart to export."); return; }
+        
+        var btn = document.getElementById("btnExportDownload");
+        var origText = document.getElementById("btnExportDownloadText").textContent;
+        btn.disabled = true;
+        document.getElementById("btnExportDownloadText").textContent = "Rendering...";
+
+        var cg = document.getElementById(currentExportGrid);
+        var cgWasHidden = cg && cg.style.display === "none";
+        if (cgWasHidden) cg.style.display = "";
+
+        setTimeout(() => {
+            try {
+                var config = getExportConfig();
+                var perSlide = config.perSlide;
+                var totalSlides = perSlide > 0 ? Math.ceil(items.length / perSlide) : 1;
+                
+                var baseName = 'Dashboard_' + DASHBOARD_GEN + '_' + currentExportPrefix;
+                if (currentExportPrefix === 'customChart') {
+                    var dbName = (document.getElementById("dashboardNameInput")?.value || "").trim() || "Custom_Dashboard";
+                    baseName = dbName;
+                }
+                
+                if (totalSlides === 1) {
+                    var canvas = renderExportSlide(items, 1, 1, config);
+                    var a = document.createElement("a");
+                    a.href = canvas.toDataURL("image/png");
+                    a.download = baseName + "_Charts.png";
+                    a.click();
+                    showPngToast("Downloaded " + DASHBOARD_GEN + " Dashboard PNG successfully!", "success");
+                    closeExportModal();
+                } else {
+                    showPngToast("Downloading " + totalSlides + " slides...", "info");
+                    for (let s = 1; s <= totalSlides; s++) {
+                        setTimeout(() => {
+                            var start = (s - 1) * perSlide;
+                            var sItems = items.slice(start, start + perSlide);
+                            var sCanvas = renderExportSlide(sItems, s, totalSlides, config);
+                            var a = document.createElement("a");
+                            a.href = sCanvas.toDataURL("image/png");
+                            a.download = baseName + "_Slide_" + s + "_of_" + totalSlides + ".png";
+                            a.click();
+                            if (s === totalSlides) {
+                                showPngToast("All " + totalSlides + " slides downloaded successfully!", "success");
+                                closeExportModal();
+                            }
+                        }, (s - 1) * 350);
+                    }
+                }
+            } catch(e) {
+                console.error(e);
+                alert("Export error: " + e.message);
+            } finally {
+                if (cgWasHidden) cg.style.display = "none";
+                btn.disabled = false;
+                document.getElementById("btnExportDownloadText").textContent = origText;
+            }
+        }, 100);
     }
 
     // Chart Configuration & Granularity Datasets
