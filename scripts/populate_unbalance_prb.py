@@ -150,11 +150,16 @@ def create_table_if_not_exists(conn):
 
 SECTOR_SQL = '''
     CASE
-        WHEN LENGTH("Cell ID"::text) > 2 AND RIGHT("Cell ID"::text, 1) = '5'
-            THEN SUBSTRING("Cell ID"::text FROM 2 FOR 1)
-        WHEN LENGTH("Cell ID"::text) > 2
-            THEN LEFT("Cell ID"::text, 2)
-        ELSE LEFT("Cell ID"::text, 1)
+        WHEN LENGTH("Cell ID"::text) = 2 THEN LEFT("Cell ID"::text, 1)
+        WHEN RIGHT("Cell ID"::text, 1) = '8' THEN
+            CASE SUBSTRING("Cell ID"::text FROM 2 FOR 1)
+                WHEN '0' THEN '1'
+                WHEN '1' THEN '2'
+                WHEN '2' THEN '3'
+                ELSE SUBSTRING("Cell ID"::text FROM 2 FOR 1)
+            END
+        WHEN RIGHT("Cell ID"::text, 1) = '5' THEN SUBSTRING("Cell ID"::text FROM 2 FOR 1)
+        ELSE LEFT("Cell ID"::text, 2)
     END
 '''
 
@@ -167,6 +172,8 @@ BAND_SQL = '''
         WHEN '5' THEN 'L2300_2'
         WHEN '6' THEN 'L2300_3'
         WHEN '7' THEN 'L700'
+        WHEN '8' THEN CASE WHEN LENGTH("Cell ID"::text) = 3 THEN 'L2600_3' ELSE 'L2600_1' END
+        WHEN '9' THEN 'L2600_2'
         ELSE 'Unknown'
     END
 '''

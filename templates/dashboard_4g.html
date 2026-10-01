@@ -2950,7 +2950,7 @@
         let SOURCE_DATA = mode === 'combined' ? dynamicTechTrendData : BAND_TREND_DATA;
 
         const fddBands = ['L700', 'L900', 'L1800', 'L2100'];
-        const tddBands = ['L2300_1', 'L2300_2', 'L2300_3', 'L2300'];
+        const tddBands = ['L2300_1', 'L2300_2', 'L2300_3', 'L2300', 'L2600_1', 'L2600_2', 'L2600_3', 'L2600'];
         const hasFdd = fddBands.some(b => checkedBands.includes(b));
         const hasTdd = tddBands.some(b => checkedBands.includes(b));
 
@@ -2967,7 +2967,7 @@
 
             let bCtx = document.getElementById("bandChart_" + kpiId);
             if (bCtx) {
-                const FIXED_BAND_COLORS = { "L700": "#f093fb", "L900": "#ff5555", "L1800": "#4facfe", "L2100": "#00c853", "L2300_1": "#a78bfa", "L2300_2": "#ff9f40", "L2300_3": "#f6c90e", "L2300": "#a78bfa", "FDD": "#4facfe", "TDD": "#a78bfa" };
+                const FIXED_BAND_COLORS = { "L700": "#f093fb", "L900": "#ff5555", "L1800": "#4facfe", "L2100": "#00c853", "L2300_1": "#a78bfa", "L2300_2": "#ff9f40", "L2300_3": "#f6c90e", "L2300": "#a78bfa", "L2600_1": "#00e5ff", "L2600_2": "#1de9b6", "L2600_3": "#76ff03", "L2600": "#00e5ff", "FDD": "#4facfe", "TDD": "#a78bfa" };
                 const fbColors = ["#4facfe", "#f093fb", "#00c853", "#ff9f40", "#a78bfa", "#ff5555", "#00f2fe", "#f6c90e", "#8884d8", "#ff6b6b"];
                 let bData = SOURCE_DATA[kpiId] || {};
 
@@ -4426,7 +4426,7 @@
 
     async function updateCombinedTechData(checkedBands) {
         const fddBands = ['L700', 'L900', 'L1800', 'L2100'];
-        const tddBands = ['L2300_1', 'L2300_2', 'L2300_3', 'L2300'];
+        const tddBands = ['L2300_1', 'L2300_2', 'L2300_3', 'L2300', 'L2600_1', 'L2600_2', 'L2600_3', 'L2600'];
         const selectedFdd = fddBands.filter(b => checkedBands.includes(b));
         const selectedTdd = tddBands.filter(b => checkedBands.includes(b));
 
@@ -4525,7 +4525,7 @@
         
         const checkedBands = Array.from(checked).map(cb => cb.value);
         const fddBands = ['L700', 'L900', 'L1800', 'L2100'];
-        const tddBands = ['L2300_1', 'L2300_2', 'L2300_3', 'L2300'];
+        const tddBands = ['L2300_1', 'L2300_2', 'L2300_3', 'L2300', 'L2600_1', 'L2600_2', 'L2600_3', 'L2600'];
         const hasFdd = fddBands.some(b => checkedBands.includes(b));
         const hasTdd = tddBands.some(b => checkedBands.includes(b));
         

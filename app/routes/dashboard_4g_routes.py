@@ -340,6 +340,8 @@ def dashboard_4g_view():
                         WHEN '5' THEN 'L2300_2'
                         WHEN '6' THEN 'L2300_3'
                         WHEN '7' THEN 'L700'
+                        WHEN '8' THEN CASE WHEN LENGTH(cell::text) = 3 THEN 'L2600_3' ELSE 'L2600_1' END
+                        WHEN '9' THEN 'L2600_2'
                         ELSE 'Unknown'
                     END"""
             tech_expr = """CASE RIGHT(cell::text, 1)
@@ -350,12 +352,21 @@ def dashboard_4g_view():
                         WHEN '5' THEN 'TDD'
                         WHEN '6' THEN 'TDD'
                         WHEN '7' THEN 'FDD'
+                        WHEN '8' THEN 'TDD'
+                        WHEN '9' THEN 'TDD'
                         ELSE 'Unknown'
                     END"""
             sector_expr = """CASE
-                        WHEN LENGTH(cell::text) > 2 AND RIGHT(cell::text, 1) = '5' THEN SUBSTRING(cell::text FROM 2 FOR 1)
-                        WHEN LENGTH(cell::text) > 2 THEN LEFT(cell::text, 2)
-                        ELSE LEFT(cell::text, 1)
+                        WHEN LENGTH(cell::text) = 2 THEN LEFT(cell::text, 1)
+                        WHEN RIGHT(cell::text, 1) = '8' THEN
+                            CASE SUBSTRING(cell::text FROM 2 FOR 1)
+                                WHEN '0' THEN '1'
+                                WHEN '1' THEN '2'
+                                WHEN '2' THEN '3'
+                                ELSE SUBSTRING(cell::text FROM 2 FOR 1)
+                            END
+                        WHEN RIGHT(cell::text, 1) = '5' THEN SUBSTRING(cell::text FROM 2 FOR 1)
+                        ELSE LEFT(cell::text, 2)
                     END"""
 
             query_trend_all = None
@@ -995,6 +1006,8 @@ def dashboard_4g_tech_api():
                 WHEN '5' THEN 'L2300_2'
                 WHEN '6' THEN 'L2300_3'
                 WHEN '7' THEN 'L700'
+                WHEN '8' THEN CASE WHEN LENGTH(cell::text) = 3 THEN 'L2600_3' ELSE 'L2600_1' END
+                WHEN '9' THEN 'L2600_2'
                 ELSE 'Unknown'
             END
         """

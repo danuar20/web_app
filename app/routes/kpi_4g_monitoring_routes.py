@@ -573,9 +573,16 @@ def api_kpi_4g_monitoring_sector_data():
                     TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') as dt_label,
                     siteid,
                     CASE
-                        WHEN LENGTH(cell::text) > 2 AND RIGHT(cell::text, 1) = '5' THEN SUBSTRING(cell::text FROM 2 FOR 1)
-                        WHEN LENGTH(cell::text) > 2 THEN LEFT(cell::text, 2)
-                        ELSE LEFT(cell::text, 1)
+                        WHEN LENGTH(cell::text) = 2 THEN LEFT(cell::text, 1)
+                        WHEN RIGHT(cell::text, 1) = '8' THEN
+                            CASE SUBSTRING(cell::text FROM 2 FOR 1)
+                                WHEN '0' THEN '1'
+                                WHEN '1' THEN '2'
+                                WHEN '2' THEN '3'
+                                ELSE SUBSTRING(cell::text FROM 2 FOR 1)
+                            END
+                        WHEN RIGHT(cell::text, 1) = '5' THEN SUBSTRING(cell::text FROM 2 FOR 1)
+                        ELSE LEFT(cell::text, 2)
                     END AS sector,
                     CASE RIGHT(cell::text, 1)
                         WHEN '1' THEN 'L1800'
@@ -585,6 +592,8 @@ def api_kpi_4g_monitoring_sector_data():
                         WHEN '5' THEN 'L2300_2'
                         WHEN '6' THEN 'L2300_3'
                         WHEN '7' THEN 'L700'
+                        WHEN '8' THEN CASE WHEN LENGTH(cell::text) = 3 THEN 'L2600_3' ELSE 'L2600_1' END
+                        WHEN '9' THEN 'L2600_2'
                         ELSE 'Unknown'
                     END AS band,
                     cell::text AS tech,
@@ -604,9 +613,16 @@ def api_kpi_4g_monitoring_sector_data():
                     TO_CHAR(date, 'YYYY-MM-DD') as dt_label,
                     siteid,
                     CASE
-                        WHEN LENGTH(cell::text) > 2 AND RIGHT(cell::text, 1) = '5' THEN SUBSTRING(cell::text FROM 2 FOR 1)
-                        WHEN LENGTH(cell::text) > 2 THEN LEFT(cell::text, 2)
-                        ELSE LEFT(cell::text, 1)
+                        WHEN LENGTH(cell::text) = 2 THEN LEFT(cell::text, 1)
+                        WHEN RIGHT(cell::text, 1) = '8' THEN
+                            CASE SUBSTRING(cell::text FROM 2 FOR 1)
+                                WHEN '0' THEN '1'
+                                WHEN '1' THEN '2'
+                                WHEN '2' THEN '3'
+                                ELSE SUBSTRING(cell::text FROM 2 FOR 1)
+                            END
+                        WHEN RIGHT(cell::text, 1) = '5' THEN SUBSTRING(cell::text FROM 2 FOR 1)
+                        ELSE LEFT(cell::text, 2)
                     END AS sector,
                     CASE RIGHT(cell::text, 1)
                         WHEN '1' THEN 'L1800'
@@ -616,6 +632,8 @@ def api_kpi_4g_monitoring_sector_data():
                         WHEN '5' THEN 'L2300_2'
                         WHEN '6' THEN 'L2300_3'
                         WHEN '7' THEN 'L700'
+                        WHEN '8' THEN CASE WHEN LENGTH(cell::text) = 3 THEN 'L2600_3' ELSE 'L2600_1' END
+                        WHEN '9' THEN 'L2600_2'
                         ELSE 'Unknown'
                     END AS band,
                     cell::text AS tech,
@@ -777,9 +795,16 @@ def api_kpi_4g_monitoring_sector_data_bdbh():
                     TO_CHAR("Time", 'YYYY-MM-DD HH24:MI') as dt_label,
                     COALESCE(SUBSTRING("Cell Name" FROM '([A-Za-z]{{3}}\\d{{3}})'), SUBSTRING("ME Name", 3, 6)) AS siteid,
                     CASE
-                        WHEN LENGTH("Cell ID"::text) > 2 AND RIGHT("Cell ID"::text, 1) = '5' THEN SUBSTRING("Cell ID"::text FROM 2 FOR 1)
-                        WHEN LENGTH("Cell ID"::text) > 2 THEN LEFT("Cell ID"::text, 2)
-                        ELSE LEFT("Cell ID"::text, 1)
+                        WHEN LENGTH("Cell ID"::text) = 2 THEN LEFT("Cell ID"::text, 1)
+                        WHEN RIGHT("Cell ID"::text, 1) = '8' THEN
+                            CASE SUBSTRING("Cell ID"::text FROM 2 FOR 1)
+                                WHEN '0' THEN '1'
+                                WHEN '1' THEN '2'
+                                WHEN '2' THEN '3'
+                                ELSE SUBSTRING("Cell ID"::text FROM 2 FOR 1)
+                            END
+                        WHEN RIGHT("Cell ID"::text, 1) = '5' THEN SUBSTRING("Cell ID"::text FROM 2 FOR 1)
+                        ELSE LEFT("Cell ID"::text, 2)
                     END AS sector,
                     CASE RIGHT("Cell ID"::text, 1)
                         WHEN '1' THEN 'L1800'
@@ -789,6 +814,8 @@ def api_kpi_4g_monitoring_sector_data_bdbh():
                         WHEN '5' THEN 'L2300_2'
                         WHEN '6' THEN 'L2300_3'
                         WHEN '7' THEN 'L700'
+                        WHEN '8' THEN CASE WHEN LENGTH("Cell ID"::text) = 3 THEN 'L2600_3' ELSE 'L2600_1' END
+                        WHEN '9' THEN 'L2600_2'
                         ELSE 'Unknown'
                     END AS band,
                     "Cell ID"::text AS tech,
@@ -809,9 +836,16 @@ def api_kpi_4g_monitoring_sector_data_bdbh():
                     TO_CHAR("Date", 'YYYY-MM-DD') as dt_label,
                     COALESCE(SUBSTRING("Cell Name" FROM '([A-Za-z]{{3}}\\d{{3}})'), SUBSTRING("ME Name", 3, 6)) AS siteid,
                     CASE
-                        WHEN LENGTH("Cell ID"::text) > 2 AND RIGHT("Cell ID"::text, 1) = '5' THEN SUBSTRING("Cell ID"::text FROM 2 FOR 1)
-                        WHEN LENGTH("Cell ID"::text) > 2 THEN LEFT("Cell ID"::text, 2)
-                        ELSE LEFT("Cell ID"::text, 1)
+                        WHEN LENGTH("Cell ID"::text) = 2 THEN LEFT("Cell ID"::text, 1)
+                        WHEN RIGHT("Cell ID"::text, 1) = '8' THEN
+                            CASE SUBSTRING("Cell ID"::text FROM 2 FOR 1)
+                                WHEN '0' THEN '1'
+                                WHEN '1' THEN '2'
+                                WHEN '2' THEN '3'
+                                ELSE SUBSTRING("Cell ID"::text FROM 2 FOR 1)
+                            END
+                        WHEN RIGHT("Cell ID"::text, 1) = '5' THEN SUBSTRING("Cell ID"::text FROM 2 FOR 1)
+                        ELSE LEFT("Cell ID"::text, 2)
                     END AS sector,
                     CASE RIGHT("Cell ID"::text, 1)
                         WHEN '1' THEN 'L1800'
@@ -821,6 +855,8 @@ def api_kpi_4g_monitoring_sector_data_bdbh():
                         WHEN '5' THEN 'L2300_2'
                         WHEN '6' THEN 'L2300_3'
                         WHEN '7' THEN 'L700'
+                        WHEN '8' THEN CASE WHEN LENGTH("Cell ID"::text) = 3 THEN 'L2600_3' ELSE 'L2600_1' END
+                        WHEN '9' THEN 'L2600_2'
                         ELSE 'Unknown'
                     END AS band,
                     "Cell ID"::text AS tech,

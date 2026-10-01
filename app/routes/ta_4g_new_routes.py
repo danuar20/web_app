@@ -28,7 +28,8 @@ TA_COLUMNS = [
 
 BAND_MAP = {
     "1": "L1800", "2": "L900", "3": "L2100",
-    "4": "L2300_1", "5": "L2300_2", "6": "L2300_3", "7": "L700"
+    "4": "L2300_1", "5": "L2300_2", "6": "L2300_3", "7": "L700",
+    "8": "L2600_1", "9": "L2600_2"
 }
 
 
@@ -39,8 +40,15 @@ def extract_site_id(me_name):
 
 
 def get_sector(cell_id_str):
-    s = str(cell_id_str or "")
-    if len(s) > 2 and s[-1] == "5":
+    s = str(cell_id_str or "").strip()
+    if len(s) == 3 and s[-1] == "8":
+        middle = s[1]
+        mapping = {
+            '0': '1', '1': '2', '2': '3', '3': '4',
+            '4': '5', '5': '6', '6': '7', '7': '8', '8': '9'
+        }
+        return mapping.get(middle, s[1])
+    elif len(s) > 2 and s[-1] == "5":
         return s[1]
     elif len(s) > 2:
         return s[:2]
@@ -49,8 +57,20 @@ def get_sector(cell_id_str):
 
 
 def get_band(cell_id_str):
-    s = str(cell_id_str or "")
-    return BAND_MAP.get(s[-1], "Unknown") if s else "Unknown"
+    s = str(cell_id_str or "").strip()
+    if not s:
+        return "Unknown"
+    if len(s) == 3 and s[-1] == "8":
+        return "L2600_3"
+    elif len(s) == 2 and s[-1] == "8":
+        return "L2600_1"
+    elif len(s) == 2 and s[-1] == "9":
+        return "L2600_2"
+    elif s[-1] == "8":
+        return "L2600_1"
+    elif s[-1] == "9":
+        return "L2600_2"
+    return BAND_MAP.get(s[-1], "Unknown")
 
 
 def extract_sector_code(cell_name, siteid=""):
