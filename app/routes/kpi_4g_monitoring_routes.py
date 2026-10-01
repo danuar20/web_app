@@ -14,7 +14,7 @@ def make_post_cache_key(*args, **kwargs):
     import json
     data = request.get_json() or {}
     key = f"{request.path}:{json.dumps(data, sort_keys=True)}"
-    return "post_cache_v5_" + hashlib.md5(key.encode('utf-8')).hexdigest()
+    return "post_cache_v6_" + hashlib.md5(key.encode('utf-8')).hexdigest()
 
 
 
@@ -641,13 +641,22 @@ def api_kpi_4g_monitoring_sector_data():
                 labels_set = set()
                 raw_map = {}
             
+                # Resolve latest cell_name per (siteid, cell) to prevent series splitting across rename events
+                cell_meta = {}
+                for r in rows:
+                    s_id = r[1]
+                    c_str = str(r[2] or "").split('.')[0]
+                    cn = r[3]
+                    if cn:
+                        cell_meta[(s_id, c_str)] = cn
+
                 for r in rows:
                     dt_label  = r[0]
                     siteid    = r[1]
                     cell_str  = str(r[2] or "").split('.')[0]
                     sector, band = get_4g_sector_and_band(cell_str)
                     tech      = cell_str
-                    cell_name = r[3]
+                    cell_name = cell_meta.get((siteid, cell_str), r[3])
                 
                     code = extract_sector_code(cell_name, siteid)
                     sub_str = f" {code}" if code else ""
@@ -816,13 +825,22 @@ def api_kpi_4g_monitoring_sector_data_bdbh():
                 labels_set = set()
                 raw_map = {}
 
+                # Resolve latest cell_name per (siteid, cell) to prevent series splitting across rename events
+                cell_meta = {}
+                for r in rows:
+                    s_id = r[1]
+                    c_str = str(r[2] or "").split('.')[0]
+                    cn = r[3]
+                    if cn:
+                        cell_meta[(s_id, c_str)] = cn
+
                 for r in rows:
                     dt_label    = r[0]
                     siteid      = r[1]
                     cell_str    = str(r[2] or "").split('.')[0]
                     sector, band = get_4g_sector_and_band(cell_str)
                     tech        = cell_str
-                    cell_name   = r[3]
+                    cell_name   = cell_meta.get((siteid, cell_str), r[3])
 
                     code = extract_sector_code(cell_name, siteid)
                     sub_str = f" {code}" if code else ""

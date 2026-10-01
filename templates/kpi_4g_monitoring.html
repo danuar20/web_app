@@ -1970,7 +1970,7 @@ function buildTable(tabId, dims){
                 if (parts.length > 1) {
                     secBase = parts[0];
                     cellStr = parts[1];
-                    bandStr = cellStr.split("-")[0];
+                    bandStr = cellStr.split(" ")[0].split("-")[0];
                 }
                 rowHtml += "<td>"+secBase+"</td><td>"+bandStr+"</td><td>"+cellStr+"</td>";
             } else {
@@ -2774,7 +2774,7 @@ function doExportCsv(){
                 if (parts.length > 1) {
                     secBase = parts[0];
                     cellStr = parts[1];
-                    bandStr = cellStr.split("-")[0];
+                    bandStr = cellStr.split(" ")[0].split("-")[0];
                 }
                 row.push('"' + secBase + '"', '"' + bandStr + '"', '"' + cellStr + '"');
             } else {
