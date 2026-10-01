@@ -542,6 +542,43 @@ def extract_sector_code(cell_name, siteid=""):
     return ""
 
 
+BAND_MAP_4G = {
+    "1": "L1800", "2": "L900", "3": "L2100",
+    "4": "L2300_1", "5": "L2300_2", "6": "L2300_3", "7": "L700",
+    "8": "L2600_1", "9": "L2600_2"
+}
+
+def get_4g_sector_and_band(cell_val):
+    s = str(cell_val or "").strip().split('.')[0]
+    if not s:
+        return "", "Unknown"
+    # Sector derivation
+    if len(s) == 2:
+        sector = s[0]
+    elif len(s) == 3 and s[-1] == "8":
+        middle = s[1]
+        mapping = {'0': '1', '1': '2', '2': '3', '3': '4', '4': '5', '5': '6', '6': '7', '7': '8', '8': '9'}
+        sector = mapping.get(middle, middle)
+    elif len(s) > 2 and s[-1] == "5":
+        sector = s[1]
+    elif len(s) > 2:
+        sector = s[:2]
+    else:
+        sector = s[:1]
+
+    # Band derivation
+    if len(s) == 3 and s[-1] == "8":
+        band = "L2600_3"
+    elif len(s) == 2 and s[-1] == "8":
+        band = "L2600_1"
+    elif len(s) == 2 and s[-1] == "9":
+        band = "L2600_2"
+    else:
+        band = BAND_MAP_4G.get(s[-1], "Unknown")
+
+    return sector, band
+
+
 @kpi4g_monitoring.route('/api/kpi_4g_monitoring/sector_data', methods=['POST'])
 @login_required
 @cache.cached(timeout=21600, key_prefix=make_post_cache_key)
@@ -572,37 +609,13 @@ def api_kpi_4g_monitoring_sector_data():
                 SELECT 
                     TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') as dt_label,
                     siteid,
-                    CASE
-                        WHEN LENGTH(cell::text) = 2 THEN LEFT(cell::text, 1)
-                        WHEN RIGHT(cell::text, 1) = '8' THEN
-                            CASE SUBSTRING(cell::text FROM 2 FOR 1)
-                                WHEN '0' THEN '1'
-                                WHEN '1' THEN '2'
-                                WHEN '2' THEN '3'
-                                ELSE SUBSTRING(cell::text FROM 2 FOR 1)
-                            END
-                        WHEN RIGHT(cell::text, 1) = '5' THEN SUBSTRING(cell::text FROM 2 FOR 1)
-                        ELSE LEFT(cell::text, 2)
-                    END AS sector,
-                    CASE RIGHT(cell::text, 1)
-                        WHEN '1' THEN 'L1800'
-                        WHEN '2' THEN 'L900'
-                        WHEN '3' THEN 'L2100'
-                        WHEN '4' THEN 'L2300_1'
-                        WHEN '5' THEN 'L2300_2'
-                        WHEN '6' THEN 'L2300_3'
-                        WHEN '7' THEN 'L700'
-                        WHEN '8' THEN CASE WHEN LENGTH(cell::text) = 3 THEN 'L2600_3' ELSE 'L2600_1' END
-                        WHEN '9' THEN 'L2600_2'
-                        ELSE 'Unknown'
-                    END AS band,
-                    cell::text AS tech,
+                    cell::text AS cell,
                     MAX(cell_name) AS cell_name,
                     {kpi_selects}
                 FROM "4g_kpi_zte"
                 WHERE datehour >= %s::date AND datehour < (%s::date + interval '1 day')
                   AND siteid = ANY(%s)
-                GROUP BY datehour, siteid, cell, cell_name, sector, band, tech
+                GROUP BY datehour, siteid, cell
                 ORDER BY datehour
             '''
             cur.execute(sql_hourly, [from_date, to_date, sites])
@@ -612,37 +625,13 @@ def api_kpi_4g_monitoring_sector_data():
                 SELECT 
                     TO_CHAR(date, 'YYYY-MM-DD') as dt_label,
                     siteid,
-                    CASE
-                        WHEN LENGTH(cell::text) = 2 THEN LEFT(cell::text, 1)
-                        WHEN RIGHT(cell::text, 1) = '8' THEN
-                            CASE SUBSTRING(cell::text FROM 2 FOR 1)
-                                WHEN '0' THEN '1'
-                                WHEN '1' THEN '2'
-                                WHEN '2' THEN '3'
-                                ELSE SUBSTRING(cell::text FROM 2 FOR 1)
-                            END
-                        WHEN RIGHT(cell::text, 1) = '5' THEN SUBSTRING(cell::text FROM 2 FOR 1)
-                        ELSE LEFT(cell::text, 2)
-                    END AS sector,
-                    CASE RIGHT(cell::text, 1)
-                        WHEN '1' THEN 'L1800'
-                        WHEN '2' THEN 'L900'
-                        WHEN '3' THEN 'L2100'
-                        WHEN '4' THEN 'L2300_1'
-                        WHEN '5' THEN 'L2300_2'
-                        WHEN '6' THEN 'L2300_3'
-                        WHEN '7' THEN 'L700'
-                        WHEN '8' THEN CASE WHEN LENGTH(cell::text) = 3 THEN 'L2600_3' ELSE 'L2600_1' END
-                        WHEN '9' THEN 'L2600_2'
-                        ELSE 'Unknown'
-                    END AS band,
-                    cell::text AS tech,
+                    cell::text AS cell,
                     MAX(cell_name) AS cell_name,
                     {kpi_selects}
                 FROM "4g_kpi_zte"
-                WHERE datehour >= %s::date AND datehour < (%s::date + interval '1 day')
+                WHERE date >= %s::date AND date <= %s::date
                   AND siteid = ANY(%s)
-                GROUP BY date, siteid, cell, cell_name, sector, band, tech
+                GROUP BY date, siteid, cell
                 ORDER BY date
             '''
             cur.execute(sql_daily, [from_date, to_date, sites])
@@ -655,10 +644,10 @@ def api_kpi_4g_monitoring_sector_data():
                 for r in rows:
                     dt_label  = r[0]
                     siteid    = r[1]
-                    sector    = r[2]
-                    band      = r[3]
-                    tech      = r[4]
-                    cell_name = r[5]
+                    cell_str  = str(r[2] or "").split('.')[0]
+                    sector, band = get_4g_sector_and_band(cell_str)
+                    tech      = cell_str
+                    cell_name = r[3]
                 
                     code = extract_sector_code(cell_name, siteid)
                     sub_str = f" {code}" if code else ""
@@ -669,7 +658,7 @@ def api_kpi_4g_monitoring_sector_data():
                     if legend_name not in raw_map[dt_label]: raw_map[dt_label][legend_name] = {}
                 
                     for idx, k in enumerate(kpi_defs):
-                        val = r[6 + idx]
+                        val = r[4 + idx]
                         raw_map[dt_label][legend_name][k[0]] = round(float(val), 2) if val is not None else None
             
                 labels = sorted(list(labels_set))
@@ -794,37 +783,13 @@ def api_kpi_4g_monitoring_sector_data_bdbh():
                 SELECT
                     TO_CHAR("Time", 'YYYY-MM-DD HH24:MI') as dt_label,
                     COALESCE(SUBSTRING("Cell Name" FROM '([A-Za-z]{{3}}\\d{{3}})'), SUBSTRING("ME Name", 3, 6)) AS siteid,
-                    CASE
-                        WHEN LENGTH("Cell ID"::text) = 2 THEN LEFT("Cell ID"::text, 1)
-                        WHEN RIGHT("Cell ID"::text, 1) = '8' THEN
-                            CASE SUBSTRING("Cell ID"::text FROM 2 FOR 1)
-                                WHEN '0' THEN '1'
-                                WHEN '1' THEN '2'
-                                WHEN '2' THEN '3'
-                                ELSE SUBSTRING("Cell ID"::text FROM 2 FOR 1)
-                            END
-                        WHEN RIGHT("Cell ID"::text, 1) = '5' THEN SUBSTRING("Cell ID"::text FROM 2 FOR 1)
-                        ELSE LEFT("Cell ID"::text, 2)
-                    END AS sector,
-                    CASE RIGHT("Cell ID"::text, 1)
-                        WHEN '1' THEN 'L1800'
-                        WHEN '2' THEN 'L900'
-                        WHEN '3' THEN 'L2100'
-                        WHEN '4' THEN 'L2300_1'
-                        WHEN '5' THEN 'L2300_2'
-                        WHEN '6' THEN 'L2300_3'
-                        WHEN '7' THEN 'L700'
-                        WHEN '8' THEN CASE WHEN LENGTH("Cell ID"::text) = 3 THEN 'L2600_3' ELSE 'L2600_1' END
-                        WHEN '9' THEN 'L2600_2'
-                        ELSE 'Unknown'
-                    END AS band,
-                    "Cell ID"::text AS tech,
+                    "Cell ID"::text AS cell,
                     MAX("Cell Name") AS cell_name,
                     {kpi_selects_hourly}
                 FROM "measKpiBdbh4G"
                 WHERE "Date" >= %s::date AND "Date" <= %s::date
                   AND COALESCE(SUBSTRING("Cell Name" FROM '([A-Za-z]{{3}}\\d{{3}})'), SUBSTRING("ME Name", 3, 6)) = ANY(%s)
-                GROUP BY "Time", siteid, "Cell ID", "Cell Name", sector, band, tech
+                GROUP BY "Time", siteid, "Cell ID"
                 ORDER BY "Time"
             '''
             cur.execute(sql_hourly, [from_date, to_date, sites])
@@ -835,37 +800,13 @@ def api_kpi_4g_monitoring_sector_data_bdbh():
                 SELECT
                     TO_CHAR("Date", 'YYYY-MM-DD') as dt_label,
                     COALESCE(SUBSTRING("Cell Name" FROM '([A-Za-z]{{3}}\\d{{3}})'), SUBSTRING("ME Name", 3, 6)) AS siteid,
-                    CASE
-                        WHEN LENGTH("Cell ID"::text) = 2 THEN LEFT("Cell ID"::text, 1)
-                        WHEN RIGHT("Cell ID"::text, 1) = '8' THEN
-                            CASE SUBSTRING("Cell ID"::text FROM 2 FOR 1)
-                                WHEN '0' THEN '1'
-                                WHEN '1' THEN '2'
-                                WHEN '2' THEN '3'
-                                ELSE SUBSTRING("Cell ID"::text FROM 2 FOR 1)
-                            END
-                        WHEN RIGHT("Cell ID"::text, 1) = '5' THEN SUBSTRING("Cell ID"::text FROM 2 FOR 1)
-                        ELSE LEFT("Cell ID"::text, 2)
-                    END AS sector,
-                    CASE RIGHT("Cell ID"::text, 1)
-                        WHEN '1' THEN 'L1800'
-                        WHEN '2' THEN 'L900'
-                        WHEN '3' THEN 'L2100'
-                        WHEN '4' THEN 'L2300_1'
-                        WHEN '5' THEN 'L2300_2'
-                        WHEN '6' THEN 'L2300_3'
-                        WHEN '7' THEN 'L700'
-                        WHEN '8' THEN CASE WHEN LENGTH("Cell ID"::text) = 3 THEN 'L2600_3' ELSE 'L2600_1' END
-                        WHEN '9' THEN 'L2600_2'
-                        ELSE 'Unknown'
-                    END AS band,
-                    "Cell ID"::text AS tech,
+                    "Cell ID"::text AS cell,
                     MAX("Cell Name") AS cell_name,
                     {kpi_selects_hourly}
                 FROM "measKpiBdbh4G"
                 WHERE "Date" >= %s::date AND "Date" <= %s::date
                   AND COALESCE(SUBSTRING("Cell Name" FROM '([A-Za-z]{{3}}\\d{{3}})'), SUBSTRING("ME Name", 3, 6)) = ANY(%s)
-                GROUP BY "Date", siteid, "Cell ID", "Cell Name", sector, band, tech
+                GROUP BY "Date", siteid, "Cell ID"
                 ORDER BY "Date"
             '''
             cur.execute(sql_daily, [from_date, to_date, sites])
@@ -878,10 +819,10 @@ def api_kpi_4g_monitoring_sector_data_bdbh():
                 for r in rows:
                     dt_label    = r[0]
                     siteid      = r[1]
-                    sector      = r[2]
-                    band        = r[3]
-                    tech        = r[4]
-                    cell_name   = r[5]
+                    cell_str    = str(r[2] or "").split('.')[0]
+                    sector, band = get_4g_sector_and_band(cell_str)
+                    tech        = cell_str
+                    cell_name   = r[3]
 
                     code = extract_sector_code(cell_name, siteid)
                     sub_str = f" {code}" if code else ""
@@ -894,7 +835,7 @@ def api_kpi_4g_monitoring_sector_data_bdbh():
                         raw_map[dt_label][legend_name] = {}
 
                     for idx, k in enumerate(kpi_defs_bdbh):
-                        val = r[6 + idx]
+                        val = r[4 + idx]
                         raw_map[dt_label][legend_name][k[0]] = round(float(val), 2) if val is not None else None
 
                 labels = sorted(list(labels_set))
