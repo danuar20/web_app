@@ -16,6 +16,19 @@
 {% block page_content %}
 <style>
     /* Dashboard specific styles */
+    /* Spinner */
+    #loading-overlay {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.3); display: flex; flex-direction: column;
+        align-items: center; justify-content: center; z-index: 1000;
+        color: white; font-weight: 600; border-radius: 8px;
+    }
+    .spinner {
+        width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3);
+        border-top: 4px solid #4facfe; border-radius: 50%;
+        animation: spin 1s linear infinite; margin-bottom: 10px;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .dashboard-top {
         margin-bottom: 12px;
     }
@@ -4425,6 +4438,22 @@
     const sumKpis = ['payloadChart', 'volteTrafficChart', 'dlPayloadChart', 'ulPayloadChart', 'dlPayloadCaChart', 'ulPayloadCaChart', 'rrcChart', 'activeUserChart', 'bsrAttemptChart', 'dlTrafficChart', 'ulTrafficChart', 'userChart'];
 
     async function updateCombinedTechData(checkedBands) {
+            // Only show loading on the chart container if visible, not global overlay
+            const isChartView = document.getElementById('trendChartsContainer') && 
+                                document.getElementById('trendChartsContainer').style.display !== 'none';
+            let chartOverlay = null;
+        
+            if (isChartView) {
+                chartOverlay = document.createElement('div');
+                chartOverlay.id = 'chart-loading-overlay';
+                chartOverlay.innerHTML = '<div class="spinner"></div><div>Loading chart data...</div>';
+                chartOverlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.3);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;color:white;font-weight:600;border-radius:8px;';
+                const chartWrap = document.querySelector('.chart-grid, #trendChartsContainer, .band-chart-card');
+                if (chartWrap) {
+                    chartWrap.style.position = 'relative';
+                    chartWrap.appendChild(chartOverlay);
+                }
+            }
         const fddBands = ['L700', 'L900', 'L1800', 'L2100'];
         const tddBands = ['L2300_1', 'L2300_2', 'L2300_3', 'L2300', 'L2600_1', 'L2600_2', 'L2600_3', 'L2600'];
         const selectedFdd = fddBands.filter(b => checkedBands.includes(b));
@@ -4467,6 +4496,9 @@
             dynamicHourlyTechTrendData = {};
             dynamicTechTrendData = {};
             dynamicTechCompareData = { 'FDD': {}, 'TDD': {} };
+        } finally {
+            const ov = document.getElementById('chart-loading-overlay');
+            if (ov) ov.remove();
         }
     }
     
@@ -4506,7 +4538,7 @@
         onBandFilterChange();
     }
     
-    async function onBandFilterChange() {
+    async function onBandFilterChange() {  // [PATCHED: ensure combined table values update after fetch]
         const cbs = document.querySelectorAll('#bandFilterCheckboxes input[type="checkbox"]:not(#bandFilterSelectAll)');
         const checked = document.querySelectorAll('#bandFilterCheckboxes input[type="checkbox"]:checked:not(#bandFilterSelectAll)');
         let sa = document.getElementById('bandFilterSelectAll');
@@ -4536,6 +4568,7 @@
         
         await updateCombinedTechData(checkedBands);
         
+        // Update combined table rows — they persist from SSR unless re-populated
         document.querySelectorAll(`#bandTableBody tr.band-row`).forEach(tr => {
             const b = tr.getAttribute('data-band');
             if (tr.classList.contains('mode-split') && bandMode === 'split') {

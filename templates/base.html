@@ -3799,6 +3799,19 @@
                     </div>
                     {% endif %}
 
+                    {% if session.get('role') != 'viewer' %}
+                    <div class="menu-item {% block nav_sow %}{% endblock %}" onclick="toggleSub('subSow', this)">
+                        <div class="menu-icon"><i class="fas fa-tasks"></i></div>
+                        <span class="menu-item-label">SOW</span>
+                        <i class="fas fa-chevron-right menu-arrow"></i>
+                    </div>
+                    <div class="sub-menu {% block subSow_open %}{% endblock %}" id="subSow">
+                        <a href="/sow/crowdsource" class="sub-item {% block nav_sow_crowdsource %}{% endblock %}">
+                            <span class="sub-item-dot"></span> Crowdsource
+                        </a>
+                    </div>
+                    {% endif %}
+
                 </div>
 
                 <div class="menu-section">

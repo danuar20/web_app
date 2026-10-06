@@ -1,17 +1,14 @@
 from flask import Flask, render_template
 from flask_wtf import CSRFProtect
 from flask_caching import Cache
-import tempfile
 import logging
+import os
+from datetime import datetime, timedelta
+from dotenv import load_dotenv
 
 cache = Cache()
 csrf = CSRFProtect()
 
-from datetime import datetime, timedelta
-import os
-from dotenv import load_dotenv
-
-# Load .env from the project root (absolute path, works regardless of CWD)
 _project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(_project_dir, ".env"))
 
@@ -36,9 +33,15 @@ def create_app():
     from werkzeug.middleware.proxy_fix import ProxyFix
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-    # Configure Cache
-    app.config['CACHE_TYPE'] = 'FileSystemCache'
-    app.config['CACHE_DIR'] = os.path.join(tempfile.gettempdir(), 'flask_cache')
+    # ── Configure Cache (Supports REDIS or Local fallback) ────────────────────
+    app.config['CACHE_TYPE'] = os.getenv("CACHE_TYPE", "SimpleCache")
+    if app.config['CACHE_TYPE'] == 'RedisCache':
+        app.config['CACHE_REDIS_URL'] = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    else:
+        app.config['CACHE_DIR'] = os.getenv("CACHE_DIR", os.path.join(_project_dir, 'var', 'cache'))
+        if not os.path.exists(app.config['CACHE_DIR']):
+            os.makedirs(app.config['CACHE_DIR'])
+
     app.config['CACHE_DEFAULT_TIMEOUT'] = 21600  # 6 hours
     cache.init_app(app)
 
@@ -58,13 +61,11 @@ def create_app():
     app.config['SESSION_COOKIE_SECURE']  = False
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE']  = 'Lax'
-    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=3)  # Session expires after 3 hours
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=3)
 
     # ── 3. CSRF PROTECTION via Flask-WTF ───────────────────────────────────────
     app.config['WTF_CSRF_ENABLED']    = True
     app.config['WTF_CSRF_TIME_LIMIT']  = 3600
-
-    # Initialize CSRF protection so `csrf_token()` is available in templates
     csrf.init_app(app)
 
     # ── 4. CUSTOM JINJA2 FILTERS ────────────────────────────────────────────────
@@ -101,7 +102,8 @@ def create_app():
         pl_monitoring, ta4g_new, ta5g, dashboard_2g, dashboard_4g, dashboard_5g, coverage, okumura_hata, nettilt3d,
         optim_4g,
         unbalance_prb,
-        sites_db_bp
+        sites_db_bp,
+        sow
     )
     app.register_blueprint(auth)
     app.register_blueprint(admin_bp)
@@ -114,6 +116,7 @@ def create_app():
     app.register_blueprint(optim_4g)
     app.register_blueprint(unbalance_prb)
     app.register_blueprint(sites_db_bp)
+    app.register_blueprint(sow)
     app.register_blueprint(kpi5g_monitoring)
     app.register_blueprint(pl_monitoring)
     app.register_blueprint(ta4g_new)
@@ -124,12 +127,10 @@ def create_app():
     app.register_blueprint(coverage)
     app.register_blueprint(okumura_hata)
     app.register_blueprint(nettilt3d)
- 
 
     # ── 6. RESPONSE HEADERS (cache busting + security) ─────────────────────────
     @app.after_request
     def add_header(response):
-        # Cache busting for dynamic pages (skip static files)
         if 'text/html' in response.content_type or 'application/json' in response.content_type:
             response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
             response.headers['Pragma'] = 'no-cache'

@@ -137,6 +137,9 @@ def create_table_if_not_exists(conn):
         "dl_L2300_2"      DOUBLE PRECISION,
         "dl_L2300_3"      DOUBLE PRECISION,
         "dl_L700"         DOUBLE PRECISION,
+        "dl_L2600_1"      DOUBLE PRECISION,
+        "dl_L2600_2"      DOUBLE PRECISION,
+        "dl_L2600_3"      DOUBLE PRECISION,
         "avg_dl_prb"      DOUBLE PRECISION,
         "max_dl_prb"      DOUBLE PRECISION,
         "max_dl_band"     VARCHAR(20),
@@ -148,6 +151,9 @@ def create_table_if_not_exists(conn):
         "ul_L2300_2"      DOUBLE PRECISION,
         "ul_L2300_3"      DOUBLE PRECISION,
         "ul_L700"         DOUBLE PRECISION,
+        "ul_L2600_1"      DOUBLE PRECISION,
+        "ul_L2600_2"      DOUBLE PRECISION,
+        "ul_L2600_3"      DOUBLE PRECISION,
         "avg_ul_prb"      DOUBLE PRECISION,
         "max_ul_prb"      DOUBLE PRECISION,
         "max_ul_band"     VARCHAR(20),
@@ -156,6 +162,14 @@ def create_table_if_not_exists(conn):
     );
     '''
     cur.execute(sql)
+    # Migration for existing tables: CREATE TABLE IF NOT EXISTS above does not
+    # add new columns to an already-created table.
+    cur.execute('ALTER TABLE "unbalance_prb_weekly" ADD COLUMN IF NOT EXISTS "dl_L2600_1" DOUBLE PRECISION;')
+    cur.execute('ALTER TABLE "unbalance_prb_weekly" ADD COLUMN IF NOT EXISTS "dl_L2600_2" DOUBLE PRECISION;')
+    cur.execute('ALTER TABLE "unbalance_prb_weekly" ADD COLUMN IF NOT EXISTS "dl_L2600_3" DOUBLE PRECISION;')
+    cur.execute('ALTER TABLE "unbalance_prb_weekly" ADD COLUMN IF NOT EXISTS "ul_L2600_1" DOUBLE PRECISION;')
+    cur.execute('ALTER TABLE "unbalance_prb_weekly" ADD COLUMN IF NOT EXISTS "ul_L2600_2" DOUBLE PRECISION;')
+    cur.execute('ALTER TABLE "unbalance_prb_weekly" ADD COLUMN IF NOT EXISTS "ul_L2600_3" DOUBLE PRECISION;')
     cur.execute('CREATE INDEX IF NOT EXISTS idx_unbalance_prb_weekly_week ON "unbalance_prb_weekly"("week");')
     cur.execute('CREATE INDEX IF NOT EXISTS idx_unbalance_prb_weekly_site ON "unbalance_prb_weekly"("site_id");')
     cur.execute('CREATE INDEX IF NOT EXISTS idx_unbalance_prb_weekly_site_v2 ON "unbalance_prb_weekly"("site_id_v2");')
@@ -177,8 +191,10 @@ def populate_week(conn, week_label, friday_start, thursday_end):
     INSERT INTO "unbalance_prb_weekly" (
         "week", "site_id", "site_id_v2", "sector", "type", "num_band",
         "dl_L900", "dl_L1800", "dl_L2100", "dl_L2300_1", "dl_L2300_2", "dl_L2300_3", "dl_L700",
+        "dl_L2600_1", "dl_L2600_2", "dl_L2600_3",
         "avg_dl_prb", "max_dl_prb", "max_dl_band", "min_dl_band",
         "ul_L900", "ul_L1800", "ul_L2100", "ul_L2300_1", "ul_L2300_2", "ul_L2300_3", "ul_L700",
+        "ul_L2600_1", "ul_L2600_2", "ul_L2600_3",
         "avg_ul_prb", "max_ul_prb", "max_ul_band", "min_ul_band"
     )
     WITH band_agg AS (
@@ -204,6 +220,9 @@ def populate_week(conn, week_label, friday_start, thursday_end):
         MAX(CASE WHEN band = 'L2300_2' THEN dl_util END) AS "dl_L2300_2",
         MAX(CASE WHEN band = 'L2300_3' THEN dl_util END) AS "dl_L2300_3",
         MAX(CASE WHEN band = 'L700' THEN dl_util END) AS "dl_L700",
+        MAX(CASE WHEN band IN ('L2600', 'L2600_1') THEN dl_util END) AS "dl_L2600_1",
+        MAX(CASE WHEN band = 'L2600_2' THEN dl_util END) AS "dl_L2600_2",
+        MAX(CASE WHEN band = 'L2600_3' THEN dl_util END) AS "dl_L2600_3",
 
         -- DL PRB Summary
         CASE WHEN SUM(dl_den) > 0 THEN ROUND((SUM(dl_num) / SUM(dl_den) * 100.0)::numeric, 2) ELSE NULL END AS avg_dl_prb,
@@ -219,6 +238,9 @@ def populate_week(conn, week_label, friday_start, thursday_end):
         MAX(CASE WHEN band = 'L2300_2' THEN ul_util END) AS "ul_L2300_2",
         MAX(CASE WHEN band = 'L2300_3' THEN ul_util END) AS "ul_L2300_3",
         MAX(CASE WHEN band = 'L700' THEN ul_util END) AS "ul_L700",
+        MAX(CASE WHEN band IN ('L2600', 'L2600_1') THEN ul_util END) AS "ul_L2600_1",
+        MAX(CASE WHEN band = 'L2600_2' THEN ul_util END) AS "ul_L2600_2",
+        MAX(CASE WHEN band = 'L2600_3' THEN ul_util END) AS "ul_L2600_3",
 
         -- UL PRB Summary
         CASE WHEN SUM(ul_den) > 0 THEN ROUND((SUM(ul_num) / SUM(ul_den) * 100.0)::numeric, 2) ELSE NULL END AS avg_ul_prb,

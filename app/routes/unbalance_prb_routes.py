@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, session, jsonify, make_response
-from app import csrf
+from app import csrf, cache
 from app.db.db_webapp import get_postgres_connection
 from ._utils import login_required, _no_cache, db_query, viewer_blocked
 import psycopg2
@@ -8,6 +8,40 @@ import logging
 logger = logging.getLogger(__name__)
 
 unbalance_prb = Blueprint("unbalance_prb", __name__)
+
+# ── Band column model ─────────────────────────────────────────────────────────
+# The weekly table is created by scripts/populate_unbalance_prb_weekly.py. L2600
+# columns were added after the initial schema, so detect which band columns
+# actually exist at query time instead of assuming a fixed list — the page then
+# works both before and after the migration has been run.
+BAND_CANONICAL = [
+    'L900', 'L1800', 'L2100',
+    'L2300_1', 'L2300_2', 'L2300_3',
+    'L2600_1', 'L2600_2', 'L2600_3',
+    'L700',
+]
+FDD_BANDS = {'L700', 'L900', 'L1800', 'L2100'}
+TDD_BANDS = {'L2300_1', 'L2300_2', 'L2300_3', 'L2600_1', 'L2600_2', 'L2600_3'}
+
+
+def get_available_bands(cur):
+    """Return the subset of BAND_CANONICAL that exists as dl_* columns."""
+    cur.execute('''
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'unbalance_prb_weekly'
+          AND column_name LIKE 'dl\\_L%' ESCAPE '\\'
+    ''')
+    present = {r[0][3:] for r in cur.fetchall() if r and r[0]}
+    return [b for b in BAND_CANONICAL if b in present]
+
+
+def resolve_active_bands(bands_input, available):
+    """Intersect requested bands with available ones; default to all available."""
+    if isinstance(bands_input, list) and bands_input:
+        wanted = {str(b).strip() for b in bands_input if b and str(b).strip()}
+        selected = [b for b in available if b in wanted]
+        return selected if selected else list(available)
+    return list(available)
 
 
 @unbalance_prb.route("/unbalance_prb")
@@ -86,7 +120,10 @@ def api_unbalance_prb_weeks():
 @csrf.exempt
 @login_required
 def api_unbalance_prb_data():
-    """Return unbalance PRB weekly data for a selected week range in high-speed compact format."""
+    """Return unbalance PRB weekly data for a selected week range in high-speed compact format.
+
+    Cached at the route level so repeated range queries return instantly.
+    """
     req = request.get_json()
     if not req:
         return jsonify({"error": "Missing request body"}), 400
@@ -101,9 +138,21 @@ def api_unbalance_prb_data():
     start_week = sel_a if sel_a <= sel_b else sel_b
     end_week = sel_b if sel_a <= sel_b else sel_a
 
+    cache_key = f"unbalance_prb_data:{start_week}:{end_week}"
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        return jsonify(cached_data)
+
     try:
         with db_query() as (conn, cur):
-            cur.execute('''
+            available_bands = get_available_bands(cur)
+            if not available_bands:
+                return jsonify({"error": "No band columns found in unbalance_prb_weekly"}), 500
+
+            dl_cols = ", ".join(f'"dl_{b}"' for b in available_bands)
+            ul_cols = ", ".join(f'"ul_{b}"' for b in available_bands)
+
+            cur.execute(f'''
                 SELECT
                     week,
                     COALESCE(site_id, '') AS site_id,
@@ -111,24 +160,12 @@ def api_unbalance_prb_data():
                     COALESCE(sector, '') AS sector,
                     COALESCE(type, '') AS type,
                     COALESCE(num_band, 0) AS num_band,
-                    "dl_L900",
-                    "dl_L1800",
-                    "dl_L2100",
-                    "dl_L2300_1",
-                    "dl_L2300_2",
-                    "dl_L2300_3",
-                    "dl_L700",
+                    {dl_cols},
                     avg_dl_prb,
                     max_dl_prb,
                     COALESCE(max_dl_band, '') AS max_dl_band,
                     COALESCE(min_dl_band, '') AS min_dl_band,
-                    "ul_L900",
-                    "ul_L1800",
-                    "ul_L2100",
-                    "ul_L2300_1",
-                    "ul_L2300_2",
-                    "ul_L2300_3",
-                    "ul_L700",
+                    {ul_cols},
                     avg_ul_prb,
                     max_ul_prb,
                     COALESCE(max_ul_band, '') AS max_ul_band,
@@ -138,23 +175,32 @@ def api_unbalance_prb_data():
                 ORDER BY week, site_id, sector
             ''', [start_week, end_week])
 
-            columns = [
-                "week", "site_id", "site_id_v2", "sector", "type", "num_band",
-                "dl_L900", "dl_L1800", "dl_L2100", "dl_L2300_1", "dl_L2300_2", "dl_L2300_3", "dl_L700",
-                "avg_dl_prb", "max_dl_prb", "max_dl_band", "min_dl_band",
-                "ul_L900", "ul_L1800", "ul_L2100", "ul_L2300_1", "ul_L2300_2", "ul_L2300_3", "ul_L700",
-                "avg_ul_prb", "max_ul_prb", "max_ul_band", "min_ul_band"
-            ]
+            n_bands = len(available_bands)
+            columns = (
+                ["week", "site_id", "site_id_v2", "sector", "type", "num_band"]
+                + [f"dl_{b}" for b in available_bands]
+                + ["avg_dl_prb", "max_dl_prb", "max_dl_band", "min_dl_band"]
+                + [f"ul_{b}" for b in available_bands]
+                + ["avg_ul_prb", "max_ul_prb", "max_ul_band", "min_ul_band"]
+            )
             raw_rows = cur.fetchall()
 
-        return jsonify({
+        payload = {
             "columns": columns,
             "rows": raw_rows,
             "start_week": start_week,
             "end_week": end_week,
             "count": len(raw_rows),
+            "bands": available_bands,
+            "band_indexes": {
+                "dl": {b: 6 + i for i, b in enumerate(available_bands)},
+                "ul": {b: 6 + n_bands + 4 + i for i, b in enumerate(available_bands)},
+            },
             "source": "unbalance_prb_weekly"
-        })
+        }
+        # Weekly aggregates only change when the ETL re-runs — cache for 1h
+        cache.set(cache_key, payload, timeout=3600)
+        return jsonify(payload)
 
     except Exception as e:
         logger.exception("Error fetching unbalance_prb data: %s", e)
@@ -188,10 +234,14 @@ def api_unbalance_prb_export():
     search = (req.get("search") or "").strip().lower()
     status_filter = req.get("status_filter", "all")
     bands_input = req.get("bands")
-    if isinstance(bands_input, list):
-        active_bands = set(bands_input)
-    else:
-        active_bands = {'L900', 'L1800', 'L2100', 'L2300_1', 'L2300_2', 'L2300_3', 'L700'}
+    active_bands = {b for b in BAND_CANONICAL}
+    try:
+        with db_query() as (conn, cur):
+            available_bands = get_available_bands(cur)
+        active_bands = set(resolve_active_bands(bands_input, available_bands))
+    except Exception as e:
+        logger.warning("Could not resolve band columns for export, using defaults: %s", e)
+        active_bands = {b for b in ('L900', 'L1800', 'L2100', 'L2300_1', 'L2300_2', 'L2300_3', 'L700')}
     view_mode = req.get("view_mode", "all")
     low_thresh = float(req.get("low_util", 50))
     high_thresh = float(req.get("high_util", 85))
@@ -218,6 +268,8 @@ def api_unbalance_prb_export():
         where_clauses.append("(LOWER(site_id) LIKE %s OR LOWER(site_id_v2) LIKE %s)")
         params.extend([f"%{search}%", f"%{search}%"])
 
+    dl_cols = ", ".join(f'"dl_{b}"' for b in available_bands)
+    ul_cols = ", ".join(f'"ul_{b}"' for b in available_bands)
     sql = f'''
         SELECT
             week,
@@ -226,11 +278,11 @@ def api_unbalance_prb_export():
             COALESCE(sector, '') AS sector,
             COALESCE(type, '') AS type,
             COALESCE(num_band, 0) AS num_band,
-            "dl_L900", "dl_L1800", "dl_L2100", "dl_L2300_1", "dl_L2300_2", "dl_L2300_3", "dl_L700",
+            {dl_cols},
             avg_dl_prb, max_dl_prb,
             COALESCE(max_dl_band, '') AS max_dl_band,
             COALESCE(min_dl_band, '') AS min_dl_band,
-            "ul_L900", "ul_L1800", "ul_L2100", "ul_L2300_1", "ul_L2300_2", "ul_L2300_3", "ul_L700",
+            {ul_cols},
             avg_ul_prb, max_ul_prb,
             COALESCE(max_ul_band, '') AS max_ul_band,
             COALESCE(min_ul_band, '') AS min_ul_band
@@ -251,14 +303,10 @@ def api_unbalance_prb_export():
             ("sector", "sector", "base", None),
             ("type", "type", "base", None),
             ("num_band", "num_band", "base", None),
-
-            ("dl_L900", "dl_L900", "dl", "L900"),
-            ("dl_L1800", "dl_L1800", "dl", "L1800"),
-            ("dl_L2100", "dl_L2100", "dl", "L2100"),
-            ("dl_L2300_1", "dl_L2300_1", "dl", "L2300_1"),
-            ("dl_L2300_2", "dl_L2300_2", "dl", "L2300_2"),
-            ("dl_L2300_3", "dl_L2300_3", "dl", "L2300_3"),
-            ("dl_L700", "dl_L700", "dl", "L700"),
+        ]
+        for b in available_bands:
+            all_col_defs.append((f"dl_{b}", f"dl_{b}", "dl", b))
+        all_col_defs += [
             ("avg_dl_prb", "avg_dl_prb", "dl", None),
             ("max_dl_prb", "max_dl_prb", "dl", None),
             ("cat_dl_prb", "Cat DL PRB", "dl", None),
@@ -267,14 +315,10 @@ def api_unbalance_prb_export():
             ("dl_tdd", "dl_tdd", "dl", None),
             ("max_dl_band", "max_dl_band", "dl", None),
             ("min_dl_band", "min_dl_band", "dl", None),
-
-            ("ul_L900", "ul_L900", "ul", "L900"),
-            ("ul_L1800", "ul_L1800", "ul", "L1800"),
-            ("ul_L2100", "ul_L2100", "ul", "L2100"),
-            ("ul_L2300_1", "ul_L2300_1", "ul", "L2300_1"),
-            ("ul_L2300_2", "ul_L2300_2", "ul", "L2300_2"),
-            ("ul_L2300_3", "ul_L2300_3", "ul", "L2300_3"),
-            ("ul_L700", "ul_L700", "ul", "L700"),
+        ]
+        for b in available_bands:
+            all_col_defs.append((f"ul_{b}", f"ul_{b}", "ul", b))
+        all_col_defs += [
             ("avg_ul_prb", "avg_ul_prb", "ul", None),
             ("max_ul_prb", "max_ul_prb", "ul", None),
             ("cat_ul_prb", "Cat UL PRB", "ul", None),
@@ -302,18 +346,28 @@ def api_unbalance_prb_export():
             except (ValueError, TypeError):
                 return None
 
-        # Pre-compute column index accessors
-        dl_band_map = [('L900', 6), ('L1800', 7), ('L2100', 8), ('L2300_1', 9), ('L2300_2', 10), ('L2300_3', 11), ('L700', 12)]
-        ul_band_map = [('L900', 17), ('L1800', 18), ('L2100', 19), ('L2300_1', 20), ('L2300_2', 21), ('L2300_3', 22), ('L700', 23)]
+        # Pre-compute column index accessors (row layout follows available_bands):
+        # 0..5 base cols | 6..6+n-1 dl bands | +4 dl summary | 10+n..10+2n-1 ul bands | +4 ul summary
+        n_band_cols = len(available_bands)
+        dl_band_map = [(b, 6 + i) for i, b in enumerate(available_bands)]
+        ul_band_map = [(b, 10 + n_band_cols + i) for i, b in enumerate(available_bands)]
+        idx_avg_dl = 6 + n_band_cols
+        idx_max_dl = idx_avg_dl + 1
+        idx_max_dl_band = idx_avg_dl + 2
+        idx_min_dl_band = idx_avg_dl + 3
+        idx_avg_ul = 10 + n_band_cols * 2
+        idx_max_ul = idx_avg_ul + 1
+        idx_max_ul_band = idx_avg_ul + 2
+        idx_min_ul_band = idx_avg_ul + 3
 
         active_dl_indices = [idx for band, idx in dl_band_map if band in active_bands]
         active_ul_indices = [idx for band, idx in ul_band_map if band in active_bands]
 
-        fdd_dl_indices = [idx for band, idx in dl_band_map if band in active_bands and band in ('L700', 'L900', 'L1800', 'L2100')]
-        tdd_dl_indices = [idx for band, idx in dl_band_map if band in active_bands and band in ('L2300_1', 'L2300_2', 'L2300_3')]
+        fdd_dl_indices = [idx for band, idx in dl_band_map if band in active_bands and band in FDD_BANDS]
+        tdd_dl_indices = [idx for band, idx in dl_band_map if band in active_bands and band in TDD_BANDS]
 
-        fdd_ul_indices = [idx for band, idx in ul_band_map if band in active_bands and band in ('L700', 'L900', 'L1800', 'L2100')]
-        tdd_ul_indices = [idx for band, idx in ul_band_map if band in active_bands and band in ('L2300_1', 'L2300_2', 'L2300_3')]
+        fdd_ul_indices = [idx for band, idx in ul_band_map if band in active_bands and band in FDD_BANDS]
+        tdd_ul_indices = [idx for band, idx in ul_band_map if band in active_bands and band in TDD_BANDS]
 
         def get_cat(val):
             if val is None: return ""
@@ -371,8 +425,8 @@ def api_unbalance_prb_export():
                 if v is not None:
                     ul_active_vals.append(v)
 
-            dl_avg = round(sum(dl_active_vals) / len(dl_active_vals), 2) if dl_active_vals else to_num(r[13])
-            ul_avg = round(sum(ul_active_vals) / len(ul_active_vals), 2) if ul_active_vals else to_num(r[24])
+            dl_avg = round(sum(dl_active_vals) / len(dl_active_vals), 2) if dl_active_vals else to_num(r[idx_avg_dl])
+            ul_avg = round(sum(ul_active_vals) / len(ul_active_vals), 2) if ul_active_vals else to_num(r[idx_avg_ul])
 
             cat_dl = get_cat(dl_avg)
             cat_ul = get_cat(ul_avg)

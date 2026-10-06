@@ -1282,7 +1282,7 @@ function fetchSectorData(dims) {
                 var p2 = parts[1].split("|");
                 uniqueSectors.add(p2[0]);
                 if (p2.length > 1) {
-                    uniqueBands.add(p2[1].split("-")[0]);
+                    uniqueBands.add(p2[1].split("-")[0].split(" ")[0]);
                 }
             }
         });
@@ -1327,7 +1327,7 @@ function applySectorLocalFilters() {
         if (parts.length < 2) return true; // keep if format differs
         var p2 = parts[1].split("|");
         var legSec = p2[0];
-        var legBand = p2.length > 1 ? p2[1].split("-")[0] : "";
+        var legBand = p2.length > 1 ? p2[1].split("-")[0].split(" ")[0] : "";
         
         if (selSectors.length > 0 && !selSectors.includes(legSec)) return false;
         if (selBands.length > 0 && !selBands.includes(legBand)) return false;
@@ -1684,12 +1684,12 @@ function buildDatasets(tabId, kpiId, dims){
             
             var legendLabel = d;
             if (tabId === 'sector') {
+                var parts = d.split('|');
                 if (SECTOR_CHART_MODE === 'combined') {
-                    legendLabel = d.replace('|', ' ');
+                    legendLabel = parts.length > 1 ? parts[1] : d.replace('|', ' ');
                 } else {
-                    var parts = d.split('|');
                     if (parts.length > 1) {
-                        legendLabel = parts[1].split('-')[0];
+                        legendLabel = parts[1].split(' ')[0].split('-')[0];
                     }
                 }
             } else if (tabId === 'subnet') {
@@ -1809,7 +1809,8 @@ function buildTable(tabId, dims){
                 if (parts.length > 1) {
                     secBase = parts[0];
                     cellStr = parts[1];
-                    bandStr = cellStr.split("-")[0];
+                    // cellStr format: NR2300_1 IP-14. bandStr should be NR2300.
+                    bandStr = cellStr.split(" ")[0].split("-")[0].split("_")[0];
                 }
                 rowHtml += "<td>"+secBase+"</td><td>"+bandStr+"</td><td>"+cellStr+"</td>";
             } else {
@@ -2615,7 +2616,8 @@ function doExportCsv(){
                 if (parts.length > 1) {
                     secBase = parts[0];
                     cellStr = parts[1];
-                    bandStr = cellStr.split("-")[0];
+                    // cellStr format: NR2300_1 IP-14. bandStr should be NR2300.
+                    bandStr = cellStr.split(" ")[0].split("-")[0].split("_")[0];
                 }
                 row.push('"' + secBase + '"', '"' + bandStr + '"', '"' + cellStr + '"');
             } else {

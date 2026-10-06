@@ -1041,21 +1041,24 @@
                     <label>Bands</label>
                     <div class="band-dropdown-wrapper">
                         <button type="button" class="btn-band-dropdown" onclick="toggleBandMenu()">
-                            <span><i class="fas fa-layer-group" style="margin-right:6px; color:var(--accent);"></i><span id="bandDropdownLabel">Bands (6)</span></span>
+                            <span><i class="fas fa-layer-group" style="margin-right:6px; color:var(--accent);"></i><span id="bandDropdownLabel">Bands (10)</span></span>
                             <i class="fas fa-chevron-down" style="font-size:10px; color:var(--muted);"></i>
                         </button>
                         <div class="band-menu" id="bandMenu">
                             <label class="band-item" for="band_selectAll" style="border-bottom:1px solid var(--border); padding-bottom:6px; margin-bottom:6px; font-weight:600;">
-                                <input type="checkbox" id="band_selectAll" onchange="toggleSelectAllBands(this)">
+                                <input type="checkbox" id="band_selectAll" checked onchange="toggleSelectAllBands(this)">
                                 <span>Select All</span>
                             </label>
+                            <label class="band-item" for="band_L700"><input type="checkbox" id="band_L700" value="L700" checked onchange="onBandFilterChange()"><span>L700</span></label>
                             <label class="band-item" for="band_L900"><input type="checkbox" id="band_L900" value="L900" checked onchange="onBandFilterChange()"><span>L900</span></label>
                             <label class="band-item" for="band_L1800"><input type="checkbox" id="band_L1800" value="L1800" checked onchange="onBandFilterChange()"><span>L1800</span></label>
                             <label class="band-item" for="band_L2100"><input type="checkbox" id="band_L2100" value="L2100" checked onchange="onBandFilterChange()"><span>L2100</span></label>
                             <label class="band-item" for="band_L2300_1"><input type="checkbox" id="band_L2300_1" value="L2300_1" checked onchange="onBandFilterChange()"><span>L2300_1</span></label>
                             <label class="band-item" for="band_L2300_2"><input type="checkbox" id="band_L2300_2" value="L2300_2" checked onchange="onBandFilterChange()"><span>L2300_2</span></label>
                             <label class="band-item" for="band_L2300_3"><input type="checkbox" id="band_L2300_3" value="L2300_3" checked onchange="onBandFilterChange()"><span>L2300_3</span></label>
-                            <label class="band-item" for="band_L700"><input type="checkbox" id="band_L700" value="L700" onchange="onBandFilterChange()"><span>L700</span></label>
+                            <label class="band-item" for="band_L2600_1"><input type="checkbox" id="band_L2600_1" value="L2600_1" checked onchange="onBandFilterChange()"><span>L2600_1</span></label>
+                            <label class="band-item" for="band_L2600_2"><input type="checkbox" id="band_L2600_2" value="L2600_2" checked onchange="onBandFilterChange()"><span>L2600_2</span></label>
+                            <label class="band-item" for="band_L2600_3"><input type="checkbox" id="band_L2600_3" value="L2600_3" checked onchange="onBandFilterChange()"><span>L2600_3</span></label>
                         </div>
                     </div>
                 </div>
@@ -1272,7 +1275,9 @@ const csrfToken = '{{ csrf_token() }}';
 const MAX_WEEK_RANGE = 12;
 
 /* Selected Bands */
-let activeBands = new Set(['L900', 'L1800', 'L2100', 'L2300_1', 'L2300_2', 'L2300_3']);
+const ALL_BAND_KEYS = ['L700', 'L900', 'L1800', 'L2100', 'L2300_1', 'L2300_2', 'L2300_3', 'L2600_1', 'L2600_2', 'L2600_3'];
+const ALL_BAND_KEYS_NO_L700 = ALL_BAND_KEYS.filter(b => b !== 'L700');
+let activeBands = new Set(ALL_BAND_KEYS);
 
 /* Column Definitions */
 const ALL_COLUMNS = [
@@ -1283,13 +1288,16 @@ const ALL_COLUMNS = [
     { key: 'type', label: 'type', group: 'base', band: null },
     { key: 'num_band', label: 'num_band', group: 'base', band: null },
 
+    { key: 'dl_L700', label: 'dl_L700', group: 'dl', band: 'L700' },
     { key: 'dl_L900', label: 'dl_L900', group: 'dl', band: 'L900' },
     { key: 'dl_L1800', label: 'dl_L1800', group: 'dl', band: 'L1800' },
     { key: 'dl_L2100', label: 'dl_L2100', group: 'dl', band: 'L2100' },
     { key: 'dl_L2300_1', label: 'dl_L2300_1', group: 'dl', band: 'L2300_1' },
     { key: 'dl_L2300_2', label: 'dl_L2300_2', group: 'dl', band: 'L2300_2' },
     { key: 'dl_L2300_3', label: 'dl_L2300_3', group: 'dl', band: 'L2300_3' },
-    { key: 'dl_L700', label: 'dl_L700', group: 'dl', band: 'L700' },
+    { key: 'dl_L2600_1', label: 'dl_L2600_1', group: 'dl', band: 'L2600_1' },
+    { key: 'dl_L2600_2', label: 'dl_L2600_2', group: 'dl', band: 'L2600_2' },
+    { key: 'dl_L2600_3', label: 'dl_L2600_3', group: 'dl', band: 'L2600_3' },
     { key: 'avg_dl_prb', label: 'avg_dl_prb', group: 'dl', band: null },
     { key: 'max_dl_prb', label: 'max_dl_prb', group: 'dl', band: null },
     { key: 'cat_dl_prb', label: 'Cat DL PRB', group: 'dl', band: null },
@@ -1299,13 +1307,16 @@ const ALL_COLUMNS = [
     { key: 'max_dl_band', label: 'max_dl_band', group: 'dl', band: null },
     { key: 'min_dl_band', label: 'min_dl_band', group: 'dl', band: null },
 
+    { key: 'ul_L700', label: 'ul_L700', group: 'ul', band: 'L700' },
     { key: 'ul_L900', label: 'ul_L900', group: 'ul', band: 'L900' },
     { key: 'ul_L1800', label: 'ul_L1800', group: 'ul', band: 'L1800' },
     { key: 'ul_L2100', label: 'ul_L2100', group: 'ul', band: 'L2100' },
     { key: 'ul_L2300_1', label: 'ul_L2300_1', group: 'ul', band: 'L2300_1' },
     { key: 'ul_L2300_2', label: 'ul_L2300_2', group: 'ul', band: 'L2300_2' },
     { key: 'ul_L2300_3', label: 'ul_L2300_3', group: 'ul', band: 'L2300_3' },
-    { key: 'ul_L700', label: 'ul_L700', group: 'ul', band: 'L700' },
+    { key: 'ul_L2600_1', label: 'ul_L2600_1', group: 'ul', band: 'L2600_1' },
+    { key: 'ul_L2600_2', label: 'ul_L2600_2', group: 'ul', band: 'L2600_2' },
+    { key: 'ul_L2600_3', label: 'ul_L2600_3', group: 'ul', band: 'L2600_3' },
     { key: 'avg_ul_prb', label: 'avg_ul_prb', group: 'ul', band: null },
     { key: 'max_ul_prb', label: 'max_ul_prb', group: 'ul', band: null },
     { key: 'cat_ul_prb', label: 'Cat UL PRB', group: 'ul', band: null },
@@ -1449,7 +1460,7 @@ document.addEventListener('click', function(e) {
 
 function toggleSelectAllBands(master) {
     const isChecked = master.checked;
-    ['L900', 'L1800', 'L2100', 'L2300_1', 'L2300_2', 'L2300_3', 'L700'].forEach(b => {
+    ALL_BAND_KEYS.forEach(b => {
         const chk = document.getElementById('band_' + b);
         if (chk) chk.checked = isChecked;
     });
@@ -1458,7 +1469,7 @@ function toggleSelectAllBands(master) {
 
 function onBandFilterChange() {
     activeBands.clear();
-    const allBandsList = ['L900', 'L1800', 'L2100', 'L2300_1', 'L2300_2', 'L2300_3', 'L700'];
+    const allBandsList = ALL_BAND_KEYS;
     let checkedCount = 0;
 
     allBandsList.forEach(b => {
@@ -1688,16 +1699,17 @@ function onSearchInput() {
 }
 
 /* ── Category & Status Helpers (HIGH-PERFORMANCE ZERO-ALLOCATION VECTORIZED) ── */
+const FDD_BAND_KEYS = new Set(['L700', 'L900', 'L1800', 'L2100']);
+const TDD_BAND_KEYS = new Set(['L2300_1', 'L2300_2', 'L2300_3', 'L2600_1', 'L2600_2', 'L2600_3']);
+
 function calcActiveBandAverage(row, prefix) {
     let sum = 0, cnt = 0;
-    if (activeBands.has('L700')) { const v = row[`${prefix}_L700`]; if (v !== null && v !== undefined && v !== '' && !isNaN(v)) { sum += parseFloat(v); cnt++; } }
-    if (activeBands.has('L900')) { const v = row[`${prefix}_L900`]; if (v !== null && v !== undefined && v !== '' && !isNaN(v)) { sum += parseFloat(v); cnt++; } }
-    if (activeBands.has('L1800')) { const v = row[`${prefix}_L1800`]; if (v !== null && v !== undefined && v !== '' && !isNaN(v)) { sum += parseFloat(v); cnt++; } }
-    if (activeBands.has('L2100')) { const v = row[`${prefix}_L2100`]; if (v !== null && v !== undefined && v !== '' && !isNaN(v)) { sum += parseFloat(v); cnt++; } }
-    if (activeBands.has('L2300_1')) { const v = row[`${prefix}_L2300_1`]; if (v !== null && v !== undefined && v !== '' && !isNaN(v)) { sum += parseFloat(v); cnt++; } }
-    if (activeBands.has('L2300_2')) { const v = row[`${prefix}_L2300_2`]; if (v !== null && v !== undefined && v !== '' && !isNaN(v)) { sum += parseFloat(v); cnt++; } }
-    if (activeBands.has('L2300_3')) { const v = row[`${prefix}_L2300_3`]; if (v !== null && v !== undefined && v !== '' && !isNaN(v)) { sum += parseFloat(v); cnt++; } }
-
+    for (let i = 0; i < ALL_BAND_KEYS.length; i++) {
+        const b = ALL_BAND_KEYS[i];
+        if (!activeBands.has(b)) continue;
+        const v = row[`${prefix}_${b}`];
+        if (v !== null && v !== undefined && v !== '' && !isNaN(v)) { sum += parseFloat(v); cnt++; }
+    }
     return cnt > 0 ? Math.round((sum / cnt) * 100) / 100 : null;
 }
 
@@ -1719,59 +1731,16 @@ function evalStatus(row, prefix, fddOrTdd, gapThresh) {
     let maxVal = -Infinity;
     let minPosVal = Infinity;
     let posCount = 0;
-
-    if (fddOrTdd !== 'tdd') {
-        if (activeBands.has('L700')) {
-            const raw = row[`${prefix}_L700`];
-            if (raw !== null && raw !== undefined && raw !== '') {
-                const v = typeof raw === 'number' ? raw : parseFloat(raw);
-                if (v > 0) { posCount++; if (v > maxVal) maxVal = v; if (v < minPosVal) minPosVal = v; }
-            }
-        }
-        if (activeBands.has('L900')) {
-            const raw = row[`${prefix}_L900`];
-            if (raw !== null && raw !== undefined && raw !== '') {
-                const v = typeof raw === 'number' ? raw : parseFloat(raw);
-                if (v > 0) { posCount++; if (v > maxVal) maxVal = v; if (v < minPosVal) minPosVal = v; }
-            }
-        }
-        if (activeBands.has('L1800')) {
-            const raw = row[`${prefix}_L1800`];
-            if (raw !== null && raw !== undefined && raw !== '') {
-                const v = typeof raw === 'number' ? raw : parseFloat(raw);
-                if (v > 0) { posCount++; if (v > maxVal) maxVal = v; if (v < minPosVal) minPosVal = v; }
-            }
-        }
-        if (activeBands.has('L2100')) {
-            const raw = row[`${prefix}_L2100`];
-            if (raw !== null && raw !== undefined && raw !== '') {
-                const v = typeof raw === 'number' ? raw : parseFloat(raw);
-                if (v > 0) { posCount++; if (v > maxVal) maxVal = v; if (v < minPosVal) minPosVal = v; }
-            }
-        }
-    }
-
-    if (fddOrTdd !== 'fdd') {
-        if (activeBands.has('L2300_1')) {
-            const raw = row[`${prefix}_L2300_1`];
-            if (raw !== null && raw !== undefined && raw !== '') {
-                const v = typeof raw === 'number' ? raw : parseFloat(raw);
-                if (v > 0) { posCount++; if (v > maxVal) maxVal = v; if (v < minPosVal) minPosVal = v; }
-            }
-        }
-        if (activeBands.has('L2300_2')) {
-            const raw = row[`${prefix}_L2300_2`];
-            if (raw !== null && raw !== undefined && raw !== '') {
-                const v = typeof raw === 'number' ? raw : parseFloat(raw);
-                if (v > 0) { posCount++; if (v > maxVal) maxVal = v; if (v < minPosVal) minPosVal = v; }
-            }
-        }
-        if (activeBands.has('L2300_3')) {
-            const raw = row[`${prefix}_L2300_3`];
-            if (raw !== null && raw !== undefined && raw !== '') {
-                const v = typeof raw === 'number' ? raw : parseFloat(raw);
-                if (v > 0) { posCount++; if (v > maxVal) maxVal = v; if (v < minPosVal) minPosVal = v; }
-            }
+    for (let i = 0; i < ALL_BAND_KEYS.length; i++) {
+        const b = ALL_BAND_KEYS[i];
+        if (!activeBands.has(b)) continue;
+        const isFDD = FDD_BAND_KEYS.has(b);
+        if (fddOrTdd === 'fdd' && !isFDD) continue;
+        if (fddOrTdd === 'tdd' &&  isFDD) continue;
+        const raw = row[`${prefix}_${b}`];
+        if (raw !== null && raw !== undefined && raw !== '') {
+            const v = typeof raw === 'number' ? raw : parseFloat(raw);
+            if (v > 0) { posCount++; if (v > maxVal) maxVal = v; if (v < minPosVal) minPosVal = v; }
         }
     }
 
@@ -2227,7 +2196,7 @@ function renderTable() {
     const statusFilter = document.getElementById('statusFilter').value;
     const weekFilter = document.getElementById('weeklyWeekFilter').value;
 
-    const isAllBands = (activeBands.size === 7 || (activeBands.size === 6 && !activeBands.has('L700')));
+    const isAllBands = (activeBands.size === ALL_BAND_KEYS.length || (activeBands.size === ALL_BAND_KEYS.length - 1 && !activeBands.has('L700')));
 
     // Summary & Category Counters
     let dlHigh = 0, dlMed = 0, dlLow = 0, dlTotal = 0;
@@ -2522,7 +2491,7 @@ async function exportXLSX() {
         const typeFilter = document.getElementById('typeFilter').value;
         const { low, high, gap } = getThresholds();
         const statusFilter = document.getElementById('statusFilter').value;
-        const isAllBands = (activeBands.size === 7 || (activeBands.size === 6 && !activeBands.has('L700')));
+        const isAllBands = (activeBands.size === ALL_BAND_KEYS.length || (activeBands.size === ALL_BAND_KEYS.length - 1 && !activeBands.has('L700')));
 
         const activeCols = ALL_COLUMNS.filter(c => {
             if (c.band && !activeBands.has(c.band)) return false;

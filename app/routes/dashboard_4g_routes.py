@@ -1059,7 +1059,14 @@ def dashboard_4g_tech_api():
                     )
                     ORDER BY gran, date, datehour NULLS FIRST
                 """
-                cur.execute(query_trend_tech, [fdd_tup, tdd_tup, fdd_tup, tdd_tup, trend_from_date, trend_to_date] + tech_where_params)
+                # Placeholders in query_trend_tech:
+                # 1. tech_case (SELECT) -> 2 params (fdd_tup, tdd_tup)
+                # 2. WHERE date BETWEEN %s AND %s -> 2 params (trend_from_date, trend_to_date)
+                # 3. {where_entity} -> N params (tech_where_params)
+                # 4. tech_case (GROUPING SET 1) -> 2 params (fdd_tup, tdd_tup)
+                # 5. tech_case (GROUPING SET 2) -> 2 params (fdd_tup, tdd_tup)
+                # Total = 2 + 2 + len(tech_where_params) + 2 + 2 = 8 + len(tech_where_params)
+                cur.execute(query_trend_tech, [fdd_tup, tdd_tup, trend_from_date, trend_to_date] + tech_where_params + [fdd_tup, tdd_tup, fdd_tup, tdd_tup])
                 rows_tech_trend = cur.fetchall()
                 
                 daily_trend_labels = []
@@ -1099,6 +1106,10 @@ def dashboard_4g_tech_api():
                             
             if has_compare:
                 def get_tech_compare(from_d, to_d):
+                    # Placeholders:
+                    # 1. tech_case (SELECT) -> 2 params (fdd_tup, tdd_tup)
+                    # 2. WHERE date BETWEEN %s AND %s -> 2 params (from_d, to_d)
+                    # 3. {where_entity} -> N params (tech_where_params)
                     cur.execute(f"""
                         SELECT 
                             {tech_case} AS tech,

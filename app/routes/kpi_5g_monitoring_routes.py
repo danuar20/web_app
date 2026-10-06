@@ -8,6 +8,30 @@ import psycopg2.errors
 
 kpi5g_monitoring = Blueprint("kpi5g_monitoring", __name__)
 
+import re
+
+
+def extract_sector_code(cell_du_name, siteid=""):
+    """Extract two-letter sector/band code from NRPhysicalCellDU Name.
+    E.g. 'C_JAP050IP1_AirportSentani_IP01' -> 'IP'
+         'C_JAP028TP1_AirportSentani2_TP02' -> 'TP'
+    """
+    if not cell_du_name:
+        return ""
+    cn = str(cell_du_name).strip()
+    m = re.search(r'_([A-Za-z]{2})\d+$', cn)
+    if m:
+        return m.group(1).upper()
+    if siteid:
+        m = re.search(re.escape(str(siteid)) + r'([A-Za-z]{2})\d', cn, re.IGNORECASE)
+        if m:
+            return m.group(1).upper()
+    m = re.search(r'[A-Za-z]{3}\d{3}([A-Za-z]{2})', cn)
+    if m:
+        return m.group(1).upper()
+    return ""
+
+
 # ── KPI Definitions ─────────────────────────────────────────────────────────────
 # (chart_id, label, unit, y_min, y_max, sql_expr, is_lower_better)
 ALL_KPI_DEFS = [
@@ -499,11 +523,12 @@ def api_kpi_5g_monitoring_sector_data():
                         WHEN '3' THEN 'NR2100'
                         WHEN '4' THEN 'NR2300_1'
                         WHEN '5' THEN 'NR2300_2'
-                        WHEN '6' THEN 'NR2300_3'
+                        WHEN '6' THEN 'NR2600_1'
                         WHEN '7' THEN 'NR700'
                         ELSE 'Unknown'
                     END AS band,
                     cellid::text AS tech,
+                    MAX(cell_du_name) AS cell_name,
                     {kpi_selects}
                 FROM "5g_kpi_zte"
                 WHERE datehour >= %s::date AND datehour < (%s::date + interval '1 day')
@@ -529,11 +554,12 @@ def api_kpi_5g_monitoring_sector_data():
                         WHEN '3' THEN 'NR2100'
                         WHEN '4' THEN 'NR2300_1'
                         WHEN '5' THEN 'NR2300_2'
-                        WHEN '6' THEN 'NR2300_3'
+                        WHEN '6' THEN 'NR2600_1'
                         WHEN '7' THEN 'NR700'
                         ELSE 'Unknown'
                     END AS band,
                     cellid::text AS tech,
+                    MAX(cell_du_name) AS cell_name,
                     {kpi_selects}
                 FROM "5g_kpi_zte"
                 WHERE datehour >= %s::date AND datehour < (%s::date + interval '1 day')
@@ -547,22 +573,34 @@ def api_kpi_5g_monitoring_sector_data():
             def process_rows(rows):
                 labels_set = set()
                 raw_map = {}
-            
+
+                # Resolve latest cell_name per (siteid, cellid) to prevent series splitting across rename events
+                cell_meta = {}
+                for r in rows:
+                    s_id = r[1]
+                    c_str = str(r[4] or "")
+                    cn = r[5]
+                    if cn:
+                        cell_meta[(s_id, c_str)] = cn
+
                 for r in rows:
                     dt_label = r[0]
                     siteid = r[1]
                     sector = r[2]
                     band = r[3]
                     tech = r[4]
-                
-                    legend_name = f"{siteid} S{sector}|{band}-{tech}"
-                
+                    cell_name = cell_meta.get((siteid, str(tech)), r[5])
+
+                    code = extract_sector_code(cell_name, siteid)
+                    sub_str = f" {code}" if code else ""
+                    legend_name = f"{siteid} S{sector}|{band}{sub_str}-{tech}"
+
                     labels_set.add(dt_label)
                     if dt_label not in raw_map: raw_map[dt_label] = {}
                     if legend_name not in raw_map[dt_label]: raw_map[dt_label][legend_name] = {}
-                
+
                     for idx, k in enumerate(kpi_defs):
-                        val = r[5 + idx]
+                        val = r[6 + idx]
                         raw_map[dt_label][legend_name][k[0]] = round(float(val), 2) if val is not None else None
             
                 labels = sorted(list(labels_set))

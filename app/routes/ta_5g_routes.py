@@ -57,7 +57,7 @@ NUM_BUCKETS = len(TA_COLUMNS_5G)  # 18
 # Band mapping — last digit of NRPhysicalCellDU ID
 BAND_MAP_5G = {
     "1": "NR1800", "2": "NR900", "3": "NR2100",
-    "4": "NR2300_1", "5": "NR2300_2", "6": "NR2300_3", "7": "NR700"
+    "4": "NR2300_1", "5": "NR2300_2", "6": "NR2600_1", "7": "NR700"
 }
 
 

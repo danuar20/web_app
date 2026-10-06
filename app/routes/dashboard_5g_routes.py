@@ -246,7 +246,7 @@ def dashboard_5g_view():
                         WHEN '3' THEN 'NR2100'
                         WHEN '4' THEN 'NR2300_1'
                         WHEN '5' THEN 'NR2300_2'
-                        WHEN '6' THEN 'NR2300_3'
+                        WHEN '6' THEN 'NR2600_1'
                         WHEN '7' THEN 'NR700'
                         ELSE 'Unknown'
                     END"""
