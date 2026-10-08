@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block nav_sow_cei %}active{% endblock %}
+{% block subSow_open %}open{% endblock %}
+
+{% block content %}
+<div class="page-body">
+    <div class="topbar">
+        <div class="topbar-left">
+            <div class="topbar-title">CEI Dashboard</div>
+            <div class="topbar-sub">Crowdsource Experience Index — PUMA Region</div>
+        </div>
+        <div class="topbar-right">
+            <select class="f-select" id="weekSelector" onchange="loadDashboard()">
+                {% for yw in yearweeks %}
+                <option value="{{ yw }}" {% if yw == default_yw %}selected{% endif %}>W{{ yw|string|slice(4,6) }} {{ yw|string|slice(0,4) }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <!-- Section 1: KPI Summary & Gauge -->
+    <div class="card" style="margin: 20px;">
+        <div id="summaryRow" class="kpi-grid">
+            <!-- Populated by JS -->
+        </div>
+        <div id="gaugeContainer" style="height: 100px; margin-top: 20px; position: relative;">
+            <!-- Populated by ECharts -->
+        </div>
+    </div>
+
+    <!-- Section 2: KQI Cards -->
+    <div class="card" style="margin: 0 20px 20px;">
+        <div class="table-card-header">
+            <div class="card-title">7 KQI, rata-rata hari hit per bad cell</div>
+            <div class="view-toggle">
+                <button class="view-toggle-btn active" onclick="setKqiFilter('bad', this)">Bad cell</button>
+                <button class="view-toggle-btn" onclick="setKqiFilter('good', this)">Good cell</button>
+            </div>
+        </div>
+        <div id="kqiGrid" class="kpi-grid" style="padding: 15px;">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+
+    <!-- Section 3: Trend -->
+    <div class="card" style="margin: 0 20px 20px;">
+        <div class="table-card-header">
+            <div class="card-title">Tren KQI & % good cell</div>
+            <div class="chart-action-btn" onclick="exportData()"><i class="fas fa-file-csv"></i></div>
+        </div>
+        <div class="chart-wrap" id="trendChartWrap" style="height: 400px;">
+            <canvas id="trendChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+<script>
+    let currentFilter = 'bad';
+    let trendChart = null;
+
+    async function loadDashboard() {
+        const yw = document.getElementById('weekSelector').value;
+        
+        // 1. Summary & Gauge
+        fetch(`/api/sow/cei/summary?weeknum=${yw}`)
+            .then(r => r.json())
+            .then(data => {
+                const row = document.getElementById('summaryRow');
+                row.innerHTML = `
+                    <div class="kpi-card">
+                        <div class="kpi-label">Good cell ${data.label_week}</div>
+                        <div class="kpi-value" style="color: ${data.is_above_target ? '#107C41' : '#C93B2B'}">${data.good_cell_pct}%</div>
+                        <div class="kpi-delta ${data.diff_prev_pp > 0 ? 'delta-up' : 'delta-dn'}">
+                            ${data.diff_prev_pp > 0 ? '+' : ''}${data.diff_prev_pp || 0} pp vs ${data.prev_label}
+                        </div>
+                    </div>
+                `;
+                renderGauge(data);
+            });
+
+        // 2. KQI Cards
+        fetch(`/api/sow/cei/kqi-cards?weeknum=${yw}&cell_filter=${currentFilter}`)
+            .then(r => r.json())
+            .then(data => {
+                const grid = document.getElementById('kqiGrid');
+                grid.innerHTML = data.cards.map(c => `
+                    <div class="kpi-card">
+                        <div class="kpi-label">${c.title}</div>
+                        <div class="kpi-value">${c.value}</div>
+                        <div class="kpi-delta ${c.is_better ? 'delta-up' : 'delta-dn'}">
+                            ${c.delta ? (c.delta > 0 ? '+' : '') + c.delta : '-'} (${c.delta_pct || 0}%)
+                        </div>
+                    </div>
+                `).join('');
+            });
+
+        // 3. Trend
+        fetch(`/api/sow/cei/trend?start_yw={{ default_start_yw }}&end_yw=${yw}&cell_filter=${currentFilter}`)
+            .then(r => r.json())
+            .then(data => renderTrend(data));
+    }
+
+    function renderGauge(data) {
+        const chart = echarts.init(document.getElementById('gaugeContainer'));
+        const options = {
+            xAxis: { type: 'value', min: 91, max: 97, interval: 1 },
+            yAxis: { show: false },
+            series: [
+                {
+                    type: 'bar',
+                    data: [[97, 91]],
+                    itemStyle: { color: '#f0f0f0' },
+                    silent: true
+                },
+                {
+                    type: 'scatter',
+                    data: data.regional_gauge.map(r => [r.value, 0]),
+                    symbol: 'circle',
+                    symbolSize: 12,
+                    itemStyle: { color: (params) => params.data[0] >= data.target ? '#107C41' : '#C93B2B' },
+                    label: { show: true, position: 'top', formatter: (p) => `${data.regional_gauge[p.dataIndex].name}\n${p.data[0]}` }
+                }
+            ]
+        };
+        chart.setOption(options);
+    }
+
+    function renderTrend(data) {
+        const ctx = document.getElementById('trendChart');
+        if (trendChart) trendChart.dispose();
+        trendChart = echarts.init(ctx);
+        const options = {
+            tooltip: { trigger: 'axis' },
+            legend: { data: data.kqi_defs.map(k => k.id) },
+            xAxis: { type: 'category', data: data.labels },
+            yAxis: [ { type: 'value', name: 'Hit Days' }, { type: 'value', name: '% Good', min: 90, max: 100 } ],
+            series: [
+                ...data.kqi_defs.map(k => ({
+                    name: k.id, type: 'bar', stack: 'total', data: data.kqi_series[k.id]
+                })),
+                {
+                    name: '% Good', type: 'line', yAxisIndex: 1, data: data.good_pct_series,
+                    lineStyle: { color: '#107C41', width: 3 },
+                    markLine: { data: [{ yAxis: data.target, lineStyle: { color: 'red', type: 'dashed' } }] }
+                }
+            ]
+        };
+        trendChart.setOption(options);
+    }
+
+    function setKqiFilter(f, btn) {
+        currentFilter = f;
+        document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        loadDashboard();
+    }
+    
+    function exportData() {
+        const yw = document.getElementById('weekSelector').value;
+        window.location.href = `/api/sow/cei/export?start_yw={{ default_start_yw }}&end_yw=${yw}&cell_filter=${currentFilter}`;
+    }
+
+    loadDashboard();
+</script>
+{% endblock %}

@@ -212,6 +212,29 @@
         overflow: hidden;
     }
 
+    /* Yearweek custom popup: shows only 10 rows at a time (scrollable, full list) */
+    .yw-pop {
+        position: fixed;
+        z-index: 9999;
+        overflow-y: auto;
+        background: var(--bg-main);
+        border: 1px solid var(--sow-border);
+        border-radius: 8px;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+        padding: 4px;
+    }
+    .yw-pop-item {
+        height: 26px;
+        padding: 6px 10px;
+        font-size: 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        white-space: nowrap;
+        color: var(--text-main);
+    }
+    .yw-pop-item:hover { background: rgba(79, 172, 254, 0.16); }
+    .yw-pop-item.active { background: rgba(79, 172, 254, 0.30); font-weight: 700; }
+
     .filter-select:focus, .filter-input:focus {
         border-color: #4facfe;
         box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.2);
@@ -795,7 +818,7 @@
         z-index: 9999;
     }
 
-    .import-modal-overlay.open { display: flex; }
+    .import-modal-overlay.open { display: flex !important; }
 
     .import-modal-card {
         background: var(--bg-main);
@@ -962,10 +985,17 @@
 
     .fb-mini-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-        gap: 12px;
+        grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+        gap: 20px;
     }
-    .fb-mini-grid.city { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+    .fb-mini-grid.city { grid-template-columns: 1fr; }
+    /* Regional: single chart, full width + taller */
+    #fbRegionalGrid { grid-template-columns: 1fr !important; }
+    #fbRegionalGrid .fb-mini-card { height: 420px; }
+    /* City: single chart, full width + taller */
+    #fbCityGrid .fb-mini-card { height: 420px; }
+    /* Branch: 2 per row, taller */
+    #fbBranchGrid .fb-mini-card { height: 350px; }
 
     .fb-mini-card {
         background: var(--sow-card-bg);
@@ -1007,16 +1037,16 @@
     .fb-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
     .fb-table th, .fb-table td { padding: 7px 10px; text-align: center; border-bottom: 1px solid var(--sow-border); white-space: nowrap; }
     .fb-table thead th {
-        position: sticky; z-index: 2;
+        position: sticky; z-index: 10;
         background: var(--bg-main);
         font-weight: 800; font-size: 11px; letter-spacing: 0.3px;
     }
-    .fb-table thead tr:nth-child(1) th { top: 0; }
-    .fb-table thead tr:nth-child(2) th { top: 31px; }
-    .fb-table thead tr:nth-child(3) th { top: 62px; }
+    .fb-table thead tr:nth-child(1) th { top: 0; z-index: 12; }
+    .fb-table thead tr:nth-child(2) th { top: 32px; z-index: 11; }
+    .fb-table thead tr:nth-child(3) th { top: 64px; z-index: 11; }
     .fb-table .grp-week { font-size: 10.5px; font-weight: 600; color: var(--sow-text-sub); }
-    .fb-table .grp-head { background: rgba(24, 119, 242, 0.12) !important; color: #1d4ed8; }
-    [data-theme="dark"] .fb-table .grp-head { color: #93c5fd; }
+    .fb-table .grp-head { background: #e3edfd !important; color: #1d4ed8; }
+    [data-theme="dark"] .fb-table .grp-head { background: #1e3a5f !important; color: #93c5fd; }
     .fb-table .grp-sep { border-left: 2px solid #ef4444 !important; }
     .fb-table .p-tsel { background: #dc2626 !important; color: #fff; }
     .fb-table .p-ioh { background: #facc15 !important; color: #1e293b; }
@@ -1024,6 +1054,8 @@
     .fb-table td.txt-left, .fb-table th.txt-left { text-align: left; }
     .fb-table tbody tr:hover td { background: rgba(24, 119, 242, 0.05); }
     .fb-table tbody tr.regional td { font-weight: 800; background: rgba(139, 92, 246, 0.07); border-top: 2px solid rgba(139, 92, 246, 0.35); }
+    .fb-table tbody tr.regional td { background: #f0ebfd; }
+    [data-theme="dark"] .fb-table tbody tr.regional td { background: #2a2145; }
     .fb-table tbody tr.branch-break td { border-top: 2px solid rgba(100, 116, 139, 0.25); }
     .fb-neg { color: #dc2626; font-weight: 600; }
     .fb-pos { color: inherit; }
@@ -1183,23 +1215,12 @@
                 </div>
             </div>
 
-            <!-- Custom Multi-Year Quarterly Target Controls -->
+            <!-- Custom Multi-Year Quarterly Target Controls (Read-Only) -->
             <div class="quarter-targets-bar">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-weight: 700; color: #4facfe;">
-                            <i class="fas fa-bullseye"></i> Custom Quarterly Targets (Q1 - Q4 by Year):
-                        </span>
-                        <button type="button" class="btn-secondary" style="height: 24px; padding: 0 8px; font-size: 11px;" onclick="syncQuarterlyTargetsAcrossYears()" title="Copy first year's targets to all other years">
-                            <i class="fas fa-clone"></i> Apply to All Years
-                        </button>
-                    </div>
-                    <span style="font-size: 11px; color: var(--sow-text-sub);">
-                        Set independent targets for each year's Q1 - Q4 to handle multi-year trend accurately
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-weight: 700; color: #4facfe;">
+                        <i class="fas fa-bullseye"></i> Quarterly Targets (Sourced from Database)
                     </span>
-                </div>
-                <div class="target-rows-wrap" id="quarterTargetsContainer">
-                    <!-- Populated dynamically based on selected years range -->
                 </div>
             </div>
         </div>
@@ -1549,6 +1570,19 @@
                     <button type="button" class="filter-preset-btn" onclick="fbQuickRange(52)">Last 52W</button>
                     <button type="button" class="filter-preset-btn" onclick="fbQuickRange('all')">All</button>
                 </div>
+                <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+                    <button type="button" class="btn-secondary" onclick="openFbImportModal()">
+                        <i class="fas fa-file-upload"></i> Import Excel / CSV
+                    </button>
+                    <div style="display: inline-flex; gap: 4px;">
+                        <a href="/api/sow/fb-sample-template?format=xlsx" class="btn-secondary" title="Sample XLSX">
+                            <i class="fas fa-file-excel" style="color: #10b981;"></i> Sample XLSX
+                        </a>
+                        <a href="/api/sow/fb-sample-template?format=csv" class="btn-secondary" title="Sample CSV">
+                            <i class="fas fa-file-csv" style="color: #4facfe;"></i> Sample CSV
+                        </a>
+                    </div>
+                </div>
             </div>
             <div class="filter-grid">
                 <div class="filter-group filter-group-week">
@@ -1681,11 +1715,8 @@
                 </div>
             </div>
             <div class="fb-chart-wrapper"><canvas id="fbAchChart"></canvas></div>
-            <div class="fb-legend">
-                <span class="fb-legend-item"><span class="fb-legend-swatch bar" style="background:#a9c1ea;"></span>#num win city</span>
-                <span class="fb-legend-item"><span class="fb-legend-swatch dot" style="background:#ed7d31;"></span>win trend (%)</span>
-                <span class="fb-note"><i class="fas fa-info-circle"></i> #win city follows DB status (incl. 0-value cities flagged WIN) · win % = #win city / cities reported</span>
-            </div>
+<!-- Legend removed per user request -->
+            <div class="fb-legend" style="display:none;"></div>
         </div>
 
         <div class="chart-card">
@@ -1700,7 +1731,8 @@
                 </div>
             </div>
             <div class="fb-chart-wrapper"><canvas id="fbTrendChart"></canvas></div>
-            <div class="fb-legend" id="fbTrendLegend"></div>
+<!-- Legend removed per user request -->
+            <div class="fb-legend" id="fbTrendLegend" style="display:none;"></div>
         </div>
         <!-- ══════════ END SUB-TAB 1 ══════════ -->
         </div>
@@ -1768,30 +1800,48 @@
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
                 <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
                     <div class="toggle-group-pills">
-                        <button type="button" class="toggle-pill active" id="fbViewBtnBranch" onclick="fbSetTrendView('branch')">
+                        <button type="button" class="toggle-pill active" id="fbViewBtnRegional" onclick="fbSetTrendView('regional')">
+                            <i class="fas fa-map"></i> Regional
+                        </button>
+                        <button type="button" class="toggle-pill" id="fbViewBtnBranch" onclick="fbSetTrendView('branch')">
                             <i class="fas fa-sitemap"></i> Branch
                         </button>
                         <button type="button" class="toggle-pill" id="fbViewBtnCity" onclick="fbSetTrendView('city')">
                             <i class="fas fa-city"></i> City
                         </button>
                     </div>
-                    <div class="fb-legend" style="justify-content:flex-start;">
-                        <span class="fb-legend-item"><span class="fb-legend-swatch dot" style="background:#dc2626;"></span>Telkomsel</span>
-                        <span class="fb-legend-item"><span class="fb-legend-swatch dot" style="background:#e6af2e;"></span>IOH (isat3)</span>
-                        <span class="fb-legend-item"><span class="fb-legend-swatch dot" style="background:#2563eb;"></span>XLS (xl + smartfren)</span>
+                    <!-- Legend removed per user request -->
+                    <div class="fb-legend" style="justify-content:flex-start; display:none;">
+                    <span class="fb-legend-item"><span class="fb-legend-swatch dot" style="background:#dc2626;"></span>Telkomsel</span>
+                    <span class="fb-legend-item"><span class="fb-legend-swatch dot" style="background:#e6af2e;"></span>IOH (isat3)</span>
+                    <span class="fb-legend-item"><span class="fb-legend-swatch dot" style="background:#2563eb;"></span>XLS (xl + smartfren)</span>
+                    </div>
+                    <!-- Provider multi-select (Telkomsel / IOH / XLS) -->
+                    <div class="fb-pill-bar" id="fbProvFilter" style="display:flex; align-items:center; gap:8px; font-size:11px;">
+                        <label class="fb-prov-opt" style="color:#dc2626; font-weight:700; display:flex; align-items:center; gap:2px;"><input type="checkbox" class="fb-prov-check" value="tsel" checked onchange="fbProvToggle()" style="margin:0; height:14px; width:14px;"> TSEL</label>
+                        <label class="fb-prov-opt" style="color:#b8860b; font-weight:700; display:flex; align-items:center; gap:2px;"><input type="checkbox" class="fb-prov-check" value="ioh" checked onchange="fbProvToggle()" style="margin:0; height:14px; width:14px;"> IOH</label>
+                        <label class="fb-prov-opt" style="color:#2563eb; font-weight:700; display:flex; align-items:center; gap:2px;"><input type="checkbox" class="fb-prov-check" value="xls" checked onchange="fbProvToggle()" style="margin:0; height:14px; width:14px;"> XLS</label>
                     </div>
                 </div>
                 <div class="fb-table-tools" id="fbCityTools" style="display:none;">
-                    <input type="search" id="fbCitySearch" class="fb-search" placeholder="Search city..." oninput="fbRenderCityGrid()">
+                    <label class="filter-label" for="fbCitySelect" style="margin:0; white-space:nowrap;"><i class="fas fa-city"></i> City</label>
+                    <select id="fbCitySelect" class="filter-select" style="width:auto; min-width:200px; max-width:260px;" onchange="fbRenderCityView()"></select>
                     <span class="fb-note" id="fbCityCount"></span>
                 </div>
-                <span class="fb-note" id="fbBranchNote"><i class="fas fa-mouse-pointer"></i> Click a card to zoom</span>
+                <span class="fb-note" id="fbBranchNote" style="display:none;"><i class="fas fa-mouse-pointer"></i> Click a card to zoom</span>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-left:auto;">
+                    <button type="button" class="btn-secondary" onclick="fbExportTrendPNG()"><i class="fas fa-camera"></i> Smart Export PNG</button>
+                </div>
             </div>
-            <div class="fb-pill-bar" id="fbCityBranchPills" style="display:none;"></div>
+        </div>
+
+        <!-- View: Regional -->
+        <div id="fbViewRegional">
+            <div class="fb-mini-grid" id="fbRegionalGrid"><div class="fb-empty">Loading...</div></div>
         </div>
 
         <!-- View: Branch -->
-        <div id="fbViewBranch">
+        <div id="fbViewBranch" style="display:none;">
             <div class="fb-mini-grid" id="fbBranchGrid"><div class="fb-empty">Loading...</div></div>
         </div>
 
@@ -1966,6 +2016,43 @@
         <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
             <button type="button" class="btn-secondary" onclick="closeImportModal()">Cancel</button>
             <button type="button" class="btn-apply" id="btnSubmitImport" onclick="submitImport()">
+                <i class="fas fa-upload"></i> Start Import
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Import Excel / CSV Modal ── -->
+<div class="import-modal-overlay" id="fbImportModalOverlay">
+    <div class="import-modal-card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                <i class="fab fa-facebook" style="color: #1877f2;"></i> Import FB Share Data
+            </div>
+            <button type="button" onclick="closeFbImportModal()" style="background: transparent; border: none; font-size: 16px; cursor: pointer; color: var(--sow-text-sub);">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div style="font-size: 13px; color: var(--sow-text-sub); line-height: 1.4;">
+            Upload an Excel (.xlsx, .xls) or CSV file into <code>sow.fb_share</code>.
+            Columns: <code>yearweek, region, branch, kabupaten, archetype, telkomsel, isat3, xl, smartfren, gap, wow, mom, wow_cc, mom_cc, win_lose</code>.
+            Required: <code>yearweek, branch, kabupaten</code>.
+            Existing records with matching (yearweek, branch, kabupaten) will be automatically updated.
+        </div>
+
+        <div class="import-drop-zone" onclick="document.getElementById('fbImportFileInput').click()">
+            <i class="fas fa-cloud-upload-alt" style="font-size: 36px; color: #1877f2; margin-bottom: 8px;"></i>
+            <div style="font-weight: 600; font-size: 13px;" id="fbImportDropText">Click to select or drag & drop file</div>
+            <div style="font-size: 11px; color: var(--sow-text-sub); margin-top: 4px;">Supports .xlsx, .xls, .csv</div>
+            <input type="file" id="fbImportFileInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="onFbFileSelected(this)">
+        </div>
+
+        <div id="fbImportStatus" style="font-size: 13px; display: none; padding: 10px; border-radius: 8px;"></div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+            <button type="button" class="btn-secondary" onclick="closeFbImportModal()">Cancel</button>
+            <button type="button" class="btn-apply" id="btnSubmitFbImport" onclick="submitFbImport()">
                 <i class="fas fa-upload"></i> Start Import
             </button>
         </div>
@@ -3248,6 +3335,73 @@
         }
     }
 
+    // ── FB Share Import Modal ──
+    function openFbImportModal() {
+        document.getElementById("fbImportModalOverlay").classList.add("open");
+        document.getElementById("fbImportStatus").style.display = "none";
+        document.getElementById("fbImportFileInput").value = "";
+        document.getElementById("fbImportDropText").textContent = "Click to select or drag & drop file";
+    }
+
+    function closeFbImportModal() {
+        document.getElementById("fbImportModalOverlay").classList.remove("open");
+    }
+
+    function onFbFileSelected(input) {
+        if (input.files && input.files[0]) {
+            document.getElementById("fbImportDropText").textContent = input.files[0].name;
+        }
+    }
+
+    async function submitFbImport() {
+        const fileInput = document.getElementById("fbImportFileInput");
+        if (!fileInput.files || !fileInput.files[0]) {
+            alert("Please select a file to import.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+
+        const statusEl = document.getElementById("fbImportStatus");
+        statusEl.style.display = "block";
+        statusEl.style.background = "rgba(24, 119, 242, 0.1)";
+        statusEl.style.color = "#1877f2";
+        statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading & processing data...';
+
+        const btn = document.getElementById("btnSubmitFbImport");
+        btn.disabled = true;
+
+        try {
+            const resp = await fetch("/api/sow/fb-import", {
+                method: "POST",
+                body: formData
+            });
+            const data = await resp.json();
+
+            if (data.status === "success") {
+                statusEl.style.background = "rgba(16, 185, 129, 0.15)";
+                statusEl.style.color = "#10b981";
+                statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ${data.message}`;
+                setTimeout(() => {
+                    closeFbImportModal();
+                    fbApplyAll();
+                }, 1500);
+            } else {
+                statusEl.style.background = "rgba(239, 68, 68, 0.15)";
+                statusEl.style.color = "#ef4444";
+                statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${data.message}`;
+            }
+        } catch (err) {
+            console.error("FB Import error:", err);
+            statusEl.style.background = "rgba(239, 68, 68, 0.15)";
+            statusEl.style.color = "#ef4444";
+            statusEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Import failed. Please check console.';
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
     // ── Import Modal Functions ──
     function openImportModal() {
         document.getElementById("importModalOverlay").classList.add("open");
@@ -3835,6 +3989,7 @@
     let fbZoomChart = null;
     let fbZoomKey = null;
     let fbCityBranch = "ALL";
+    let fbTrendView = "regional";
     let fbCityTableBranch = "ALL";
     const fbHiddenTrend = new Set();
     let fbCityObserver = null;
@@ -3846,6 +4001,133 @@
     const fbNum = (v, d = 2) => (v === null || v === undefined || isNaN(v)) ? null : Number(v).toFixed(d);
     const fbThreshold = () => parseFloat(document.getElementById("fbThreshold").value) || 95;
 
+    // ── Smart Export PNG (FB Trend view) ──
+    function fbExportTrendPNG() {
+        const d = fbTrendStore;
+        if (!d || !d.weeks || !d.weeks.length) { alert("No data to export. Load the trend first."); return; }
+        const on = fbProvSelected();
+        const provs = FB_PROV.filter(p => on.has(p.key));
+        const view = fbTrendView;
+
+        // Pick the series set matching the visible view
+        let title, subtitle, cards = [];
+        if (view === "branch") {
+            title = `FB Share Trend — Branch`;
+            subtitle = `${d.region_label} · Weeks ${d.start_yearweek}–${d.end_yearweek}`;
+            cards = (d.branches || []).map(b => ({ label: b, series: d.branch_series[b] }));
+        } else if (view === "city") {
+            const sel = document.getElementById("fbCitySelect");
+            const c = (d.cities || []).find(x => x.city === sel.value);
+            title = `FB Share Trend — City`;
+            subtitle = `${c ? c.city + " · " + c.branch : ""} · Weeks ${d.start_yearweek}–${d.end_yearweek}`;
+            cards = c ? [{ label: c.city, series: c }] : [];
+        } else {
+            title = `FB Share Trend — ${d.region_label}`;
+            subtitle = `Regional · Weeks ${d.start_yearweek}–${d.end_yearweek}`;
+            cards = [{ label: d.region_label, series: d.regional }];
+        }
+        if (!cards.length) { alert("No data to export."); return; }
+
+        // Layout: 2 per row
+        const W = 1000, H = 560, PAD = 24, COLS = view === "branch" ? 2 : 1;
+        const cardW = (W - PAD * (COLS + 1)) / COLS;
+        const cardH = view === "branch" ? 380 : 430;
+        const rows = Math.ceil(cards.length / COLS);
+        const H2 = 80 + rows * (cardH + PAD);
+
+        // Build an offscreen canvas per card via a detached Chart.js instance
+        const out = document.createElement("canvas");
+        out.width = W * 2; out.height = H2 * 2;
+        const ctx = out.getContext("2d");
+        ctx.scale(2, 2);
+        ctx.fillStyle = fbIsDark() ? "#0f172a" : "#ffffff";
+        ctx.fillRect(0, 0, W, H2);
+
+        // Header
+        ctx.fillStyle = fbIsDark() ? "#e2e8f0" : "#0f172a";
+        ctx.font = "800 20px Inter, sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText(title, PAD, 34);
+        ctx.font = "600 12px Inter, sans-serif";
+        ctx.fillStyle = fbIsDark() ? "#94a3b8" : "#475569";
+        ctx.fillText(subtitle, PAD, 56);
+
+        // Provider key
+        let lx = W - PAD;
+        ctx.font = "700 11px Inter, sans-serif";
+        ctx.textAlign = "right";
+        provs.slice().reverse().forEach(p => {
+            const label = `${p.short} ${p.label === "Telkomsel" ? "FB Share" : "OLO"}`;
+            const tw = ctx.measureText(label).width;
+            ctx.fillStyle = p.color;
+            ctx.fillRect(lx - tw - 14, 24, 9, 9);
+            ctx.fillStyle = fbIsDark() ? "#cbd5e1" : "#334155";
+            ctx.fillText(label, lx - 4, 33);
+            lx -= (tw + 26);
+        });
+
+        // Render each card's chart
+        const promises = cards.map((card, i) => new Promise(resolve => {
+            const col = i % COLS, row = Math.floor(i / COLS);
+            const x = PAD + col * (cardW + PAD);
+            const y = 80 + row * (cardH + PAD);
+
+            // Card frame
+            ctx.fillStyle = fbIsDark() ? "#1e293b" : "#f8fafc";
+            ctx.strokeStyle = fbIsDark() ? "#334155" : "#e2e8f0";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(x, y, cardW, cardH, 10);
+            else ctx.rect(x, y, cardW, cardH);
+            ctx.fill(); ctx.stroke();
+
+            // Card title + values
+            ctx.fillStyle = fbIsDark() ? "#e2e8f0" : "#0f172a";
+            ctx.font = "800 13px Inter, sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText(card.label, x + 12, y + 22);
+            ctx.font = "700 10.5px Inter, sans-serif";
+            let vx = x + 12;
+            provs.forEach(p => {
+                const v = fbLastVal(card.series[p.key]);
+                ctx.fillStyle = p.color;
+                ctx.fillText(`${p.short} ${v === null ? "–" : v.toFixed(2)}`, vx, y + 38);
+                vx += ctx.measureText(`${p.short} ${v === null ? "–" : v.toFixed(2)}`).width + 14;
+            });
+
+            // Offscreen chart canvas
+            const cc = document.createElement("canvas");
+            cc.width = (cardW - 24) * 2; cc.height = (cardH - 60) * 2;
+            cc.style.width = (cardW - 24) + "px";
+            cc.style.height = (cardH - 60) + "px";
+            cc.id = "fbExportTmp_" + i;
+
+            const cfg = fbProvConfig(card.series, false);
+            cfg.options.responsive = false;
+            cfg.options.animation = false;
+            cfg.options.devicePixelRatio = 2;
+            const tmp = new Chart(cc.getContext("2d"), cfg);
+            tmp.update(0);
+
+            // Copy after layout settles
+            setTimeout(() => {
+                try {
+                    ctx.drawImage(cc, x + 12, y + 48, cardW - 24, cardH - 60);
+                } catch (e) { }
+                tmp.destroy();
+                resolve();
+            }, 60);
+        }));
+
+        Promise.all(promises).then(() => {
+            const a = document.createElement("a");
+            const slug = (view === "branch" ? "branch" : view === "city" ? "city" : "regional") + "_" + d.region_label.replace(/[^\w]+/g, "_");
+            a.download = `FBShare_Trend_${slug}_${d.start_yearweek}-${d.end_yearweek}.png`;
+            a.href = out.toDataURL("image/png");
+            a.click();
+        });
+    }
+
     function fbBranchColor(name, idx) {
         return FB_BRANCH_COLORS[name] || FB_FALLBACK_COLORS[idx % FB_FALLBACK_COLORS.length];
     }
@@ -3854,6 +4136,28 @@
         if (!arr) return null;
         for (let i = arr.length - 1; i >= 0; i--) if (arr[i] !== null && arr[i] !== undefined) return arr[i];
         return null;
+    }
+
+    // ── Provider multi-select (TSEL / IOH / XLS) ──
+    const FB_PROV_ON = { tsel: true, ioh: true, xls: true };
+    function fbProvSelected() {
+        const on = new Set();
+        document.querySelectorAll(".fb-prov-check").forEach(cb => { if (cb.checked) on.add(cb.value); });
+        // Safety: if no checkboxes exist or all are off, show all providers
+        if (on.size === 0) ["tsel", "ioh", "xls"].forEach(k => on.add(k));
+        return on;
+    }
+    function fbProvToggle() {
+        const on = fbProvSelected();
+        // never allow all three off
+        if (on.size === 0) {
+            document.querySelectorAll(".fb-prov-check").forEach(cb => { cb.checked = true; });
+            return;
+        }
+        // re-render whichever view is active
+        if (fbTrendView === "regional") fbRenderRegional();
+        else if (fbTrendView === "branch") fbRenderBranchGrid();
+        else fbRenderCityView();
     }
 
     // Switch FB sub-tabs
@@ -3936,9 +4240,10 @@
             fbTrendStore = data;
             fbRenderAch();
             fbRenderTrend();
-            fbRenderBranchGrid();
-            fbBuildPills("fbCityBranchPills", () => fbCityBranch, v => { fbCityBranch = v; fbRenderCityGrid(); }, data.branches, data.cities);
-            fbRenderCityGrid();
+            fbRenderAchCards();
+            fbRenderTrendCards();
+            fbFillCitySelect();
+            fbSetTrendView(fbTrendView, true);
         } catch (err) {
             console.error("FB trend error:", err);
             document.getElementById("fbAchSubtitle").textContent = "Failed to load FB Share trend: " + err.message;
@@ -3964,7 +4269,7 @@
             fbBuildPills("fbCityTablePills", () => fbCityTableBranch, v => { fbCityTableBranch = v; fbRenderCityTable(); },
                 data.branch_table.filter(b => !b.is_regional).map(b => b.name), data.city_table);
             fbRenderCityTable();
-            if (fbTrendStore) fbRenderCityGrid(); // refresh threshold colouring
+            if (fbTrendStore && fbTrendView === "city") fbRenderCityView(); // refresh threshold colouring
         } catch (err) {
             console.error("FB compare error:", err);
             document.getElementById("fbBranchTable").innerHTML = `<tbody><tr><td class="fb-empty">${fbEsc(err.message)}</td></tr></tbody>`;
@@ -3988,7 +4293,7 @@
             [fbDeltaHtml("WoW", s.regional_wow), fbDeltaHtml("MoM", s.regional_mom), fbDeltaHtml("YoY", s.regional_yoy)].join("");
 
         document.getElementById("fbCardWin").textContent = s.win_city;
-        document.getElementById("fbCardWinSub").textContent = `/ ${s.valid_city} cities with data`;
+        document.getElementById("fbCardWinSub").textContent = `/ ${s.reported_city} cities with data`;
         const wr = document.getElementById("fbCardWinRate");
         const good = (s.win_rate ?? 0) >= 100;
         wr.className = "kpi-badge " + (good ? "badge-win" : "badge-lose");
@@ -4004,7 +4309,7 @@
         document.getElementById("fbCardLowBranch").textContent = s.low_branch ? `${s.low_branch.name} (${s.low_branch.tsel.toFixed(2)})` : "--";
 
         document.getElementById("fbCardBelow").textContent = s.below_threshold;
-        document.getElementById("fbCardNoData").textContent = `cities · ${s.no_data_city} no data`;
+        document.getElementById("fbCardNoData").textContent = `cities · ${s.missing_city} no data`;
         document.getElementById("fbCardLowestCity").innerHTML = s.lowest_city
             ? `Lowest: <b>${fbEsc(s.lowest_city.city)}</b> (${fbEsc(s.lowest_city.branch)}) <b style="color:#ea580c">${s.lowest_city.tsel.toFixed(2)}</b>`
             : "Lowest: --";
@@ -4108,7 +4413,8 @@
                             label: c => c.datasetIndex === 0 ? ` #win city: ${c.raw}` : ` win trend: ${c.raw === null ? "–" : c.raw.toFixed(2) + "%"}`,
                             afterBody: items => {
                                 const i = items[0].dataIndex;
-                                return [`\nCities with data: ${a.valid[i]} / ${a.total[i]}`, `No data (all 0): ${a.total[i] - a.valid[i]}`];
+                                const v = a.total[i] - a.zero[i];
+                                return [`\nCities with data: ${v} / ${a.total[i]}`, `No data (all 0): ${a.zero[i]}`];
                             }
                         }
                     }
@@ -4165,31 +4471,79 @@
         };
     }
 
-    function fbProvConfig(series, compact) {
-        const many = fbTrendStore.weeks.length > 60;
+    // ── Draw value label at first & last point of each dataset ──
+    const fbEndLabels = {
+        id: "fbEndLabels",
+        afterDatasetsDraw(chart) {
+            const ctx = chart.ctx;
+            chart.data.datasets.forEach((ds, di) => {
+                if (!chart.isDatasetVisible(di)) return;
+                const meta = chart.getDatasetMeta(di);
+                if (!meta || !meta.data.length) return;
+                if (ds.yAxisID === undefined && meta.data.length === 0) return;
+                let first = -1, last = -1;
+                ds.data.forEach((v, i) => {
+                    if (v !== null && v !== undefined && !isNaN(v)) { if (first < 0) first = i; last = i; }
+                });
+                if (first < 0 || last < 0) return;
+                ctx.save();
+                ctx.font = "700 9.5px Inter, sans-serif";
+                ctx.fillStyle = typeof ds.borderColor === "string" ? ds.borderColor : "#334155";
+                ctx.textBaseline = "middle";
+                // first point → label to the right
+                const p1 = meta.data[first];
+                if (p1) {
+                    ctx.textAlign = "left";
+                    ctx.fillText(Number(ds.data[first]).toFixed(1), p1.x + 5, p1.y);
+                }
+                // last point → label to the left (avoid clipping at chart edge)
+                const p2 = meta.data[last];
+                if (p2 && last !== first) {
+                    ctx.textAlign = "right";
+                    ctx.fillText(Number(ds.data[last]).toFixed(1), p2.x - 5, p2.y);
+                }
+                ctx.restore();
+            });
+        }
+    };
+
+    function fbProvConfig(series, isBranch) {
+        const on = fbProvSelected();
+        const showY1 = on.has('ioh') || on.has('xls');
+        const datasets = [
+            { label: "Telkomsel", data: series.tsel, borderColor: "#dc2626", backgroundColor: "#dc2626", yAxisID: 'y', borderWidth: 2, pointRadius: 0, tension: 0.1, hidden: !on.has('tsel') },
+            { label: "IOH", data: series.ioh, borderColor: "#e6af2e", backgroundColor: "#e6af2e", yAxisID: showY1 ? 'y1' : 'y', borderWidth: 2, pointRadius: 0, tension: 0.1, hidden: !on.has('ioh') },
+            { label: "XLS", data: series.xls, borderColor: "#2563eb", backgroundColor: "#2563eb", yAxisID: showY1 ? 'y1' : 'y', borderWidth: 2, pointRadius: 0, tension: 0.1, hidden: !on.has('xls') }
+        ];
+        // Dynamic Y-axis: compute min/max from visible data so lines are never clipped
+        const visible = datasets.filter(ds => !ds.hidden && ds.data && ds.data.some(v => v !== null && v !== undefined && !isNaN(v)));
+        const tselVals = visible.filter(ds => ds.yAxisID === 'y').flatMap(ds => ds.data).filter(v => v !== null && v !== undefined && !isNaN(v));
+        const oloVals = visible.filter(ds => ds.yAxisID === 'y1').flatMap(ds => ds.data).filter(v => v !== null && v !== undefined && !isNaN(v));
+        const pad = (vals, pct) => {
+            if (!vals.length) return null;
+            const mn = Math.min(...vals), mx = Math.max(...vals);
+            const span = (mx - mn) || Math.max(Math.abs(mx) * 0.1, 1);
+            return { min: +(mn - span * pct).toFixed(2), max: +(mx + span * pct).toFixed(2) };
+        };
+        const tselRange = pad(tselVals, 0.15);
+        const oloRange = pad(oloVals, 0.15);
+        const scales = {
+            x: { ticks: { maxRotation: 90, minRotation: 90, font: { size: 9 } }, grid: { display: false } },
+            y: { type: 'linear', position: 'left', ...(tselRange || { min: 90, max: 100 }), ticks: { font: { size: 9 } }, grid: { display: false } }
+        };
+        if (showY1) {
+            scales.y1 = { type: 'linear', position: 'right', ...(oloRange || { min: 0, max: 10 }), ticks: { font: { size: 9 } }, grid: { display: false } };
+        }
         return {
             type: "line",
-            data: {
-                labels: fbTrendStore.weeks,
-                datasets: FB_PROV.map(p => ({
-                    label: p.label, data: series[p.key], borderColor: p.color, backgroundColor: p.color,
-                    borderWidth: compact ? 1.8 : 2.4, pointRadius: (compact || many) ? 0 : 2.5, pointHoverRadius: 4,
-                    tension: 0.15, spanGaps: true
-                }))
-            },
+            data: { labels: fbTrendStore.weeks, datasets: datasets },
             options: {
                 responsive: true, maintainAspectRatio: false, animation: false,
-                interaction: { mode: "index", intersect: false },
-                plugins: { legend: { display: false }, tooltip: fbTooltip("%") },
-                scales: {
-                    x: fbBaseXScale(compact),
-                    y: {
-                        min: 0, max: 100,
-                        grid: { color: fbGridColor },
-                        ticks: { stepSize: compact ? 25 : 10, font: { family: "Inter", size: compact ? 9 : 11 }, color: fbTickColor }
-                    }
-                }
-            }
+                plugins: { legend: { display: false }, tooltip: { mode: "index", intersect: false } },
+                scales: scales
+            },
+            layout: { padding: { left: 30, right: showY1 ? 44 : 38 } },
+            plugins: [fbEndLabels]
         };
     }
 
@@ -4219,7 +4573,7 @@
         fbMakeChart("trend", document.getElementById("fbTrendChart"), fbTrendConfig());
         const d = fbTrendStore;
         document.getElementById("fbTrendSubtitle").textContent =
-            `Telkomsel FB Share — ${d.region_label} & ${d.branches.length} branches · average excluding 0 values · click legend to toggle`;
+            `Telkomsel FB Share — ${d.region_label} & ${d.branches.length} branches`;
         const leg = document.getElementById("fbTrendLegend");
         const items = [{ name: d.region_label, color: FB_REGIONAL_COLOR }].concat(d.branches.map((b, i) => ({ name: b, color: fbBranchColor(b, i) })));
         leg.innerHTML = items.map(it =>
@@ -4237,24 +4591,157 @@
 
     // ── 2. Branch provider trend grid ──
     function fbValsHtml(series) {
-        return FB_PROV.map(p => {
+        const on = fbProvSelected();
+        return FB_PROV.filter(p => on.has(p.key)).map(p => {
             const v = fbLastVal(series[p.key]);
             return `<span style="color:${p.color}">${p.short} ${v === null ? "–" : v.toFixed(2)}</span>`;
         }).join("");
     }
 
+    function fbRenderAchCards() {
+        const d = fbTrendStore; if (!d) return;
+        const a = d.achievement, n = d.weeks.length;
+        const lastWin = a.win[n - 1], lastPct = a.win_pct[n - 1];
+        document.getElementById("fbAchLatestWin").textContent = lastWin ?? "--";
+        document.getElementById("fbAchLatestSub").textContent = `/ ${(a.total[n - 1] !== null && a.total[n - 1] !== undefined) ? (a.total[n - 1] - a.zero[n - 1]) : "--"} cities`;
+        document.getElementById("fbAchLatestRate").innerHTML = `<i class="fas fa-check-circle"></i> Win rate ${lastPct === null ? "--" : lastPct.toFixed(1)}%`;
+
+        const valid = a.win_pct.filter(v => v !== null && v !== undefined);
+        const avg = valid.length ? valid.reduce((x, y) => x + y, 0) / valid.length : null;
+        document.getElementById("fbAchAvgRate").textContent = avg === null ? "--" : avg.toFixed(1);
+        const avgW = a.win.filter(v => v !== null).length ? a.win.reduce((x, y) => x + (y || 0), 0) / a.win.filter(v => v !== null).length : 0;
+        const full = valid.filter(v => v === 100).length;
+        document.getElementById("fbAchAvgSub").textContent = `Avg ${avgW.toFixed(1)} win city · ${full} weeks at 100%`;
+
+        const lastT = d.regional.tsel[n - 1];
+        const firstT = d.regional.tsel.find(v => v !== null);
+        document.getElementById("fbAchRegional").textContent = lastT === null ? "--" : lastT.toFixed(2);
+        const delta = (lastT !== null && firstT !== null && lastT !== undefined && firstT !== undefined) ? (lastT - firstT) : null;
+        document.getElementById("fbAchRegionalSub").textContent = `vs start of range ${delta === null ? "--" : (delta > 0 ? "+" : "") + delta.toFixed(2) + "pp"}`;
+
+        const br = d.branches.map(b => ({ name: b, v: d.branch_series[b].tsel[n - 1] })).filter(b => b.v !== null && b.v !== undefined);
+        if (br.length) {
+            const best = br.reduce((x, y) => (y.v > x.v ? y : x));
+            const low = br.reduce((x, y) => (y.v < x.v ? y : x));
+            document.getElementById("fbAchBestBranch").textContent = `${best.name} (${best.v.toFixed(2)})`;
+            document.getElementById("fbAchLowBranch").textContent = `${low.name} (${low.v.toFixed(2)})`;
+        }
+        document.getElementById("fbAchZero").textContent = a.zero[n - 1] ?? "--";
+    }
+
+    function fbRenderTrendCards() {
+        const d = fbTrendStore; if (!d) return;
+        const n = d.weeks.length;
+        const rows = [{ name: d.region_label, s: d.regional }].concat(d.branches.map(b => ({ name: b, s: d.branch_series[b] })));
+        const last = rows.map(r => ({ name: r.name, t: r.s.tsel[n - 1], i: r.s.ioh[n - 1], x: r.s.xls[n - 1] }));
+        document.getElementById("fbTrRegional").innerHTML = last.slice(0, 5).map(r =>
+            `<div style="display:flex; justify-content:space-between;"><span>${fbEsc(r.name)}</span><b>${r.t === null ? "--" : r.t.toFixed(2)}%</b></div>`).join("");
+
+        const tsel = last.find(r => r.name === d.region_label)?.t ?? null;
+        const others = [last.find(r => r.name === d.region_label)?.i, last.find(r => r.name === d.region_label)?.x].filter(v => v !== null && v !== undefined);
+        const strongest = others.length ? Math.max(...others) : null;
+        document.getElementById("fbTrGap").textContent = (tsel !== null && strongest !== null) ? (tsel - strongest > 0 ? "+" : "") + (tsel - strongest).toFixed(2) : "--";
+        document.getElementById("fbTrGapSub").textContent = `IOH ${last.find(r => r.name === d.region_label)?.i?.toFixed(2) ?? "--"} · XLS ${last.find(r => r.name === d.region_label)?.x?.toFixed(2) ?? "--"}`;
+
+        // Top improver / decliner city by TSEL change
+        const changes = (d.cities || []).map(c => {
+            const first = c.tsel.find(v => v !== null && v !== undefined);
+            const lastV = fbLastVal(c.tsel);
+            return (first !== null && first !== undefined && lastV !== null) ? { city: c.city, delta: lastV - first } : null;
+        }).filter(Boolean);
+        if (changes.length) {
+            const up = changes.reduce((x, y) => (y.delta > x.delta ? y : x));
+            const down = changes.reduce((x, y) => (y.delta < x.delta ? y : x));
+            document.getElementById("fbTrUp").textContent = `${up.city} +${up.delta.toFixed(2)}`;
+            document.getElementById("fbTrUpSub").textContent = "TSEL change (pp) over range";
+            document.getElementById("fbTrDown").textContent = `${down.city} ${down.delta.toFixed(2)}`;
+            document.getElementById("fbTrDownSub").textContent = "TSEL change (pp) over range";
+        }
+        document.getElementById("fbTrCities").textContent = (d.cities || []).length;
+        const withData = (d.cities || []).filter(c => fbLastVal(c.tsel) !== null).length;
+        document.getElementById("fbTrCitiesSub").textContent = `${withData} with data in latest week`;
+    }
+
+    function fbSetTrendView(v, keepRender) {
+        fbTrendView = v;
+        ["Regional", "Branch", "City"].forEach(x => {
+            const btn = document.getElementById("fbViewBtn" + x);
+            if (btn) btn.classList.toggle("active", x.toLowerCase() === v);
+        });
+        document.getElementById("fbViewRegional").style.display = v === "regional" ? "" : "none";
+        document.getElementById("fbViewBranch").style.display = v === "branch" ? "" : "none";
+        document.getElementById("fbViewCity").style.display = v === "city" ? "" : "none";
+        document.getElementById("fbBranchNote").style.display = (v === "branch") ? "none" : "none";
+        document.getElementById("fbCityTools").style.display = v === "city" ? "flex" : "none";
+        if (keepRender !== false) {
+            if (v === "regional") fbRenderRegional();
+            else if (v === "branch") fbRenderBranchGrid();
+            else fbRenderCityView();
+        }
+    }
+
+    function fbRenderRegional() {
+        const d = fbTrendStore; if (!d) return;
+        const grid = document.getElementById("fbRegionalGrid");
+        fbDestroyPrefix("regional:");
+        if (!d.weeks.length) { grid.innerHTML = '<div class="fb-empty">No data in selected range</div>'; return; }
+        grid.innerHTML = `
+            <div class="fb-mini-card" onclick="fbOpenZoom('branch:${fbEsc(d.region_label)}')" title="Click to zoom">
+                <div class="fb-mini-head">
+                    <span class="fb-mini-title">${fbEsc(d.region_label)}</span>
+                    <span class="fb-mini-tag">Regional</span>
+                </div>
+                <div class="fb-mini-vals">${fbValsHtml(d.regional)}<span style="color:var(--sow-text-sub);font-weight:600;margin-left:auto;">Wk ${d.weeks[d.weeks.length - 1]}</span></div>
+                <div class="fb-mini-canvas"><canvas id="fbRegionalCanvas_0"></canvas></div>
+            </div>`;
+        fbMakeChart("regional:0", document.getElementById("fbRegionalCanvas_0"), fbProvConfig(d.regional, false));
+    }
+
+    function fbFillCitySelect() {
+        const d = fbTrendStore; if (!d) return;
+        const sel = document.getElementById("fbCitySelect");
+        sel.innerHTML = (d.cities || []).map(c =>
+            `<option value="${fbEsc(c.city)}">${fbEsc(c.city)} — ${fbEsc(c.branch)}</option>`).join("");
+    }
+
+    function fbRenderCityView() {
+        const d = fbTrendStore; if (!d) return;
+        const grid = document.getElementById("fbCityGrid");
+        fbDestroyPrefix("city:");
+        if (fbCityObserver) { fbCityObserver.disconnect(); fbCityObserver = null; }
+        const city = document.getElementById("fbCitySelect").value;
+        const c = (d.cities || []).find(x => x.city === city);
+        document.getElementById("fbCityCount").textContent = `${(d.cities || []).length} cities`;
+        if (!c) { grid.innerHTML = '<div class="fb-empty">Select a city</div>'; return; }
+        const last = fbLastVal(c.tsel);
+        const cls = last === null ? "fb-zero" : (last < fbThreshold() ? "fb-below" : "");
+        grid.innerHTML = `
+            <div class="fb-mini-card" onclick="fbOpenZoom('city:${fbEsc(c.city)}')" title="Click to zoom">
+                <div class="fb-mini-head">
+                    <span class="fb-mini-title" title="${fbEsc(c.city)}">${fbEsc(c.city)}</span>
+                    <span class="fb-mini-tag">${fbEsc(c.branch)}</span>
+                </div>
+                <div class="fb-mini-vals">
+                    <span class="${cls}" style="${cls ? "" : "color:#dc2626"}">TSEL ${last === null ? "–" : last.toFixed(2)}</span>
+                    <span style="color:#ca8a04">IOH ${fbLastVal(c.ioh)?.toFixed(2) ?? "–"}</span>
+                    <span style="color:#2563eb">XLS ${fbLastVal(c.xls)?.toFixed(2) ?? "–"}</span>
+                </div>
+                <div class="fb-mini-canvas"><canvas id="fbCityCanvas_0"></canvas></div>
+            </div>`;
+        fbMakeChart("city:" + c.city, document.getElementById("fbCityCanvas_0"), fbProvConfig(c, false));
+    }
+
     function fbRenderBranchGrid() {
-        const d = fbTrendStore;
+        const d = fbTrendStore; if (!d) return;
         const grid = document.getElementById("fbBranchGrid");
         fbDestroyPrefix("branch:");
         if (!d.weeks.length) { grid.innerHTML = '<div class="fb-empty">No data in selected range</div>'; return; }
-        const items = [{ name: d.region_label, series: d.regional, regional: true }]
-            .concat(d.branches.map(b => ({ name: b, series: d.branch_series[b], regional: false })));
+        const items = d.branches.map(b => ({ name: b, series: d.branch_series[b] }));
         grid.innerHTML = items.map((it, i) => `
-            <div class="fb-mini-card ${it.regional ? "regional" : ""}" onclick="fbOpenZoom('branch:${fbEsc(it.name)}')" title="Click to zoom">
+            <div class="fb-mini-card" onclick="fbOpenZoom('branch:${fbEsc(it.name)}')" title="Click to zoom">
                 <div class="fb-mini-head">
                     <span class="fb-mini-title">${fbEsc(it.name)}</span>
-                    <span class="fb-mini-tag" ${it.regional ? 'style="background:rgba(139,92,246,0.15);color:#7c3aed;"' : ""}>${it.regional ? "Regional" : "Branch"}</span>
+                    <span class="fb-mini-tag">Branch</span>
                 </div>
                 <div class="fb-mini-vals">${fbValsHtml(it.series)}<span style="color:var(--sow-text-sub);font-weight:600;margin-left:auto;">Wk ${d.weeks[d.weeks.length - 1]}</span></div>
                 <div class="fb-mini-canvas"><canvas id="fbBranchCanvas_${i}"></canvas></div>
@@ -4418,7 +4905,9 @@
             const status = c.status === "WIN" ? '<span class="fb-status win">WIN</span>'
                 : c.status === "LOSE" ? '<span class="fb-status lose">LOSE</span>'
                 : '<span class="fb-status nodata">-</span>';
-            const olo = `<span class="fb-olo-${c.olo.toLowerCase()}" title="IOH ${c.ioh.toFixed(2)} · XLS ${c.xls.toFixed(2)}">${c.olo}</span>`;
+            const olo = c.olo
+                ? `<span class="fb-olo-${c.olo.toLowerCase()}" title="IOH ${c.ioh != null ? c.ioh.toFixed(2) : "-"} · XLS ${c.xls != null ? c.xls.toFixed(2) : "-"}">${c.olo}</span>`
+                : '<span class="fb-na">-</span>';
             return `
                 <tr class="${brk}">
                     <td class="txt-left" style="font-weight:600;">${fbEsc(c.branch)}</td>
@@ -4452,12 +4941,13 @@
         }
         if (!config) return;
         if (config.options.plugins.legend) {
-            config.options.plugins.legend = { display: true, position: "bottom", labels: { usePointStyle: true, font: { family: "Inter", size: 12 }, color: fbTickColor } };
+            config.options.plugins.legend = { display: false };
         }
         if (fbZoomChart) { fbZoomChart.destroy(); fbZoomChart = null; }
         document.getElementById("fbZoomTitle").textContent = title;
         document.getElementById("fbZoomSubtitle").textContent = sub;
-        document.getElementById("fbZoomModal").classList.add("open");
+        const fbZoomModal = document.getElementById("fbZoomModal");
+        if (fbZoomModal) fbZoomModal.classList.add("open");
         fbZoomKey = key;
         fbZoomChart = new Chart(document.getElementById("fbZoomCanvas").getContext("2d"), config);
     }
@@ -4520,7 +5010,8 @@
         const d = fbCompareStore;
         const groups = ["wow", "mom", "yoy"];
         const aoa = [
-            ["NOP", `FB Share ${d.yearweek}`, "", "", `WoW ${fbCmpLabel("wow")}`, "", "", `MoM ${fbCmpLabel("mom")}`, "", "", `YoY ${fbCmpLabel("yoy")}`, "", ""],
+            ["NOP", `${d.yearweek}`, "", "", `${fbCmpLabel("wow")}`, "", "", `${fbCmpLabel("mom")}`, "", "", `${fbCmpLabel("yoy")}`, "", ""],
+            ["", "FB Share", "", "", "WoW", "", "", "MoM", "", "", "YoY", "", ""],
             ["", ...Array(4).fill(FB_PROV.map(p => p.label)).flat()]
         ];
         d.branch_table.forEach(r => aoa.push([r.name, ...FB_PROV.map(p => r.share[p.key]), ...groups.flatMap(g => FB_PROV.map(p => r[g][p.key]))]));
@@ -4529,26 +5020,140 @@
 
     function fbCityAoa(rows) {
         const groups = ["wow", "mom", "yoy"];
+        const L = k => fbCmpLabel(k);
         const aoa = [
-            ["NOP", "City", "FB Share TSEL", "IOH", "XLS", "Status", "OLO",
-                `WoW ${fbCmpLabel("wow")}`, "", "", `MoM ${fbCmpLabel("mom")}`, "", "", `YoY ${fbCmpLabel("yoy")}`, "", ""],
-            ["", "", "", "", "", "", "", ...Array(3).fill(FB_PROV.map(p => p.short)).flat()]
+            ["NOP", "City", "FB Share", "Status", "OLO", `${L("wow")}`, "", "", `${L("mom")}`, "", "", `${L("yoy")}`, "", ""],
+            ["", "", "", "", "", "WoW", "", "", "MoM", "", "", "YoY", "", ""],
+            ["", "", "", "", "", ...Array(3).fill(FB_PROV.map(p => p.short)).flat()]
         ];
-        rows.forEach(c => aoa.push([c.branch, c.city, c.tsel, c.ioh, c.xls, c.status, c.olo, ...groups.flatMap(g => FB_PROV.map(p => c[g][p.key]))]));
+        rows.forEach(c => aoa.push([c.branch, c.city, c.tsel, c.status, c.olo, ...groups.flatMap(g => FB_PROV.map(p => c[g][p.key]))]));
         return aoa;
+    }
+
+    // ── XLSX styling helpers (mirror the on-screen comparison tables) ──
+    const _XLSX_THIN = { style: "thin", color: { rgb: "D9D9D9" } };
+    const _XLSX_RED = { style: "medium", color: { rgb: "E30613" } };
+    const _XLSX_BORDER = { top: _XLSX_THIN, bottom: _XLSX_THIN, left: _XLSX_THIN, right: _XLSX_THIN };
+    const _XLSX_PROV_STYLE = {
+        tsel: { fill: { fgColor: { rgb: "E30613" } }, font: { color: { rgb: "FFFFFF" } } },
+        ioh:  { fill: { fgColor: { rgb: "FFC000" } }, font: { color: { rgb: "000000" } } },
+        xls:  { fill: { fgColor: { rgb: "0050D0" } }, font: { color: { rgb: "FFFFFF" } } },
+    };
+
+    function _fbXlsxStyle(ws, aoa, opts) {
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        const nCols = range.e.c - range.s.c + 1;
+        const nRows = range.e.r - range.s.r + 1;
+        
+        ws['!rows'] = [];
+        for (let r = 0; r < nRows; r++) ws['!rows'].push({ hpt: r < 3 ? 18 : 20 });
+        ws['!cols'] = [];
+        for (let c = 0; c < nCols; c++) ws['!cols'].push({ wch: c === 0 ? 14 : (c === 1 ? 16 : 10) });
+
+        for (let r = 0; r < nRows; r++) {
+            for (let c = 0; c < nCols; c++) {
+                const addr = XLSX.utils.encode_cell({ r: r, c: c });
+                if (!ws[addr]) continue;
+                const cell = ws[addr];
+                const s = {
+                    font: { name: "Calibri", sz: 10 },
+                    border: { top: _XLSX_THIN, bottom: _XLSX_THIN, left: _XLSX_THIN, right: _XLSX_THIN },
+                    alignment: { horizontal: "center", vertical: "center" },
+                };
+
+                // Headers (Rows 0-2)
+                if (r < 3) {
+                    s.fill = { fgColor: { rgb: "F2F2F2" } };
+                    s.font = { name: "Calibri", sz: 9, bold: true, color: { rgb: "595959" } };
+                    if (opts.isCity) {
+                        if (r === 1 && c >= 5) s.font.color = { rgb: "1A56DB" };
+                        if (r === 2 && c >= 5) {
+                            const ps = [_XLSX_PROV_STYLE.tsel, _XLSX_PROV_STYLE.ioh, _XLSX_PROV_STYLE.xls][(c - 5) % 3];
+                            s.fill = ps.fill;
+                            s.font = { name: "Calibri", sz: 9, bold: true, color: ps.font.color };
+                        }
+                    } else {
+                        if (r === 1) s.font.color = { rgb: "1A56DB" };
+                        if (r === 2 && c >= 1) {
+                            const ps = [_XLSX_PROV_STYLE.tsel, _XLSX_PROV_STYLE.ioh, _XLSX_PROV_STYLE.xls][(c - 1) % 3];
+                            s.fill = ps.fill;
+                            s.font = { name: "Calibri", sz: 9, bold: true, color: ps.font.color };
+                        }
+                    }
+                } else {
+                    // Data body
+                    const isRegional = (opts.regionalIndices || []).includes(r - 3);
+                    if (isRegional) { s.fill = { fgColor: { rgb: "EDE7F6" } }; s.font = { name: "Calibri", sz: 10, bold: true }; }
+                    if (c === 0) { s.alignment.horizontal = "left"; if (!isRegional) s.font = { bold: true }; }
+                    if (cell.v === "WIN") { s.fill = { fgColor: { rgb: "DBEAFE" } }; s.font = { color: { rgb: "2563EB" }, bold: true }; }
+                    else if (cell.v === "LOSE") { s.fill = { fgColor: { rgb: "FEE2E2" } }; s.font = { color: { rgb: "DC2626" }, bold: true }; }
+                    else if (opts.isCity && c === 4) { // OLO column
+                        if (cell.v === "IOH") s.font = { color: { rgb: "CA8A04" }, bold: true };
+                        if (cell.v === "XLS") s.font = { color: { rgb: "2563EB" }, bold: true };
+                    }
+                    else if (typeof cell.v === "number" && opts.isCity && c === 2) {
+                        cell.z = "0.00";
+                        if (cell.v < fbThreshold()) s.font = { color: { rgb: "EA580C" }, bold: true };
+                    }
+                    else if (typeof cell.v === "number" && (opts.isCity ? c > 4 : c > 0)) {
+                        cell.z = "0.00";
+                        if (cell.v < 0) s.font = { name: "Calibri", sz: 10, bold: true, color: { rgb: "FF0000" } };
+                        else s.font = { name: "Calibri", sz: 10, color: { rgb: "000000" } };
+                    }
+                }
+
+                // Red vertical separators
+                const sepCols = opts.isCity ? [4, 7, 10] : [0, 3, 6, 9];
+                if (sepCols.includes(c)) s.border.right = _XLSX_RED;
+                cell.s = s;
+            }
+        }
+
+        if (opts.isCity) {
+            ws['!merges'] = [
+                { s: { r: 0, c: 0 }, e: { r: 2, c: 0 } }, // NOP
+                { s: { r: 0, c: 1 }, e: { r: 2, c: 1 } }, // City
+                { s: { r: 0, c: 2 }, e: { r: 2, c: 2 } }, // FB Share
+                { s: { r: 0, c: 3 }, e: { r: 2, c: 3 } }, // Status
+                { s: { r: 0, c: 4 }, e: { r: 2, c: 4 } }, // OLO
+                { s: { r: 0, c: 5 }, e: { r: 0, c: 7 } }, // WoW
+                { s: { r: 1, c: 5 }, e: { r: 1, c: 7 } },
+                { s: { r: 0, c: 8 }, e: { r: 0, c: 10 } }, // MoM
+                { s: { r: 1, c: 8 }, e: { r: 1, c: 10 } },
+                { s: { r: 0, c: 11 }, e: { r: 0, c: 13 } }, // YoY
+                { s: { r: 1, c: 11 }, e: { r: 1, c: 13 } }
+            ];
+            ws['!freeze'] = { xSplit: 5, ySplit: 3 };
+        } else {
+            const g = [1, 4, 7, 10];
+            const merges = [{ s: { r: 0, c: 0 }, e: { r: 2, c: 0 } }];
+            g.forEach(x => {
+                merges.push({ s: { r: 0, c: x }, e: { r: 0, c: x + 2 } });
+                merges.push({ s: { r: 1, c: x }, e: { r: 1, c: x + 2 } });
+            });
+            ws['!merges'] = merges;
+            ws['!freeze'] = { xSplit: 1, ySplit: 3 };
+        }
     }
 
     function fbExportBranchXLSX() {
         if (!fbCompareStore) return;
+        const aoa = fbBranchAoa();
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(fbBranchAoa()), "Branch_Compare");
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        const regionalIndices = fbCompareStore.branch_table.map((r, i) => r.is_regional ? i : -1).filter(i => i >= 0);
+        _fbXlsxStyle(ws, aoa, { isCity: false, regionalIndices });
+        XLSX.utils.book_append_sheet(wb, ws, "Branch_Compare");
         XLSX.writeFile(wb, `FB_Share_Branch_${fbCompareStore.yearweek}.xlsx`);
     }
 
     function fbExportCityXLSX() {
         if (!fbCompareStore) return;
+        const aoa = fbCityAoa(fbFilteredCities());
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(fbCityAoa(fbFilteredCities())), "City_Compare");
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        _fbXlsxStyle(ws, aoa, { isCity: true, regionalIndices: [] });
+        XLSX.utils.book_append_sheet(wb, ws, "City_Compare");
         XLSX.writeFile(wb, `FB_Share_City_${fbCompareStore.yearweek}.xlsx`);
     }
 
@@ -4558,7 +5163,7 @@
         const wb = XLSX.utils.book_new();
 
         const ach = [["Yearweek", "#win city", "Cities with data", "Total cities", "Win trend (%)"]];
-        d.weeks.forEach((w, i) => ach.push([w, a.win[i], a.valid[i], a.total[i], a.win_pct[i]]));
+        d.weeks.forEach((w, i) => ach.push([w, a.win[i], a.total[i] - a.zero[i], a.total[i], a.win_pct[i]]));
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ach), "Achievement");
 
         const tr = [["Yearweek", d.region_label, ...d.branches]];

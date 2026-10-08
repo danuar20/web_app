@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block nav_sow %}active sub-open{% endblock %}
+{% block subSow_open %}open{% endblock %}
+{% block nav_sow_summary %}active{% endblock %}
+
+{% block page_title %}SOW Summary{% endblock %}
+{% block page_sub %}Scope of Work — Quarterly Performance Targets ({{ default_year }}){% endblock %}
+
+{% block topbar_chips %}
+<div class="info-chip" title="Database Source">
+    <i class="fas fa-database"></i> sow.sow_target
+</div>
+{% endblock %}
+
+{% block page_content %}
+<div class="sow-container">
+    <div class="card filter-panel">
+        <div class="filter-bar">
+            <div class="filter-group">
+                <label class="filter-label">Target Year</label>
+                <select class="f-select" id="filterYear">
+                    {% for y in years %}
+                    <option value="{{ y }}" {% if y == default_year %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                    {% if not years %}
+                    <option value="{{ default_year }}">{{ default_year }}</option>
+                    {% endif %}
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Region (Optional)</label>
+                <select class="f-select" id="filterRegion">
+                    <option value="">All Regions</option>
+                    <option value="PUMA">PUMA</option>
+                </select>
+            </div>
+
+            <button class="btn-apply" id="btnRefresh" style="margin-bottom: 2px;">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div class="card table-card" style="padding: 0;">
+        <div class="table-card-header">
+            <div class="table-card-title">
+                <i class="fas fa-bullseye" style="color: #4facfe; margin-right: 8px;"></i>
+                SOW Target Matrix
+            </div>
+            <div class="live-badge" id="dataStatus">
+                <div class="live-dot"></div> READY
+            </div>
+        </div>
+        <div class="table-scroll">
+            <table class="data-table" id="targetTable">
+                <thead>
+                    <tr>
+                        <th style="width: 250px;">SOW Metric</th>
+                        <th class="text-center">Baseline</th>
+                        <th class="text-center">Q1 Target</th>
+                        <th class="text-center">Q2 Target</th>
+                        <th class="text-center">Q3 Target</th>
+                        <th class="text-center">Q4 Target</th>
+                    </tr>
+                </thead>
+                <tbody id="targetBody">
+                    <tr>
+                        <td colspan="6" class="empty-state">Loading targets...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .sow-container {
+        padding: 16px 20px 48px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    .text-center { text-align: center !important; }
+    
+    .target-val {
+        font-weight: 600;
+        font-family: 'JetBrains Mono', 'Consolas', monospace;
+        font-size: 14px;
+    }
+
+    [data-theme="dark"] .target-val { color: #4facfe; }
+    [data-theme="light"] .target-val { color: #0284c7; }
+
+    .metric-name {
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .metric-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #4facfe;
+        opacity: 0.7;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filterYear = document.getElementById('filterYear');
+    const filterRegion = document.getElementById('filterRegion');
+    const btnRefresh = document.getElementById('btnRefresh');
+    const targetBody = document.getElementById('targetBody');
+    const dataStatus = document.getElementById('dataStatus');
+
+    function formatVal(val, isCount) {
+        if (val === null || val === undefined || val === '') return '—';
+        const num = parseFloat(val);
+        if (isNaN(num)) return val;
+        
+        if (isCount) {
+            return num.toLocaleString();
+        }
+        
+        // If it's a small decimal (e.g. 0.003), show more digits
+        if (Math.abs(num) < 0.1 && num !== 0) {
+            return (num * 100).toFixed(4) + '%';
+        }
+        
+        // If it looks like a percentage (0.96 -> 96%)
+        if (num > 0 && num <= 1.0) {
+            return (num * 100).toFixed(2) + '%';
+        }
+        
+        return num.toFixed(2);
+    }
+
+    async function loadTargets() {
+        dataStatus.innerHTML = '<div class="live-dot" style="background: #fbbf24;"></div> LOADING';
+        targetBody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fas fa-spinner fa-spin"></i> Fetching data...</td></tr>';
+        
+        const year = filterYear.value;
+        const region = filterRegion.value;
+        const url = `/api/sow/targets?year=${year}${region ? '&region=' + encodeURIComponent(region) : ''}`;
+        
+        try {
+            const resp = await fetch(url);
+            const data = await resp.json();
+            
+            if (data.status === 'success') {
+                if (data.targets.length === 0) {
+                    targetBody.innerHTML = '<tr><td colspan="6" class="empty-state">No targets found for ' + year + (region ? ' in ' + region : '') + '</td></tr>';
+                } else {
+                    let html = '';
+                    data.targets.forEach(item => {
+                        html += `
+                            <tr>
+                                <td>
+                                    <div class="metric-name">
+                                        <div class="metric-dot"></div>
+                                        ${item.title}
+                                    </div>
+                                </td>
+                                <td class="text-center target-val">${formatVal(item.baseline, item.is_count)}</td>
+                                <td class="text-center target-val" style="background: rgba(79, 172, 254, 0.03);">${formatVal(item.q1, item.is_count)}</td>
+                                <td class="text-center target-val">${formatVal(item.q2, item.is_count)}</td>
+                                <td class="text-center target-val" style="background: rgba(79, 172, 254, 0.03);">${formatVal(item.q3, item.is_count)}</td>
+                                <td class="text-center target-val">${formatVal(item.q4, item.is_count)}</td>
+                            </tr>
+                        `;
+                    });
+                    targetBody.innerHTML = html;
+                }
+                dataStatus.innerHTML = '<div class="live-dot" style="background: #00e676;"></div> READY';
+            } else {
+                targetBody.innerHTML = `<tr><td colspan="6" class="empty-state text-danger">Error: ${data.message}</td></tr>`;
+                dataStatus.innerHTML = '<div class="live-dot" style="background: #ef4444;"></div> ERROR';
+            }
+        } catch (err) {
+            console.error(err);
+            targetBody.innerHTML = '<tr><td colspan="6" class="empty-state text-danger">Network error fetching targets</td></tr>';
+            dataStatus.innerHTML = '<div class="live-dot" style="background: #ef4444;"></div> ERROR';
+        }
+    }
+
+    btnRefresh.onclick = loadTargets;
+    filterYear.onchange = loadTargets;
+    filterRegion.onchange = loadTargets;
+
+    // Initial load
+    loadTargets();
+});
+</script>
+{% endblock %}

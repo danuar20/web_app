@@ -105,4 +105,8 @@ sites_db_bp = sites_db_routes.sites_db_bp
 from . import sow_routes
 sow = sow_routes.sow
 
+# CEI Dashboard — /sow/cei
+from . import cei_routes
+cei = cei_routes.cei
+
 

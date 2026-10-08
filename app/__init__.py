@@ -103,7 +103,8 @@ def create_app():
         optim_4g,
         unbalance_prb,
         sites_db_bp,
-        sow
+        sow,
+        cei
     )
     app.register_blueprint(auth)
     app.register_blueprint(admin_bp)
@@ -117,6 +118,7 @@ def create_app():
     app.register_blueprint(unbalance_prb)
     app.register_blueprint(sites_db_bp)
     app.register_blueprint(sow)
+    app.register_blueprint(cei)
     app.register_blueprint(kpi5g_monitoring)
     app.register_blueprint(pl_monitoring)
     app.register_blueprint(ta4g_new)

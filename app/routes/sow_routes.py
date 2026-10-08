@@ -17,15 +17,17 @@ sow = Blueprint("sow", __name__)
 _LOCATIONS_CACHE = {}
 _KAB_REGIONS_CACHE = {"data": None, "timestamp": 0}
 _YEARWEEKS_CACHE = {"data": None, "timestamp": 0}
+_SUMMARY_YEARS_CACHE = {"data": None, "timestamp": 0}
 _CACHE_TTL = 1800  # 30 minutes
 
 
 def clear_sow_caches():
     """Clear memory caches after data updates/imports."""
-    global _LOCATIONS_CACHE, _KAB_REGIONS_CACHE, _YEARWEEKS_CACHE
+    global _LOCATIONS_CACHE, _KAB_REGIONS_CACHE, _YEARWEEKS_CACHE, _SUMMARY_YEARS_CACHE
     _LOCATIONS_CACHE.clear()
     _KAB_REGIONS_CACHE = {"data": None, "timestamp": 0}
     _YEARWEEKS_CACHE = {"data": None, "timestamp": 0}
+    _SUMMARY_YEARS_CACHE = {"data": None, "timestamp": 0}
     _FB_YEARWEEKS_CACHE["data"] = None
     _FB_YEARWEEKS_CACHE["timestamp"] = 0
     _FB_CITY_MASTER_CACHE["data"] = None
@@ -542,6 +544,125 @@ def api_fb_share_compare():
         return jsonify({"status": "error", "message": "Failed to fetch FB share comparison"}), 500
 
 
+# ══════════════════════════════════════════════════════════════════════
+# SOW TARGET SUMMARY (sow.sow_target)
+# ══════════════════════════════════════════════════════════════════════
+SUMMARY_SOW_TITLES = {
+    "redcov": "Red Coverage",
+    "unbalance": "Unbalance PRB",
+    "rci": "RCI",
+    "4g_good_thp": "4G Good Throughput",
+    "5g_good_thp": "5G Good Throughput",
+    "Payload": "Payload",
+    "ONX": "ONX",
+    "Ookla": "Ookla",
+    "RHI": "RHI",
+    "CEI": "CEI",
+}
+
+# SOW metrics whose quarterly targets are counts (not percentages)
+SUMMARY_COUNT_METRICS = {"ONX", "Ookla"}
+
+
+def _summary_title(key):
+    return SUMMARY_SOW_TITLES.get(key, key)
+
+
+def get_cached_summary_years():
+    """Distinct years available in sow.sow_target, descending."""
+    now = time.time()
+    if _SUMMARY_YEARS_CACHE["data"] is not None and (now - _SUMMARY_YEARS_CACHE["timestamp"] < _CACHE_TTL):
+        return _SUMMARY_YEARS_CACHE["data"]
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute(
+                'SELECT DISTINCT "Year" FROM sow.sow_target WHERE "Year" IS NOT NULL ORDER BY "Year" DESC'
+            )
+            years = [int(r[0]) for r in cur.fetchall()]
+            _SUMMARY_YEARS_CACHE["data"] = years
+            _SUMMARY_YEARS_CACHE["timestamp"] = now
+            return years
+    except Exception as e:
+        logger.exception("Error loading sow_target years: %s", e)
+        return []
+
+
+@sow.route("/sow/summary")
+@login_required
+@viewer_blocked
+def summary_page():
+    """Render the SOW Summary page: quarterly targets per SOW metric for a chosen year."""
+    years = get_cached_summary_years()
+    default_year = years[0] if years else 2026
+
+    return render_template(
+        "sow_summary.html",
+        username=session.get("username", "User"),
+        years=years,
+        default_year=default_year,
+    )
+
+
+@sow.route("/api/sow/targets", methods=["GET"])
+@login_required
+def api_sow_targets():
+    """Return sow.sow_target rows (Baseline + Q1..Q4) filtered by year and optional Region."""
+    try:
+        year = int(request.args.get("year", 0))
+    except (ValueError, TypeError):
+        return jsonify({"status": "error", "message": "Invalid year"}), 400
+
+    if not year:
+        years = get_cached_summary_years()
+        year = years[0] if years else None
+    if not year:
+        return jsonify({"status": "error", "message": "No year available in sow.sow_target"}), 400
+
+    region = (request.args.get("region") or "").strip() or None
+
+    query = """
+        SELECT "SOW", "Baseline", "Q1", "Q2", "Q3", "Q4"
+        FROM sow.sow_target
+        WHERE "Year" = %s
+    """
+    params = [year]
+    if region:
+        query += ' AND "Region" = %s'
+        params.append(region)
+
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute(query, tuple(params))
+            rows = cur.fetchall()
+
+        items = []
+        for r in rows:
+            key = r[0]
+            vals = [r[i] for i in range(1, 6)]
+            items.append({
+                "sow": key,
+                "title": _summary_title(key),
+                "is_count": key in SUMMARY_COUNT_METRICS,
+                "baseline": vals[0],
+                "q1": vals[1],
+                "q2": vals[2],
+                "q3": vals[3],
+                "q4": vals[4],
+            })
+        items.sort(key=lambda x: x["title"].lower())
+
+        return jsonify({
+            "status": "success",
+            "year": year,
+            "region": region,
+            "count": len(items),
+            "targets": items,
+        })
+    except Exception as e:
+        logger.exception("Error loading sow targets: %s", e)
+        return jsonify({"status": "error", "message": "Failed to fetch SOW targets"}), 500
+
+
 @sow.route("/sow/crowdsource")
 @login_required
 @viewer_blocked
@@ -626,15 +747,40 @@ def api_sow_chart_data():
         start_yw = 202601
         end_yw = 202638
 
-    # Multi-year custom targets dictionary: e.g. {"2025-Q1": 14, "2026-Q1": 11, ...}
-    custom_targets = req.get("custom_targets") or {}
+    # Quarterly targets from sow.sow_target (SOW = 'ONX'); fallback to 14.
+    # Keyed by year so multi-year trends resolve the correct quarter.
+    targets_by_year = {}
+    target_q1 = 14
+    target_q2 = 14
+    target_q3 = 14
+    target_q4 = 14
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute('SELECT "Year", "Q1", "Q2", "Q3", "Q4" FROM sow.sow_target WHERE "SOW" = %s', ("ONX",))
+            for yr_, *qs in cur.fetchall():
+                if yr_ is None:
+                    continue
+                vals = [int(q) if q is not None else 14 for q in qs]
+                targets_by_year[int(yr_)] = dict(zip((1, 2, 3, 4), vals))
+            if targets_by_year:
+                latest = targets_by_year[max(targets_by_year)]
+                target_q1, target_q2, target_q3, target_q4 = (latest[1], latest[2], latest[3], latest[4])
+    except Exception as e:
+        logger.exception("Error loading ONX targets from sow_target: %s", e)
 
-    # Quarterly targets fallback (defaults to 14)
-    target_q1 = int(req.get("target_q1", 14))
-    target_q2 = int(req.get("target_q2", 14))
-    target_q3 = int(req.get("target_q3", 14))
-    target_q4 = int(req.get("target_q4", 14))
     fallback_map = {1: target_q1, 2: target_q2, 3: target_q3, 4: target_q4}
+
+    def _target_for(year, quarter):
+        """Resolve ONX quarterly target for a year, falling back to the nearest
+        year present in sow.sow_target (the table only carries certain years)."""
+        year_map = targets_by_year.get(year)
+        if not year_map and targets_by_year:
+            nearest = min(targets_by_year, key=lambda y: (abs(y - year), y))
+            year_map = targets_by_year[nearest]
+        if year_map:
+            return year_map.get(quarter, 14)
+        return fallback_map.get(quarter, 14)
+
 
     query = """
         SELECT yearweek,
@@ -675,19 +821,12 @@ def api_sow_chart_data():
             if l < 0:
                 l = 0
 
-            # Determine target for this week's year and quarter
+            # Determine target for this week's year and quarter (from sow.sow_target)
             yr = yw // 100
             week_num = yw % 100
             q = min(4, max(1, (week_num - 1) // 13 + 1))
-            target_key = f"{yr}-Q{q}"
 
-            if target_key in custom_targets:
-                try:
-                    curr_target = int(custom_targets[target_key])
-                except (ValueError, TypeError):
-                    curr_target = fallback_map.get(q, 14)
-            else:
-                curr_target = fallback_map.get(q, 14)
+            curr_target = _target_for(yr, q)
 
             labels.append(str(yw))
             win_data.append(w)
@@ -1187,4 +1326,188 @@ def api_sow_import():
         })
     except Exception as e:
         logger.exception("Database error while upserting SOW records: %s", e)
+        return jsonify({"status": "error", "message": f"Database error during import: {str(e)}"}), 500
+
+
+# ══════════════════════════════════════════════════════════════════════
+# FB SHARE import / sample template (sow.fb_share)
+# ══════════════════════════════════════════════════════════════════════
+FB_SHARE_FIELDS = [
+    "yearweek", "region", "branch", "kabupaten", "archetype",
+    "telkomsel", "isat3", "xl", "smartfren",
+    "gap", "wow", "mom", "wow_cc", "mom_cc", "win_lose",
+]
+
+
+def _fb_share_sample_row(region="MALUKU DAN PAPUA", branch="AMBON", city="KOTA AMBON", yw=202639):
+    return [
+        yw, region, branch, city, "Super Fortress",
+        91.5, 6.4, 0.8, 0.2,
+        85.1, 0.3, 1.2, 0.1, 0.9, "WIN",
+    ]
+
+
+@sow.route("/api/sow/fb-sample-template", methods=["GET"])
+@login_required
+def api_sow_fb_sample_template():
+    """Download sample CSV or XLSX template for importing into sow.fb_share."""
+    file_format = request.args.get("format", "xlsx").lower()
+    fieldnames = FB_SHARE_FIELDS
+    sample_rows = [
+        _fb_share_sample_row("MALUKU DAN PAPUA", "AMBON", "KOTA AMBON", 202639),
+        _fb_share_sample_row("MALUKU DAN PAPUA", "JAYAPURA", "KOTA JAYAPURA", 202639),
+        _fb_share_sample_row("MALUKU DAN PAPUA", "SORONG", "KOTA SORONG", 202639),
+    ]
+
+    if file_format == "csv":
+        csv_buffer = io.StringIO()
+        writer = csv.writer(csv_buffer)
+        writer.writerow(fieldnames)
+        writer.writerows(sample_rows)
+        output = make_response(csv_buffer.getvalue())
+        output.headers["Content-Disposition"] = "attachment; filename=SOW_FBShare_Import_Sample.csv"
+        output.headers["Content-type"] = "text/csv; charset=utf-8"
+        return output
+    else:
+        try:
+            import openpyxl
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "fb_share"
+            ws.append(fieldnames)
+            for row in sample_rows:
+                ws.append(row)
+            excel_buffer = io.BytesIO()
+            wb.save(excel_buffer)
+            excel_buffer.seek(0)
+            return send_file(
+                excel_buffer,
+                download_name="SOW_FBShare_Import_Sample.xlsx",
+                as_attachment=True,
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        except Exception as e:
+            logger.exception("Error generating FB Share Excel template: %s", e)
+            return jsonify({"status": "error", "message": "Failed to generate Excel template"}), 500
+
+
+@sow.route("/api/sow/fb-import", methods=["POST"])
+@csrf.exempt
+@login_required
+def api_sow_fb_import():
+    """Import and upsert records into sow.fb_share from uploaded CSV or Excel file."""
+    if "file" not in request.files:
+        return jsonify({"status": "error", "message": "No file uploaded"}), 400
+
+    uploaded_file = request.files["file"]
+    if not uploaded_file.filename:
+        return jsonify({"status": "error", "message": "Empty file name"}), 400
+
+    filename = uploaded_file.filename.lower()
+    raw_dicts = []
+
+    try:
+        if filename.endswith(".csv"):
+            file_bytes = uploaded_file.read()
+            text = file_bytes.decode("utf-8-sig", errors="replace")
+            stream = io.StringIO(text)
+            reader = csv.DictReader(stream)
+            raw_dicts = list(reader)
+        elif filename.endswith((".xlsx", ".xls")):
+            import openpyxl
+            wb = openpyxl.load_workbook(uploaded_file.stream, data_only=True)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+            if not rows or len(rows) < 2:
+                return jsonify({"status": "error", "message": "Uploaded Excel sheet is empty"}), 400
+            headers = [str(c).strip() if c is not None else "" for c in rows[0]]
+            for r in rows[1:]:
+                if any(v is not None for v in r):
+                    row_dict = {headers[i]: r[i] for i in range(min(len(headers), len(r)))}
+                    raw_dicts.append(row_dict)
+        else:
+            return jsonify({"status": "error", "message": "Only CSV and Excel (.xlsx, .xls) files are supported"}), 400
+    except Exception as e:
+        logger.exception("Failed to parse uploaded file: %s", e)
+        return jsonify({"status": "error", "message": f"File parsing failed: {str(e)}"}), 400
+
+    if not raw_dicts:
+        return jsonify({"status": "error", "message": "No data rows found in uploaded file"}), 400
+
+    cleaned_rows = [{str(k).strip(): v for k, v in r.items() if k is not None} for r in raw_dicts]
+
+    first_row = cleaned_rows[0]
+    required_cols = ["yearweek", "branch", "kabupaten"]
+    missing = [c for c in required_cols if c not in first_row]
+    if missing:
+        return jsonify({"status": "error", "message": f"Missing required columns in file: {', '.join(missing)}"}), 400
+
+    def _num(v):
+        if v is None or str(v).strip() in ("", "None", "nan"):
+            return None
+        try:
+            return float(str(v).strip().replace(",", "."))
+        except (ValueError, TypeError):
+            return None
+
+    records = []
+    for row in cleaned_rows:
+        try:
+            yw = int(float(str(row.get("yearweek")).strip()))
+        except (ValueError, TypeError):
+            continue
+        branch = str(row.get("branch") or "").strip()
+        kabupaten = str(row.get("kabupaten") or "").strip()
+        if not branch or not kabupaten:
+            continue
+        region = str(row.get("region") or "").strip() or None
+        archetype = str(row.get("archetype") or "").strip() or None
+        win_lose = str(row.get("win_lose") or "").strip() or None
+        records.append((
+            yw, region, branch, kabupaten, archetype,
+            _num(row.get("telkomsel")), _num(row.get("isat3")),
+            _num(row.get("xl")), _num(row.get("smartfren")),
+            _num(row.get("gap")), _num(row.get("wow")), _num(row.get("mom")),
+            _num(row.get("wow_cc")), _num(row.get("mom_cc")), win_lose,
+        ))
+
+    if not records:
+        return jsonify({"status": "error", "message": "No valid data rows found in uploaded file"}), 400
+
+    upsert_query = """
+        INSERT INTO sow.fb_share (
+            yearweek, region, branch, kabupaten, archetype,
+            telkomsel, isat3, xl, smartfren,
+            gap, wow, mom, wow_cc, mom_cc, win_lose
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (yearweek, branch, kabupaten)
+        DO UPDATE SET
+            region = COALESCE(EXCLUDED.region, sow.fb_share.region),
+            archetype = COALESCE(EXCLUDED.archetype, sow.fb_share.archetype),
+            telkomsel = EXCLUDED.telkomsel,
+            isat3 = EXCLUDED.isat3,
+            xl = EXCLUDED.xl,
+            smartfren = EXCLUDED.smartfren,
+            gap = EXCLUDED.gap,
+            wow = EXCLUDED.wow,
+            mom = EXCLUDED.mom,
+            wow_cc = EXCLUDED.wow_cc,
+            mom_cc = EXCLUDED.mom_cc,
+            win_lose = COALESCE(EXCLUDED.win_lose, sow.fb_share.win_lose)
+    """
+
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            psycopg2.extras.execute_batch(cur, upsert_query, records, page_size=200)
+            conn.commit()
+
+        clear_sow_caches()
+
+        return jsonify({
+            "status": "success",
+            "rows_processed": len(records),
+            "message": f"Successfully imported and updated {len(records)} FB Share records."
+        })
+    except Exception as e:
+        logger.exception("Database error while upserting FB Share records: %s", e)
         return jsonify({"status": "error", "message": f"Database error during import: {str(e)}"}), 500
