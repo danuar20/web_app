@@ -1,0 +1,1386 @@
+{% extends "base.html" %}
+
+{% block nav_sow %}active sub-open{% endblock %}
+{% block subSow_open %}open{% endblock %}
+{% block nav_sow_ran_capacity %}active{% endblock %}
+
+{% block page_title %}SOW RAN Capacity{% endblock %}
+{% block page_sub %}Scope of Work — RAN Capacity (RCI & Unbalance) Monitoring{% endblock %}
+
+{% block topbar_chips %}
+<div class="info-chip" title="Latest Week in sow.rci_redsector">
+    <i class="fas fa-calendar-check" style="color:#ef4444;"></i> Latest Week: W{{ (latest_week|string)[-2:] }} ({{ latest_week }})
+</div>
+{% endblock %}
+
+
+{% block page_content %}
+<style>
+    /* ══════════════════════════════════════════════════════════════════
+       RAN CAPACITY DASHBOARD COMPONENT STYLES
+       ══════════════════════════════════════════════════════════════════ */
+    :root, [data-theme="light"] {
+        --ran-card-bg: #ffffff;
+        --ran-border: #cbd5e1;
+        --ran-text-main: #0f172a;
+        --ran-text-muted: #64748b;
+        --ran-crimson: #8B0000;
+        --ran-crimson-dark: #660000;
+        --ran-orange: #ea580c;
+        --ran-green: #16a34a;
+        --ran-red: #dc2626;
+        --ran-blue: #0284c7;
+        --ran-purple: #7c3aed;
+        --ran-input-bg: #ffffff;
+    }
+
+    [data-theme="dark"] {
+        --ran-card-bg: #1e293b;
+        --ran-border: #334155;
+        --ran-text-main: #f8fafc;
+        --ran-text-muted: #94a3b8;
+        --ran-crimson: #991b1b;
+        --ran-crimson-dark: #7f1d1d;
+        --ran-orange: #f97316;
+        --ran-green: #22c55e;
+        --ran-red: #ef4444;
+        --ran-blue: #38bdf8;
+        --ran-purple: #a855f7;
+        --ran-input-bg: #0f172a;
+    }
+
+    .ran-container {
+        padding: 12px 18px 28px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Tabs Bar */
+    .ran-tabs {
+        display: flex;
+        gap: 8px;
+        border-bottom: 2px solid var(--ran-border);
+        padding-bottom: 2px;
+        margin-bottom: 4px;
+    }
+    .ran-tab-btn {
+        background: transparent;
+        border: none;
+        border-bottom: 3px solid transparent;
+        padding: 8px 18px;
+        font-size: 13.5px;
+        font-weight: 600;
+        color: var(--ran-text-muted);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        margin-bottom: -2px;
+    }
+    .ran-tab-btn:hover {
+        color: var(--ran-text-main);
+    }
+    .ran-tab-btn.active {
+        color: var(--ran-crimson);
+        border-bottom-color: var(--ran-crimson);
+    }
+    [data-theme="dark"] .ran-tab-btn.active {
+        color: #f87171;
+        border-bottom-color: #f87171;
+    }
+
+    .ran-tab-pane {
+        display: none;
+        width: 100%;
+    }
+    .ran-tab-pane.active {
+        display: block;
+    }
+
+    /* Filter Card */
+    .ran-filter-card {
+        background: var(--ran-card-bg);
+        border: 1px solid var(--ran-border);
+        border-radius: 12px;
+        padding: 12px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        position: relative;
+        z-index: 5;
+    }
+    .ran-filter-main-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        width: 100%;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .ran-filter-sub-row {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        padding-top: 8px;
+        border-top: 1px dashed rgba(125, 125, 125, 0.18);
+    }
+    .ran-filter-controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+    }
+    .ran-filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .ran-filter-label {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--ran-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .ran-select, .ran-input {
+        background: var(--ran-input-bg);
+        border: 1px solid var(--ran-border);
+        color: var(--ran-text-main);
+        border-radius: 7px;
+        padding: 6px 10px;
+        font-size: 12.5px;
+        font-weight: 500;
+        min-width: 130px;
+        outline: none;
+    }
+    .ran-select option {
+        background: var(--ran-input-bg);
+        color: var(--ran-text-main);
+    }
+
+    /* Global Mode Switcher Pill */
+    .ran-mode-switcher {
+        display: inline-flex;
+        background: rgba(125, 125, 125, 0.12);
+        border: 1px solid var(--ran-border);
+        border-radius: 8px;
+        padding: 2px;
+        gap: 2px;
+    }
+    .ran-mode-btn {
+        background: transparent;
+        border: none;
+        border-radius: 6px;
+        padding: 5px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--ran-text-muted);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .ran-mode-btn.active {
+        background: var(--ran-crimson);
+        color: #ffffff;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+    [data-theme="dark"] .ran-mode-btn.active {
+        background: #dc2626;
+        color: #ffffff;
+    }
+
+    /* Action Buttons Group */
+    .ran-action-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+    }
+    .ran-btn-primary, .ran-btn-secondary {
+        border-radius: 7px;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    .ran-btn-primary {
+        background: var(--ran-crimson);
+        border: 1px solid var(--ran-crimson-dark);
+        color: #ffffff;
+    }
+    .ran-btn-primary:hover {
+        background: var(--ran-crimson-dark);
+    }
+    .ran-btn-secondary {
+        background: var(--ran-card-bg);
+        border: 1px solid var(--ran-border);
+        color: var(--ran-text-main);
+    }
+    .ran-btn-secondary:hover {
+        background: rgba(125, 125, 125, 0.08);
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       SECTION CARD ARCHITECTURE (WITH IN-SECTION DUAL TOGGLE)
+       ══════════════════════════════════════════════════════════════════ */
+    .ran-card {
+        background: var(--ran-card-bg);
+        border: 1px solid var(--ran-border);
+        border-radius: 12px;
+        padding: 14px 16px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+    .ran-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(125, 125, 125, 0.15);
+    }
+    .ran-card-title {
+        font-size: 13.5px;
+        font-weight: 700;
+        color: var(--ran-text-main);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .ran-card-title i {
+        color: var(--ran-crimson);
+    }
+    [data-theme="dark"] .ran-card-title i {
+        color: #f87171;
+    }
+
+    /* Section-level toggle buttons */
+    .ran-section-toggle {
+        display: inline-flex;
+        background: rgba(125, 125, 125, 0.12);
+        border: 1px solid var(--ran-border);
+        border-radius: 6px;
+        padding: 2px;
+        gap: 2px;
+    }
+    .ran-sec-btn {
+        background: transparent;
+        border: none;
+        border-radius: 4px;
+        padding: 3px 9px;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--ran-text-muted);
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .ran-sec-btn.active {
+        background: var(--ran-crimson);
+        color: #ffffff;
+    }
+    [data-theme="dark"] .ran-sec-btn.active {
+        background: #dc2626;
+        color: #ffffff;
+    }
+
+    /* Executive Scorecard Banner (Branded Header) */
+    .ran-exec-banner {
+        background: linear-gradient(135deg, #7a0c0c 0%, #a81818 100%);
+        border-radius: 12px;
+        padding: 12px 16px;
+        color: #ffffff;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        box-shadow: 0 4px 12px rgba(139, 0, 0, 0.25);
+    }
+    .ran-banner-left {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .ran-banner-title {
+        font-size: 14.5px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .ran-banner-subtitle {
+        font-size: 10.5px;
+        opacity: 0.88;
+        font-weight: 500;
+    }
+    .ran-scorecard-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+    }
+    .ran-score-card {
+        background: rgba(0, 0, 0, 0.25);
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 8px;
+        padding: 6px 12px;
+        min-width: 95px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .ran-score-label {
+        font-size: 9.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        opacity: 0.85;
+        letter-spacing: 0.4px;
+    }
+    .ran-score-val {
+        font-size: 15px;
+        font-weight: 800;
+        margin-top: 2px;
+    }
+    .ran-score-badge {
+        font-size: 9px;
+        font-weight: 700;
+        padding: 1px 5px;
+        border-radius: 4px;
+        margin-top: 2px;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+    }
+    .ran-badge-pass {
+        background: #16a34a;
+        color: #ffffff;
+    }
+    .ran-badge-breach {
+        background: #dc2626;
+        color: #ffffff;
+    }
+
+    /* 2-Column & 3-Column Grids */
+    .ran-grid-2col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        width: 100%;
+    }
+    .ran-grid-3col {
+        display: grid;
+        grid-template-columns: 1.3fr 1fr 1fr;
+        gap: 14px;
+        width: 100%;
+    }
+    @media (max-width: 1150px) {
+        .ran-grid-2col, .ran-grid-3col {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .ran-container {
+            padding: 8px 10px 24px 10px;
+            gap: 10px;
+        }
+        .ran-tabs {
+            overflow-x: auto;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 4px;
+        }
+        .ran-tab-btn {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        .ran-filter-card {
+            padding: 10px 12px;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+        }
+        .ran-filter-controls {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            width: 100%;
+        }
+        .ran-filter-group {
+            width: 100%;
+        }
+        .ran-select, .ran-input {
+            width: 100%;
+            min-width: 0;
+            padding: 5px 8px;
+            font-size: 11.5px;
+        }
+        .ran-mode-switcher {
+            width: 100%;
+            display: flex;
+        }
+        .ran-mode-btn {
+            flex: 1;
+            justify-content: center;
+            padding: 5px 6px;
+            font-size: 11px;
+        }
+        .ran-action-group {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            margin-left: 0;
+            gap: 6px;
+        }
+        .ran-btn-primary, .ran-btn-secondary {
+            justify-content: center;
+            padding: 6px 8px;
+            font-size: 11px;
+        }
+        .ran-exec-banner {
+            flex-direction: column;
+            align-items: stretch;
+            padding: 10px 12px;
+            gap: 10px;
+        }
+        .ran-banner-left {
+            width: 100%;
+        }
+        .ran-banner-title {
+            font-size: 13px;
+        }
+        .ran-scorecard-strip {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
+        }
+        .ran-score-card {
+            min-width: 0;
+            width: 100%;
+            padding: 6px 8px;
+            box-sizing: border-box;
+        }
+        .ran-score-val {
+            font-size: 13.5px;
+        }
+        .ran-card-header {
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .ran-card-title {
+            font-size: 12px;
+        }
+        .ran-branch-stat-row {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 4px;
+        }
+        .ran-chart-box, .ran-chart-box-lg {
+            min-height: 270px;
+            height: 270px;
+        }
+    }
+
+    /* Chart Containers */
+    .ran-chart-box {
+        width: 100%;
+        min-height: 290px;
+        height: 290px;
+        position: relative;
+    }
+    .ran-chart-box-lg {
+        width: 100%;
+        min-height: 350px;
+        height: 350px;
+        position: relative;
+    }
+
+    /* Bulletins Card */
+    .ran-bulletins-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .ran-bulletin-item {
+        font-size: 11px;
+        line-height: 1.45;
+        color: var(--ran-text-main);
+        display: flex;
+        align-items: flex-start;
+        gap: 7px;
+        padding: 5px 8px;
+        background: rgba(125, 125, 125, 0.05);
+        border-radius: 6px;
+        border-left: 3px solid var(--ran-crimson);
+    }
+    .ran-bulletin-item i {
+        color: var(--ran-crimson);
+        margin-top: 2px;
+        font-size: 10px;
+    }
+
+    /* Info Banner for Transition */
+    .ran-info-banner {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 8px;
+        width: 100%;
+    }
+
+    /* Breakdown Subgrid (1 row 2 pane for Table & Note) */
+    .ran-breakdown-subgrid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        width: 100%;
+        align-items: stretch;
+    }
+    @media (max-width: 650px) {
+        .ran-breakdown-subgrid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       1D BENCHMARK SLIDER TRACK (EXACT REDCOV / RHI PARITY)
+       ══════════════════════════════════════════════════════════════════ */
+    .ran-distrib-wrap {
+        position: relative;
+        width: 100%;
+        height: 120px;
+        margin: 4px 0 8px 0;
+    }
+    .ran-track-bar {
+        position: absolute;
+        top: 56px;
+        left: 20px;
+        right: 20px;
+        height: 10px;
+        border-radius: 9999px;
+        display: flex;
+        overflow: hidden;
+        background: #fca5a5;
+    }
+    .ran-track-pass {
+        height: 100%;
+        background: #86efac;
+    }
+    .ran-track-fail {
+        height: 100%;
+        flex: 1;
+        background: #fca5a5;
+    }
+    .ran-branch-stat-row {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+        width: 100%;
+        margin-top: 6px;
+    }
+    @media (max-width: 1100px) {
+        .ran-branch-stat-row {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+    .ran-branch-chip {
+        background: rgba(125, 125, 125, 0.05);
+        border: 1px solid var(--ran-border);
+        border-radius: 6px;
+        padding: 6px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        box-sizing: border-box;
+    }
+    .ran-chip-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--ran-text-muted);
+    }
+    .ran-chip-val {
+        font-size: 13.5px;
+        font-weight: 800;
+        color: var(--ran-text-main);
+    }
+    .ran-chip-sub {
+        font-size: 9.5px;
+        color: var(--ran-text-muted);
+    }
+
+    /* Loading Overlay */
+    .ran-loading-overlay {
+        display: none;
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(2px);
+        z-index: 40;
+        border-radius: 12px;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--ran-crimson);
+        gap: 8px;
+    }
+    [data-theme="dark"] .ran-loading-overlay {
+        background: rgba(15, 23, 42, 0.65);
+        color: #f87171;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       HIGH-DENSITY COMPARISON TABLES (ANTI-HORIZONTAL SCROLL)
+       ══════════════════════════════════════════════════════════════════ */
+    .ran-table-card {
+        background: var(--ran-card-bg);
+        border: 1px solid var(--ran-border);
+        border-radius: 12px;
+        padding: 14px 16px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        margin-bottom: 14px;
+    }
+    .ran-table-wrap {
+        width: 100%;
+        overflow-x: auto;
+    }
+    .ran-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+        text-align: left;
+    }
+    .ran-table th {
+        background: rgba(125, 125, 125, 0.08);
+        color: var(--ran-text-muted);
+        font-weight: 700;
+        text-transform: uppercase;
+        padding: 7px 9px;
+        border-bottom: 1px solid var(--ran-border);
+        white-space: nowrap;
+    }
+    .ran-table td {
+        padding: 6px 9px;
+        border-bottom: 1px solid rgba(125, 125, 125, 0.12);
+        color: var(--ran-text-main);
+        white-space: nowrap;
+    }
+    .ran-table tr:hover td {
+        background: rgba(125, 125, 125, 0.04);
+    }
+    .ran-table tr.total-row td {
+        font-weight: 800;
+        background: rgba(125, 125, 125, 0.1);
+        border-top: 2px solid var(--ran-border);
+    }
+
+    /* Status Badges */
+    .ran-pill {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 700;
+        text-align: center;
+    }
+    .ran-pill-pass {
+        background: rgba(22, 163, 74, 0.15);
+        color: #16a34a;
+        border: 1px solid rgba(22, 163, 74, 0.35);
+    }
+    .ran-pill-breach {
+        background: rgba(220, 38, 38, 0.15);
+        color: #dc2626;
+        border: 1px solid rgba(220, 38, 38, 0.35);
+    }
+    .ran-pill-improved {
+        background: rgba(22, 163, 74, 0.15);
+        color: #16a34a;
+    }
+    .ran-pill-degraded {
+        background: rgba(220, 38, 38, 0.15);
+        color: #dc2626;
+    }
+
+    /* Modal dialogs */
+    .ran-modal-overlay {
+        display: none;
+        position: fixed;
+        z-index: 99999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.75);
+        backdrop-filter: blur(4px);
+        justify-content: center;
+        align-items: center;
+    }
+    .ran-modal-box {
+        background: var(--ran-card-bg);
+        border: 1px solid var(--ran-border);
+        border-radius: 12px;
+        width: 90%;
+        max-width: 550px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    .ran-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--ran-border);
+        padding-bottom: 10px;
+    }
+    .ran-modal-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--ran-text-main);
+    }
+    .ran-drop-zone {
+        border: 2px dashed var(--ran-border);
+        border-radius: 8px;
+        padding: 30px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: border 0.2s;
+    }
+    .ran-drop-zone:hover {
+        border-color: var(--ran-crimson);
+    }
+
+    /* Fullscreen Enlarge Modal */
+    .ran-enlarge-modal {
+        display: none;
+        position: fixed;
+        z-index: 99999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.75);
+        backdrop-filter: blur(4px);
+        justify-content: center;
+        align-items: center;
+    }
+    .ran-enlarge-box {
+        background: var(--ran-card-bg);
+        border: 1px solid var(--ran-border);
+        border-radius: 14px;
+        width: 95%;
+        max-width: 1350px;
+        height: 88vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        padding: 18px 22px;
+    }
+    .ran-enlarge-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--ran-border);
+        padding-bottom: 12px;
+        margin-bottom: 10px;
+    }
+    .ran-enlarge-body {
+        flex: 1;
+        width: 100%;
+        min-height: 0;
+    }
+</style>
+
+<div class="ran-container">
+
+    <!-- Top Tabs Navigation -->
+    <div class="ran-tabs">
+        <button class="ran-tab-btn active" onclick="switchRanTab('achievement', this)">
+            <i class="fas fa-chart-line"></i> RAN Capacity Achievement
+        </button>
+        <button class="ran-tab-btn" onclick="switchRanTab('trend', this)">
+            <i class="fas fa-chart-bar"></i> Trend & Regional Analysis
+        </button>
+        <button class="ran-tab-btn" onclick="switchRanTab('comparison', this)">
+            <i class="fas fa-table"></i> Comparison & Sector Table
+        </button>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- GLOBAL FILTER CARD                                             -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <div class="ran-filter-card">
+        <div class="ran-filter-main-row">
+            <div class="ran-filter-controls">
+                <!-- Region Filter -->
+                <div class="ran-filter-group">
+                    <label class="ran-filter-label"><i class="fas fa-globe-asia"></i> Region</label>
+                    <select id="filterRegion" class="ran-select" onchange="onGlobalFilterChange()">
+                        {% for reg in regions %}
+                        <option value="{{ reg }}" {% if reg == current_region %}selected{% endif %}>{{ reg }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- NOP / Branch Filter -->
+                <div class="ran-filter-group">
+                    <label class="ran-filter-label"><i class="fas fa-sitemap"></i> NOP / Branch</label>
+                    <select id="filterBranch" class="ran-select" onchange="onGlobalFilterChange()">
+                        <option value="ALL">All NOPs (Region)</option>
+                        <option value="AMBON">AMBON</option>
+                        <option value="JAYAPURA">JAYAPURA</option>
+                        <option value="TIMIKA">TIMIKA</option>
+                        <option value="SORONG">SORONG</option>
+                    </select>
+                </div>
+
+                <!-- Focus Week Filter -->
+                <div class="ran-filter-group">
+                    <label class="ran-filter-label"><i class="fas fa-calendar-check"></i> Focus Week</label>
+                    <select id="filterWeek" class="ran-select" onchange="onGlobalFilterChange()">
+                        {% for yw in yearweeks %}
+                        <option value="{{ yw }}" {% if yw == default_yw %}selected{% endif %}>W{{ (yw|string)[-2:] }} ({{ yw }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Trend Start Week -->
+                <div class="ran-filter-group">
+                    <label class="ran-filter-label"><i class="fas fa-calendar-alt"></i> Trend Start</label>
+                    <select id="filterTrendStart" class="ran-select" onchange="onGlobalFilterChange()">
+                        {% for yw in yearweeks|reverse %}
+                        <option value="{{ yw }}" {% if yw == default_start_yw %}selected{% endif %}>W{{ (yw|string)[-2:] }} ({{ yw }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Action Buttons Group (Top Right) -->
+            <div class="ran-action-group">
+                <button class="ran-btn-primary" onclick="openImportModal()" title="Import Data">
+                    <i class="fas fa-file-upload"></i> Import Data
+                </button>
+                <a href="/api/sow/ran_capacity/sample?format=xlsx" class="ran-btn-secondary" title="Sample XLSX">
+                    <i class="fas fa-file-excel" style="color:#10b981;"></i> Sample XLSX
+                </a>
+                <a href="/api/sow/ran_capacity/sample?format=csv" class="ran-btn-secondary" title="Sample CSV">
+                    <i class="fas fa-file-csv" style="color:#0284c7;"></i> Sample CSV
+                </a>
+                <button class="ran-btn-secondary" onclick="exportCurrentData()" title="Export CSV">
+                    <i class="fas fa-file-export"></i> Export CSV
+                </button>
+            </div>
+        </div>
+
+        <!-- Sub Row: Global Dashboard View shifted to LEFT -->
+        <div class="ran-filter-sub-row">
+            <div class="ran-filter-group" style="flex-direction: row; align-items: center; gap: 8px;">
+                <label class="ran-filter-label" style="margin: 0;"><i class="fas fa-toggle-on"></i> Global Dashboard View:</label>
+                <div class="ran-mode-switcher">
+                    <button id="btnGlobalRci" class="ran-mode-btn active" onclick="setGlobalMode('rci')">
+                        <i class="fas fa-bullseye"></i> RCI View
+                    </button>
+                    <button id="btnGlobalUnbalance" class="ran-mode-btn" onclick="setGlobalMode('unbalance')">
+                        <i class="fas fa-balance-scale"></i> Unbalance View
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 1: ACHIEVEMENT & EXECUTIVE OVERVIEW                         -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <div id="pane-achievement" class="ran-tab-pane active">
+
+        <!-- Executive Branded Header Banner -->
+        <div class="ran-exec-banner" id="execBanner">
+            <div class="ran-banner-left">
+                <div class="ran-banner-title">
+                    <i class="fas fa-satellite-dish"></i>
+                    <span id="bannerMetricTitle">RAN CAPACITY | RCI Direct Optim</span>
+                </div>
+                <div class="ran-banner-subtitle" id="bannerSubtitle">
+                    Telkomsel & TelkomInfra · Regional PUMA · Focus Week W{{ (default_yw|string)[-2:] }}
+                </div>
+            </div>
+
+            <!-- In-Banner Section Toggle -->
+            <div class="ran-section-toggle">
+                <button id="bannerToggleRci" class="ran-sec-btn active" onclick="setBannerSectionMode('rci')">RCI</button>
+                <button id="bannerToggleUnb" class="ran-sec-btn" onclick="setBannerSectionMode('unbalance')">Unbalance</button>
+            </div>
+
+            <!-- Top Scorecards -->
+            <div class="ran-scorecard-strip">
+                <div class="ran-score-card">
+                    <span class="ran-score-label">Baseline</span>
+                    <span class="ran-score-val" id="cardBaseline">--%</span>
+                </div>
+                <div class="ran-score-card">
+                    <span class="ran-score-label" id="cardTargetLabel">Target</span>
+                    <span class="ran-score-val" id="cardTarget">--%</span>
+                </div>
+                <div class="ran-score-card">
+                    <span class="ran-score-label">Achievement</span>
+                    <span class="ran-score-val" id="cardAch">--%</span>
+                    <span id="cardStatusBadge" class="ran-score-badge ran-badge-breach">--</span>
+                </div>
+                <div class="ran-score-card">
+                    <span class="ran-score-label">Ach. Gap</span>
+                    <span class="ran-score-val" id="cardGap">-- pp</span>
+                    <span id="cardExcessBadge" class="ran-score-badge" style="background: rgba(255,255,255,0.2);">-- sec</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════════════ -->
+        <!-- ROW 1 (2 pane): Branch Performance vs Target & Executive Insights -->
+        <!-- ══════════════════════════════════════════════════════════════ -->
+        <div class="ran-grid-2col" style="margin-top: 14px;">
+            <!-- Left: Regional NOP Performance & 1D Benchmark Slider Track -->
+            <div class="ran-card">
+                <div class="ran-card-header">
+                    <div class="ran-card-title">
+                        <i class="fas fa-sliders-h"></i>
+                        <span id="gaugeCardTitle">Branch Performance vs Target</span>
+                    </div>
+                    <div class="ran-section-toggle">
+                        <button id="gaugeToggleRci" class="ran-sec-btn active" onclick="setGaugeSectionMode('rci')">RCI</button>
+                        <button id="gaugeToggleUnb" class="ran-sec-btn" onclick="setGaugeSectionMode('unbalance')">Unbalance</button>
+                    </div>
+                </div>
+
+                <!-- 1D Benchmark Track Container -->
+                <div class="ran-distrib-wrap" id="branchDistribWrap">
+                    <!-- Populated dynamically by JS -->
+                </div>
+
+                <!-- Companion Branch Stat Row -->
+                <div class="ran-branch-stat-row" id="branchStatRow">
+                    <!-- Populated dynamically by JS -->
+                </div>
+            </div>
+
+            <!-- Right: Executive Highlights & Bulletins -->
+            <div class="ran-card">
+                <div class="ran-card-header">
+                    <div class="ran-card-title">
+                        <i class="fas fa-clipboard-check"></i>
+                        <span>Executive Summary & Insights</span>
+                    </div>
+                    <div class="ran-section-toggle">
+                        <button id="bulletinToggleRci" class="ran-sec-btn active" onclick="setBulletinSectionMode('rci')">RCI</button>
+                        <button id="bulletinToggleUnb" class="ran-sec-btn" onclick="setBulletinSectionMode('unbalance')">Unbalance</button>
+                    </div>
+                </div>
+
+                <ul class="ran-bulletins-list" id="bulletinsList">
+                    <!-- Populated dynamically by JS -->
+                </ul>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════════════ -->
+        <!-- ROW 2 (1 pane): Macro Capacity Trend vs Target (Full Width)   -->
+        <!-- ══════════════════════════════════════════════════════════════ -->
+        <div class="ran-card" style="margin-top: 14px;">
+            <div class="ran-card-header">
+                <div class="ran-card-title">
+                    <i class="fas fa-chart-line"></i>
+                    <span id="trendChartTitle">Trend RCI PUMA</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div class="ran-section-toggle">
+                        <button id="trendToggleRci" class="ran-sec-btn active" onclick="setTrendSectionMode('rci')">RCI</button>
+                        <button id="trendToggleUnb" class="ran-sec-btn" onclick="setTrendSectionMode('unbalance')">Unbalance</button>
+                    </div>
+                    <button class="ran-btn-secondary" style="padding: 2px 7px; font-size: 11px;" onclick="enlargeChart('macroTrend')" title="Enlarge">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="chartMacroTrend" class="ran-chart-box-lg"></div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════════════ -->
+        <!-- ROW 3 (2 pane): Transition & Dynamics + Methodology Breakdown  -->
+        <!-- ══════════════════════════════════════════════════════════════ -->
+        <div class="ran-grid-2col" style="margin-top: 14px;">
+            <!-- Left: Transition & Moving Dynamics -->
+            <div class="ran-card">
+                <div class="ran-card-header">
+                    <div class="ran-card-title">
+                        <i class="fas fa-exchange-alt"></i>
+                        <span id="transChartTitle">Moving Trend (Other to Optim)</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div class="ran-section-toggle">
+                            <button id="transToggleRci" class="ran-sec-btn active" onclick="setTransSectionMode('rci')">RCI</button>
+                            <button id="transToggleUnb" class="ran-sec-btn" onclick="setTransSectionMode('unbalance')">Unbalance</button>
+                        </div>
+                        <button class="ran-btn-secondary" style="padding: 2px 7px; font-size: 11px;" onclick="enlargeChart('transition')" title="Enlarge">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
+                </div>
+                <!-- Information callout banner -->
+                <div id="transInfoBanner"></div>
+                <div id="chartTransition" class="ran-chart-box"></div>
+            </div>
+
+            <!-- Right: Behavioral / Version Breakdown -->
+            <div class="ran-card">
+                <div class="ran-card-header">
+                    <div class="ran-card-title">
+                        <i class="fas fa-pie-chart"></i>
+                        <span id="breakdownCardTitle">Aging & Contributor Behavior</span>
+                    </div>
+                    <div class="ran-section-toggle">
+                        <button id="breakdownToggleRci" class="ran-sec-btn active" onclick="setBreakdownSectionMode('rci')">RCI</button>
+                        <button id="breakdownToggleUnb" class="ran-sec-btn" onclick="setBreakdownSectionMode('unbalance')">Unbalance</button>
+                    </div>
+                </div>
+
+                <!-- Content Container (Switches between RCI Donut/Aging and Unbalance V1/V2/V3) -->
+                <div id="breakdownContentRci" style="display: flex; flex-direction: column; gap: 10px; height: 100%;">
+                    <div id="chartBehaviorDonut" style="height: 185px; width: 100%;"></div>
+
+                    <!-- 1 Row (2 Pane): AGING CATEGORY Table & Behavioral Classification -->
+                    <div class="ran-breakdown-subgrid">
+                        <!-- Left Pane: Aging Category Table -->
+                        <div class="ran-table-wrap">
+                            <table class="ran-table">
+                                <thead>
+                                    <tr>
+                                        <th>AGING CATEGORY</th>
+                                        <th style="text-align: right;"># SECTORS</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="agingTableBody">
+                                    <!-- Populated dynamically by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Right Pane: Behavioral & Aging Classification Explanation Note -->
+                        <div class="ran-aging-info" style="font-size: 10px; background: rgba(125, 125, 125, 0.05); border-radius: 6px; padding: 7px 9px; border-left: 3px solid #ea580c; line-height: 1.45; box-sizing: border-box;">
+                            <div style="font-weight: 700; color: var(--ran-text-main); margin-bottom: 3px;">
+                                <i class="fas fa-info-circle" style="color: #ea580c;"></i> Behavioral Classification:
+                            </div>
+                            <div><strong>Consecutive:</strong> Sectors needing direct optim &ge; 2 consecutive weeks</div>
+                            <div><strong>Flip-Flop:</strong> Sectors alternating between normal and optim status</div>
+                            <div><strong>New Comer:</strong> Sectors newly emerged needing optim (Aging = 0)</div>
+                            <div style="margin-top: 3px; color: var(--ran-text-muted); padding-top: 3px; border-top: 1px dashed rgba(125, 125, 125, 0.18);">
+                                <strong>Aging:</strong> Duration in optim backlog (&gt;3 Month = &gt; 12 weeks)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="breakdownContentUnb" style="display: none; flex-direction: column; gap: 10px; height: 100%;">
+                    <div id="chartVersionBar" style="height: 180px; width: 100%;"></div>
+
+                    <!-- 1 Row (2 Pane): Version Table & Methodology Rules -->
+                    <div class="ran-breakdown-subgrid">
+                        <!-- Left Pane: V1/V2/V3 Breakdown Table -->
+                        <div class="ran-table-wrap">
+                            <table class="ran-table">
+                                <thead>
+                                    <tr>
+                                        <th>VERSION</th>
+                                        <th style="text-align: right;">BALANCED</th>
+                                        <th style="text-align: right;">UNBALANCED</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="versionTableBody">
+                                    <!-- Populated dynamically by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Right Pane: V1/V2/V3 Methodology Explanation Note -->
+                        <div class="ran-version-info" style="font-size: 10px; background: rgba(125, 125, 125, 0.05); border-radius: 6px; padding: 7px 9px; border-left: 3px solid #ea580c; line-height: 1.45; box-sizing: border-box;">
+                            <div style="font-weight: 700; color: var(--ran-text-main); margin-bottom: 3px;">
+                                <i class="fas fa-info-circle" style="color: #ea580c;"></i> Methodology Rules:
+                            </div>
+                            <div><strong>V1 Unbalance:</strong> Gap PRB L1800 &amp; L2100 with threshold &gt; 30% &rarr; becomes Unbalance V1</div>
+                            <div><strong>V2 Unbalance:</strong> Gap PRB FDD (L18/L21) vs TDD (L2300 F1/F2) multi-carrier</div>
+                            <div><strong>V3 Unbalance:</strong> Throughput gap L900 vs high-capacity layers</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Regional NOP Breakdown Table Card -->
+        <div class="ran-card" style="margin-top: 14px;">
+            <div class="ran-card-header">
+                <div class="ran-card-title">
+                    <i class="fas fa-table"></i>
+                    <span id="regionalTableTitle">Regional NOP Breakdown Table</span>
+                </div>
+                <div class="ran-section-toggle">
+                    <button id="regTableToggleRci" class="ran-sec-btn active" onclick="setRegTableSectionMode('rci')">RCI</button>
+                    <button id="regTableToggleUnb" class="ran-sec-btn" onclick="setRegTableSectionMode('unbalance')">Unbalance</button>
+                </div>
+            </div>
+            <div class="ran-table-wrap">
+                <table class="ran-table" id="regionalNopTable">
+                    <thead id="regionalNopThead">
+                        <!-- Populated dynamically by JS -->
+                    </thead>
+                    <tbody id="regionalNopTbody">
+                        <!-- Populated dynamically by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 2: TREND & REGIONAL DEEP DIVE                              -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <div id="pane-trend" class="ran-tab-pane">
+        <div class="ran-grid-2col">
+            <!-- NOP Multi-Line Trend Chart -->
+            <div class="ran-card">
+                <div class="ran-card-header">
+                    <div class="ran-card-title">
+                        <i class="fas fa-project-diagram"></i>
+                        <span id="nopTrendTitle">Capacity Trend by NOP</span>
+                    </div>
+                    <div class="ran-section-toggle">
+                        <button id="nopTrendToggleRci" class="ran-sec-btn active" onclick="setNopTrendSectionMode('rci')">RCI</button>
+                        <button id="nopTrendToggleUnb" class="ran-sec-btn" onclick="setNopTrendSectionMode('unbalance')">Unbalance</button>
+                    </div>
+                </div>
+                <div id="chartNopTrend" class="ran-chart-box-lg"></div>
+            </div>
+
+            <!-- Top Contributors (Kabupaten) Horizontal Bar Chart -->
+            <div class="ran-card">
+                <div class="ran-card-header">
+                    <div class="ran-card-title">
+                        <i class="fas fa-list-ol"></i>
+                        <span id="topKabTitle">Top 10 Contributor Kabupaten</span>
+                    </div>
+                    <div class="ran-section-toggle">
+                        <button id="topKabToggleRci" class="ran-sec-btn active" onclick="setTopKabSectionMode('rci')">RCI</button>
+                        <button id="topKabToggleUnb" class="ran-sec-btn" onclick="setTopKabSectionMode('unbalance')">Unbalance</button>
+                    </div>
+                </div>
+                <div id="chartTopContributors" class="ran-chart-box-lg"></div>
+            </div>
+        </div>
+
+        <!-- Row 2 in Trend Tab: Kabupaten Deep-Dive & Issue Trajectory -->
+        <div class="ran-grid-2col" style="margin-top: 14px;">
+            <!-- Chart 3: Kabupaten Historical Drill-Down -->
+            <div class="ran-card">
+                <div class="ran-card-header">
+                    <div class="ran-card-title">
+                        <i class="fas fa-map-marked-alt"></i>
+                        <span id="kabTrendTitle">Kabupaten Historical Trend Drill-Down</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <select id="trendKabSelect" class="ran-select" onchange="onTrendKabChange()" style="padding: 3px 8px; font-size: 11px; min-width: 140px;">
+                            <!-- Populated dynamically -->
+                        </select>
+                        <div class="ran-section-toggle">
+                            <button id="kabTrendToggleRci" class="ran-sec-btn active" onclick="setKabTrendSectionMode('rci')">RCI</button>
+                            <button id="kabTrendToggleUnb" class="ran-sec-btn" onclick="setKabTrendSectionMode('unbalance')">Unbalance</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="chartKabTrend" class="ran-chart-box-lg"></div>
+            </div>
+
+            <!-- Chart 4: Methodology / Operational Domain Trajectory -->
+            <div class="ran-card">
+                <div class="ran-card-header">
+                    <div class="ran-card-title">
+                        <i class="fas fa-wave-square"></i>
+                        <span id="domainTrajectoryTitle">Domain & Issue Progression Trajectory</span>
+                    </div>
+                    <div class="ran-section-toggle">
+                        <button id="trajToggleRci" class="ran-sec-btn active" onclick="setTrajSectionMode('rci')">RCI</button>
+                        <button id="trajToggleUnb" class="ran-sec-btn" onclick="setTrajSectionMode('unbalance')">Unbalance</button>
+                    </div>
+                </div>
+                <div id="chartDomainTrajectory" class="ran-chart-box-lg"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 3: SECTOR & KABUPATEN COMPARISON TABLE                     -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <div id="pane-comparison" class="ran-tab-pane">
+
+        <!-- Table 1: NOP / Branch Level Rollup -->
+        <div class="ran-table-card">
+            <div class="ran-card-header">
+                <div class="ran-card-title">
+                    <i class="fas fa-layer-group"></i>
+                    <span>Table 1: NOP / Branch Level Comparison WoW</span>
+                </div>
+                <div class="ran-section-toggle">
+                    <button id="tab3NopToggleRci" class="ran-sec-btn active" onclick="setTab3Mode('rci')">RCI</button>
+                    <button id="tab3NopToggleUnb" class="ran-sec-btn" onclick="setTab3Mode('unbalance')">Unbalance</button>
+                </div>
+            </div>
+            <div class="ran-table-wrap">
+                <table class="ran-table">
+                    <thead>
+                        <tr>
+                            <th>Branch / NOP</th>
+                            <th style="text-align: right;">Total Sectors</th>
+                            <th style="text-align: right;" id="thTab1PrimaryCnt">Current Contrib</th>
+                            <th style="text-align: right;" id="thTab1PrimaryPct">Current %</th>
+                            <th style="text-align: right;">Prev Contrib</th>
+                            <th style="text-align: right;">Prev %</th>
+                            <th style="text-align: right;">Δ WoW</th>
+                            <th style="text-align: center;">WoW Status</th>
+                            <th style="text-align: right;">Target</th>
+                            <th style="text-align: center;">Target Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="comparisonNopTbody">
+                        <!-- Populated dynamically by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Table 2: Granular Kabupaten Level Comparison -->
+        <div class="ran-table-card">
+            <div class="ran-card-header">
+                <div class="ran-card-title">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <span>Table 2: Kabupaten Level Comparison WoW</span>
+                </div>
+                <!-- Inline Filters -->
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+                    <select id="compNopFilter" class="ran-select" onchange="onComparisonFilterChange()" style="min-width: 110px; padding: 4px 8px; font-size: 11px;">
+                        <option value="ALL">All NOPs</option>
+                        <option value="AMBON">AMBON</option>
+                        <option value="JAYAPURA">JAYAPURA</option>
+                        <option value="TIMIKA">TIMIKA</option>
+                        <option value="SORONG">SORONG</option>
+                    </select>
+                    <input type="text" id="compSearchInput" class="ran-input" placeholder="Search Kabupaten..." onkeyup="onComparisonSearch()" style="min-width: 150px; padding: 4px 8px; font-size: 11px;">
+                    <select id="compStatusFilter" class="ran-select" onchange="onComparisonFilterChange()" style="min-width: 100px; padding: 4px 8px; font-size: 11px;">
+                        <option value="ALL">All Status</option>
+                        <option value="PASS">PASS Only</option>
+                        <option value="BREACH">BREACH Only</option>
+                    </select>
+                </div>
+            </div>
+            <div class="ran-table-wrap">
+                <table class="ran-table" id="comparisonKabTable">
+                    <thead>
+                        <tr>
+                            <th onclick="sortComparisonTable('branch')" style="cursor: pointer;">Branch <span id="sortSign_branch"><i class="fas fa-sort" style="opacity: 0.35;"></i></span></th>
+                            <th onclick="sortComparisonTable('kabupaten')" style="cursor: pointer;">Kabupaten <span id="sortSign_kabupaten"><i class="fas fa-sort" style="opacity: 0.35;"></i></span></th>
+                            <th style="text-align: right;" onclick="sortComparisonTable('total_sectors')" style="cursor: pointer;">Total Sectors <span id="sortSign_total_sectors"><i class="fas fa-sort" style="opacity: 0.35;"></i></span></th>
+                            <th style="text-align: right;" id="thTab2PrimaryCnt" onclick="sortComparisonTable('primary_count')" style="cursor: pointer;">Current Contrib <span id="sortSign_primary_count"><i class="fas fa-sort" style="opacity: 0.35;"></i></span></th>
+                            <th style="text-align: right;" id="thTab2PrimaryPct" onclick="sortComparisonTable('primary_pct')" style="cursor: pointer;">Current % <span id="sortSign_primary_pct"><i class="fas fa-sort" style="opacity: 0.35;"></i></span></th>
+                            <th style="text-align: right;" onclick="sortComparisonTable('prev_count')" style="cursor: pointer;">Prev Contrib <span id="sortSign_prev_count"><i class="fas fa-sort" style="opacity: 0.35;"></i></span></th>
+                            <th style="text-align: right;" onclick="sortComparisonTable('prev_pct')" style="cursor: pointer;">Prev % <span id="sortSign_prev_pct"><i class="fas fa-sort" style="opacity: 0.35;"></i></span></th>
+                            <th style="text-align: right;" onclick="sortComparisonTable('wow_delta')" style="cursor: pointer;">Δ WoW <span id="sortSign_wow_delta"><i class="fas fa-sort" style="opacity: 0.35;"></i></span></th>
+                            <th style="text-align: center;">WoW Status</th>
+                            <th style="text-align: right;">Target</th>
+                            <th style="text-align: center;">Target Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="comparisonKabTbody">
+                        <!-- Populated dynamically by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- MODAL: DATA IMPORT                                             -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div id="ranImportModalOverlay" class="ran-modal-overlay">
+    <div class="ran-modal-box">
+        <div class="ran-modal-header">
+            <span class="ran-modal-title"><i class="fas fa-file-upload"></i> Import RCI Redsector Data</span>
+            <button class="ran-btn-secondary" onclick="closeImportModal()" style="padding: 2px 7px;">&times;</button>
+        </div>
+        <p style="font-size: 12px; color: var(--ran-text-muted); margin: 0;">
+            Upload .xlsx or .csv containing RAN Capacity data. The records will be upserted on primary keys <code>(week, region, site_id, sector_id_new, kabupaten, type)</code>.
+        </p>
+        <div class="ran-drop-zone" onclick="document.getElementById('ranImportFileInput').click()">
+            <i class="fas fa-cloud-upload-alt" style="font-size: 28px; color: var(--ran-crimson); margin-bottom: 8px;"></i>
+            <div id="ranDropZoneLabel" style="font-size: 12.5px; font-weight: 600;">Click or drag file here to upload</div>
+            <div style="font-size: 11px; color: var(--ran-text-muted); margin-top: 4px;">Accepted: .xlsx, .xls, .csv</div>
+            <input type="file" id="ranImportFileInput" style="display: none;" accept=".csv,.xlsx,.xls" onchange="onFileSelected(this)">
+        </div>
+        <div id="ranImportStatus" style="font-size: 12px; display: none;"></div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+            <button class="ran-btn-secondary" onclick="closeImportModal()">Cancel</button>
+            <button id="btnSubmitImport" class="ran-btn-primary" onclick="submitImport()">Upload & Import</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- MODAL: FULLSCREEN ENLARGE CHART                                -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div id="ranEnlargeModal" class="ran-enlarge-modal">
+    <div class="ran-enlarge-box">
+        <div class="ran-enlarge-header">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span id="ranEnlargeTitle" style="font-size: 15px; font-weight: 800; color: var(--ran-text-main);">Chart View</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button class="ran-btn-secondary" onclick="downloadEnlargedChart()"><i class="fas fa-download"></i> Save PNG</button>
+                <button class="ran-btn-secondary" onclick="closeEnlargeModal()" style="padding: 4px 10px; font-weight: bold;">&times;</button>
+            </div>
+        </div>
+        <div id="ranEnlargeContainer" class="ran-enlarge-body"></div>
+    </div>
+</div>
+
+<!-- Load ECharts CDN -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<!-- Load Dashboard JS with cache-busting -->
+<script src="{{ url_for('static', filename='js/ran_capacity_dashboard.js') }}?v=1.0.0"></script>
+{% endblock %}

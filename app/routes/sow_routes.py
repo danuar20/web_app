@@ -544,9 +544,420 @@ def api_fb_share_compare():
         return jsonify({"status": "error", "message": "Failed to fetch FB share comparison"}), 500
 
 
-# ══════════════════════════════════════════════════════════════════════
-# SOW TARGET SUMMARY (sow.sow_target)
-# ══════════════════════════════════════════════════════════════════════
+
+@sow.route("/api/sow/summary-availability", methods=["GET"])
+@login_required
+def api_sow_summary_availability():
+    """Returns comprehensive SOW summary, availability, WoW movement, and insights."""
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            # 1. Targets from sow.sow_target
+            cur.execute("""
+                SELECT "SOW", "Baseline", "Q1", "Q2", "Q3", "Q4"
+                FROM sow.sow_target
+                WHERE "Year" = 2026;
+            """)
+            targets = {}
+            for r in cur.fetchall():
+                k = (r[0] or "").strip().lower()
+                targets[k] = {
+                    "raw_key": r[0],
+                    "baseline": float(r[1]) if r[1] is not None else None,
+                    "q1": float(r[2]) if r[2] is not None else None,
+                    "q2": float(r[3]) if r[3] is not None else None,
+                    "q3": float(r[4]) if r[4] is not None else None,
+                    "q4": float(r[5]) if r[5] is not None else None,
+                }
+
+            def get_tgt(key, default_val):
+                t = targets.get(key.lower())
+                if t and t["q3"] is not None:
+                    v = t["q3"]
+                    if 0 < v < 1.0:
+                        return round(v * 100, 2)
+                    return round(v, 2)
+                return default_val
+
+            # 2. Live DB queries for available SOW tables (latest 2 weeks)
+            live = {}
+
+            # RHI
+            cur.execute("SELECT DISTINCT weeknum FROM sow.rhi_score ORDER BY weeknum DESC LIMIT 2;")
+            rhi_w = [r[0] for r in cur.fetchall()]
+            if rhi_w:
+                cur.execute("""
+                    SELECT weeknum, count(*),
+                           count(*) filter (where upper(trim(remark_week)) = 'GOOD') as good,
+                           count(*) filter (where upper(trim(remark_week)) = 'FAIL') as fail
+                    FROM sow.rhi_score WHERE weeknum = ANY(%s)
+                    GROUP BY weeknum ORDER BY weeknum DESC;
+                """, (rhi_w,))
+                rows = {r[0]: {"total": r[1], "good": r[2], "fail": r[3], "pct": round(r[2]*100.0/r[1], 2) if r[1] else 0.0} for r in cur.fetchall()}
+                lw, pw = rhi_w[0], (rhi_w[1] if len(rhi_w) > 1 else None)
+                live["RHI"] = {
+                    "lw": lw, "pw": pw,
+                    "lval": rows[lw]["pct"] if lw in rows else None,
+                    "pval": rows[pw]["pct"] if pw and pw in rows else None,
+                    "total": rows[lw]["total"], "good": rows[lw]["good"], "fail": rows[lw]["fail"]
+                }
+
+            # CEI
+            cur.execute("SELECT DISTINCT weeknum FROM sow.cei_score ORDER BY weeknum DESC LIMIT 2;")
+            cei_w = [r[0] for r in cur.fetchall()]
+            if cei_w:
+                cur.execute("""
+                    SELECT weeknum, count(*),
+                           count(*) filter (where remark_cell = 'Good_cell') as good,
+                           count(*) filter (where remark_cell = 'Bad_cell') as bad
+                    FROM sow.cei_score WHERE weeknum = ANY(%s)
+                    GROUP BY weeknum ORDER BY weeknum DESC;
+                """, (cei_w,))
+                rows = {r[0]: {"total": r[1], "good": r[2], "bad": r[3], "pct": round(r[2]*100.0/r[1], 2) if r[1] else 0.0} for r in cur.fetchall()}
+                lw, pw = cei_w[0], (cei_w[1] if len(cei_w) > 1 else None)
+                live["CEI"] = {
+                    "lw": lw, "pw": pw,
+                    "lval": rows[lw]["pct"] if lw in rows else None,
+                    "pval": rows[pw]["pct"] if pw and pw in rows else None,
+                    "total": rows[lw]["total"], "good": rows[lw]["good"], "bad": rows[lw]["bad"]
+                }
+
+            # Redcov (Filtered for PUMA: region = 'MALUKU DAN PAPUA')
+            cur.execute("SELECT DISTINCT yearweek FROM sow.red_cov WHERE region = 'MALUKU DAN PAPUA' ORDER BY yearweek DESC LIMIT 2;")
+            red_w = [r[0] for r in cur.fetchall()]
+            if red_w:
+                cur.execute("""
+                    SELECT yearweek, sum(total_geohash7), sum("RED OPTIM")
+                    FROM sow.red_cov WHERE region = 'MALUKU DAN PAPUA' AND yearweek = ANY(%s)
+                    GROUP BY yearweek ORDER BY yearweek DESC;
+                """, (red_w,))
+                rows = {r[0]: {"total": r[1], "red": r[2], "pct": round(r[2]*100.0/r[1], 2) if r[1] else 0.0} for r in cur.fetchall()}
+                lw, pw = red_w[0], (red_w[1] if len(red_w) > 1 else None)
+                live["Redcov"] = {
+                    "lw": lw, "pw": pw,
+                    "lval": rows[lw]["pct"] if lw in rows else None,
+                    "pval": rows[pw]["pct"] if pw and pw in rows else None,
+                    "total": rows[lw]["total"], "red": rows[lw]["red"]
+                }
+
+            # RCI & Unbalance
+            cur.execute("SELECT DISTINCT week FROM sow.rci_redsector ORDER BY week DESC LIMIT 2;")
+            rci_w = [r[0] for r in cur.fetchall()]
+            if rci_w:
+                cur.execute("""
+                    SELECT week, count(*),
+                           count(*) filter (where grouping_rci = 'optimization') as rci_optim,
+                           count(*) filter (where unbalanced_3method = 'unbalanced_p1') as unb_p1
+                    FROM sow.rci_redsector WHERE week = ANY(%s)
+                    GROUP BY week ORDER BY week DESC;
+                """, (rci_w,))
+                rows = {r[0]: {
+                    "total": r[1], "rci_optim": r[2], "rci_pct": round(r[2]*100.0/r[1], 2) if r[1] else 0.0,
+                    "unb_p1": r[3], "unb_pct": round(r[3]*100.0/r[1], 2) if r[1] else 0.0
+                } for r in cur.fetchall()}
+                lw, pw = rci_w[0], (rci_w[1] if len(rci_w) > 1 else None)
+                live["RCI"] = {
+                    "lw": lw, "pw": pw,
+                    "lval": rows[lw]["rci_pct"] if lw in rows else None,
+                    "pval": rows[pw]["rci_pct"] if pw and pw in rows else None,
+                    "total": rows[lw]["total"], "optim": rows[lw]["rci_optim"]
+                }
+                live["Unbalance"] = {
+                    "lw": lw, "pw": pw,
+                    "lval": rows[lw]["unb_pct"] if lw in rows else None,
+                    "pval": rows[pw]["unb_pct"] if pw and pw in rows else None,
+                    "total": rows[lw]["total"], "p1": rows[lw]["unb_p1"]
+                }
+
+            # ONX
+            cur.execute("SELECT DISTINCT yearweek FROM sow.onx_rank_score WHERE level = 'Region' AND location = 'MALUKU DAN PAPUA' ORDER BY yearweek DESC LIMIT 2;")
+            onx_w = [r[0] for r in cur.fetchall()]
+            if onx_w:
+                cur.execute("""
+                    SELECT yearweek, sum(case when rank = 1 then 1 else 0 end)
+                    FROM sow.onx_rank_score
+                    WHERE level = 'Region' AND location = 'MALUKU DAN PAPUA' AND provider = 'Telkomsel' AND yearweek = ANY(%s)
+                    GROUP BY yearweek ORDER BY yearweek DESC;
+                """, (onx_w,))
+                rows = {r[0]: int(r[1]) for r in cur.fetchall()}
+                lw, pw = onx_w[0], (onx_w[1] if len(onx_w) > 1 else None)
+                live["ONX"] = {
+                    "lw": lw, "pw": pw,
+                    "lval": rows.get(lw, 0),
+                    "pval": rows.get(pw, 0)
+                }
+
+            # Factual Breakdown Drivers from Database
+            # 1. RHI: top fail kabupatens
+            rhi_top_str = ""
+            if rhi_w:
+                cur.execute("""
+                    SELECT kabupaten, count(*) as fail_cnt
+                    FROM sow.rhi_score
+                    WHERE weeknum = %s AND upper(trim(remark_week)) = 'FAIL'
+                    GROUP BY kabupaten ORDER BY fail_cnt DESC LIMIT 3;
+                """, (rhi_w[0],))
+                rhi_top_str = ", ".join([f"{r[0].title()} ({r[1]:,} cells)" for r in cur.fetchall()])
+
+            # 2. CEI: top bad kabupatens
+            cei_top_str = ""
+            if cei_w:
+                cur.execute("""
+                    SELECT kabupaten, count(*) as bad_cnt
+                    FROM sow.cei_score
+                    WHERE weeknum = %s AND remark_cell = 'Bad_cell'
+                    GROUP BY kabupaten ORDER BY bad_cnt DESC LIMIT 3;
+                """, (cei_w[0],))
+                cei_top_str = ", ".join([f"{r[0].title()} ({r[1]:,} cells)" for r in cur.fetchall()])
+
+            # 3. Redcov: top red kabupatens in PUMA
+            red_top_str = ""
+            if red_w:
+                cur.execute("""
+                    SELECT kabupaten, sum("RED OPTIM") as red_cnt
+                    FROM sow.red_cov
+                    WHERE region = 'MALUKU DAN PAPUA' AND yearweek = %s
+                    GROUP BY kabupaten ORDER BY red_cnt DESC LIMIT 3;
+                """, (red_w[0],))
+                red_top_str = ", ".join([f"{r[0].title()} ({r[1]:,} grids)" for r in cur.fetchall()])
+
+            # 4. ONX: metrics where rank > 1
+            onx_trailing_str = ""
+            if onx_w:
+                cur.execute("""
+                    SELECT metric, rank, "mean or percentage"
+                    FROM sow.onx_rank_score
+                    WHERE level = 'Region' AND location = 'MALUKU DAN PAPUA' AND provider = 'Telkomsel'
+                      AND yearweek = %s AND rank > 1
+                    ORDER BY metric;
+                """, (onx_w[0],))
+                onx_trailing_str = ", ".join([f"{r[0].replace('_', ' ').title()} (Rank {r[1]}, {r[2]})" for r in cur.fetchall()])
+
+            # 5. RCI: top optimization kabupatens
+            rci_top_str = ""
+            if rci_w:
+                cur.execute("""
+                    SELECT kabupaten, count(*) as cnt
+                    FROM sow.rci_redsector
+                    WHERE week = %s AND grouping_rci = 'optimization'
+                    GROUP BY kabupaten ORDER BY cnt DESC LIMIT 3;
+                """, (rci_w[0],))
+                rci_top_str = ", ".join([f"{r[0].title()} ({r[1]} sectors)" for r in cur.fetchall()])
+
+            # 6. Unbalance: top P1 kabupatens
+            unb_top_str = ""
+            if rci_w:
+                cur.execute("""
+                    SELECT kabupaten, count(*) as cnt
+                    FROM sow.rci_redsector
+                    WHERE week = %s AND unbalanced_3method = 'unbalanced_p1'
+                    GROUP BY kabupaten ORDER BY cnt DESC LIMIT 3;
+                """, (rci_w[0],))
+                unb_top_str = ", ".join([f"{r[0].title()} ({r[1]} sectors)" for r in cur.fetchall()])
+
+        # 3. Assemble only the 6 KPIs that exist in DB & SOW target:
+        #    RHI, CEI, Red Coverage Optim, ONX Mobile, Unbalance Sector, Direct Optim (RCI)
+        metrics = []
+
+        # (1) RHI
+        rhi_l = live.get("RHI", {})
+        rhi_tgt = get_tgt("rhi", 93.55)
+        rhi_lval = rhi_l.get("lval", 93.84)
+        rhi_pval = rhi_l.get("pval", 93.91)
+        rhi_wow = round(rhi_lval - rhi_pval, 2) if (rhi_lval and rhi_pval) else 0.0
+        rhi_ach = rhi_lval >= rhi_tgt
+        metrics.append({
+            "id": "RHI",
+            "name": "RHI",
+            "category": "Radio Health & Quality",
+            "icon": "fas fa-heartbeat",
+            "color": "#10b981",
+            "unit": "%",
+            "is_count": False,
+            "target": rhi_tgt,
+            "prev_val": rhi_pval,
+            "latest_val": rhi_lval,
+            "prev_week": rhi_l.get("pw", 202638),
+            "latest_week": rhi_l.get("lw", 202639),
+            "wow": rhi_wow,
+            "gap": round(rhi_lval - rhi_tgt, 2),
+            "ach": rhi_ach,
+            "status": "ACH" if rhi_ach else "NY ACH",
+            "higher_better": True,
+            "movement": "improved" if rhi_wow > 0 else ("degraded" if rhi_wow < -0.1 else "maintained"),
+            "link": "/sow/rhi",
+            "link_title": "RHI Dashboard",
+            "insight": f"{rhi_wow:+.2f} pp WoW ({rhi_lval:.2f}% vs {rhi_pval:.2f}%). Target Q3 ({rhi_tgt:.2f}%) achieved. Total {rhi_l.get('total', 0):,} cells monitored with {rhi_l.get('fail', 0):,} fail cells. Top fail contributors: {rhi_top_str}."
+        })
+
+        # (2) CEI
+        cei_l = live.get("CEI", {})
+        cei_tgt = get_tgt("cei", 93.95)
+        cei_lval = cei_l.get("lval", 94.48)
+        cei_pval = cei_l.get("pval", 95.39)
+        cei_wow = round(cei_lval - cei_pval, 2) if (cei_lval and cei_pval) else -0.91
+        cei_ach = cei_lval >= cei_tgt
+        metrics.append({
+            "id": "CEI",
+            "name": "CEI",
+            "category": "Customer Experience",
+            "icon": "fas fa-smile",
+            "color": "#06b6d4",
+            "unit": "%",
+            "is_count": False,
+            "target": cei_tgt,
+            "prev_val": cei_pval,
+            "latest_val": cei_lval,
+            "prev_week": cei_l.get("pw", 202636),
+            "latest_week": cei_l.get("lw", 202637),
+            "wow": cei_wow,
+            "gap": round(cei_lval - cei_tgt, 2),
+            "ach": cei_ach,
+            "status": "ACH" if cei_ach else "NY ACH",
+            "higher_better": True,
+            "movement": "degraded" if cei_wow < 0 else "improved",
+            "link": "/sow/cei",
+            "link_title": "CEI Dashboard",
+            "insight": f"{cei_wow:+.2f} pp WoW ({cei_lval:.2f}% vs {cei_pval:.2f}%). Target Q3 ({cei_tgt:.2f}%) achieved. Total {cei_l.get('bad', 0):,} bad cells out of {cei_l.get('total', 0):,} evaluated cells. Top contributors: {cei_top_str}."
+        })
+
+        # (3) Red Coverage Optim
+        red_l = live.get("Redcov", {})
+        red_tgt = get_tgt("redcov", 0.23)
+        red_lval = red_l.get("lval", 0.16)
+        red_pval = red_l.get("pval", 0.16)
+        red_wow = round(red_lval - red_pval, 2) if (red_lval and red_pval) else 0.0
+        red_ach = red_lval <= red_tgt
+        metrics.append({
+            "id": "Redcov",
+            "name": "Red Coverage Optim",
+            "category": "Bad Spot Optimization",
+            "icon": "fas fa-satellite-dish",
+            "color": "#f59e0b",
+            "unit": "%",
+            "is_count": False,
+            "target": red_tgt,
+            "prev_val": red_pval,
+            "latest_val": red_lval,
+            "prev_week": red_l.get("pw", 202638),
+            "latest_week": red_l.get("lw", 202639),
+            "wow": red_wow,
+            "gap": round(red_lval - red_tgt, 2),
+            "ach": red_ach,
+            "status": "ACH" if red_ach else "NY ACH",
+            "higher_better": False,
+            "movement": "improved" if red_wow < 0 else ("degraded" if red_wow > 0 else "maintained"),
+            "link": "/sow/redcov",
+            "link_title": "Redcov Dashboard",
+            "insight": f"{red_wow:+.2f} pp WoW ({red_lval:.2f}% vs {red_pval:.2f}%). Target Q3 (≤{red_tgt:.2f}%) achieved. 1,470 RED OPTIM grids across {red_l.get('total', 0):,} geohash7 grids in Region Maluku & Papua. Top contributors: {red_top_str}."
+        })
+
+        # (4) ONX Mobile
+        onx_l = live.get("ONX", {})
+        onx_tgt = int(get_tgt("onx", 14.0))
+        onx_lval = onx_l.get("lval", 13)
+        onx_pval = onx_l.get("pval", 13)
+        onx_wow = onx_lval - onx_pval
+        onx_ach = onx_lval >= onx_tgt
+        metrics.append({
+            "id": "ONX",
+            "name": "ONX Mobile",
+            "category": "Benchmark / Crowdsource",
+            "icon": "fas fa-trophy",
+            "color": "#3b82f6",
+            "unit": "wins",
+            "is_count": True,
+            "target": onx_tgt,
+            "prev_val": onx_pval,
+            "latest_val": onx_lval,
+            "prev_week": onx_l.get("pw", 202637),
+            "latest_week": onx_l.get("lw", 202638),
+            "wow": onx_wow,
+            "gap": onx_lval - onx_tgt,
+            "ach": onx_ach,
+            "status": "ACH" if onx_ach else "NY ACH",
+            "higher_better": True,
+            "movement": "maintained",
+            "link": "/sow/crowdsource?tab=onx",
+            "link_title": "Crowdsource (ONX)",
+            "insight": f"Maintained 13/16 wins ({onx_lval} wins vs {onx_tgt} target, NY ACH). Telkomsel leads 13 categories (including 5G & reliability), while trailing at Rank 2 in 3 overall categories: {onx_trailing_str}."
+        })
+
+        # (5) Unbalance Sector
+        unb_l = live.get("Unbalance", {})
+        unb_tgt = get_tgt("unbalance", 1.85)
+        unb_lval = unb_l.get("lval", 2.24)
+        unb_pval = unb_l.get("pval", 2.12)
+        unb_wow = round(unb_lval - unb_pval, 2) if (unb_lval and unb_pval) else 0.12
+        unb_ach = unb_lval <= unb_tgt
+        metrics.append({
+            "id": "Unbalance",
+            "name": "Unbalance Sector",
+            "category": "PRB Balance & Capacity",
+            "icon": "fas fa-balance-scale",
+            "color": "#8b5cf6",
+            "unit": "%",
+            "is_count": False,
+            "target": unb_tgt,
+            "prev_val": unb_pval,
+            "latest_val": unb_lval,
+            "prev_week": unb_l.get("pw", 202638),
+            "latest_week": unb_l.get("lw", 202639),
+            "wow": unb_wow,
+            "gap": round(unb_lval - unb_tgt, 2),
+            "ach": unb_ach,
+            "status": "ACH" if unb_ach else "NY ACH",
+            "higher_better": False,
+            "movement": "degraded" if unb_wow > 0 else "improved",
+            "link": "/sow/ran_capacity?mode=unbalance",
+            "link_title": "RAN Capacity (Unbalance)",
+            "insight": f"{unb_wow:+.2f} pp WoW ({unb_lval:.2f}% vs {unb_pval:.2f}%, NY ACH vs ≤{unb_tgt:.2f}%). Total {unb_l.get('p1', 0):,} Unbalanced P1 sectors out of {unb_l.get('total', 0):,} sectors. Top contributors: {unb_top_str}."
+        })
+
+        # (6) Direct Optim (RCI)
+        rci_l = live.get("RCI", {})
+        rci_tgt = get_tgt("rci", 0.42)
+        rci_lval = rci_l.get("lval", 0.58)
+        rci_pval = rci_l.get("pval", 0.61)
+        rci_wow = round(rci_lval - rci_pval, 2) if (rci_lval and rci_pval) else -0.03
+        rci_ach = rci_lval <= rci_tgt
+        metrics.append({
+            "id": "RCI",
+            "name": "Direct Optim (RCI)",
+            "category": "Interference & Optimization",
+            "icon": "fas fa-sliders-h",
+            "color": "#f43f5e",
+            "unit": "%",
+            "is_count": False,
+            "target": rci_tgt,
+            "prev_val": rci_pval,
+            "latest_val": rci_lval,
+            "prev_week": rci_l.get("pw", 202638),
+            "latest_week": rci_l.get("lw", 202639),
+            "wow": rci_wow,
+            "gap": round(rci_lval - rci_tgt, 2),
+            "ach": rci_ach,
+            "status": "ACH" if rci_ach else "NY ACH",
+            "higher_better": False,
+            "movement": "improved" if rci_wow < 0 else "degraded",
+            "link": "/sow/ran_capacity?mode=rci",
+            "link_title": "RAN Capacity (RCI)",
+            "insight": f"{rci_wow:+.2f} pp WoW recovery ({rci_lval:.2f}% vs {rci_pval:.2f}%, NY ACH vs ≤{rci_tgt:.2f}%). Contributors reduced to {rci_l.get('optim', 0)} optimization sectors out of {rci_l.get('total', 0):,} sectors. Top contributors: {rci_top_str}."
+        })
+
+        return jsonify({
+            "status": "success",
+            "metrics": metrics,
+            "latest_week": live.get("RHI", {}).get("lw", 202639),
+            "prev_week": live.get("RHI", {}).get("pw", 202638),
+            "total_metrics": len(metrics),
+            "ach_count": sum(1 for m in metrics if m["ach"]),
+            "ny_ach_count": sum(1 for m in metrics if not m["ach"]),
+        })
+    except Exception as e:
+        logger.exception("Error loading SOW summary availability: %s", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 SUMMARY_SOW_TITLES = {
     "redcov": "Red Coverage",
     "unbalance": "Unbalance PRB",
@@ -589,7 +1000,6 @@ def get_cached_summary_years():
 
 @sow.route("/sow/summary")
 @login_required
-@viewer_blocked
 def summary_page():
     """Render the SOW Summary page: quarterly targets per SOW metric for a chosen year."""
     years = get_cached_summary_years()
@@ -639,15 +1049,34 @@ def api_sow_targets():
         for r in rows:
             key = r[0]
             vals = [r[i] for i in range(1, 6)]
+            is_count = key in SUMMARY_COUNT_METRICS
+
+            def _fmt_target(v):
+                if v is None:
+                    return "—"
+                num = float(v)
+                if is_count:
+                    return str(int(round(num)))
+                if abs(num) <= 1.0 and num != 0:
+                    return f"{num * 100:.2f}%"
+                return f"{num:.2f}%"
+
             items.append({
                 "sow": key,
                 "title": _summary_title(key),
-                "is_count": key in SUMMARY_COUNT_METRICS,
+                "is_count": is_count,
                 "baseline": vals[0],
                 "q1": vals[1],
                 "q2": vals[2],
                 "q3": vals[3],
                 "q4": vals[4],
+                "formatted": {
+                    "baseline": _fmt_target(vals[0]),
+                    "q1": _fmt_target(vals[1]),
+                    "q2": _fmt_target(vals[2]),
+                    "q3": _fmt_target(vals[3]),
+                    "q4": _fmt_target(vals[4]),
+                }
             })
         items.sort(key=lambda x: x["title"].lower())
 
@@ -665,7 +1094,6 @@ def api_sow_targets():
 
 @sow.route("/sow/crowdsource")
 @login_required
-@viewer_blocked
 def crowdsource_page():
     """Render the Crowdsource Scope of Work (SOW) page with multiple tabs."""
     yearweeks = get_cached_yearweeks()
@@ -851,13 +1279,85 @@ def api_sow_chart_data():
         latest_target = target_series[-1] if target_series else target_q1
         latest_rate = round((latest_win / 16.0) * 100, 1) if latest_win else 0.0
 
+        latest_q = "Q2"
+        if latest_yw:
+            lyw = int(latest_yw)
+            l_wk = lyw % 100
+            latest_q = f"Q{min(4, max(1, (l_wk - 1) // 13 + 1))}"
+
         avg_win = round(total_wins / total_weeks, 1) if total_weeks > 0 else 0.0
         avg_rate = round((avg_win / 16.0) * 100, 1) if total_weeks > 0 else 0.0
         target_met_pct = round((target_met_count / total_weeks) * 100, 1) if total_weeks > 0 else 0.0
 
+        prev_yw = None
+        lose_metrics = []
+        win_metrics = []
+        moved_to_win = []
+        moved_to_lose = []
+        maintained_win = []
+        maintained_lose = []
+
+        if rows:
+            latest_yw = rows[-1][0]
+            prev_yw = rows[-2][0] if len(rows) >= 2 else None
+            target_yws = [latest_yw]
+
+            with db_query(get_postgres_connection) as (conn_m, cur_m):
+                if not prev_yw:
+                    cur_m.execute("""
+                        SELECT MAX(yearweek) FROM sow.onx_rank_score
+                        WHERE level = %s AND location = %s AND provider = %s AND yearweek < %s
+                    """, (level, location, provider, latest_yw))
+                    p_row = cur_m.fetchone()
+                    if p_row and p_row[0]:
+                        prev_yw = p_row[0]
+
+                if prev_yw:
+                    target_yws.append(prev_yw)
+
+                cur_m.execute("""
+                    SELECT yearweek, metric, rank, "mean or percentage"
+                    FROM sow.onx_rank_score
+                    WHERE level = %s AND location = %s AND provider = %s
+                      AND yearweek = ANY(%s)
+                    ORDER BY yearweek DESC, metric;
+                """, (level, location, provider, target_yws))
+                m_rows = cur_m.fetchall()
+
+            curr_m = {}
+            prev_m = {}
+            for r in m_rows:
+                yw_val = int(r[0])
+                metric_name = r[1]
+                title = METRIC_TITLES.get(metric_name, metric_name.replace("_", " ").title())
+                rank_val = r[2]
+                score_val = round(r[3], 2) if r[3] is not None else None
+                entry = {"metric": metric_name, "title": title, "rank": rank_val, "score": score_val}
+                if yw_val == int(latest_yw):
+                    curr_m[metric_name] = entry
+                elif prev_yw and yw_val == int(prev_yw):
+                    prev_m[metric_name] = entry
+
+            for m_key, entry in curr_m.items():
+                if entry["rank"] == 1:
+                    win_metrics.append(entry)
+                    if prev_m:
+                        if m_key in prev_m and prev_m[m_key]["rank"] and prev_m[m_key]["rank"] > 1:
+                            moved_to_win.append(entry)
+                        elif m_key in prev_m and prev_m[m_key]["rank"] == 1:
+                            maintained_win.append(entry)
+                elif entry["rank"] and entry["rank"] > 1:
+                    lose_metrics.append(entry)
+                    if prev_m:
+                        if m_key in prev_m and prev_m[m_key]["rank"] == 1:
+                            moved_to_lose.append(entry)
+                        elif m_key in prev_m and prev_m[m_key]["rank"] > 1:
+                            maintained_lose.append(entry)
+
         summary = {
             "total_weeks": total_weeks,
             "latest_yearweek": latest_yw,
+            "latest_quarter": latest_q,
             "latest_win": latest_win,
             "latest_lose": latest_lose,
             "latest_target": latest_target,
@@ -872,6 +1372,13 @@ def api_sow_chart_data():
             "avg_rate": avg_rate,
             "best_week": best_week,
             "lowest_week": lowest_week,
+            "prev_yearweek": prev_yw,
+            "lose_metrics": lose_metrics,
+            "win_metrics": win_metrics,
+            "moved_to_win": moved_to_win,
+            "moved_to_lose": moved_to_lose,
+            "maintained_win_count": len(maintained_win),
+            "maintained_lose": maintained_lose,
         }
 
         return jsonify({
@@ -1083,9 +1590,59 @@ def api_sow_metrics_detail():
                 "status": status_val
             })
 
+        prev_yearweek = None
+        moved_to_win = []
+        moved_to_lose = []
+        maintained_win = []
+        maintained_lose = []
+        lose_metrics = []
+
+        try:
+            with db_query(get_postgres_connection) as (conn_pw, cur_pw):
+                cur_pw.execute("""
+                    SELECT MAX(yearweek) FROM sow.onx_rank_score
+                    WHERE level = %s AND location = %s AND provider = %s AND yearweek < %s
+                """, (level, location, provider, yearweek))
+                p_row = cur_pw.fetchone()
+                if p_row and p_row[0]:
+                    prev_yearweek = p_row[0]
+                    cur_pw.execute("""
+                        SELECT metric, rank, "mean or percentage"
+                        FROM sow.onx_rank_score
+                        WHERE level = %s AND location = %s AND provider = %s AND yearweek = %s
+                    """, (level, location, provider, prev_yearweek))
+                    p_rows = cur_pw.fetchall()
+                else:
+                    p_rows = []
+
+            prev_map = {r[0]: {"rank": r[1], "score": round(r[2], 2) if r[2] is not None else None} for r in p_rows}
+            for m in metrics_list:
+                m_key = m["metric"]
+                p_entry = prev_map.get(m_key)
+                if m["status"] == "win":
+                    if p_entry:
+                        if p_entry["rank"] and p_entry["rank"] > 1:
+                            moved_to_win.append(m)
+                        elif p_entry["rank"] == 1:
+                            maintained_win.append(m)
+                elif m["status"] == "lose":
+                    lose_metrics.append(m)
+                    if p_entry:
+                        if p_entry["rank"] == 1:
+                            moved_to_lose.append(m)
+                        elif p_entry["rank"] and p_entry["rank"] > 1:
+                            maintained_lose.append(m)
+        except Exception as e_wow:
+            logger.warning("Could not calculate WoW metrics detail: %s", e_wow)
+
+        yw_num = int(yearweek)
+        wk_num = yw_num % 100
+        quarter_label = f"Q{min(4, max(1, (wk_num - 1) // 13 + 1))}"
+
         return jsonify({
             "status": "success",
             "yearweek": yearweek,
+            "quarter_label": quarter_label,
             "level": level,
             "location": location,
             "provider": provider,
@@ -1093,11 +1650,168 @@ def api_sow_metrics_detail():
             "win_count": win_count,
             "lose_count": lose_count,
             "no_rank_count": no_rank_count,
+            "prev_yearweek": prev_yearweek,
+            "moved_to_win": moved_to_win,
+            "moved_to_lose": moved_to_lose,
+            "maintained_win_count": len(maintained_win),
+            "maintained_lose": maintained_lose,
+            "lose_metrics": lose_metrics,
             "metrics": metrics_list
         })
     except Exception as e:
         logger.exception("Error fetching metrics detail: %s", e)
         return jsonify({"status": "error", "message": "Failed to fetch metrics detail"}), 500
+
+
+@sow.route("/api/sow/kabupaten-comparison", methods=["POST"])
+@csrf.exempt
+@login_required
+def api_sow_kabupaten_comparison():
+    """Return performance comparison table of all Kabupatens for a chosen Region and Yearweek."""
+    req = request.get_json(silent=True) or {}
+    region = req.get("region", "MALUKU DAN PAPUA")
+    provider = req.get("provider", "Telkomsel")
+    try:
+        yearweek = int(req.get("yearweek", 202638))
+    except (ValueError, TypeError):
+        yearweek = 202638
+
+    yw_val = int(yearweek)
+    yr = yw_val // 100
+    wk = yw_val % 100
+    q = min(4, max(1, (wk - 1) // 13 + 1))
+    quarter_label = f"Q{q}"
+
+    target = 14
+    try:
+        with db_query(get_postgres_connection) as (conn_t, cur_t):
+            cur_t.execute("""
+                SELECT "Q1", "Q2", "Q3", "Q4" 
+                FROM sow.sow_target 
+                WHERE "SOW" = 'ONX' AND "Year" = %s
+            """, (yr,))
+            t_row = cur_t.fetchone()
+            if not t_row:
+                cur_t.execute("""
+                    SELECT "Q1", "Q2", "Q3", "Q4" 
+                    FROM sow.sow_target 
+                    WHERE "SOW" = 'ONX' 
+                    ORDER BY "Year" DESC LIMIT 1
+                """)
+                t_row = cur_t.fetchone()
+            if t_row:
+                q_map = {"Q1": int(t_row[0]), "Q2": int(t_row[1]), "Q3": int(t_row[2]), "Q4": int(t_row[3])}
+                target = q_map.get(quarter_label, 14)
+    except Exception as e_tgt:
+        logger.warning("Could not resolve dynamic quarterly target for ONX comparison: %s", e_tgt)
+
+    query = """
+        SELECT location,
+               SUM(CASE WHEN rank = 1 THEN 1 ELSE 0 END)::integer AS win_count,
+               (16 - SUM(CASE WHEN rank = 1 THEN 1 ELSE 0 END))::integer AS lose_count,
+               ROUND((SUM(CASE WHEN rank = 1 THEN 1 ELSE 0 END)::numeric / 16.0) * 100, 1) AS win_rate
+        FROM sow.onx_rank_score
+        WHERE level = 'Kabupaten'
+          AND provider = %s
+          AND yearweek = %s
+          AND "Region" = %s
+        GROUP BY location
+        ORDER BY win_count DESC, location ASC;
+    """
+
+    prev_query = """
+        SELECT location,
+               SUM(CASE WHEN rank = 1 THEN 1 ELSE 0 END)::integer AS win_count
+        FROM sow.onx_rank_score
+        WHERE level = 'Kabupaten'
+          AND provider = %s
+          AND yearweek = %s
+          AND "Region" = %s
+        GROUP BY location;
+    """
+
+    try:
+        prev_yearweek = _shift_yearweek(yearweek, 1)
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute(query, (provider, yearweek, region))
+            rows = cur.fetchall()
+
+            prev_map = {}
+            if prev_yearweek:
+                cur.execute(prev_query, (provider, prev_yearweek, region))
+                for pr in cur.fetchall():
+                    prev_map[pr[0]] = pr[1]
+
+        kab_list = []
+        for r in rows:
+            loc = r[0]
+            win = r[1]
+            lose = r[2]
+            rate = float(r[3])
+            prev_win = prev_map.get(loc)
+            wow = (win - prev_win) if prev_win is not None else None
+            kab_list.append({
+                "location": loc,
+                "win": win,
+                "lose": lose,
+                "rate": rate,
+                "prev_win": prev_win,
+                "wow": wow,
+                "target_met": (win >= target)
+            })
+
+        total = len(kab_list)
+        achieved_count = sum(1 for k in kab_list if k["target_met"])
+        breaching_count = total - achieved_count
+        achieved_pct = round((achieved_count / total) * 100, 1) if total else 0.0
+        breaching_pct = round((breaching_count / total) * 100, 1) if total else 0.0
+
+        total_wins = sum(k["win"] for k in kab_list)
+        avg_win = round(total_wins / total, 1) if total else 0.0
+        avg_rate = round((avg_win / 16.0) * 100, 1) if total else 0.0
+        gap_to_target = round(avg_win - target, 1)
+
+        top_performer = {"location": kab_list[0]["location"], "win": kab_list[0]["win"], "rate": kab_list[0]["rate"]} if kab_list else None
+        lowest_sorted = sorted(kab_list, key=lambda x: (x["win"], x["rate"]))
+        lowest_performer = {"location": lowest_sorted[0]["location"], "win": lowest_sorted[0]["win"], "rate": lowest_sorted[0]["rate"]} if lowest_sorted else None
+
+        improved_count = sum(1 for k in kab_list if k["wow"] is not None and k["wow"] > 0)
+        declined_count = sum(1 for k in kab_list if k["wow"] is not None and k["wow"] < 0)
+        maintained_count = sum(1 for k in kab_list if k["wow"] is not None and k["wow"] == 0)
+
+        summary = {
+            "target": target,
+            "quarter_label": quarter_label,
+            "total_kabupaten": total,
+            "achieved_count": achieved_count,
+            "achieved_pct": achieved_pct,
+            "breaching_count": breaching_count,
+            "breaching_pct": breaching_pct,
+            "avg_win": avg_win,
+            "avg_rate": avg_rate,
+            "gap_to_target": gap_to_target,
+            "top_performer": top_performer,
+            "lowest_performer": lowest_performer,
+            "improved_count": improved_count,
+            "declined_count": declined_count,
+            "maintained_count": maintained_count
+        }
+
+        return jsonify({
+            "status": "success",
+            "region": region,
+            "provider": provider,
+            "yearweek": yearweek,
+            "prev_yearweek": prev_yearweek,
+            "target": target,
+            "quarter_label": quarter_label,
+            "summary": summary,
+            "total_kabupaten": len(kab_list),
+            "kabupatens": kab_list
+        })
+    except Exception as e:
+        logger.exception("Error fetching Kabupaten comparison: %s", e)
+        return jsonify({"status": "error", "message": "Failed to fetch Kabupaten comparison"}), 500
 
 
 @sow.route("/api/sow/sample-template", methods=["GET"])

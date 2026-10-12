@@ -1,0 +1,1869 @@
+{% extends "base.html" %}
+
+{% block nav_sow %}active sub-open{% endblock %}
+{% block subSow_open %}open{% endblock %}
+{% block nav_sow_rhi %}active{% endblock %}
+
+{% block page_title %}SOW RHI{% endblock %}
+{% block page_sub %}Scope of Work — Radio Health Index{% endblock %}
+
+{% block topbar_chips %}
+<div class="info-chip" title="Latest Week in sow.rhi_score">
+    <i class="fas fa-calendar-check" style="color:#10b981;"></i> Latest Week: {{ latest_week }}
+</div>
+{% endblock %}
+
+{% block page_content %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<style>
+    :root, [data-theme="light"] {
+        --rhi-card-bg: #ffffff;
+        --rhi-border: #cbd5e1;
+        --rhi-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+        --rhi-primary: #0F3B66;
+        --rhi-primary-dark: #0a2540;
+        --rhi-accent: #0284c7;
+        --rhi-surface: #f8fafc;
+        --border: #cbd5e1;
+        --secondary: #f1f5f9;
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+    }
+
+    [data-theme="dark"] {
+        --rhi-card-bg: #1e293b;
+        --rhi-border: #334155;
+        --rhi-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+        --rhi-primary: #0284c7;
+        --rhi-primary-dark: #0369a1;
+        --rhi-accent: #38bdf8;
+        --rhi-surface: #0f172a;
+        --border: #334155;
+        --secondary: #0f172a;
+        --text-main: #f8fafc;
+        --text-muted: #94a3b8;
+    }
+
+    /* Force all dashboard cards, chart boxes, and containers to clean elevated styling */
+    .rhi-card,
+    .rhi-filter-card,
+    .rhi-chart-container,
+    .rhi-table-card,
+    .rhi-distrib-card,
+    .rhi-geo-stat-card,
+    .rhi-ind-card,
+    .rhi-tech-card,
+    .rhi-exec-summary-box {
+        background: var(--rhi-card-bg, #ffffff) !important;
+        border: 1px solid var(--rhi-border, #cbd5e1) !important;
+        box-shadow: var(--rhi-shadow) !important;
+    }
+
+    .rhi-container {
+        padding: 16px 20px 48px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        color: var(--text-main);
+        position: relative;
+        z-index: 1;
+    }
+
+    /* ── Tab Navigation ── */
+    .rhi-tabs {
+        display: flex;
+        gap: 8px;
+        border-bottom: 2px solid var(--border);
+        margin-bottom: 4px;
+        position: relative;
+        z-index: 2;
+    }
+
+    .rhi-tab-btn {
+        padding: 10px 22px;
+        cursor: pointer;
+        border: none;
+        background: transparent;
+        font-size: 13.5px;
+        font-weight: 700;
+        color: var(--text-muted);
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .rhi-tab-btn:hover {
+        color: var(--text-main);
+        background: rgba(0, 0, 0, 0.03);
+        border-radius: 8px 8px 0 0;
+    }
+
+    [data-theme="dark"] .rhi-tab-btn:hover {
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .rhi-tab-btn.active {
+        color: #0F3B66;
+        border-bottom-color: #0F3B66;
+    }
+
+    [data-theme="dark"] .rhi-tab-btn.active {
+        color: #38bdf8;
+        border-bottom-color: #38bdf8;
+    }
+
+    .rhi-tab-pane {
+        display: none;
+        flex-direction: column;
+        gap: 16px;
+        animation: fadeIn 0.18s ease;
+    }
+
+    .rhi-tab-pane.active {
+        display: flex;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(3px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Filter Bar ── */
+    .rhi-filter-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        position: relative;
+        z-index: 5;
+    }
+
+    .rhi-filter-controls {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+    }
+
+    .rhi-filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .rhi-filter-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .rhi-select {
+        height: 36px;
+        padding: 0 12px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #0f172a;
+        font-size: 13px;
+        font-weight: 600;
+        outline: none;
+        cursor: pointer;
+        transition: all 0.18s ease;
+    }
+
+    .rhi-select option {
+        background: #ffffff;
+        color: #0f172a;
+    }
+
+    [data-theme="dark"] .rhi-select {
+        background: #1e293b;
+        color: #f8fafc;
+        border: 1px solid #334155;
+    }
+
+    [data-theme="dark"] .rhi-select option {
+        background: #1e293b;
+        color: #f8fafc;
+    }
+
+    .rhi-select:focus {
+        border-color: #0F3B66;
+        box-shadow: 0 0 0 2px rgba(15, 59, 102, 0.15);
+    }
+
+    [data-theme="dark"] .rhi-select:focus {
+        border-color: #38bdf8;
+        box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+    }
+
+    .rhi-action-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .rhi-btn-primary {
+        background: #0F3B66;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        padding: 0 14px;
+        height: 36px;
+        font-size: 12.5px;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.18s ease;
+    }
+
+    .rhi-btn-primary:hover {
+        background: #0d2f52;
+        transform: translateY(-1px);
+    }
+
+    [data-theme="dark"] .rhi-btn-primary {
+        background: #0284c7;
+    }
+
+    [data-theme="dark"] .rhi-btn-primary:hover {
+        background: #0369a1;
+    }
+
+    .rhi-btn-secondary {
+        background: transparent;
+        color: var(--text-main);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0 12px;
+        height: 36px;
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        text-decoration: none;
+        transition: all 0.18s ease;
+    }
+
+    .rhi-btn-secondary:hover {
+        background: rgba(0, 0, 0, 0.05);
+    }
+
+    [data-theme="dark"] .rhi-btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    /* ── Top Executive Banner (Like 1st Picture with Navy Blue Palette) ── */
+    .rhi-exec-banner {
+        background: linear-gradient(135deg, #072340 0%, #0F3B66 50%, #1e4a7a 100%);
+        border-radius: 12px;
+        padding: 16px 22px;
+        color: #ffffff;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        box-shadow: 0 4px 16px rgba(15, 59, 102, 0.28);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        margin-bottom: 14px;
+    }
+
+    [data-theme="dark"] .rhi-exec-banner {
+        background: linear-gradient(135deg, #0a2540 0%, #0F3B66 55%, #0284c7 100%);
+        box-shadow: 0 4px 16px rgba(2, 132, 199, 0.2);
+    }
+
+    .rhi-exec-title-box {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .rhi-exec-title {
+        font-size: 16px;
+        font-weight: 800;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .rhi-exec-subtitle {
+        font-size: 11.5px;
+        opacity: 0.88;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .rhi-exec-kpis {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        flex-wrap: wrap;
+    }
+
+    .rhi-exec-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        border-right: 1px solid rgba(255, 255, 255, 0.22);
+        padding-right: 22px;
+    }
+
+    .rhi-exec-item:last-child {
+        border-right: none;
+        padding-right: 0;
+    }
+
+    .rhi-exec-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        opacity: 0.85;
+        letter-spacing: 0.5px;
+    }
+
+    .rhi-exec-val {
+        font-size: 22px;
+        font-weight: 800;
+        margin-top: 1px;
+        line-height: 1.1;
+    }
+
+    /* ── Layout Grid (Tab 1 Top) ── */
+    .rhi-summary-grid {
+        display: grid;
+        grid-template-columns: 330px 1fr;
+        gap: 14px;
+        align-items: stretch;
+        position: relative;
+        z-index: 1;
+    }
+
+    @media (max-width: 1100px) {
+        .rhi-summary-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .rhi-right-col {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-width: 0;
+        height: 100%;
+    }
+
+    .rhi-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px 18px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .rhi-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .rhi-card-title {
+        font-size: 13.5px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* ── Speedometer Gauge ── */
+    .rhi-gauge-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 185px;
+    }
+
+    .rhi-gauge-stats {
+        display: flex;
+        justify-content: space-around;
+        width: 100%;
+        margin-top: 6px;
+        padding-top: 8px;
+        border-top: 1px dashed var(--border);
+        text-align: center;
+    }
+
+    .rhi-stat-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .rhi-stat-num {
+        font-size: 15px;
+        font-weight: 800;
+    }
+
+    .rhi-stat-lbl {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
+
+    /* Additional Performance & WoW Insights (Like CEI) */
+    .rhi-gauge-insights {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px dashed var(--border);
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .rhi-insight-chip {
+        background: rgba(15, 59, 102, 0.03);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        text-align: center;
+    }
+
+    [data-theme="dark"] .rhi-insight-chip {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .rhi-insight-label {
+        font-size: 9.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        letter-spacing: 0.3px;
+    }
+
+    .rhi-insight-val {
+        font-size: 11.5px;
+        font-weight: 800;
+        line-height: 1.2;
+    }
+
+    /* ── Tech Health Cards Grid ── */
+    .rhi-tech-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+    }
+
+    @media (max-width: 768px) {
+        .rhi-tech-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .rhi-tech-card {
+        background: #ffffff;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .rhi-tech-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    .rhi-tech-title {
+        font-size: 12px;
+        font-weight: 700;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .rhi-tech-pct {
+        font-size: 20px;
+        font-weight: 800;
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+    }
+
+    .rhi-tech-delta {
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .rhi-tech-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 10.5px;
+        color: var(--text-muted);
+        border-top: 1px dashed var(--border);
+        padding-top: 6px;
+        margin-top: 2px;
+    }
+
+    /* ── Key Radio Indicators Grid ── */
+    .rhi-ind-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 8px;
+    }
+
+    @media (max-width: 1400px) {
+        .rhi-ind-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .rhi-ind-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    .rhi-ind-card {
+        background: #ffffff;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .rhi-ind-card-title {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .rhi-ind-value {
+        font-size: 16px;
+        font-weight: 800;
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+    }
+
+    .rhi-ind-fail-badge {
+        font-size: 10px;
+        font-weight: 600;
+        color: #ef4444;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+    }
+
+    /* ── Branch Performance Distribution Strip ── */
+    .rhi-distrib-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px 18px 14px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        flex: 1;
+    }
+
+    .rhi-distrib-wrap {
+        position: relative;
+        height: 125px;
+        margin-top: 6px;
+        margin-bottom: 2px;
+        padding: 0 16px;
+    }
+
+    .rhi-distrib-track {
+        position: absolute;
+        top: 56px;
+        left: 16px;
+        right: 16px;
+        height: 10px;
+        border-radius: 5px;
+        display: flex;
+        overflow: hidden;
+        background: #e2e8f0;
+    }
+
+    [data-theme="dark"] .rhi-distrib-track {
+        background: #334155;
+    }
+
+    .rhi-distrib-track-fail {
+        background: #fca5a5;
+        height: 100%;
+    }
+
+    [data-theme="dark"] .rhi-distrib-track-fail {
+        background: rgba(239, 68, 68, 0.4);
+    }
+
+    .rhi-distrib-track-pass {
+        background: #86efac;
+        height: 100%;
+        flex: 1;
+    }
+
+    [data-theme="dark"] .rhi-distrib-track-pass {
+        background: rgba(16, 185, 129, 0.45);
+    }
+
+    .rhi-distrib-target-line {
+        position: absolute;
+        top: 18px;
+        bottom: 59px;
+        width: 0px;
+        border-left: 2px dashed #0f172a;
+        z-index: 8;
+        transform: translateX(-50%);
+    }
+
+    [data-theme="dark"] .rhi-distrib-target-line {
+        border-left: 2px dashed #f8fafc;
+    }
+
+    .rhi-distrib-target-label {
+        position: absolute;
+        top: 0px;
+        transform: translateX(-50%);
+        font-size: 11px;
+        font-weight: 800;
+        color: #0f172a;
+        background: var(--card);
+        padding: 0 4px;
+        z-index: 10;
+        white-space: nowrap;
+        line-height: 1.2;
+    }
+
+    [data-theme="dark"] .rhi-distrib-target-label {
+        color: #f8fafc;
+    }
+
+    /* Branch (Top) */
+    .rhi-distrib-branch-top {
+        position: absolute;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        z-index: 7;
+        cursor: pointer;
+        text-align: center;
+    }
+
+    .rhi-branch-text {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        line-height: 1.15;
+        margin-bottom: 3px;
+        white-space: nowrap;
+    }
+
+    .rhi-branch-name {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+        color: #0f172a;
+    }
+
+    [data-theme="dark"] .rhi-branch-name {
+        color: #f8fafc;
+    }
+
+    .rhi-branch-val {
+        font-size: 11.5px;
+        font-weight: 800;
+    }
+
+    .rhi-branch-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        border: 2px solid #ffffff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    [data-theme="dark"] .rhi-branch-dot {
+        border-color: #1e293b;
+    }
+
+    /* PUMA (Bottom) */
+    .rhi-distrib-puma-bottom {
+        position: absolute;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        z-index: 7;
+        top: 72px;
+        white-space: nowrap;
+    }
+
+    .rhi-puma-pill {
+        font-size: 10.5px;
+        font-weight: 800;
+        padding: 2px 7px;
+        border-radius: 6px;
+        background: var(--card);
+        border: 1px solid currentColor;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+        display: flex;
+        align-items: center;
+        gap: 3px;
+    }
+
+    /* Axis Ticks */
+    .rhi-distrib-ticks {
+        position: absolute;
+        top: 68px;
+        left: 16px;
+        right: 16px;
+        height: 16px;
+        pointer-events: none;
+    }
+
+    .rhi-distrib-tick {
+        position: absolute;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-size: 9.5px;
+        font-weight: 600;
+        color: #94a3b8;
+    }
+
+    .rhi-distrib-tick-line {
+        width: 1px;
+        height: 4px;
+        background: #cbd5e1;
+        margin-bottom: 1px;
+    }
+
+    [data-theme="dark"] .rhi-distrib-tick-line {
+        background: #475569;
+    }
+
+    /* Branch Summary Mini-Cards / Chips (Horizontal 4-column row) */
+    .rhi-branch-stat-row {
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+        margin-top: 12px !important;
+        padding-top: 12px !important;
+        border-top: 1px dashed var(--border) !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    @media (max-width: 900px) {
+        .rhi-branch-stat-row {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        }
+    }
+
+    .rhi-branch-chip {
+        background: rgba(15, 59, 102, 0.03);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        box-sizing: border-box;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .rhi-branch-chip:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    [data-theme="dark"] .rhi-branch-chip {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .rhi-branch-chip-hdr {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+    }
+
+    .rhi-branch-chip-name {
+        font-size: 11.5px;
+        font-weight: 800;
+        color: var(--text-main);
+    }
+
+    .rhi-branch-chip-sub {
+        font-size: 10.5px;
+        color: var(--text-muted);
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    /* ── Middle Row 2-Pane Container (Branch Distrib & Executive Highlights) ── */
+    .rhi-mid-row-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        align-items: stretch;
+        margin-bottom: 14px;
+    }
+
+    @media (max-width: 1050px) {
+        .rhi-mid-row-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Executive Text Summary Box */
+    .rhi-exec-summary-box {
+        padding: 16px 20px;
+        border-left: 4px solid var(--rhi-primary) !important;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+    }
+
+    [data-theme="dark"] .rhi-exec-summary-box {
+        border-left-color: var(--rhi-primary) !important;
+    }
+
+    .rhi-exec-summary-title {
+        font-size: 13px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: var(--rhi-primary);
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        letter-spacing: 0.4px;
+    }
+
+    [data-theme="dark"] .rhi-exec-summary-title {
+        color: #38bdf8;
+    }
+
+    .rhi-exec-summary-list {
+        margin: 0;
+        padding-left: 0;
+        list-style: none;
+        font-size: 12px;
+        line-height: 1.65;
+        color: var(--text-main);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .rhi-exec-summary-list li {
+        position: relative;
+        padding-left: 18px;
+    }
+
+    .rhi-exec-summary-list li::before {
+        content: "▸";
+        position: absolute;
+        left: 0;
+        color: var(--rhi-primary);
+        font-weight: 800;
+        font-size: 13px;
+    }
+
+    [data-theme="dark"] .rhi-exec-summary-list li::before {
+        color: #38bdf8;
+    }
+
+    /* ── Action Icon Button (Compact 30x30) ── */
+    .rhi-btn-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-muted);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.18s ease;
+        padding: 0;
+    }
+
+    .rhi-btn-icon:hover {
+        background: rgba(15, 59, 102, 0.08);
+        color: var(--rhi-primary);
+        border-color: var(--rhi-primary);
+        transform: translateY(-1px);
+    }
+
+    [data-theme="dark"] .rhi-btn-icon:hover {
+        background: rgba(56, 189, 248, 0.12);
+        color: #38bdf8;
+        border-color: #38bdf8;
+    }
+
+    /* ── Non-Transparent, Solid Import Modal ── */
+    .rhi-import-modal-overlay {
+        display: none;
+        position: fixed;
+        z-index: 999999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.72) !important;
+        justify-content: center;
+        align-items: center;
+        backdrop-filter: blur(4px);
+    }
+
+    .rhi-import-modal-box {
+        max-width: 530px;
+        width: 92%;
+        background: #ffffff !important;
+        color: #0f172a !important;
+        border-radius: 14px;
+        padding: 24px 26px;
+        border: 1px solid #cbd5e1 !important;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35) !important;
+        position: relative;
+        z-index: 1000000;
+        opacity: 1 !important;
+    }
+
+    [data-theme="dark"] .rhi-import-modal-box {
+        background: #1e293b !important;
+        color: #f8fafc !important;
+        border-color: #334155 !important;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65) !important;
+    }
+
+    .rhi-import-drop-zone {
+        border: 2px dashed #0F3B66;
+        border-radius: 10px;
+        padding: 24px 16px;
+        text-align: center;
+        cursor: pointer;
+        background: rgba(15, 59, 102, 0.04);
+        transition: all 0.18s ease;
+    }
+
+    [data-theme="dark"] .rhi-import-drop-zone {
+        background: rgba(2, 132, 199, 0.08);
+        border-color: #0284c7;
+    }
+
+    .rhi-import-drop-zone:hover {
+        background: rgba(15, 59, 102, 0.08);
+        border-color: #0284c7;
+    }
+
+    /* ── Chart Preview Modal ── */
+    .rhi-enlarge-modal {
+        display: none;
+        position: fixed;
+        z-index: 99999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.72) !important;
+        justify-content: center;
+        align-items: center;
+        backdrop-filter: blur(4px);
+    }
+
+    .rhi-enlarge-box {
+        width: 94%;
+        max-width: 1400px;
+        height: 88vh;
+        background: #ffffff !important;
+        color: #0f172a !important;
+        border-radius: 14px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #cbd5e1 !important;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35) !important;
+    }
+
+    [data-theme="dark"] .rhi-enlarge-box {
+        background: #1e293b !important;
+        color: #f8fafc !important;
+        border-color: #334155 !important;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65) !important;
+    }
+
+    .rhi-enlarge-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Chart Container ── */
+    .rhi-chart-container {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px 18px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+
+    .rhi-chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    /* ── Tables ── */
+    .rhi-table-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px 18px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+
+    .rhi-table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+        font-size: 13.5px;
+        font-weight: 700;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .rhi-table-responsive {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .rhi-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        text-align: center;
+    }
+
+    .rhi-table th {
+        background: rgba(15, 59, 102, 0.05);
+        color: var(--text-main);
+        font-weight: 700;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        white-space: nowrap;
+    }
+
+    [data-theme="dark"] .rhi-table th {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .rhi-table td {
+        padding: 7px 10px;
+        border: 1px solid var(--border);
+        white-space: nowrap;
+    }
+
+    .rhi-table tr:hover td {
+        background: rgba(15, 59, 102, 0.03);
+    }
+
+    [data-theme="dark"] .rhi-table tr:hover td {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .rhi-table tr.row-regional td {
+        font-weight: 800;
+        background: rgba(15, 59, 102, 0.08) !important;
+    }
+
+    [data-theme="dark"] .rhi-table tr.row-regional td {
+        background: rgba(56, 189, 248, 0.12) !important;
+    }
+
+    /* Badges */
+    .badge-pass {
+        background: rgba(16, 185, 129, 0.15);
+        color: #10b981;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 11px;
+        display: inline-block;
+    }
+
+    [data-theme="dark"] .badge-pass {
+        background: rgba(16, 185, 129, 0.2);
+        color: #34d399;
+    }
+
+    .badge-fail {
+        background: rgba(239, 68, 68, 0.15);
+        color: #ef4444;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 11px;
+        display: inline-block;
+    }
+
+    [data-theme="dark"] .badge-fail {
+        background: rgba(239, 68, 68, 0.2);
+        color: #f87171;
+    }
+
+    .val-pos {
+        color: #16a34a;
+        font-weight: 700;
+    }
+
+    [data-theme="dark"] .val-pos {
+        color: #4ade80;
+    }
+
+    .val-neg {
+        color: #dc2626;
+        font-weight: 700;
+    }
+
+    [data-theme="dark"] .val-neg {
+        color: #f87171;
+    }
+
+    /* Geo Summary Stat Cards */
+    .rhi-geo-summary-bar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .rhi-geo-stat-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .rhi-geo-stat-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
+
+    .rhi-geo-stat-value {
+        font-size: 17px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+</style>
+
+<div class="rhi-container">
+    <!-- Top Tabs Navigation -->
+    <div class="rhi-tabs">
+        <button class="rhi-tab-btn active" onclick="switchRhiTab('achievement', this)">
+            <i class="fas fa-chart-line"></i> RHI Achievement
+        </button>
+        <button class="rhi-tab-btn" onclick="switchRhiTab('trend', this)">
+            <i class="fas fa-chart-bar"></i> RHI Trend & Root Causes
+        </button>
+        <button class="rhi-tab-btn" onclick="switchRhiTab('comparison', this)">
+            <i class="fas fa-exchange-alt"></i> Comparison Table
+        </button>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 1: RHI Achievement                                         -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <div id="pane-achievement" class="rhi-tab-pane active">
+        <!-- Filter Card -->
+        <div class="rhi-filter-card" style="margin-bottom: 14px;">
+            <div class="rhi-filter-controls">
+                <div class="rhi-filter-group">
+                    <label class="rhi-filter-label"><i class="fas fa-calendar-alt"></i> Trend Start Week</label>
+                    <select id="trendStartWeek" class="rhi-select" onchange="onTrendFilterChange()">
+                        {% for yw in yearweeks %}
+                        <option value="{{ yw }}" {% if yw == default_start_yw %}selected{% endif %}>W{{ (yw|string)[4:] }} ({{ yw }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="rhi-filter-group">
+                    <label class="rhi-filter-label"><i class="fas fa-calendar-check"></i> Trend End Week</label>
+                    <select id="trendEndWeek" class="rhi-select" onchange="onTrendFilterChange()">
+                        {% for yw in yearweeks %}
+                        <option value="{{ yw }}" {% if yw == default_yw %}selected{% endif %}>W{{ (yw|string)[4:] }} ({{ yw }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="rhi-filter-group">
+                    <label class="rhi-filter-label"><i class="fas fa-tachometer-alt"></i> Gauge & Indicators Week</label>
+                    <select id="gaugeWeek" class="rhi-select" onchange="onGaugeFilterChange()">
+                        {% for yw in yearweeks %}
+                        <option value="{{ yw }}" {% if yw == default_gauge_yw %}selected{% endif %}>W{{ (yw|string)[4:] }} ({{ yw }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="rhi-action-group">
+                <a href="/api/sow/rhi/sample?format=xlsx" class="rhi-btn-secondary" title="Download sample Excel template">
+                    <i class="fas fa-file-excel" style="color:#10b981;"></i> Sample XLSX
+                </a>
+                <a href="/api/sow/rhi/sample?format=csv" class="rhi-btn-secondary" title="Download sample CSV template">
+                    <i class="fas fa-file-csv" style="color:#38bdf8;"></i> Sample CSV
+                </a>
+                <button type="button" class="rhi-btn-secondary" onclick="exportSmartDashboardPNG()" title="Export Smart PNG of current dashboard view">
+                    <i class="fas fa-camera" style="color:#0284c7;"></i> Smart PNG
+                </button>
+                <button class="rhi-btn-primary" onclick="openRhiImportModal()">
+                    <i class="fas fa-file-import"></i> Import Data
+                </button>
+            </div>
+        </div>
+
+        <!-- Top Executive Performance Banner (Matching 1st Picture with Navy Blue Theme) -->
+        <div class="rhi-exec-banner" id="execBanner">
+            <div class="rhi-exec-title-box">
+                <div class="rhi-exec-title">
+                    <i class="fas fa-broadcast-tower"></i>
+                    <span>PUMA NETWORK PERFORMANCE | WEEK <span id="bannerWeekNum">{{ (default_yw|string)[4:] }}</span></span>
+                </div>
+                <div class="rhi-exec-subtitle">
+                    <span>Radio Health Index – RHI Monitoring</span>
+                    <span style="opacity:0.6;">•</span>
+                    <span id="bannerScopeBadge" style="background:rgba(255,255,255,0.2); padding:1px 7px; border-radius:4px; font-weight:700;">ALL NOPS</span>
+                </div>
+            </div>
+            <div class="rhi-exec-kpis">
+                <div class="rhi-exec-item">
+                    <span class="rhi-exec-label">Baseline</span>
+                    <span class="rhi-exec-val" id="bannerBaseline">{{ "%.2f"|format(baseline_val) }}%</span>
+                </div>
+                <div class="rhi-exec-item">
+                    <span class="rhi-exec-label" id="bannerTargetLabel">Target ({{ target_label }})</span>
+                    <span class="rhi-exec-val" id="bannerTarget">{{ "%.2f"|format(target_val) }}%</span>
+                </div>
+                <div class="rhi-exec-item">
+                    <span class="rhi-exec-label">Ach. (Good Cell %)</span>
+                    <span class="rhi-exec-val" id="bannerAch">--%</span>
+                </div>
+                <div class="rhi-exec-item">
+                    <span class="rhi-exec-label">Ach. Gap</span>
+                    <span class="rhi-exec-val" id="bannerGap" style="color:#a7f3d0;">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 1: KPI Gauge (Left) + Tech Cards & Branch Strip (Right) -->
+        <div class="rhi-summary-grid" style="margin-bottom: 14px;">
+            <!-- Left: PUMA Speedometer Gauge -->
+            <div class="rhi-card">
+                <div class="rhi-card-header">
+                    <div class="rhi-card-title">
+                        <i class="fas fa-tachometer-alt" style="color:var(--rhi-primary);"></i> Good cell PUMA
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div id="gaugeTargetBadge" class="badge-pass">Target: --%</div>
+                        <button type="button" class="rhi-btn-icon" onclick="exportChartDirectPNG('pumaGauge')" title="Save PNG">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                        <button type="button" class="rhi-btn-icon" onclick="openChartEnlargeModal('pumaGauge')" title="Maximize">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="rhi-gauge-box">
+                    <div id="pumaGaugeChart" style="width: 100%; height: 185px; min-height: 185px;"></div>
+                </div>
+                <div class="rhi-gauge-stats">
+                    <div class="rhi-stat-item">
+                        <span id="statTotalCells" class="rhi-stat-num" style="color:#0F3B66;">--</span>
+                        <span class="rhi-stat-lbl">Total Cells</span>
+                    </div>
+                    <div class="rhi-stat-item">
+                        <span id="statGoodCells" class="rhi-stat-num" style="color:#10b981;">--</span>
+                        <span class="rhi-stat-lbl">Good (<span id="statGoodPct">--%</span>)</span>
+                    </div>
+                    <div class="rhi-stat-item">
+                        <span id="statBadCells" class="rhi-stat-num" style="color:#ef4444;">--</span>
+                        <span class="rhi-stat-lbl">Fail (<span id="statBadPct">--%</span>)</span>
+                    </div>
+                </div>
+                <!-- Additional Performance & WoW Insights (Like CEI) -->
+                <div class="rhi-gauge-insights" id="gaugeInsightsRow">
+                    <div class="rhi-insight-chip">
+                        <span class="rhi-insight-label">WoW Change</span>
+                        <span id="statWowDelta" class="rhi-insight-val">--</span>
+                    </div>
+                    <div class="rhi-insight-chip">
+                        <span class="rhi-insight-label">vs Target</span>
+                        <span id="statTargetDelta" class="rhi-insight-val">--</span>
+                    </div>
+                    <div class="rhi-insight-chip">
+                        <span class="rhi-insight-label">Recover Need</span>
+                        <span id="statRecoverNeed" class="rhi-insight-val">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Technology Cards (Top) + Key Indicators Breakdown (Bottom) -->
+            <div class="rhi-right-col">
+                <!-- 3 Technology Health Cards (2G, 4G, 5G) -->
+                <div class="rhi-tech-grid" id="techCardsGrid">
+                    <!-- Injected dynamically via JS -->
+                </div>
+
+                <!-- 6 Key Radio Indicators Breakdown -->
+                <div class="rhi-card" style="padding: 12px 14px; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div class="rhi-card-header" style="margin-bottom: 8px; padding-bottom: 6px;">
+                        <div class="rhi-card-title">
+                            <i class="fas fa-layer-group" style="color:var(--rhi-primary);"></i> Key Radio Indicators Breakdown
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:11px; color:var(--text-muted);">Average score & fail cell volume</span>
+                            <button type="button" class="rhi-btn-icon" onclick="exportChartDirectPNG('indicatorMini')" title="Save PNG">
+                                <i class="fas fa-camera"></i>
+                            </button>
+                            <button type="button" class="rhi-btn-icon" onclick="openChartEnlargeModal('indicatorMini')" title="Maximize">
+                                <i class="fas fa-expand"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Mini Indicator Failure Impact Chart & Summary (Fills Empty Space from 2nd Picture) -->
+                    <div style="margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px;">
+                        <div id="indicatorImpactSummary" style="display:flex; justify-content:space-between; align-items:center; background:rgba(15,59,102,0.04); border:1px solid var(--rhi-border); border-radius:6px; padding:5px 10px; font-size:11px;">
+                            <span><i class="fas fa-info-circle" style="color:var(--rhi-primary);"></i> <strong>Failure Burden Distribution:</strong></span>
+                            <span id="indicatorImpactText" style="color:var(--text-muted);">Loading failure impact...</span>
+                        </div>
+                        <div id="indicatorMiniChart" style="width: 100%; height: 130px; min-height: 130px;"></div>
+                    </div>
+
+                    <div class="rhi-ind-grid" id="indicatorCardsGrid">
+                        <!-- Injected dynamically via JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Section 2: Middle Row 2 Panes (Branch Performance vs Target & Executive Highlights) ── -->
+        <div class="rhi-mid-row-grid">
+            <!-- Left Pane: Branch Performance Distribution vs Target -->
+            <div class="rhi-card rhi-distrib-card" id="branchDistribCard">
+                <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <div style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                            <i class="fas fa-sliders-h" style="color:var(--rhi-primary);"></i>
+                            <span>Branch Performance Distribution vs Target</span>
+                        </div>
+                        <div id="distribQuarterBadge" style="font-size:11px; font-weight:600; color:var(--text-muted);">Target Q3: 93.55%</div>
+                    </div>
+                    <div class="rhi-distrib-wrap" id="branchDistribWrap">
+                        <!-- Rendered dynamically via JS -->
+                    </div>
+                </div>
+                <div class="rhi-branch-stat-row" id="branchStatRow">
+                    <!-- 4 branch chips rendered dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- Right Pane: Executive Performance Highlights & Insights (Executive Summary) -->
+            <div class="rhi-card rhi-exec-summary-box">
+                <div class="rhi-exec-summary-title">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>Executive Performance Highlights</span>
+                    <span id="execPassBadge" class="badge-pass" style="margin-left:auto; font-size:10.5px;">PASS TARGET</span>
+                </div>
+                <ul class="rhi-exec-summary-list" id="execBulletsList" style="flex:1;">
+                    <li>Loading performance highlights...</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- ── Section 3: Full-Width Chart Panels (1 Pane Each!) ── -->
+        <div style="display:flex; flex-direction:column; gap:16px;">
+            <!-- Chart Panel 1: RHI Trend Achievement (1 Pane!) -->
+            <div class="rhi-chart-container">
+                <div class="rhi-chart-header">
+                    <div>
+                        <div class="rhi-card-title">
+                            <i class="fas fa-chart-bar" style="color:var(--rhi-primary);"></i> RHI Trend Achievement
+                        </div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+                            Stacked Bars = Good & Fail Cells (Volume) · Line = % Good Cell Achievement · Dashed Line = Quarterly Target Pass
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div id="achTargetInfo" style="font-size:12px; font-weight:700; color:var(--text-muted); margin-right:4px;">
+                            Target Pass: --%
+                        </div>
+                        <button type="button" class="rhi-btn-icon" onclick="exportChartDirectPNG('achievement')" title="Save PNG">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                        <button type="button" class="rhi-btn-icon" onclick="openChartEnlargeModal('achievement')" title="Maximize">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="achievementChart" style="height: 380px; min-height: 380px; width: 100%;"></div>
+            </div>
+
+            <!-- Chart Panel 2: Achievement RHI Puma (Fail per Tech) (1 Pane!) -->
+            <div class="rhi-chart-container">
+                <div class="rhi-chart-header">
+                    <div>
+                        <div class="rhi-card-title">
+                            <i class="fas fa-layer-group" style="color:var(--rhi-primary);"></i> Achievement RHI Puma (Fail per Tech)
+                        </div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+                            Stacked Bars = Fail Cells per Tech (2G / 4G / 5G) with Value Labels · Curve = Overall Ach % · Dashed Line = Target RHI PUMA %
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <button type="button" class="rhi-btn-icon" onclick="exportChartDirectPNG('failTech')" title="Save PNG">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                        <button type="button" class="rhi-btn-icon" onclick="openChartEnlargeModal('failTech')" title="Maximize">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="failTechChart" style="height: 380px; min-height: 380px; width: 100%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 2: RHI Trend & Root Causes                                 -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <div id="pane-trend" class="rhi-tab-pane">
+        <!-- Top Combo Charts: Multi-Tech Trend + Top Fail Root Causes -->
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 14px; margin-bottom: 14px;">
+            <!-- Tech Trend Line Chart -->
+            <div class="rhi-chart-container">
+                <div class="rhi-chart-header">
+                    <div class="rhi-card-title">
+                        <i class="fas fa-chart-line" style="color:var(--rhi-primary);"></i> Technology Trend (% Good Cell)
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <button type="button" class="rhi-btn-icon" onclick="exportChartDirectPNG('techTrend')" title="Save PNG">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                        <button type="button" class="rhi-btn-icon" onclick="openChartEnlargeModal('techTrend')" title="Maximize">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="techTrendChart" style="height: 320px; min-height: 320px; width: 100%;"></div>
+            </div>
+
+            <!-- Top Fail Root Causes Chart -->
+            <div class="rhi-chart-container">
+                <div class="rhi-chart-header">
+                    <div class="rhi-card-title">
+                        <i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i> Top Fail Root Causes
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <button type="button" class="rhi-btn-icon" onclick="exportChartDirectPNG('failReason')" title="Save PNG">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                        <button type="button" class="rhi-btn-icon" onclick="openChartEnlargeModal('failReason')" title="Maximize">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="failReasonChart" style="height: 320px; min-height: 320px; width: 100%;"></div>
+            </div>
+        </div>
+
+        <!-- Filter Card for Geo Breakdown -->
+        <div class="rhi-filter-card" style="margin-bottom: 14px;">
+            <div class="rhi-filter-controls">
+                <div class="rhi-filter-group">
+                    <label class="rhi-filter-label"><i class="fas fa-map-marker-alt"></i> Kabupaten</label>
+                    <select id="geoKabupaten" class="rhi-select" onchange="onGeoKabChange()"></select>
+                </div>
+                <div class="rhi-filter-group">
+                    <label class="rhi-filter-label"><i class="fas fa-map-pin"></i> Kecamatan</label>
+                    <select id="geoKecamatan" class="rhi-select" onchange="loadGeoTrend()"></select>
+                </div>
+                <div class="rhi-filter-group">
+                    <label class="rhi-filter-label"><i class="fas fa-broadcast-tower"></i> Technology</label>
+                    <select id="geoTech" class="rhi-select" onchange="loadGeoTrend()">
+                        <option value="all">All Tech</option>
+                        <option value="4g">4G Only</option>
+                        <option value="2g">2G Only</option>
+                        <option value="5g">5G Only</option>
+                    </select>
+                </div>
+                <button class="rhi-btn-primary" onclick="loadGeoTrend()" style="height:36px; margin-top:14px;">
+                    <i class="fas fa-sync"></i> Refresh Geo Trend
+                </button>
+            </div>
+        </div>
+
+        <!-- Geo Summary Row -->
+        <div id="geoSummaryContainer" class="rhi-geo-summary-bar" style="margin-bottom: 14px;">
+            <!-- Dynamic summary cards -->
+        </div>
+
+        <!-- Geo % Good Cell Trend vs Target -->
+        <div class="rhi-chart-container">
+            <div class="rhi-chart-header">
+                <div class="rhi-card-title">
+                    <i class="fas fa-map-marked-alt" style="color:var(--rhi-primary);"></i> % Good Cell Trend vs Target
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <button type="button" class="rhi-btn-icon" onclick="exportChartDirectPNG('geoGoodPct')" title="Save PNG">
+                        <i class="fas fa-camera"></i>
+                    </button>
+                    <button type="button" class="rhi-btn-icon" onclick="openChartEnlargeModal('geoGoodPct')" title="Maximize">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="geoGoodPctChart" style="height: 320px; min-height: 320px; width: 100%;"></div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 3: Comparison Table (WoW Comparison)                       -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <div id="pane-comparison" class="rhi-tab-pane">
+        <!-- Filter Card -->
+        <div class="rhi-filter-card" style="margin-bottom: 14px;">
+            <div class="rhi-filter-controls">
+                <div class="rhi-filter-group">
+                    <label class="rhi-filter-label"><i class="fas fa-calendar-check"></i> Select Comparison Week</label>
+                    <select id="compWeek" class="rhi-select" onchange="loadComparison(); loadKabupatenComparison();">
+                        {% for yw in yearweeks %}
+                        <option value="{{ yw }}" {% if yw == default_yw %}selected{% endif %}>W{{ (yw|string)[4:] }} ({{ yw }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div id="compTargetDisplay" style="font-size:12px; font-weight:700; margin-top:18px;" class="badge-pass">
+                    Target: --%
+                </div>
+            </div>
+            <div class="rhi-action-group">
+                <a id="btnExportCompCsv" href="/api/sow/rhi/export" class="rhi-btn-secondary" title="Export CSV">
+                    <i class="fas fa-file-csv" style="color:#38bdf8;"></i> Export CSV
+                </a>
+                <button class="rhi-btn-primary" onclick="loadComparison(); loadKabupatenComparison();">
+                    <i class="fas fa-sync"></i> Refresh Comparison
+                </button>
+            </div>
+        </div>
+
+        <!-- Table 1: RHI Table Achievement (NOP Level WoW) -->
+        <div class="rhi-table-card" style="margin-bottom: 18px;">
+            <div class="rhi-table-header">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-table" style="color:var(--rhi-primary);"></i>
+                    <span>RHI Table Achievement (NOP Level)</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div id="compWeekLabel" style="font-size:12px; font-weight:600; color:var(--text-muted);"></div>
+                    <button type="button" class="rhi-btn-secondary" style="height:30px; padding:0 10px; font-size:11.5px;" onclick="exportNopTableXLSX()" title="Export NOP Table as styled Excel">
+                        <i class="fas fa-file-excel" style="color:#10b981;"></i> XLSX
+                    </button>
+                </div>
+            </div>
+            <div class="rhi-table-responsive">
+                <table class="rhi-table" id="nopTable">
+                    <thead>
+                        <tr>
+                            <th rowspan="2" style="vertical-align:middle;">NOP</th>
+                            <th rowspan="2" style="vertical-align:middle;">Target</th>
+                            <th colspan="4" id="thPrevWeek">Previous Week</th>
+                            <th colspan="4" id="thCurrWeek">Current Week</th>
+                            <th rowspan="2" style="vertical-align:middle;">Δ Target</th>
+                            <th rowspan="2" style="vertical-align:middle;">Δ WoW</th>
+                            <th rowspan="2" style="vertical-align:middle;">Target Status</th>
+                            <th rowspan="2" style="vertical-align:middle;">WoW Status</th>
+                        </tr>
+                        <tr>
+                            <th>Total</th>
+                            <th>Good</th>
+                            <th>Fail</th>
+                            <th>Ach %</th>
+                            <th>Total</th>
+                            <th>Good</th>
+                            <th>Fail</th>
+                            <th>Ach %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Rows injected via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Table 2: Tech & Root Causes Comparison Table WoW -->
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 14px; margin-bottom: 18px;">
+            <!-- Tech WoW -->
+            <div class="rhi-table-card">
+                <div class="rhi-table-header">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-broadcast-tower" style="color:var(--rhi-primary);"></i>
+                        <span>Technology Health WoW</span>
+                    </div>
+                    <button type="button" class="rhi-btn-secondary" style="height:28px; padding:0 8px; font-size:11px;" onclick="exportTechTableXLSX()" title="Export Tech Table as styled Excel">
+                        <i class="fas fa-file-excel" style="color:#10b981;"></i> XLSX
+                    </button>
+                </div>
+                <div class="rhi-table-responsive">
+                    <table class="rhi-table" id="techTable">
+                        <thead>
+                            <tr>
+                                <th>Tech</th>
+                                <th>Prev Total</th>
+                                <th>Prev %</th>
+                                <th>Curr Total</th>
+                                <th>Curr %</th>
+                                <th>Δ WoW</th>
+                                <th>Remark</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Rows injected via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Root Causes WoW -->
+            <div class="rhi-table-card">
+                <div class="rhi-table-header">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i>
+                        <span>Top Fail Root Causes WoW</span>
+                    </div>
+                    <button type="button" class="rhi-btn-secondary" style="height:28px; padding:0 8px; font-size:11px;" onclick="exportReasonTableXLSX()" title="Export Root Causes Table as styled Excel">
+                        <i class="fas fa-file-excel" style="color:#10b981;"></i> XLSX
+                    </button>
+                </div>
+                <div class="rhi-table-responsive">
+                    <table class="rhi-table" id="reasonTable">
+                        <thead>
+                            <tr>
+                                <th style="text-align:left; padding-left:12px;">Root Cause</th>
+                                <th>Before</th>
+                                <th>After</th>
+                                <th>Delta</th>
+                                <th>Delta (%)</th>
+                                <th>Remark</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Rows injected via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table 3: Kabupaten Level Comparison Table WoW -->
+        <div class="rhi-table-card">
+            <div class="rhi-table-header">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-map-marked-alt" style="color:#0F3B66;"></i>
+                    <span>Kabupaten Level Comparison Table WoW</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:11px; font-weight:700; color:var(--text-muted);">Branch:</span>
+                        <select id="kabFilterBranch" class="rhi-select" style="height:32px; font-size:12px; min-width:115px;" onchange="loadKabupatenComparison()">
+                            <option value="ALL">All Branches</option>
+                            <option value="AMBON">AMBON</option>
+                            <option value="JAYAPURA">JAYAPURA</option>
+                            <option value="SORONG">SORONG</option>
+                            <option value="TIMIKA">TIMIKA</option>
+                        </select>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:11px; font-weight:700; color:var(--text-muted);">Tech:</span>
+                        <select id="kabFilterTech" class="rhi-select" style="height:32px; font-size:12px; min-width:105px;" onchange="loadKabupatenComparison()">
+                            <option value="ALL">All Tech</option>
+                            <option value="4g">4G</option>
+                            <option value="2g">2G</option>
+                            <option value="5g">5G</option>
+                        </select>
+                    </div>
+                    <input type="text" id="kabSearchInput" placeholder="Search Kabupaten..." class="rhi-select" style="height:32px; font-size:12px; min-width:145px;" oninput="filterKabupatenTable()">
+                    <button type="button" class="rhi-btn-secondary" style="height:32px; padding:0 10px; font-size:11.5px;" onclick="exportKabupatenTableXLSX()" title="Export Kabupaten Table as styled Excel">
+                        <i class="fas fa-file-excel" style="color:#10b981;"></i> XLSX
+                    </button>
+                </div>
+            </div>
+            <div class="rhi-table-responsive">
+                <table class="rhi-table" id="kabupatenTable">
+                    <thead>
+                        <tr>
+                            <th>Branch</th>
+                            <th style="text-align:left; padding-left:14px;">Kabupaten</th>
+                            <th>Target</th>
+                            <th>W-1 Ach</th>
+                            <th>W Ach</th>
+                            <th>Δ Target</th>
+                            <th>Δ WoW</th>
+                            <th>Target Status</th>
+                            <th>WoW Status</th>
+                            <th>Total Cells</th>
+                            <th>Good Cells</th>
+                            <th>Fail Cells</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Rows injected via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- Import Modal (Solid, Non-Transparent)                         -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div id="rhiImportModal" class="rhi-import-modal-overlay">
+    <div class="rhi-import-modal-box">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+            <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-file-import" style="color:var(--rhi-primary);"></i> Import RHI Data
+            </h3>
+            <span class="close" onclick="closeRhiImportModal()" style="cursor:pointer; font-size:1.5rem; color:var(--text-muted); line-height:1;" title="Close">&times;</span>
+        </div>
+        <div>
+            <div style="margin-bottom:14px;">
+                <label style="display:block; margin-bottom:6px; font-size:12px; font-weight:700; text-transform:uppercase; color:var(--text-muted);">Upload RHI File (.xlsx or .csv)</label>
+                <div class="rhi-import-drop-zone"
+                     onclick="document.getElementById('rhiFileInput').click();"
+                     id="rhiDropZone">
+                    <i class="fas fa-cloud-upload-alt" style="font-size:34px; color:var(--rhi-primary); margin-bottom:8px;"></i>
+                    <p style="margin:0; font-size:13px; font-weight:700; color:var(--text-main);">Click to browse or drag & drop file</p>
+                    <p style="margin:4px 0 0; font-size:11px; color:var(--text-muted);">Supports Excel (.xlsx, .xls) and CSV</p>
+                    <input type="file" id="rhiFileInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleRhiFileSelect(this)">
+                </div>
+                <div id="rhiFilePreview" style="margin-top:10px; display:none; padding:10px 14px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.25); border-radius:8px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-file-alt" style="color:#10b981;"></i>
+                        <span id="rhiFileName" style="font-size:12px; font-weight:700; color:var(--text-main); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+                    </div>
+                </div>
+            </div>
+            <div id="rhiImportAlert" style="display:none; padding:10px 14px; border-radius:8px; font-size:12px; font-weight:600; margin-bottom:14px;"></div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; border-top:1px solid var(--border); padding-top:14px;">
+            <button type="button" class="rhi-btn-secondary" onclick="closeRhiImportModal()">Cancel</button>
+            <button type="button" class="rhi-btn-primary" id="btnSubmitRhiImport" onclick="submitRhiImport()" disabled>
+                <i class="fas fa-upload"></i> Upload & Import
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- Chart Modal Popup                                             -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div id="chartEnlargeModal" class="rhi-enlarge-modal">
+    <div class="rhi-enlarge-box">
+        <div class="rhi-enlarge-header">
+            <div>
+                <h3 id="enlargeModalTitle" style="margin:0; font-size:16px; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:8px;"></h3>
+                <div id="enlargeModalSubtitle" style="font-size:11.5px; color:var(--text-muted); margin-top:3px;"></div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <button type="button" class="rhi-btn-primary" onclick="downloadPopupChartPNG()" style="height:32px; padding:0 12px; font-size:12px;" title="Save high-resolution PNG">
+                    <i class="fas fa-camera"></i> Save PNG
+                </button>
+                <span class="close" onclick="closeChartEnlargeModal()" style="cursor:pointer; font-size:1.6rem; color:var(--text-muted); line-height:1;" title="Close">&times;</span>
+            </div>
+        </div>
+        <div id="enlargedChartContainer" style="width:100%; flex:1; min-height:400px;"></div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/rhi_dashboard.js') }}?v=1.0"></script>
+{% endblock %}

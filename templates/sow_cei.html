@@ -1,167 +1,1799 @@
 {% extends "base.html" %}
 
-{% block nav_sow_cei %}active{% endblock %}
+{% block nav_sow %}active sub-open{% endblock %}
 {% block subSow_open %}open{% endblock %}
+{% block nav_sow_cei %}active{% endblock %}
 
-{% block content %}
-<div class="page-body">
-    <div class="topbar">
-        <div class="topbar-left">
-            <div class="topbar-title">CEI Dashboard</div>
-            <div class="topbar-sub">Crowdsource Experience Index — PUMA Region</div>
-        </div>
-        <div class="topbar-right">
-            <select class="f-select" id="weekSelector" onchange="loadDashboard()">
-                {% for yw in yearweeks %}
-                <option value="{{ yw }}" {% if yw == default_yw %}selected{% endif %}>W{{ yw|string|slice(4,6) }} {{ yw|string|slice(0,4) }}</option>
-                {% endfor %}
-            </select>
-        </div>
+{% block page_title %}SOW CEI{% endblock %}
+{% block page_sub %}Scope of Work — Customer Experience Index{% endblock %}
+
+{% block topbar_chips %}
+<div class="info-chip" title="Latest Week in sow.cei_score">
+    <i class="fas fa-calendar-check" style="color:#10b981;"></i> Latest Week: {{ latest_week }}
+</div>
+{% endblock %}
+
+{% block page_content %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+
+<style>
+    :root, [data-theme="light"] {
+        --cei-card-bg: #ffffff;
+        --cei-border: rgba(0, 0, 0, 0.08);
+        --cei-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    [data-theme="dark"] {
+        --cei-card-bg: #1e293b;
+        --cei-border: rgba(255, 255, 255, 0.1);
+        --cei-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    }
+
+    /* Force all dashboard cards, chart boxes, and containers to pure white in light mode */
+    .cei-card,
+    .cei-filter-card,
+    .cei-chart-container,
+    .cei-table-card,
+    .cei-distrib-card,
+    .cei-geo-stat-card,
+    .cei-kqi-card,
+    .cei-kqi-chart-card {
+        background: var(--cei-card-bg, #ffffff) !important;
+        border: 1px solid var(--cei-border, rgba(0, 0, 0, 0.08)) !important;
+        box-shadow: var(--cei-shadow) !important;
+    }
+
+    .cei-container {
+        padding: 16px 20px 48px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        color: var(--text-main);
+        position: relative;
+        z-index: 1;
+    }
+
+    /* ── Tab Navigation ── */
+    .cei-tabs {
+        display: flex;
+        gap: 8px;
+        border-bottom: 2px solid var(--border);
+        margin-bottom: 4px;
+        position: relative;
+        z-index: 2;
+    }
+
+    .cei-tab-btn {
+        padding: 10px 22px;
+        cursor: pointer;
+        border: none;
+        background: transparent;
+        font-size: 13.5px;
+        font-weight: 700;
+        color: var(--text-muted);
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .cei-tab-btn:hover {
+        color: var(--text-main);
+        background: rgba(0, 0, 0, 0.03);
+        border-radius: 8px 8px 0 0;
+    }
+
+    [data-theme="dark"] .cei-tab-btn:hover {
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .cei-tab-btn.active {
+        color: #0F3B66;
+        border-bottom-color: #0F3B66;
+    }
+
+    [data-theme="dark"] .cei-tab-btn.active {
+        color: #38bdf8;
+        border-bottom-color: #38bdf8;
+    }
+
+    .cei-tab-pane {
+        display: none;
+        animation: ceiFadeIn 0.2s ease;
+        position: relative;
+        z-index: 1;
+    }
+
+    .cei-tab-pane.active {
+        display: block;
+    }
+
+    @keyframes ceiFadeIn {
+        from { opacity: 0; transform: translateY(2px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Filter Card ── */
+    /* ── Top Executive Banner (Matching Image e7b7ff with Theme #0F3B66) ── */
+    .cei-exec-banner {
+        background: linear-gradient(90deg, #09233D 0%, #0F3B66 55%, #18528C 100%);
+        border-radius: 12px;
+        padding: 16px 24px;
+        color: #ffffff;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        box-shadow: 0 4px 16px rgba(15, 59, 102, 0.28);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        margin-bottom: 14px;
+    }
+
+    [data-theme="dark"] .cei-exec-banner {
+        background: linear-gradient(90deg, #07192b 0%, #0c2d4d 55%, #13406b 100%);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    .cei-exec-title-box {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .cei-exec-title {
+        font-size: 17px;
+        font-weight: 800;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #ffffff;
+    }
+
+    .cei-exec-subtitle {
+        font-size: 11.5px;
+        opacity: 0.88;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .cei-exec-kpis {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+
+    .cei-exec-item {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        border-right: 1px solid rgba(255, 255, 255, 0.22);
+        padding-right: 20px;
+    }
+
+    .cei-exec-item:last-child {
+        border-right: none;
+        padding-right: 0;
+    }
+
+    .cei-exec-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        opacity: 0.85;
+        letter-spacing: 0.5px;
+        color: rgba(255, 255, 255, 0.85);
+    }
+
+    .cei-exec-val {
+        font-size: 24px;
+        font-weight: 800;
+        line-height: 1.15;
+        color: #ffffff;
+    }
+
+    /* ── Filter Card ── */
+    .cei-filter-card {
+        padding: 14px 18px;
+        border-radius: 12px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 14px;
+        flex-wrap: wrap;
+        background: var(--card);
+        border: 1px solid var(--border);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        position: relative;
+        z-index: 5;
+    }
+
+    .cei-filter-controls {
+        display: flex;
+        align-items: flex-end;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .cei-filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .cei-filter-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+    }
+
+    .cei-select {
+        height: 36px;
+        padding: 4px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--text-main);
+        font-size: 13px;
+        font-weight: 600;
+        min-width: 155px;
+        outline: none;
+        cursor: pointer;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    [data-theme="light"] .cei-select {
+        background: #ffffff;
+        color: #0f172a;
+        border: 1px solid #cbd5e1;
+    }
+
+    [data-theme="dark"] .cei-select {
+        background: #1e293b;
+        color: #f8fafc;
+        border: 1px solid #334155;
+    }
+
+    .cei-select:focus, .cei-select:hover {
+        border-color: #0F3B66;
+    }
+
+    [data-theme="dark"] .cei-select:focus, [data-theme="dark"] .cei-select:hover {
+        border-color: #38bdf8;
+    }
+
+    .cei-select option {
+        background: var(--card);
+        color: var(--text-main);
+        padding: 6px;
+    }
+
+    [data-theme="light"] .cei-select option {
+        background: #ffffff;
+        color: #0f172a;
+    }
+
+    [data-theme="dark"] .cei-select option {
+        background: #1e293b;
+        color: #f8fafc;
+    }
+
+    /* ── Action Buttons ── */
+    .cei-action-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .cei-btn-primary {
+        height: 36px;
+        padding: 0 14px;
+        border-radius: 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+        background: #0F3B66;
+        color: #ffffff;
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        transition: all 0.18s ease;
+    }
+
+    .cei-btn-primary:hover {
+        background: #145DA0;
+        box-shadow: 0 2px 8px rgba(15, 59, 102, 0.3);
+    }
+
+    .cei-btn-secondary {
+        height: 36px;
+        padding: 0 12px;
+        border-radius: 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+        border: 1px solid var(--border);
+        background: var(--secondary);
+        color: var(--text-main);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.18s ease;
+    }
+
+    .cei-btn-secondary:hover {
+        background: rgba(0, 0, 0, 0.05);
+    }
+
+    [data-theme="dark"] .cei-btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    /* ── Layout Grid (Tab 1 Top) ── */
+    .cei-summary-grid {
+        display: grid;
+        grid-template-columns: 330px 1fr;
+        gap: 14px;
+        align-items: stretch;
+        position: relative;
+        z-index: 1;
+    }
+
+    @media (max-width: 1100px) {
+        .cei-summary-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .cei-right-col {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-width: 0;
+    }
+
+    .cei-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px 18px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .cei-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .cei-card-title {
+        font-size: 13.5px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* ── Gauge ── */
+    .cei-gauge-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 185px;
+    }
+
+    .cei-gauge-stats {
+        display: flex;
+        justify-content: space-around;
+        width: 100%;
+        margin-top: 6px;
+        padding-top: 8px;
+        border-top: 1px dashed var(--border);
+        text-align: center;
+    }
+
+    .cei-stat-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .cei-stat-num {
+        font-size: 15px;
+        font-weight: 800;
+    }
+
+    .cei-stat-lbl {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
+
+    /* Additional Performance & WoW Insights */
+    .cei-gauge-insights {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px dashed var(--border);
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .cei-insight-chip {
+        background: rgba(15, 59, 102, 0.03);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        text-align: center;
+    }
+
+    [data-theme="dark"] .cei-insight-chip {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .cei-insight-label {
+        font-size: 9.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        letter-spacing: 0.3px;
+    }
+
+    .cei-insight-val {
+        font-size: 11.5px;
+        font-weight: 800;
+        line-height: 1.2;
+    }
+
+    /* ── 7 KQIs Colorful Grid ── */
+    .cei-kqi-grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    @media (max-width: 1400px) {
+        .cei-kqi-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .cei-kqi-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    .cei-kqi-card {
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-top: 3px solid #0F3B66;
+        border-radius: 10px;
+        padding: 9px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+        min-width: 0;
+    }
+
+    [data-theme="dark"] .cei-kqi-card {
+        background: #1e293b;
+    }
+
+    .cei-kqi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    }
+
+    .cei-kqi-name {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-main);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .cei-kqi-val {
+        font-size: 17px;
+        font-weight: 800;
+        line-height: 1.2;
+    }
+
+    .cei-kqi-sub {
+        font-size: 9.5px;
+        color: var(--text-muted);
+        white-space: nowrap;
+    }
+
+    .cei-kqi-impact {
+        margin-top: 3px;
+        padding-top: 3px;
+        border-top: 1px dashed var(--border);
+        font-size: 9.5px;
+        color: var(--text-muted);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    /* ── Branch Performance Distribution Strip (Matching RHI Subpage) ── */
+    .cei-distrib-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px 18px 14px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .cei-distrib-wrap {
+        position: relative;
+        height: 125px;
+        margin-top: 6px;
+        margin-bottom: 2px;
+        padding: 0 16px;
+    }
+
+    .cei-distrib-track {
+        position: absolute;
+        top: 56px;
+        left: 16px;
+        right: 16px;
+        height: 10px;
+        border-radius: 5px;
+        display: flex;
+        overflow: hidden;
+        background: #e2e8f0;
+    }
+
+    [data-theme="dark"] .cei-distrib-track {
+        background: #334155;
+    }
+
+    .cei-distrib-track-fail {
+        background: #fca5a5;
+        height: 100%;
+    }
+
+    [data-theme="dark"] .cei-distrib-track-fail {
+        background: rgba(239, 68, 68, 0.4);
+    }
+
+    .cei-distrib-track-pass {
+        background: #86efac;
+        height: 100%;
+        flex: 1;
+    }
+
+    [data-theme="dark"] .cei-distrib-track-pass {
+        background: rgba(16, 185, 129, 0.45);
+    }
+
+    .cei-distrib-target-line {
+        position: absolute;
+        top: 18px;
+        bottom: 59px;
+        width: 0px;
+        border-left: 2px dashed #0f172a;
+        z-index: 8;
+        transform: translateX(-50%);
+    }
+
+    [data-theme="dark"] .cei-distrib-target-line {
+        border-left: 2px dashed #f8fafc;
+    }
+
+    .cei-distrib-target-label {
+        position: absolute;
+        top: 0px;
+        transform: translateX(-50%);
+        font-size: 11px;
+        font-weight: 800;
+        color: #0f172a;
+        background: var(--card);
+        padding: 0 4px;
+        z-index: 10;
+        white-space: nowrap;
+        line-height: 1.2;
+    }
+
+    [data-theme="dark"] .cei-distrib-target-label {
+        color: #f8fafc;
+    }
+
+    /* Branch (Top) */
+    .cei-distrib-branch-top {
+        position: absolute;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        z-index: 7;
+        cursor: pointer;
+        text-align: center;
+    }
+
+    .cei-branch-text {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        line-height: 1.15;
+        margin-bottom: 3px;
+        white-space: nowrap;
+    }
+
+    .cei-branch-name {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+        color: #0f172a;
+    }
+
+    [data-theme="dark"] .cei-branch-name {
+        color: #f8fafc;
+    }
+
+    .cei-branch-val {
+        font-size: 11.5px;
+        font-weight: 800;
+    }
+
+    .cei-branch-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        border: 2px solid #ffffff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    [data-theme="dark"] .cei-branch-dot {
+        border-color: #1e293b;
+    }
+
+    /* PUMA (Bottom) */
+    .cei-distrib-puma-bottom {
+        position: absolute;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        z-index: 7;
+        top: 72px;
+        white-space: nowrap;
+    }
+
+    .cei-puma-pill {
+        font-size: 10.5px;
+        font-weight: 800;
+        padding: 2px 7px;
+        border-radius: 6px;
+        background: var(--card);
+        border: 1px solid currentColor;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+        display: flex;
+        align-items: center;
+        gap: 3px;
+    }
+
+    /* Axis Ticks */
+    .cei-distrib-ticks {
+        position: absolute;
+        top: 68px;
+        left: 16px;
+        right: 16px;
+        height: 16px;
+        pointer-events: none;
+    }
+
+    .cei-distrib-tick {
+        position: absolute;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-size: 9.5px;
+        font-weight: 600;
+        color: #94a3b8;
+    }
+
+    .cei-distrib-tick-line {
+        width: 1px;
+        height: 4px;
+        background: #cbd5e1;
+        margin-bottom: 1px;
+    }
+
+    [data-theme="dark"] .cei-distrib-tick-line {
+        background: #475569;
+    }
+
+    /* Branch Summary Mini-Cards / Chips (Horizontal 4-column row) */
+    .cei-branch-stat-row {
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+        margin-top: 12px !important;
+        padding-top: 12px !important;
+        border-top: 1px dashed var(--border) !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    @media (max-width: 900px) {
+        .cei-branch-stat-row {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        }
+    }
+
+    .cei-branch-chip {
+        background: rgba(15, 59, 102, 0.03);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        box-sizing: border-box;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .cei-branch-chip:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    [data-theme="dark"] .cei-branch-chip {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .cei-branch-chip-hdr {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+    }
+
+    .cei-branch-chip-name {
+        font-size: 11.5px;
+        font-weight: 800;
+        color: var(--text-main);
+    }
+
+    .cei-branch-chip-sub {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 10.5px;
+        color: var(--text-muted);
+    }
+
+    /* ── Middle Row 2-Pane Container (Distribution & Executive Summary) ── */
+    .cei-mid-row-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        align-items: stretch;
+    }
+
+    @media (max-width: 1050px) {
+        .cei-mid-row-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .cei-exec-summary-box {
+        padding: 16px 20px;
+        border-left: 4px solid #0F3B66 !important;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        background: var(--cei-card-bg, #ffffff) !important;
+    }
+
+    [data-theme="dark"] .cei-exec-summary-box {
+        border-left-color: #38bdf8 !important;
+    }
+
+    .cei-exec-summary-title {
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: #0F3B66;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        letter-spacing: 0.3px;
+    }
+
+    [data-theme="dark"] .cei-exec-summary-title {
+        color: #38bdf8;
+    }
+
+    .cei-exec-summary-list {
+        margin: 0;
+        padding-left: 0;
+        list-style: none;
+        font-size: 11.5px;
+        line-height: 1.55;
+        color: var(--text-main);
+    }
+
+    .cei-exec-summary-list li {
+        margin-bottom: 7px;
+        position: relative;
+        padding-left: 16px;
+    }
+
+    .cei-exec-summary-list li::before {
+        content: "•";
+        position: absolute;
+        left: 2px;
+        top: 0px;
+        color: #0F3B66;
+        font-size: 15px;
+        line-height: 1.2;
+    }
+
+    [data-theme="dark"] .cei-exec-summary-list li::before {
+        color: #38bdf8;
+    }
+
+    /* ── Segmented Controls ── */
+    .cei-seg-group {
+        display: inline-flex;
+        background: var(--secondary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 2px;
+    }
+
+    .cei-seg-btn {
+        padding: 4px 10px;
+        font-size: 11px;
+        font-weight: 700;
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .cei-seg-btn.active {
+        background: #0F3B66;
+        color: #ffffff;
+    }
+
+    [data-theme="dark"] .cei-seg-btn.active {
+        background: #38bdf8;
+        color: #0f172a;
+    }
+
+    /* ── Chart Containers ── */
+    .cei-chart-container {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px 18px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        width: 100%;
+        position: relative;
+        z-index: 1;
+    }
+
+    .cei-chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    /* ── Tables (Tab 3) ── */
+    .cei-table-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        position: relative;
+        z-index: 1;
+    }
+
+    .cei-table-header {
+        padding: 12px 16px;
+        font-size: 13.5px;
+        font-weight: 700;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .cei-table-responsive {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .cei-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12.5px;
+        text-align: center;
+    }
+
+    .cei-table th {
+        background: rgba(0, 0, 0, 0.03);
+        padding: 9px 12px;
+        font-weight: 700;
+        border: 1px solid var(--border);
+        color: var(--text-main);
+        white-space: nowrap;
+    }
+
+    [data-theme="dark"] .cei-table th {
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .cei-table td {
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        white-space: nowrap;
+    }
+
+    .cei-table tr:hover td {
+        background: rgba(0, 0, 0, 0.015);
+    }
+
+    [data-theme="dark"] .cei-table tr:hover td {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .row-puma td {
+        background: rgba(15, 59, 102, 0.07) !important;
+        font-weight: 700 !important;
+    }
+
+    [data-theme="dark"] .row-puma td {
+        background: rgba(56, 189, 248, 0.1) !important;
+    }
+
+    /* ── Badges & Text Highlights ── */
+    .badge-pass {
+        background: #dcfce7;
+        color: #15803d;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 700;
+        display: inline-block;
+    }
+
+    [data-theme="dark"] .badge-pass {
+        background: rgba(34, 197, 94, 0.2);
+        color: #4ade80;
+    }
+
+    .badge-fail {
+        background: #fee2e2;
+        color: #b91c1c;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 700;
+        display: inline-block;
+    }
+
+    [data-theme="dark"] .badge-fail {
+        background: rgba(239, 68, 68, 0.2);
+        color: #f87171;
+    }
+
+    .val-pos {
+        color: #16a34a;
+        font-weight: 700;
+    }
+
+    [data-theme="dark"] .val-pos {
+        color: #4ade80;
+    }
+
+    .val-neg {
+        color: #dc2626;
+        font-weight: 700;
+    }
+
+    [data-theme="dark"] .val-neg {
+        color: #f87171;
+    }
+
+    .highlight-degrade {
+        background: rgba(239, 68, 68, 0.08) !important;
+    }
+
+    /* ── Geo Summary Stat Cards ── */
+    .cei-geo-summary-bar {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 10px;
+        position: relative;
+        z-index: 1;
+    }
+
+    @media (max-width: 1350px) {
+        .cei-geo-summary-bar {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 768px) {
+        .cei-geo-summary-bar {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    .cei-geo-stat-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .cei-geo-stat-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
+
+    .cei-geo-stat-value {
+        font-size: 17px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    /* ── Geo 7 KQIs Grid (4 Columns) ── */
+    .cei-geo-kqi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    @media (max-width: 1300px) {
+        .cei-geo-kqi-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 650px) {
+        .cei-geo-kqi-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .cei-kqi-chart-card {
+        background: #ffffff !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 12px;
+        padding: 14px 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-width: 0;
+        width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+
+    [data-theme="dark"] .cei-kqi-chart-card {
+        background: #1e293b !important;
+    }
+</style>
+
+<div class="cei-container">
+    <!-- Top Tabs Navigation -->
+    <div class="cei-tabs">
+        <button class="cei-tab-btn active" onclick="switchCeiTab('achievement', this)">
+            <i class="fas fa-chart-line"></i> CEI Achievement
+        </button>
+        <button class="cei-tab-btn" onclick="switchCeiTab('trend', this)">
+            <i class="fas fa-map-marked-alt"></i> CEI Trend
+        </button>
+        <button class="cei-tab-btn" onclick="switchCeiTab('comparison', this)">
+            <i class="fas fa-exchange-alt"></i> Comparison Table
+        </button>
     </div>
 
-    <!-- Section 1: KPI Summary & Gauge -->
-    <div class="card" style="margin: 20px;">
-        <div id="summaryRow" class="kpi-grid">
-            <!-- Populated by JS -->
-        </div>
-        <div id="gaugeContainer" style="height: 100px; margin-top: 20px; position: relative;">
-            <!-- Populated by ECharts -->
-        </div>
-    </div>
-
-    <!-- Section 2: KQI Cards -->
-    <div class="card" style="margin: 0 20px 20px;">
-        <div class="table-card-header">
-            <div class="card-title">7 KQI, rata-rata hari hit per bad cell</div>
-            <div class="view-toggle">
-                <button class="view-toggle-btn active" onclick="setKqiFilter('bad', this)">Bad cell</button>
-                <button class="view-toggle-btn" onclick="setKqiFilter('good', this)">Good cell</button>
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 1: CEI Achievement                                         -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <div id="pane-achievement" class="cei-tab-pane active">
+        <!-- Filter Card -->
+        <div class="cei-filter-card" id="ceiFilterCard" style="margin-bottom: 14px;">
+            <div class="cei-filter-controls">
+                <div class="cei-filter-group">
+                    <label class="cei-filter-label"><i class="fas fa-calendar-alt"></i> Trend Start Week</label>
+                    <select id="trendStartWeek" class="cei-select" onchange="onTrendFilterChange()">
+                        {% for yw in yearweeks_asc %}
+                        <option value="{{ yw }}" {% if yw == default_start_yw %}selected{% endif %}>W{{ (yw|string)[4:] }} ({{ yw }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="cei-filter-group">
+                    <label class="cei-filter-label"><i class="fas fa-calendar-check"></i> Trend End Week</label>
+                    <select id="trendEndWeek" class="cei-select" onchange="onTrendFilterChange()">
+                        {% for yw in yearweeks %}
+                        <option value="{{ yw }}" {% if yw == default_yw %}selected{% endif %}>W{{ (yw|string)[4:] }} ({{ yw }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="cei-filter-group">
+                    <label class="cei-filter-label"><i class="fas fa-tachometer-alt"></i> Gauge & 7 KQIs Week</label>
+                    <select id="gaugeWeek" class="cei-select" onchange="onGaugeFilterChange()">
+                        {% for yw in yearweeks %}
+                        <option value="{{ yw }}" {% if yw == default_gauge_yw %}selected{% endif %}>W{{ (yw|string)[4:] }} ({{ yw }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="cei-action-group">
+                <a href="/api/sow/cei/sample?format=xlsx" class="cei-btn-secondary" title="Download sample Excel template">
+                    <i class="fas fa-file-excel" style="color:#10b981;"></i> Sample XLSX
+                </a>
+                <a href="/api/sow/cei/sample?format=csv" class="cei-btn-secondary" title="Download sample CSV template">
+                    <i class="fas fa-file-csv" style="color:#38bdf8;"></i> Sample CSV
+                </a>
+                <button type="button" class="cei-btn-secondary" onclick="openSmartPngModal()" title="Export Presentation-Ready PNG">
+                    <i class="fas fa-camera" style="color:#0284c7;"></i> Smart PNG
+                </button>
+                <button class="cei-btn-primary" onclick="openCeiImportModal()">
+                    <i class="fas fa-file-import"></i> Import Data
+                </button>
             </div>
         </div>
-        <div id="kqiGrid" class="kpi-grid" style="padding: 15px;">
-            <!-- Populated by JS -->
+
+        <!-- Executive Banner (PUMA NETWORK PERFORMANCE — Located after the filter, before 7 KQIs Breakdown) -->
+        <div class="cei-exec-banner" id="execBanner" data-capture="banner" style="margin-bottom: 14px;">
+            <div class="cei-exec-title-box">
+                <div class="cei-exec-title">
+                    <i class="fas fa-broadcast-tower"></i>
+                    <span>PUMA NETWORK PERFORMANCE | WEEK <span id="bannerWeekNum">{{ (default_yw|string)[4:] }}</span></span>
+                </div>
+                <div class="cei-exec-subtitle">
+                    <span>Customer Experience Index Monitoring</span>
+                    <span style="opacity:0.6;">•</span>
+                    <span id="bannerScopeBadge" style="background:rgba(255,255,255,0.2); padding:1px 8px; border-radius:4px; font-weight:700; font-size:10.5px; letter-spacing:0.4px;">ALL NOPS</span>
+                </div>
+            </div>
+            <div class="cei-exec-kpis">
+                <div class="cei-exec-item">
+                    <span class="cei-exec-label">BASELINE</span>
+                    <span class="cei-exec-val" id="bannerBaseline">92.51%</span>
+                </div>
+                <div class="cei-exec-item">
+                    <span class="cei-exec-label" id="bannerTargetLabel">TARGET (TARGET Q3)</span>
+                    <span class="cei-exec-val" id="bannerTarget">93.95%</span>
+                </div>
+                <div class="cei-exec-item">
+                    <span class="cei-exec-label">ACH. (% GOOD CELL)</span>
+                    <span class="cei-exec-val" id="bannerAch">--%</span>
+                </div>
+                <div class="cei-exec-item">
+                    <span class="cei-exec-label">ACH. GAP</span>
+                    <span class="cei-exec-val" id="bannerGap" style="color:#6ee7b7;">-- pp</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 1: 7 KQIs Breakdown Colorful Grid -->
+        <div class="cei-card" style="padding: 14px 18px; margin-bottom: 14px;">
+            <div class="cei-card-header" style="margin-bottom: 10px; padding-bottom: 8px;">
+                <div class="cei-card-title">
+                    <i class="fas fa-layer-group" style="color:#0F3B66;"></i> 7 KQIs Breakdown
+                </div>
+                <div class="cei-seg-group">
+                    <button id="btnKqiBad" class="cei-seg-btn active" onclick="setKqiCellFilter('bad')">Bad Cells</button>
+                    <button id="btnKqiGood" class="cei-seg-btn" onclick="setKqiCellFilter('good')">Good Cells</button>
+                    <button id="btnKqiAll" class="cei-seg-btn" onclick="setKqiCellFilter('all')">All Cells</button>
+                </div>
+            </div>
+            <div class="cei-kqi-grid" id="kqiCardsGrid" data-capture="kqi">
+                <!-- Injected dynamically via JS -->
+            </div>
+        </div>
+
+        <!-- Section 2: 2-Pane Analytics — Good Cell PUMA Gauge (Left) & Branch Performance & Cell Volume Contribution (Right) -->
+        <div class="cei-summary-grid" data-capture="gauges" style="margin-bottom: 14px; grid-template-columns: 360px 1fr;">
+            <!-- Left Pane: PUMA Gauge & Performance Insights -->
+            <div class="cei-card">
+                <div class="cei-card-header">
+                    <div class="cei-card-title">
+                        <i class="fas fa-tachometer-alt" style="color:#0F3B66;"></i> Good cell PUMA
+                    </div>
+                    <div id="gaugeTargetBadge" class="badge-pass">Target: --%</div>
+                </div>
+                <div class="cei-gauge-box">
+                    <div id="pumaGaugeChart" style="width: 100%; height: 185px; min-height: 185px;"></div>
+                </div>
+                <div class="cei-gauge-stats">
+                    <div class="cei-stat-item">
+                        <span id="statTotalCells" class="cei-stat-num" style="color:#0F3B66;">--</span>
+                        <span class="cei-stat-lbl">Total Cells</span>
+                    </div>
+                    <div class="cei-stat-item">
+                        <span id="statGoodCells" class="cei-stat-num" style="color:#10b981;">--</span>
+                        <span class="cei-stat-lbl">Good (<span id="statGoodPct">--%</span>)</span>
+                    </div>
+                    <div class="cei-stat-item">
+                        <span id="statBadCells" class="cei-stat-num" style="color:#ef4444;">--</span>
+                        <span class="cei-stat-lbl">Bad (<span id="statBadPct">--%</span>)</span>
+                    </div>
+                </div>
+                <!-- Additional Performance & WoW Insights -->
+                <div class="cei-gauge-insights" id="gaugeInsightsRow">
+                    <div class="cei-insight-chip">
+                        <span class="cei-insight-label">WoW Change</span>
+                        <span id="statWowDelta" class="cei-insight-val">--</span>
+                    </div>
+                    <div class="cei-insight-chip">
+                        <span class="cei-insight-label">vs Target</span>
+                        <span id="statTargetDelta" class="cei-insight-val">--</span>
+                    </div>
+                    <div class="cei-insight-chip">
+                        <span class="cei-insight-label">Recover Need</span>
+                        <span id="statRecoverNeed" class="cei-insight-val">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Pane: Branch Performance & Contribution Combo Chart -->
+            <div class="cei-card">
+                <div class="cei-card-header">
+                    <div class="cei-card-title">
+                        <i class="fas fa-chart-pie" style="color:#0F3B66;"></i> Branch Performance & Cell Volume Contribution
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="font-size:11px; color:var(--text-muted); font-weight:600;">
+                            Focus Week: <span id="branchContribWeekLbl" style="color:#0F3B66; font-weight:700;">--</span>
+                        </div>
+                        <button type="button" class="cei-btn-secondary" style="height:28px; padding:0 8px; font-size:11px;" onclick="openChartEnlargeModal('branchContrib')" title="Enlarge Chart">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="branchContribChart" style="height: 290px; min-height: 290px; width: 100%;"></div>
+            </div>
+        </div>
+
+        <!-- Section 3: 1 Row (2 Panes) — Branch Performance Distribution (Left) & Executive Summary (Right) -->
+        <div class="cei-mid-row-grid" data-capture="insights" style="margin-bottom: 14px;">
+            <!-- Left Pane: Branch Performance Distribution vs Target -->
+            <div class="cei-distrib-card" id="branchDistribCard" style="min-height: 240px; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                            <i class="fas fa-sliders-h" style="color:#0F3B66;"></i>
+                            <span>Branch Performance Distribution vs Target</span>
+                        </div>
+                        <div id="distribQuarterBadge" style="font-size:11px; font-weight:600; color:var(--text-muted);">Target Q3: 93.95%</div>
+                    </div>
+                    <div class="cei-distrib-wrap" id="branchDistribWrap">
+                        <!-- Rendered dynamically via JS -->
+                    </div>
+                </div>
+                <div class="cei-branch-stat-row" id="branchStatRow">
+                    <!-- 4 branch chips rendered dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- Right Pane: Executive Summary & Insights Box -->
+            <div class="cei-card cei-exec-summary-box" style="min-height: 240px;">
+                <div class="cei-exec-summary-title">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>Executive Summary & Insights</span>
+                </div>
+                <ul class="cei-exec-summary-list" id="execBulletsList" style="flex:1;">
+                    <li>Loading executive summary...</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Section 4: Chart 1 — CEI Trend Achievement (Ref 1, ordered BEFORE KQI Trend) -->
+        <div class="cei-chart-container" data-capture="charts" style="margin-bottom: 14px;">
+            <div class="cei-chart-header">
+                <div class="cei-card-title">
+                    <i class="fas fa-chart-bar" style="color:#0F3B66;"></i> CEI Trend Achievement
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div id="achTargetInfo" style="font-size:12px; font-weight:700; color:var(--text-muted);">
+                        Target Pass: --%
+                    </div>
+                    <button type="button" class="cei-btn-secondary" style="height:28px; padding:0 8px; font-size:11px;" onclick="openChartEnlargeModal('achievement')" title="Enlarge Chart">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="achievementChart" style="height: 380px; min-height: 380px; width: 100%;"></div>
+        </div>
+
+        <!-- Section 5: Chart 2 — KQI Trend & % Good Cell (Ref 3) -->
+        <div class="cei-chart-container" data-capture="charts">
+            <div class="cei-chart-header">
+                <div>
+                    <div class="cei-card-title">
+                        <i class="fas fa-chart-area" style="color:#0F3B66;"></i> KQI Trend & % Good Cell
+                    </div>
+                    <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+                        Bars = total hit days per KQI; line shows regional % good cell. Click legend to show or hide series.
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:11px; font-weight:700; color:var(--text-muted);">Bars:</span>
+                        <div class="cei-seg-group">
+                            <button id="btnMetricTotalDays" class="cei-seg-btn active" onclick="setTrendMetricType('total_days')">Total hit days</button>
+                            <button id="btnMetricCellCount" class="cei-seg-btn" onclick="setTrendMetricType('cell_count')">Hit cell count</button>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:11px; font-weight:700; color:var(--text-muted);">From:</span>
+                        <div class="cei-seg-group">
+                            <button id="btnTrendBad" class="cei-seg-btn active" onclick="setTrendCellFilter('bad')">Bad cells</button>
+                            <button id="btnTrendGood" class="cei-seg-btn" onclick="setTrendCellFilter('good')">Good cells</button>
+                            <button id="btnTrendAll" class="cei-seg-btn" onclick="setTrendCellFilter('all')">All cells</button>
+                        </div>
+                    </div>
+                    <a id="btnExportTrendCsv" href="#" class="cei-btn-secondary" style="height:30px; padding:0 10px; font-size:11.5px;" onclick="exportCurrentTrend('csv')">
+                        <i class="fas fa-file-csv" style="color:#38bdf8;"></i> CSV
+                    </a>
+                    <button type="button" class="cei-btn-secondary" style="height:30px; padding:0 9px; font-size:11.5px;" onclick="openChartEnlargeModal('trendChart')" title="Enlarge Chart">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="trendChart" style="height: 380px; min-height: 380px; width: 100%;"></div>
         </div>
     </div>
 
-    <!-- Section 3: Trend -->
-    <div class="card" style="margin: 0 20px 20px;">
-        <div class="table-card-header">
-            <div class="card-title">Tren KQI & % good cell</div>
-            <div class="chart-action-btn" onclick="exportData()"><i class="fas fa-file-csv"></i></div>
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 2: CEI Trend (Geo Location & 7 KQI Trends)                 -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <div id="pane-trend" class="cei-tab-pane">
+        <!-- Filter Card -->
+        <div class="cei-filter-card" style="margin-bottom: 14px;">
+            <div class="cei-filter-controls">
+                <div class="cei-filter-group">
+                    <label class="cei-filter-label"><i class="fas fa-map-marker-alt"></i> Kabupaten</label>
+                    <select id="geoKabupaten" class="cei-select" onchange="onGeoKabChange()"></select>
+                </div>
+                <div class="cei-filter-group">
+                    <label class="cei-filter-label"><i class="fas fa-map-pin"></i> Kecamatan</label>
+                    <select id="geoKecamatan" class="cei-select" onchange="loadGeoTrend()"></select>
+                </div>
+                <div class="cei-filter-group">
+                    <label class="cei-filter-label"><i class="fas fa-filter"></i> Cell Filter</label>
+                    <select id="geoCellFilter" class="cei-select" onchange="loadGeoTrend()">
+                        <option value="bad">Bad Cell Only</option>
+                        <option value="good">Good Cell Only</option>
+                        <option value="all">All Cells</option>
+                    </select>
+                </div>
+                <div class="cei-filter-group">
+                    <label class="cei-filter-label"><i class="fas fa-calculator"></i> Metric Type</label>
+                    <select id="geoMetricType" class="cei-select" onchange="loadGeoTrend()">
+                        <option value="avg">Avg Hit Days / Cell</option>
+                        <option value="total_days">Total Hit Days</option>
+                        <option value="cell_count">Affected Cell Count</option>
+                    </select>
+                </div>
+                <button class="cei-btn-primary" onclick="loadGeoTrend()" style="height:36px;">
+                    <i class="fas fa-sync"></i> Refresh
+                </button>
+            </div>
         </div>
-        <div class="chart-wrap" id="trendChartWrap" style="height: 400px;">
-            <canvas id="trendChart"></canvas>
+
+        <!-- Geo Summary Row -->
+        <div id="geoSummaryContainer" class="cei-geo-summary-bar" style="margin-bottom: 14px;">
+            <!-- Dynamic summary cards -->
+        </div>
+
+        <!-- Top Combo Chart for Geo % Good Cell vs Target -->
+        <div class="cei-chart-container" data-capture="charts" style="margin-bottom: 14px;">
+            <div class="cei-chart-header">
+                <div class="cei-card-title">
+                    <i class="fas fa-chart-line" style="color:#0F3B66;"></i> % Good Cell Trend vs Target
+                </div>
+                <button type="button" class="cei-btn-secondary" style="height:28px; padding:0 8px; font-size:11px;" onclick="openChartEnlargeModal('geoGoodPct')" title="Enlarge Chart">
+                    <i class="fas fa-expand"></i>
+                </button>
+            </div>
+            <div id="geoGoodPctChart" style="height: 300px; min-height: 300px; width: 100%;"></div>
+        </div>
+
+        <!-- 7 KQI Trend Grid (Symmetrical 4-Column Grid) -->
+        <div style="margin-bottom: 14px;">
+            <div style="font-size:14px; font-weight:700; display:flex; align-items:center; gap:8px; margin-bottom:10px; color:var(--text-main);">
+                <i class="fas fa-th-large" style="color:#0F3B66;"></i> 7 KQIs Trend Breakdown
+            </div>
+            <div id="geoKqiGrid" class="cei-geo-kqi-grid">
+                <!-- 8 cards injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 3: Comparison Table (WoW Comparison)                       -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <div id="pane-comparison" class="cei-tab-pane">
+        <!-- Filter Card -->
+        <div class="cei-filter-card" style="margin-bottom: 14px;">
+            <div class="cei-filter-controls">
+                <div class="cei-filter-group">
+                    <label class="cei-filter-label"><i class="fas fa-calendar-check"></i> Select Comparison Week</label>
+                    <select id="compWeek" class="cei-select" onchange="loadComparison(); loadKabupatenComparison();">
+                        {% for yw in yearweeks %}
+                        <option value="{{ yw }}" {% if yw == default_yw %}selected{% endif %}>W{{ (yw|string)[4:] }} ({{ yw }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div id="compTargetDisplay" style="font-size:12px; font-weight:700; margin-bottom:4px;" class="badge-pass">
+                    Target: --%
+                </div>
+            </div>
+            <div class="cei-action-group">
+                <button class="cei-btn-primary" onclick="loadComparison(); loadKabupatenComparison();">
+                    <i class="fas fa-sync"></i> Refresh Comparison
+                </button>
+            </div>
+        </div>
+
+        <!-- Table 1: CEI Table Achievement (Matching Ref 2) -->
+        <div class="cei-table-card" style="margin-bottom: 18px;">
+            <div class="cei-table-header">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-table" style="color:#0F3B66;"></i>
+                    <span>CEI Table Achievement</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div id="compWeekLabel" style="font-size:12px; font-weight:600; color:var(--text-muted);"></div>
+                    <button type="button" class="cei-btn-secondary" style="height:30px; padding:0 10px; font-size:11.5px;" onclick="exportComparisonTableXlsx('nopTable', 'CEI_Table_Achievement')" title="Export Table to Excel">
+                        <i class="fas fa-file-excel" style="color:#10b981;"></i> Export XLSX
+                    </button>
+                </div>
+            </div>
+            <div class="cei-table-responsive">
+                <table class="cei-table" id="nopTable">
+                    <thead>
+                        <tr>
+                            <th rowspan="2" style="vertical-align:middle;">NOP</th>
+                            <th rowspan="2" style="vertical-align:middle;">Target</th>
+                            <th colspan="4" id="thPrevWeek">Previous Week</th>
+                            <th colspan="4" id="thCurrWeek">Current Week</th>
+                            <th rowspan="2" style="vertical-align:middle;">Δ Target</th>
+                            <th rowspan="2" style="vertical-align:middle;">Δ WoW</th>
+                            <th rowspan="2" style="vertical-align:middle;">Target Status</th>
+                            <th rowspan="2" style="vertical-align:middle;">WoW Status</th>
+                        </tr>
+                        <tr>
+                            <th>Total</th>
+                            <th>Good</th>
+                            <th>Bad</th>
+                            <th>Ach %</th>
+                            <th>Total</th>
+                            <th>Good</th>
+                            <th>Bad</th>
+                            <th>Ach %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Rows injected via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Table 2: 7 KQI Comparison Table WoW (Matching Ref 3) -->
+        <div class="cei-table-card" style="margin-bottom: 18px;">
+            <div class="cei-table-header">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-list-ol" style="color:#0F3B66;"></i>
+                    <span>7 KQI Comparison Table WoW</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <span style="font-size:11px; font-weight:700; color:var(--text-muted);">Branch:</span>
+                        <select id="kqiFilterBranch" class="cei-select" style="height:30px; font-size:11.5px; min-width:110px;" onchange="onKqiFilterBranchChange()">
+                            <option value="ALL">All Branches</option>
+                            <option value="AMBON">AMBON</option>
+                            <option value="JAYAPURA">JAYAPURA</option>
+                            <option value="SORONG">SORONG</option>
+                            <option value="TIMIKA">TIMIKA</option>
+                        </select>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <span style="font-size:11px; font-weight:700; color:var(--text-muted);">Kabupaten:</span>
+                        <select id="kqiFilterKab" class="cei-select" style="height:30px; font-size:11.5px; min-width:125px;" onchange="onKqiFilterKabChange()">
+                            <option value="">All Kabupaten</option>
+                        </select>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <span style="font-size:11px; font-weight:700; color:var(--text-muted);">Kecamatan:</span>
+                        <select id="kqiFilterKec" class="cei-select" style="height:30px; font-size:11.5px; min-width:125px;" onchange="loadComparison()">
+                            <option value="">All Kecamatan</option>
+                        </select>
+                    </div>
+                    <button type="button" class="cei-btn-secondary" style="height:30px; padding:0 10px; font-size:11.5px;" onclick="exportComparisonTableXlsx('kqiTable', '7_KQI_Comparison_WoW')" title="Export Table to Excel">
+                        <i class="fas fa-file-excel" style="color:#10b981;"></i> Export XLSX
+                    </button>
+                </div>
+            </div>
+            <div class="cei-table-responsive">
+                <table class="cei-table" id="kqiTable">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left; padding-left:16px;">KQI7</th>
+                            <th id="thKqiBefore">Before</th>
+                            <th id="thKqiAfter">After</th>
+                            <th>Delta</th>
+                            <th>Delta (%)</th>
+                            <th>Remark</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Rows injected via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Table 3: Kabupaten WoW Comparison Table with 7-KQI Filter -->
+        <div class="cei-table-card">
+            <div class="cei-table-header">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-map-marked-alt" style="color:#0F3B66;"></i>
+                    <span>Kabupaten Level Comparison Table WoW</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:11px; font-weight:700; color:var(--text-muted);">Branch:</span>
+                        <select id="kabFilterBranch" class="cei-select" style="height:32px; font-size:12px; min-width:115px;" onchange="loadKabupatenComparison()">
+                            <option value="ALL">All Branches</option>
+                            <option value="AMBON">AMBON</option>
+                            <option value="JAYAPURA">JAYAPURA</option>
+                            <option value="SORONG">SORONG</option>
+                            <option value="TIMIKA">TIMIKA</option>
+                        </select>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:11px; font-weight:700; color:var(--text-muted);">Focus KQI:</span>
+                        <select id="kabFilterKqi" class="cei-select" style="height:32px; font-size:12px; min-width:155px;" onchange="loadKabupatenComparison()">
+                            <option value="ALL">All Metrics (% Good Cell)</option>
+                            <option value="web_rtt">Web browsing RTT</option>
+                            <option value="web_ul_retrans">Web UL retransmission</option>
+                            <option value="video_vxb">Video start delay</option>
+                            <option value="voip_ul">VoIP UL jitter</option>
+                            <option value="voip_dl">VoIP DL jitter</option>
+                            <option value="game_rtt">Gaming RTT</option>
+                            <option value="game_jitter">Gaming UL jitter</option>
+                        </select>
+                    </div>
+                    <input type="text" id="kabSearchInput" placeholder="Search Kabupaten..." class="cei-select" style="height:32px; font-size:12px; min-width:135px;" oninput="filterKabupatenTable()">
+                    <button type="button" class="cei-btn-secondary" style="height:32px; padding:0 10px; font-size:11.5px;" onclick="exportComparisonTableXlsx('kabupatenTable', 'Kabupaten_Level_Comparison_WoW')" title="Export Table to Excel">
+                        <i class="fas fa-file-excel" style="color:#10b981;"></i> Export XLSX
+                    </button>
+                </div>
+            </div>
+            <div class="cei-table-responsive">
+                <table class="cei-table" id="kabupatenTable">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left; padding-left:14px;">Branch</th>
+                            <th style="text-align:left; padding-left:14px;">Kabupaten</th>
+                            <th>Target</th>
+                            <th>W-1 Ach</th>
+                            <th>W Ach</th>
+                            <th>Δ Target</th>
+                            <th>Δ WoW</th>
+                            <th>Target Status</th>
+                            <th>WoW Status</th>
+                            <th id="thKabKqiColumn" style="text-align:right; padding-right:14px;">Focus KQI WoW</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Rows injected via JS -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
-<script>
-    let currentFilter = 'bad';
-    let trendChart = null;
-
-    async function loadDashboard() {
-        const yw = document.getElementById('weekSelector').value;
-        
-        // 1. Summary & Gauge
-        fetch(`/api/sow/cei/summary?weeknum=${yw}`)
-            .then(r => r.json())
-            .then(data => {
-                const row = document.getElementById('summaryRow');
-                row.innerHTML = `
-                    <div class="kpi-card">
-                        <div class="kpi-label">Good cell ${data.label_week}</div>
-                        <div class="kpi-value" style="color: ${data.is_above_target ? '#107C41' : '#C93B2B'}">${data.good_cell_pct}%</div>
-                        <div class="kpi-delta ${data.diff_prev_pp > 0 ? 'delta-up' : 'delta-dn'}">
-                            ${data.diff_prev_pp > 0 ? '+' : ''}${data.diff_prev_pp || 0} pp vs ${data.prev_label}
-                        </div>
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- Import Modal (Solid Opaque, Elevated Card, No Week Num Override) -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div id="ceiImportModal" class="modal" style="display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(15,23,42,0.72); justify-content:center; align-items:center; backdrop-filter:blur(3px);">
+    <div class="modal-content" style="max-width:520px; background:var(--cei-card-bg, #ffffff) !important; border-radius:14px; padding:22px; width:92%; border:1px solid var(--border); box-shadow:0 25px 50px rgba(0,0,0,0.35); opacity:1;">
+        <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+            <h3 style="margin:0; font-size:1.15rem; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-file-import" style="color:#0F3B66;"></i> Import CEI Data
+            </h3>
+            <span class="close" onclick="closeCeiImportModal()" style="cursor:pointer; font-size:1.4rem; color:var(--text-muted);">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div style="margin-bottom:14px;">
+                <label style="display:block; margin-bottom:6px; font-size:12px; font-weight:700; text-transform:uppercase; color:var(--text-muted);">Upload CEI File (.xlsx or .csv)</label>
+                <div style="border:2px dashed #475569; border-radius:10px; padding:26px 16px; text-align:center; cursor:pointer; background:var(--cei-card-bg, #ffffff); transition:all 0.18s ease;"
+                     onclick="document.getElementById('ceiFileInput').click();"
+                     id="ceiDropZone">
+                    <i class="fas fa-cloud-upload-alt" style="font-size:34px; color:#0F3B66; margin-bottom:8px;"></i>
+                    <p style="margin:0; font-size:13.5px; font-weight:600; color:var(--text-main);">Click to browse or drag &amp; drop file</p>
+                    <p style="margin:4px 0 0; font-size:11px; color:var(--text-muted);">Supports Excel (.xlsx, .xls) and CSV</p>
+                    <input type="file" id="ceiFileInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleCeiFileSelect(this)">
+                </div>
+                <div id="ceiFilePreview" style="margin-top:10px; display:none; padding:8px 12px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2); border-radius:8px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-file-excel" style="color:#10b981; font-size:16px;"></i>
+                        <span id="ceiFileName" style="font-weight:600; font-size:12px; color:var(--text-main); word-break:break-all;"></span>
+                        <button type="button" onclick="removeCeiFile()" style="margin-left:auto; background:none; border:none; color:#ef4444; cursor:pointer; font-size:14px;" title="Remove file">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
-                `;
-                renderGauge(data);
-            });
+                </div>
+            </div>
+            <div style="margin-top:18px; border-top:1px solid var(--border); padding-top:14px; display:flex; justify-content:flex-end; align-items:center; gap:10px;">
+                <button type="button" onclick="closeCeiImportModal()" style="height:38px; padding:0 18px; background:var(--card); color:var(--text-main); border:1px solid var(--border); border-radius:8px; font-weight:600; font-size:13px; cursor:pointer; transition:all 0.18s ease;">Cancel</button>
+                <button type="button" onclick="submitCeiImport()" style="height:38px; padding:0 18px; background:#0F3B66; color:white; border:none; border-radius:8px; font-weight:600; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:8px; transition:background 0.18s ease;" disabled id="ceiImportBtn">
+                    <i class="fas fa-upload"></i> Upload &amp; Import
+                </button>
+            </div>
+            <div id="ceiImportStatus" style="margin-top:8px; font-size:12px; text-align:center; display:none;"></div>
+        </div>
+    </div>
+</div>
 
-        // 2. KQI Cards
-        fetch(`/api/sow/cei/kqi-cards?weeknum=${yw}&cell_filter=${currentFilter}`)
-            .then(r => r.json())
-            .then(data => {
-                const grid = document.getElementById('kqiGrid');
-                grid.innerHTML = data.cards.map(c => `
-                    <div class="kpi-card">
-                        <div class="kpi-label">${c.title}</div>
-                        <div class="kpi-value">${c.value}</div>
-                        <div class="kpi-delta ${c.is_better ? 'delta-up' : 'delta-dn'}">
-                            ${c.delta ? (c.delta > 0 ? '+' : '') + c.delta : '-'} (${c.delta_pct || 0}%)
-                        </div>
-                    </div>
-                `).join('');
-            });
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- Chart Enlarge Modal                                             -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div id="chartEnlargeModal" class="modal" style="display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(15,23,42,0.75); justify-content:center; align-items:center; backdrop-filter:blur(3px);">
+    <div class="modal-content" style="background:var(--cei-card-bg, #ffffff) !important; border-radius:14px; width:92%; max-width:1150px; height:82vh; display:flex; flex-direction:column; border:1px solid var(--border); box-shadow:0 25px 50px rgba(0,0,0,0.35); overflow:hidden; padding:0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-bottom:1px solid var(--border); background:var(--card);">
+            <div>
+                <h3 id="enlargeModalTitle" style="margin:0; font-size:15px; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-chart-line" style="color:#0F3B66;"></i> Chart Enlarge View
+                </h3>
+                <div id="enlargeModalSubtitle" style="font-size:11.5px; color:var(--text-muted); margin-top:2px;"></div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <button type="button" class="cei-btn-secondary" style="height:32px; padding:0 12px; font-size:11.5px;" onclick="downloadEnlargedChart()">
+                    <i class="fas fa-download"></i> Save PNG
+                </button>
+                <button type="button" onclick="closeChartEnlargeModal()" style="background:none; border:none; font-size:24px; line-height:1; cursor:pointer; color:var(--text-muted);" title="Close">
+                    &times;
+                </button>
+            </div>
+        </div>
+        <div style="flex:1; padding:16px 20px; min-height:0; position:relative;">
+            <div id="enlargedChartContainer" style="width:100%; height:100%;"></div>
+        </div>
+    </div>
+</div>
 
-        // 3. Trend
-        fetch(`/api/sow/cei/trend?start_yw={{ default_start_yw }}&end_yw=${yw}&cell_filter=${currentFilter}`)
-            .then(r => r.json())
-            .then(data => renderTrend(data));
-    }
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- Smart PNG Presentation Export Modal                             -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div id="smartPngModal" class="modal" style="display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(15,23,42,0.72); justify-content:center; align-items:center; backdrop-filter:blur(3px);">
+    <div class="modal-content" style="max-width:540px; background:var(--cei-card-bg, #ffffff) !important; border-radius:14px; padding:22px; width:92%; border:1px solid var(--border); box-shadow:0 25px 50px rgba(0,0,0,0.35);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+            <h3 style="margin:0; font-size:1.15rem; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-camera" style="color:#0284c7;"></i> Smart PNG Presentation Export
+            </h3>
+            <span class="close" onclick="closeSmartPngModal()" style="cursor:pointer; font-size:1.4rem; color:var(--text-muted);">&times;</span>
+        </div>
+        <div>
+            <div style="font-size:12px; color:var(--text-muted); margin-bottom:14px;">
+                Generate high-resolution PNG optimized for executive PowerPoint decks, Word reports, and email distribution.
+            </div>
 
-    function renderGauge(data) {
-        const chart = echarts.init(document.getElementById('gaugeContainer'));
-        const options = {
-            xAxis: { type: 'value', min: 91, max: 97, interval: 1 },
-            yAxis: { show: false },
-            series: [
-                {
-                    type: 'bar',
-                    data: [[97, 91]],
-                    itemStyle: { color: '#f0f0f0' },
-                    silent: true
-                },
-                {
-                    type: 'scatter',
-                    data: data.regional_gauge.map(r => [r.value, 0]),
-                    symbol: 'circle',
-                    symbolSize: 12,
-                    itemStyle: { color: (params) => params.data[0] >= data.target ? '#107C41' : '#C93B2B' },
-                    label: { show: true, position: 'top', formatter: (p) => `${data.regional_gauge[p.dataIndex].name}\n${p.data[0]}` }
-                }
-            ]
-        };
-        chart.setOption(options);
-    }
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                <div>
+                    <label style="display:block; font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px;">Export Target</label>
+                    <select id="smartPngScope" class="cei-select" style="width:100%; height:36px;">
+                        <option value="full">Full Current Tab View</option>
+                        <option value="overview" selected>Executive Summary &amp; Gauges</option>
+                        <option value="charts">Trend &amp; Achievement Charts</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block; font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px;">Background Style</label>
+                    <select id="smartPngTheme" class="cei-select" style="width:100%; height:36px;">
+                        <option value="white" selected>Clean White (#ffffff)</option>
+                        <option value="transparent">Transparent (PNG with alpha)</option>
+                        <option value="theme">Current Theme</option>
+                        <option value="dark">Dark Slate (#0f172a)</option>
+                    </select>
+                </div>
+            </div>
 
-    function renderTrend(data) {
-        const ctx = document.getElementById('trendChart');
-        if (trendChart) trendChart.dispose();
-        trendChart = echarts.init(ctx);
-        const options = {
-            tooltip: { trigger: 'axis' },
-            legend: { data: data.kqi_defs.map(k => k.id) },
-            xAxis: { type: 'category', data: data.labels },
-            yAxis: [ { type: 'value', name: 'Hit Days' }, { type: 'value', name: '% Good', min: 90, max: 100 } ],
-            series: [
-                ...data.kqi_defs.map(k => ({
-                    name: k.id, type: 'bar', stack: 'total', data: data.kqi_series[k.id]
-                })),
-                {
-                    name: '% Good', type: 'line', yAxisIndex: 1, data: data.good_pct_series,
-                    lineStyle: { color: '#107C41', width: 3 },
-                    markLine: { data: [{ yAxis: data.target, lineStyle: { color: 'red', type: 'dashed' } }] }
-                }
-            ]
-        };
-        trendChart.setOption(options);
-    }
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+                <div>
+                    <label style="display:block; font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px;">Resolution Quality</label>
+                    <select id="smartPngResolution" class="cei-select" style="width:100%; height:36px;">
+                        <option value="2" selected>Ultra HD (2× Retina Crisp)</option>
+                        <option value="1">Standard (1× 1080p)</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block; font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:4px;">Include Header</label>
+                    <select id="smartPngHeader" class="cei-select" style="width:100%; height:36px;">
+                        <option value="yes" selected>Yes (Title &amp; Week Info)</option>
+                        <option value="no">No (Charts Only)</option>
+                    </select>
+                </div>
+            </div>
 
-    function setKqiFilter(f, btn) {
-        currentFilter = f;
-        document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        loadDashboard();
-    }
-    
-    function exportData() {
-        const yw = document.getElementById('weekSelector').value;
-        window.location.href = `/api/sow/cei/export?start_yw={{ default_start_yw }}&end_yw=${yw}&cell_filter=${currentFilter}`;
-    }
+            <div style="background:rgba(15,59,102,0.06); border:1px solid rgba(15,59,102,0.15); border-radius:8px; padding:10px 12px; margin-bottom:16px; font-size:11.5px; display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-magic" style="color:#0F3B66; font-size:14px;"></i>
+                <span id="smartPngBadge">Smart Fit: Captures high-res vector-sharp PNG with auto-fitted padding.</span>
+            </div>
 
-    loadDashboard();
-</script>
+            <button type="button" id="btnRunSmartPng" onclick="executeSmartPngExport()" style="width:100%; height:40px; background:#0F3B66; color:white; border:none; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.18s ease;">
+                <i class="fas fa-download"></i> Generate &amp; Download PNG
+            </button>
+            <div id="smartPngStatus" style="margin-top:10px; font-size:12px; text-align:center; display:none;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- External Libraries: SheetJS (XLSX export) and html2canvas (Smart PNG export) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="{{ url_for('static', filename='js/cei_dashboard.js') }}?v={{ range(1000, 9999) | random }}"></script>
 {% endblock %}

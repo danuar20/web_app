@@ -1,0 +1,1564 @@
+{% extends "base.html" %}
+
+{% block nav_sow %}active sub-open{% endblock %}
+{% block subSow_open %}open{% endblock %}
+{% block nav_sow_redcov %}active{% endblock %}
+
+{% block page_title %}SOW Redcov{% endblock %}
+{% block page_sub %}Scope of Work — Bad Spot Red Coverage Monitoring{% endblock %}
+
+{% block topbar_chips %}
+<div class="info-chip" title="Latest Week in sow.red_cov">
+    <i class="fas fa-calendar-check" style="color:#ef4444;"></i> Latest Week: {{ latest_week }}
+</div>
+<div class="info-chip" title="Active SOW Region">
+    <i class="fas fa-map-marker-alt" style="color:#3b82f6;"></i> Region: <span id="chipRegionName">{{ current_region }}</span>
+</div>
+<div class="info-chip" id="chipBranchWrapper" style="display:none;" title="Active NOP Filter">
+    <i class="fas fa-sitemap" style="color:#10b981;"></i> NOP: <span id="chipBranchName">ALL</span>
+</div>
+{% endblock %}
+
+{% block page_content %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+
+<style>
+    :root, [data-theme="light"] {
+        --redcov-card-bg: #ffffff;
+        --redcov-border: #cbd5e1;
+        --redcov-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+        --redcov-primary: #8B0000;
+        --redcov-accent: #b91c1c;
+        --redcov-surface: #f8fafc;
+        --border: #cbd5e1;
+        --secondary: #f1f5f9;
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+    }
+
+    [data-theme="dark"] {
+        --redcov-card-bg: #1e293b;
+        --redcov-border: #334155;
+        --redcov-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        --redcov-primary: #ef4444;
+        --redcov-accent: #f87171;
+        --redcov-surface: #0f172a;
+        --border: #334155;
+        --secondary: #0f172a;
+        --text-main: #f8fafc;
+        --text-muted: #94a3b8;
+    }
+
+    .redcov-container {
+        padding: 16px 22px 52px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        color: var(--text-main);
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Clean Card Containers */
+    .redcov-card,
+    .redcov-filter-card,
+    .redcov-chart-container,
+    .redcov-table-card,
+    .redcov-distrib-card,
+    .redcov-exec-card {
+        background: var(--redcov-card-bg, #ffffff) !important;
+        border: 1px solid var(--redcov-border, #cbd5e1) !important;
+        box-shadow: var(--redcov-shadow) !important;
+        border-radius: 12px;
+    }
+
+    /* ── Tab Navigation ── */
+    .redcov-tabs {
+        display: flex;
+        gap: 8px;
+        border-bottom: 2px solid var(--border);
+        margin-bottom: 4px;
+        position: relative;
+        z-index: 2;
+    }
+
+    .redcov-tab-btn {
+        padding: 11px 22px;
+        cursor: pointer;
+        border: none;
+        background: transparent;
+        font-size: 13.5px;
+        font-weight: 700;
+        color: var(--text-muted);
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .redcov-tab-btn:hover {
+        color: var(--text-main);
+        background: rgba(0, 0, 0, 0.03);
+        border-radius: 8px 8px 0 0;
+    }
+
+    [data-theme="dark"] .redcov-tab-btn:hover {
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .redcov-tab-btn.active {
+        color: #8B0000;
+        border-bottom-color: #8B0000;
+    }
+
+    [data-theme="dark"] .redcov-tab-btn.active {
+        color: #f87171;
+        border-bottom-color: #f87171;
+    }
+
+    .redcov-tab-pane {
+        display: none;
+        animation: redcovFadeIn 0.22s ease;
+    }
+
+    .redcov-tab-pane.active {
+        display: block;
+    }
+
+    @keyframes redcovFadeIn {
+        from { opacity: 0; transform: translateY(3px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Filter Card ── */
+    .redcov-filter-card {
+        padding: 14px 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 14px;
+    }
+
+    .redcov-filter-controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .redcov-filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .redcov-filter-label {
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        letter-spacing: 0.4px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .redcov-select {
+        height: 36px;
+        padding: 0 12px;
+        border-radius: 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #0f172a;
+        outline: none;
+        transition: border-color 0.18s ease;
+        min-width: 125px;
+    }
+
+    [data-theme="dark"] .redcov-select {
+        background: #1e293b;
+        color: #f8fafc;
+        border: 1px solid #334155;
+    }
+
+    .redcov-select option {
+        background: #ffffff;
+        color: #0f172a;
+    }
+
+    [data-theme="dark"] .redcov-select option {
+        background: #1e293b;
+        color: #f8fafc;
+    }
+
+    .redcov-select:focus {
+        border-color: #8B0000;
+        box-shadow: 0 0 0 2px rgba(139, 0, 0, 0.15);
+    }
+
+    [data-theme="dark"] .redcov-select:focus {
+        border-color: #f87171;
+        box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.2);
+    }
+
+    .redcov-action-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-left: auto;
+    }
+
+    .redcov-btn-primary {
+        height: 36px;
+        padding: 0 16px;
+        border-radius: 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+        border: none;
+        background: #8B0000;
+        color: #ffffff;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        transition: all 0.18s ease;
+    }
+
+    .redcov-btn-primary:hover {
+        background: #6b0000;
+        box-shadow: 0 2px 8px rgba(139, 0, 0, 0.3);
+    }
+
+    .redcov-btn-secondary {
+        height: 36px;
+        padding: 0 12px;
+        border-radius: 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+        border: 1px solid var(--border);
+        background: var(--secondary, #f1f5f9);
+        color: var(--text-main);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.18s ease;
+    }
+
+    .redcov-btn-secondary:hover {
+        background: rgba(0, 0, 0, 0.05);
+    }
+
+    [data-theme="dark"] .redcov-btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    /* ── Top Executive Banner ── */
+    .redcov-exec-banner {
+        background: linear-gradient(135deg, #7A0000 0%, #990000 60%, #B30000 100%);
+        border-radius: 12px;
+        padding: 16px 22px;
+        color: #ffffff;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        box-shadow: 0 4px 16px rgba(122, 0, 0, 0.28);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .redcov-exec-title-box {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .redcov-exec-title {
+        font-size: 16px;
+        font-weight: 800;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .redcov-exec-subtitle {
+        font-size: 11.5px;
+        opacity: 0.88;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .redcov-exec-kpis {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        flex-wrap: wrap;
+    }
+
+    .redcov-exec-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        border-right: 1px solid rgba(255, 255, 255, 0.22);
+        padding-right: 22px;
+    }
+
+    .redcov-exec-item:last-child {
+        border-right: none;
+        padding-right: 0;
+    }
+
+    .redcov-exec-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        opacity: 0.85;
+        letter-spacing: 0.5px;
+    }
+
+    .redcov-exec-val {
+        font-size: 22px;
+        font-weight: 800;
+        margin-top: 1px;
+        line-height: 1.1;
+    }
+
+    /* ── Tab 1: 2-Pane Architecture (Left Overview & Benchmarking, Right Charts) ── */
+    .redcov-two-pane-grid {
+        display: grid;
+        grid-template-columns: 1fr 1.32fr;
+        gap: 16px;
+        margin-top: 14px;
+        align-items: start;
+    }
+
+    @media (max-width: 1200px) {
+        .redcov-two-pane-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .redcov-pane-col {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-width: 0;
+    }
+
+    /* Metric Cards */
+    .redcov-metric-card {
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .redcov-metric-icon-decor {
+        position: absolute;
+        right: 12px;
+        top: 12px;
+        font-size: 28px;
+        opacity: 0.12;
+    }
+
+    .redcov-metric-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        letter-spacing: 0.4px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .redcov-metric-val {
+        font-size: 28px;
+        font-weight: 800;
+        line-height: 1.1;
+        letter-spacing: -0.5px;
+    }
+
+    .redcov-metric-sub {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+
+    /* Status Badge */
+    .badge-pass {
+        background: rgba(16, 185, 129, 0.14);
+        color: #059669;
+        border: 1px solid rgba(16, 185, 129, 0.35);
+        border-radius: 6px;
+        padding: 4px 10px;
+        font-size: 11px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    [data-theme="dark"] .badge-pass {
+        background: rgba(16, 185, 129, 0.22);
+        color: #34d399;
+        border-color: rgba(16, 185, 129, 0.45);
+    }
+
+    .badge-fail {
+        background: rgba(239, 68, 68, 0.14);
+        color: #dc2626;
+        border: 1px solid rgba(239, 68, 68, 0.35);
+        border-radius: 6px;
+        padding: 4px 10px;
+        font-size: 11px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    [data-theme="dark"] .badge-fail {
+        background: rgba(239, 68, 68, 0.22);
+        color: #f87171;
+        border-color: rgba(239, 68, 68, 0.45);
+    }
+
+    /* Segmented Button Group */
+    .redcov-seg-group {
+        display: inline-flex;
+        align-items: center;
+        background: var(--secondary, #f1f5f9);
+        padding: 2px;
+        border-radius: 7px;
+        border: 1px solid var(--border);
+    }
+
+    .redcov-seg-btn {
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 9px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .redcov-seg-btn:hover {
+        color: var(--text-main);
+    }
+
+    .redcov-seg-btn.active {
+        background: var(--redcov-card-bg, #ffffff);
+        color: #8B0000;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+
+    [data-theme="dark"] .redcov-seg-btn.active {
+        color: #f87171;
+    }
+
+    /* Chart Containers */
+    .redcov-chart-container {
+        padding: 16px 18px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .redcov-chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .redcov-chart-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text-main);
+        display: flex;
+        align-items: center;
+        gap: 7px;
+    }
+
+    .redcov-chart-sub {
+        font-size: 10.5px;
+        color: var(--text-muted);
+        margin-top: 1px;
+    }
+
+    /* ── Distribution Track & NOP Summary ── */
+    .redcov-distrib-card {
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .redcov-distrib-wrap {
+        position: relative;
+        height: 125px;
+        margin-top: 6px;
+        margin-bottom: 2px;
+        padding: 0 16px;
+    }
+
+    .redcov-distrib-track {
+        position: absolute;
+        top: 56px;
+        left: 16px;
+        right: 16px;
+        height: 10px;
+        border-radius: 9999px;
+        display: flex;
+        overflow: hidden;
+        background: #e2e8f0;
+    }
+
+    [data-theme="dark"] .redcov-distrib-track {
+        background: #334155;
+    }
+
+    /* Below target is PASS (soft green #86efac), above target is FAIL/BREACH (soft red #fca5a5) */
+    .redcov-distrib-track-pass {
+        background: #86efac;
+        height: 100%;
+    }
+
+    [data-theme="dark"] .redcov-distrib-track-pass {
+        background: rgba(16, 185, 129, 0.45);
+    }
+
+    .redcov-distrib-track-fail {
+        background: #fca5a5;
+        height: 100%;
+        flex: 1;
+    }
+
+    [data-theme="dark"] .redcov-distrib-track-fail {
+        background: rgba(239, 68, 68, 0.45);
+    }
+
+    .redcov-distrib-target-line {
+        position: absolute;
+        top: 18px;
+        bottom: 59px;
+        width: 0px;
+        border-left: 2px dashed #0f172a;
+        z-index: 8;
+        transform: translateX(-50%);
+    }
+
+    [data-theme="dark"] .redcov-distrib-target-line {
+        border-left: 2px dashed #f8fafc;
+    }
+
+    .redcov-distrib-target-label {
+        position: absolute;
+        top: 0px;
+        transform: translateX(-50%);
+        font-size: 11px;
+        font-weight: 800;
+        color: #0f172a;
+        background: var(--redcov-card-bg, #ffffff);
+        padding: 0 4px;
+        z-index: 10;
+        white-space: nowrap;
+        line-height: 1.2;
+    }
+
+    [data-theme="dark"] .redcov-distrib-target-label {
+        color: #f8fafc;
+    }
+
+    /* Branch (Top) - Exactly like 2nd picture / RHI subpage */
+    .redcov-distrib-branch-top {
+        position: absolute;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        z-index: 7;
+        cursor: pointer;
+        text-align: center;
+    }
+
+    .redcov-branch-text {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        line-height: 1.15;
+        margin-bottom: 3px;
+        white-space: nowrap;
+    }
+
+    .redcov-branch-name {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+        color: #0f172a;
+    }
+
+    [data-theme="dark"] .redcov-branch-name {
+        color: #f8fafc;
+    }
+
+    .redcov-branch-val {
+        font-size: 11.5px;
+        font-weight: 800;
+    }
+
+    .redcov-branch-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        border: 2px solid #ffffff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    [data-theme="dark"] .redcov-branch-dot {
+        border-color: #1e293b;
+    }
+
+    /* PUMA (Bottom) - Exactly like 2nd picture / RHI subpage */
+    .redcov-distrib-puma-bottom {
+        position: absolute;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        z-index: 7;
+        top: 72px;
+        white-space: nowrap;
+    }
+
+    .redcov-puma-pill {
+        font-size: 10.5px;
+        font-weight: 800;
+        padding: 2px 7px;
+        border-radius: 6px;
+        background: var(--redcov-card-bg, #ffffff);
+        border: 1px solid currentColor;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+        display: flex;
+        align-items: center;
+        gap: 3px;
+    }
+
+    /* Axis Ticks */
+    .redcov-distrib-ticks {
+        position: absolute;
+        top: 68px;
+        left: 16px;
+        right: 16px;
+        height: 16px;
+        pointer-events: none;
+    }
+
+    .redcov-distrib-tick {
+        position: absolute;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-size: 9.5px;
+        font-weight: 600;
+        color: var(--text-muted);
+    }
+
+    .redcov-distrib-tick-line {
+        width: 1px;
+        height: 4px;
+        background: var(--border);
+        margin-bottom: 1px;
+    }
+
+    /* Branch Summary Chips Row (like RHI) */
+    .redcov-branch-stat-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin-top: 10px;
+        padding-top: 8px;
+        border-top: 1px solid var(--border);
+    }
+    @media (max-width: 650px) {
+        .redcov-branch-stat-row {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    .redcov-branch-chip {
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: var(--secondary, #f8fafc);
+        border: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        transition: transform 0.15s ease;
+    }
+    .redcov-branch-chip:hover {
+        transform: translateY(-1px);
+    }
+    .redcov-chip-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .redcov-chip-name {
+        font-size: 11px;
+        font-weight: 800;
+        color: var(--text-main);
+    }
+    .redcov-chip-val {
+        font-size: 13.5px;
+        font-weight: 800;
+    }
+    .redcov-chip-meta {
+        font-size: 10px;
+        color: var(--text-muted);
+        line-height: 1.35;
+    }
+    .redcov-chip-counts {
+        font-size: 10px;
+        font-weight: 700;
+        margin-top: 2px;
+        line-height: 1.3;
+    }
+
+    /* NOP Mini Summary Cards */
+    .redcov-nop-cards-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .redcov-nop-mini-card {
+        padding: 9px 11px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--secondary, #f8fafc);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: transform 0.15s ease;
+    }
+
+    .redcov-nop-mini-card:hover {
+        transform: translateY(-1px);
+    }
+
+    .redcov-nop-mini-name {
+        font-size: 11.5px;
+        font-weight: 800;
+        color: var(--text-main);
+    }
+
+    .redcov-nop-mini-meta {
+        font-size: 10.5px;
+        color: var(--text-muted);
+    }
+
+    .redcov-nop-mini-badge {
+        font-size: 10.5px;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+
+    /* Executive Text Summary */
+    .redcov-exec-summary-box {
+        padding: 16px 20px;
+        border-left: 4px solid #8B0000;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+    }
+
+    [data-theme="dark"] .redcov-exec-summary-box {
+        border-left-color: #ef4444;
+    }
+
+    /* ── Middle Row 2-Pane Container (Same Size) ── */
+    .redcov-mid-row-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        align-items: stretch;
+    }
+
+    @media (max-width: 1050px) {
+        .redcov-mid-row-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .redcov-exec-summary-title {
+        font-size: 12.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: #8B0000;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+    }
+
+    [data-theme="dark"] .redcov-exec-summary-title {
+        color: #f87171;
+    }
+
+    .redcov-exec-summary-list {
+        margin: 0;
+        padding-left: 0;
+        list-style: none;
+        font-size: 12px;
+        line-height: 1.6;
+        color: var(--text-main);
+    }
+
+    .redcov-exec-summary-list li {
+        margin-bottom: 8px;
+        position: relative;
+        padding-left: 18px;
+    }
+
+    .redcov-exec-summary-list li::before {
+        content: "•";
+        position: absolute;
+        left: 2px;
+        top: 0px;
+        color: #8B0000;
+        font-size: 16px;
+        line-height: 1.2;
+    }
+
+    [data-theme="dark"] .redcov-exec-summary-list li::before {
+        color: #f87171;
+    }
+
+    /* ── Tables ── */
+    .redcov-table-responsive {
+        overflow-x: auto;
+        max-width: 100%;
+    }
+
+    .redcov-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+        white-space: nowrap;
+    }
+
+    .redcov-table th {
+        background: var(--secondary, #f1f5f9);
+        color: var(--text-muted);
+        font-weight: 700;
+        padding: 7px 8px;
+        font-size: 11px;
+        text-align: right;
+        border-bottom: 2px solid var(--border);
+        border-top: 1px solid var(--border);
+        user-select: none;
+    }
+
+    .redcov-table th.sortable {
+        cursor: pointer;
+    }
+
+    .redcov-table th.sortable:hover {
+        color: var(--text-main);
+        background: rgba(125, 125, 125, 0.12);
+    }
+
+    .redcov-table td {
+        padding: 6px 8px;
+        font-size: 11px;
+        text-align: right;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .redcov-table tr:hover td {
+        background: rgba(125, 125, 125, 0.08);
+    }
+
+    [data-theme="dark"] .redcov-table tr:hover td {
+        background: rgba(255, 255, 255, 0.05);
+    }
+    /* Fullscreen Enlarge Chart Modal */
+    .redcov-enlarge-modal {
+        display: none;
+        position: fixed;
+        z-index: 99999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.75);
+        backdrop-filter: blur(4px);
+        justify-content: center;
+        align-items: center;
+    }
+    .redcov-enlarge-box {
+        background: var(--redcov-card-bg, #ffffff);
+        border: 1px solid var(--redcov-border, #cbd5e1);
+        border-radius: 14px;
+        width: 95%;
+        max-width: 1350px;
+        height: 88vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        padding: 18px 22px;
+    }
+    .redcov-enlarge-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 12px;
+        margin-bottom: 10px;
+    }
+    .redcov-enlarge-body {
+        flex: 1;
+        width: 100%;
+        min-height: 0;
+    }
+
+</style>
+
+<div class="redcov-container">
+
+    <!-- Top Tabs Navigation -->
+    <div class="redcov-tabs">
+        <button class="redcov-tab-btn active" onclick="switchRedcovTab('achievement', this)">
+            <i class="fas fa-chart-line"></i> Redcov Achievement
+        </button>
+        <button class="redcov-tab-btn" onclick="switchRedcovTab('trend', this)">
+            <i class="fas fa-chart-bar"></i> Trend & Regional Analysis
+        </button>
+        <button class="redcov-tab-btn" onclick="switchRedcovTab('comparison', this)">
+            <i class="fas fa-exchange-alt"></i> Comparison Table
+        </button>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 1: Redcov Achievement (2-Pane Clean Architecture)           -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <div id="pane-achievement" class="redcov-tab-pane active">
+
+        <!-- Filter Card -->
+        <div class="redcov-filter-card" style="margin-bottom: 14px;">
+            <div class="redcov-filter-controls">
+                <!-- Region Filter -->
+                <div class="redcov-filter-group">
+                    <label class="redcov-filter-label"><i class="fas fa-globe-asia"></i> Region</label>
+                    <select id="filterRegion" class="redcov-select" onchange="onRegionChange()">
+                        {% for reg in regions %}
+                        <option value="{{ reg }}" {% if reg == current_region %}selected{% endif %}>{{ reg }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- NOP / Branch Filter -->
+                <div class="redcov-filter-group">
+                    <label class="redcov-filter-label"><i class="fas fa-sitemap"></i> NOP / Branch</label>
+                    <select id="filterBranch" class="redcov-select" onchange="onBranchChange()">
+                        <option value="ALL">All NOPs (Region)</option>
+                        <option value="AMBON">AMBON</option>
+                        <option value="JAYAPURA">JAYAPURA</option>
+                        <option value="TIMIKA">TIMIKA</option>
+                        <option value="SORONG">SORONG</option>
+                    </select>
+                </div>
+
+                <!-- Focus Week -->
+                <div class="redcov-filter-group">
+                    <label class="redcov-filter-label"><i class="fas fa-calendar-check"></i> Focus Week</label>
+                    <select id="filterWeek" class="redcov-select" onchange="onWeekFilterChange()">
+                        {% for yw in yearweeks %}
+                        <option value="{{ yw }}" {% if yw == default_yw %}selected{% endif %}>W{{ (yw|string)[4:] }} ({{ yw }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Trend Start Week -->
+                <div class="redcov-filter-group">
+                    <label class="redcov-filter-label"><i class="fas fa-calendar-alt"></i> Trend Start</label>
+                    <select id="filterStartWeek" class="redcov-select" onchange="onTrendFilterChange()">
+                        {% for yw in yearweeks %}
+                        <option value="{{ yw }}" {% if yw == default_start_yw %}selected{% endif %}>W{{ (yw|string)[4:] }} ({{ yw }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Action Buttons Located Right Side Just Like Before -->
+            <div class="redcov-action-group">
+                <a href="/api/sow/redcov/sample?format=xlsx" class="redcov-btn-secondary" title="Download sample Excel template">
+                    <i class="fas fa-file-excel" style="color:#10b981;"></i> Sample XLSX
+                </a>
+                <a href="/api/sow/redcov/sample?format=csv" class="redcov-btn-secondary" title="Download sample CSV template">
+                    <i class="fas fa-file-csv" style="color:#38bdf8;"></i> Sample CSV
+                </a>
+                <button class="redcov-btn-primary" onclick="openRedcovImportModal()">
+                    <i class="fas fa-file-import"></i> Import Data
+                </button>
+            </div>
+        </div>
+
+        <!-- Top Executive Banner -->
+        <div class="redcov-exec-banner" id="execBanner">
+            <div class="redcov-exec-title-box">
+                <div class="redcov-exec-title">
+                    <i class="fas fa-broadcast-tower"></i>
+                    <span id="bannerRegionTitle">{{ current_region }}</span> NETWORK PERFORMANCE | WEEK <span id="bannerWeekNum">{{ (default_yw|string)[4:] }}</span>
+                </div>
+                <div class="redcov-exec-subtitle">
+                    <span>Bad Spot – Red Coverage Monitoring</span>
+                    <span style="opacity:0.6;">•</span>
+                    <span id="bannerScopeBadge" style="background:rgba(255,255,255,0.2); padding:1px 7px; border-radius:4px; font-weight:700;">ALL NOPS</span>
+                </div>
+            </div>
+            <div class="redcov-exec-kpis">
+                <div class="redcov-exec-item">
+                    <span class="redcov-exec-label">Baseline</span>
+                    <span class="redcov-exec-val" id="bannerBaseline">{{ "%.2f"|format(baseline_val) }}</span>
+                </div>
+                <div class="redcov-exec-item">
+                    <span class="redcov-exec-label" id="bannerTargetLabel">Target ({{ target_label }})</span>
+                    <span class="redcov-exec-val" id="bannerTarget">{{ "%.2f"|format(target_val) }}</span>
+                </div>
+                <div class="redcov-exec-item">
+                    <span class="redcov-exec-label">Ach. (Optim %)</span>
+                    <span class="redcov-exec-val" id="bannerAch">--</span>
+                </div>
+                <div class="redcov-exec-item">
+                    <span class="redcov-exec-label">Ach. Gap</span>
+                    <span class="redcov-exec-val" id="bannerGap" style="color:#a7f3d0;">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Section 1: Overview Panel (KPI Cards, Branch Distribution Gauge, Executive Summary) ── -->
+        <div style="display:flex; flex-direction:column; gap:14px; margin-top:14px;">
+
+            <!-- 4 Metric Cards Grid -->
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+                <!-- Card 1: % Red Cov (with WoW delta) -->
+                <div class="redcov-card redcov-metric-card">
+                    <i class="fas fa-satellite-dish redcov-metric-icon-decor" style="color:var(--redcov-primary);"></i>
+                    <span class="redcov-metric-title">% Red Cov (Latest Week)</span>
+                    <span class="redcov-metric-val" id="cardRedCovPct" style="color:var(--redcov-primary);">--%</span>
+                    <div id="cardRedCovWow" style="font-size:11.5px; font-weight:700; margin-top:1px;">--</div>
+                    <span class="redcov-metric-sub" id="cardRedCovSub">Latest week performance</span>
+                </div>
+
+                <!-- Card 2: % Red Optim Achievement (with WoW delta) -->
+                <div class="redcov-card redcov-metric-card">
+                    <i class="fas fa-wrench redcov-metric-icon-decor" style="color:#10b981;"></i>
+                    <span class="redcov-metric-title">% Red Optim Ach.</span>
+                    <span class="redcov-metric-val" id="cardRedOptimPct" style="color:#10b981;">--%</span>
+                    <div id="cardRedOptimWow" style="font-size:11.5px; font-weight:700; margin-top:1px;">--</div>
+                    <span class="redcov-metric-sub" id="cardRedOptimSub">Optim achievement</span>
+                </div>
+
+                <!-- Card 3: Target Status -->
+                <div class="redcov-card redcov-metric-card">
+                    <span class="redcov-metric-title"><i class="fas fa-bullseye" style="color:#8B0000;"></i> Target Status</span>
+                    <div style="display:flex; align-items:baseline; justify-content:space-between; margin-top:2px; flex-wrap:wrap; gap:4px;">
+                        <span class="redcov-metric-val" id="targetCurrentVal" style="font-size:1.45rem;">--%</span>
+                        <div id="targetStatusBadge" class="badge-pass"><i class="fas fa-check-circle"></i> PASS</div>
+                    </div>
+                    <div id="targetStatusDesc" style="font-size:11px; margin-top:3px; color:var(--text-muted); line-height:1.35;">
+                        Target: ≤ {{ "%.2f"|format(target_val) }}%
+                    </div>
+                    <div id="targetSolveGrids" style="font-size:11px; margin-top:2px; font-weight:700;"></div>
+                </div>
+
+                <!-- Card 4: Grid Overview Allocation -->
+                <div class="redcov-card redcov-metric-card">
+                    <span class="redcov-metric-title"><i class="fas fa-th-large" style="color:#0284c7;"></i> Grid Allocation</span>
+                    <div style="font-size:11.5px; margin-top:3px; line-height:1.5;">
+                        <div>Total: <strong id="statTotalGrids">--</strong></div>
+                        <div>Good: <strong id="statGoodCov" style="color:#10b981;">--</strong></div>
+                        <div>Optim: <strong id="statRedOptim" style="color:#ea580c;">--</strong> | Eng: <strong id="statRedEng" style="color:#0284c7;">--</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Middle Row: 2 Panes (Same Size: Branch Performance vs Target & Executive Highlights) ── -->
+            <div class="redcov-mid-row-grid">
+                <!-- Left Pane: Branch Performance Distribution vs Target -->
+                <div class="redcov-distrib-card" id="branchDistribCard" style="display:flex; flex-direction:column; justify-content:space-between;">
+                    <div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <div style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                                <i class="fas fa-sliders-h" style="color:#8B0000;"></i>
+                                <span>Branch Performance vs Target</span>
+                            </div>
+                            <div id="distribQuarterBadge" style="font-size:11px; font-weight:600; color:var(--text-muted);">
+                                Target: {{ "%.2f"|format(target_val) }}%
+                            </div>
+                        </div>
+                        <div class="redcov-distrib-wrap" id="branchDistribWrap">
+                            <!-- Rendered dynamically via JS with target at top, soft red left, soft green right, pin dots, black dashed line -->
+                        </div>
+                    </div>
+                    <div class="redcov-branch-stat-row" id="branchStatRow">
+                        <!-- 4 branch chips rendered dynamically like RHI -->
+                    </div>
+                </div>
+
+                <!-- Right Pane: Executive Summary Highlights Box -->
+                <div class="redcov-card redcov-exec-summary-box">
+                    <div class="redcov-exec-summary-title">
+                        <i class="fas fa-info-circle"></i> Executive Performance Highlights
+                    </div>
+                    <ul class="redcov-exec-summary-list" id="execBulletsList" style="flex:1;">
+                        <li>Loading performance highlights...</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ── Section 2: Full-Width Chart Panels with Modal Enlarge Buttons ── -->
+        <div style="display:flex; flex-direction:column; gap:16px; margin-top:16px;">
+
+            <!-- Full-Width Chart Panel 1: Trend Coverage PUMA -->
+            <div class="redcov-chart-container">
+                <div class="redcov-chart-header">
+                    <div>
+                        <div class="redcov-chart-title">
+                            <i class="fas fa-chart-area" style="color:#8B0000;"></i> Trend Coverage <span class="lblRegion">PUMA</span>
+                        </div>
+                        <div class="redcov-chart-sub">Total Good Cov = Total Grid - Total Red Cov • Long timeline view</div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div class="redcov-seg-group">
+                            <button id="btnCovCount" class="redcov-seg-btn active" onclick="setCoverageMetricMode('count', this)"># Grids</button>
+                            <button id="btnCovShare" class="redcov-seg-btn" onclick="setCoverageMetricMode('share', this)">% Share</button>
+                        </div>
+                        <button type="button" class="redcov-btn-secondary" style="height:30px; padding:0 10px; font-size:11.5px;" onclick="openChartEnlargeModal('coverage')">
+                            <i class="fas fa-expand"></i> Enlarge
+                        </button>
+                    </div>
+                </div>
+                <div id="chartCoverageTrend" style="height: 380px; width: 100%;"></div>
+            </div>
+
+            <!-- Full-Width Chart Panel 2: Red Coverage Breakdown & Target -->
+            <div class="redcov-chart-container">
+                <div class="redcov-chart-header">
+                    <div>
+                        <div class="redcov-chart-title">
+                            <i class="fas fa-layer-group" style="color:#8B0000;"></i> Red Coverage Breakdown & Target
+                        </div>
+                        <div class="redcov-chart-sub">Optim vs Engineering & % Red Optim vs Dynamic Target (Dashed Line) • Long timeline view</div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <button type="button" class="redcov-btn-secondary" style="height:30px; padding:0 10px; font-size:11.5px;" onclick="openChartEnlargeModal('breakdown')">
+                            <i class="fas fa-expand"></i> Enlarge
+                        </button>
+                    </div>
+                </div>
+                <div id="chartRedBreakdown" style="height: 380px; width: 100%;"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 2: Trend & Regional Analysis (With Dedicated Filters)       -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <div id="pane-trend" class="redcov-tab-pane">
+
+        <!-- Dedicated Filter Bar for Tab 2 -->
+        <div class="redcov-filter-card" style="margin-bottom: 14px;">
+            <div class="redcov-filter-controls">
+                <div class="redcov-filter-group">
+                    <label class="redcov-filter-label"><i class="fas fa-filter"></i> Metric Focus</label>
+                    <select id="trendMetricType" class="redcov-select" onchange="onTrendTabFilterChange()">
+                        <option value="all_red">All Red Cov</option>
+                        <option value="optim" selected>Red Cov Optim</option>
+                        <option value="eng">Red Cov Eng</option>
+                    </select>
+                </div>
+                <div class="redcov-filter-group">
+                    <label class="redcov-filter-label"><i class="fas fa-sitemap"></i> Filter NOP</label>
+                    <select id="trendNopSelect" class="redcov-select" onchange="onTrendTabFilterChange()">
+                        <option value="ALL">All NOPs</option>
+                        <option value="AMBON">AMBON</option>
+                        <option value="JAYAPURA">JAYAPURA</option>
+                        <option value="TIMIKA">TIMIKA</option>
+                        <option value="SORONG">SORONG</option>
+                    </select>
+                </div>
+                <div class="redcov-filter-group">
+                    <label class="redcov-filter-label"><i class="fas fa-list-ol"></i> Contributor Display</label>
+                    <select id="trendTopLimit" class="redcov-select" onchange="onTrendTabFilterChange()">
+                        <option value="10">Top 10</option>
+                        <option value="15">Top 15</option>
+                        <option value="20">Top 20</option>
+                        <option value="ALL">All Kabupaten</option>
+                    </select>
+                </div>
+            </div>
+            <div class="redcov-action-group">
+                <button class="redcov-btn-primary" onclick="onTrendTabFilterChange()">
+                    <i class="fas fa-sync-alt"></i> Apply Trend Filters
+                </button>
+            </div>
+        </div>
+
+        <!-- Quality Indicator KPI Cards -->
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px; margin-bottom:14px;">
+            <div class="redcov-card redcov-metric-card">
+                <span class="redcov-metric-title"><i class="fas fa-signal" style="color:var(--redcov-primary);"></i> Bad Tiles RSRP</span>
+                <span class="redcov-metric-val" id="statBadTiles" style="color:var(--redcov-primary);">--</span>
+                <div id="statBadTilesWow" style="font-size:11.5px; font-weight:700; margin-top:1px;">--</div>
+                <span class="redcov-metric-sub">Total poor coverage tiles</span>
+            </div>
+            <div class="redcov-card redcov-metric-card">
+                <span class="redcov-metric-title"><i class="fas fa-hourglass-half" style="color:#d97706;"></i> Grids > 3 Weeks</span>
+                <span class="redcov-metric-val" id="statMore3Wks" style="color:#d97706;">--</span>
+                <div id="statMore3WksWow" style="font-size:11.5px; font-weight:700; margin-top:1px;">--</div>
+                <span class="redcov-metric-sub">Persistent bad spot grids</span>
+            </div>
+            <div class="redcov-card redcov-metric-card">
+                <span class="redcov-metric-title"><i class="fas fa-project-diagram" style="color:#7c3aed;"></i> Cluster Forming Grids</span>
+                <span class="redcov-metric-val" id="statFormingCluster" style="color:#7c3aed;">--</span>
+                <div id="statFormingClusterWow" style="font-size:11.5px; font-weight:700; margin-top:1px;">--</div>
+                <span class="redcov-metric-sub">Clustered bad spots</span>
+            </div>
+            <div class="redcov-card redcov-metric-card">
+                <span class="redcov-metric-title"><i class="fas fa-ban" style="color:#64748b;"></i> Bad Non-Potential</span>
+                <span class="redcov-metric-val" id="statBadNonPot" style="color:#64748b;">--</span>
+                <div id="statBadNonPotWow" style="font-size:11.5px; font-weight:700; margin-top:1px;">--</div>
+                <span class="redcov-metric-sub">Low priority bad grids</span>
+            </div>
+        </div>
+
+        <!-- Row 1: NOP Multi-Line Trend & Top Contributor Horizontal Bar -->
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-bottom:14px;">
+            <!-- Chart 3: Red Coverage Trend - NOP -->
+            <div class="redcov-chart-container">
+                <div class="redcov-chart-header">
+                    <div>
+                        <div class="redcov-chart-title">
+                            <i class="fas fa-chart-line" style="color:#0284c7;"></i> <span id="lblNopTrendTitle">Red Coverage Trend - NOP</span>
+                        </div>
+                        <div class="redcov-chart-sub">Volume trend per NOP area across selected timeline</div>
+                    </div>
+                </div>
+                <div id="chartNopTrend" style="height: 340px; width: 100%;"></div>
+            </div>
+
+            <!-- Chart 4: Top Contributor Red Optim Grid (Kabupaten) -->
+            <div class="redcov-chart-container">
+                <div class="redcov-chart-header">
+                    <div>
+                        <div class="redcov-chart-title">
+                            <i class="fas fa-list-ol" style="color:#d97706;"></i> <span id="lblTopContribTitle">Top Contributor Kabupaten</span>
+                        </div>
+                        <div class="redcov-chart-sub">Ranking Kabupaten based on selected metric for focus week</div>
+                    </div>
+                </div>
+                <div id="chartTopContributors" style="height: 340px; width: 100%;"></div>
+            </div>
+        </div>
+
+        <!-- Row 2: NOP Weekly Volume Stacked Bar & Grid Quality Indicators Trend -->
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px;">
+            <!-- Chart 5: NOP Weekly Red Coverage Stacked Comparison -->
+            <div class="redcov-chart-container">
+                <div class="redcov-chart-header">
+                    <div>
+                        <div class="redcov-chart-title">
+                            <i class="fas fa-chart-bar" style="color:#0284c7;"></i> <span id="lblNopWeeklyTitle">NOP Weekly Volume</span>
+                        </div>
+                        <div class="redcov-chart-sub">Weekly volume by NOP for selected timeline</div>
+                    </div>
+                </div>
+                <div id="chartNopWeeklyBar" style="height: 340px; width: 100%;"></div>
+            </div>
+
+            <!-- Chart 6: Grid Quality Indicators Trend -->
+            <div class="redcov-chart-container">
+                <div class="redcov-chart-header">
+                    <div>
+                        <div class="redcov-chart-title">
+                            <i class="fas fa-wave-square" style="color:#8B0000;"></i> Grid Quality Indicators Trend
+                        </div>
+                        <div class="redcov-chart-sub">Bad Tiles RSRP, Grids > 3 Wks, and Cluster Grids</div>
+                    </div>
+                </div>
+                <div id="chartQualityTrend" style="height: 340px; width: 100%;"></div>
+            </div>
+        </div>
+
+        <!-- Row 3: Kabupaten Trend Coverage & Breakdown Section -->
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-top:14px;">
+            <!-- Kabupaten Chart A: Trend Coverage (Good vs Red Cov) -->
+            <div class="redcov-chart-container">
+                <div class="redcov-chart-header">
+                    <div>
+                        <div class="redcov-chart-title">
+                            <i class="fas fa-map-marked-alt" style="color:#8B0000;"></i> Trend Coverage Kabupaten Level
+                        </div>
+                        <div class="redcov-chart-sub">Good vs Red Coverage volume & percentage trend</div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-size:11px; font-weight:700; color:var(--text-muted);">Kabupaten:</span>
+                        <select id="trendKabSelect" class="redcov-select" style="height:30px; font-size:11.5px; min-width:145px;" onchange="loadKabupatenTrendCharts()">
+                            <!-- Populated dynamically via JS -->
+                        </select>
+                    </div>
+                </div>
+                <div id="chartKabTrend" style="height: 340px; width: 100%;"></div>
+            </div>
+
+            <!-- Kabupaten Chart B: Red Coverage Breakdown (Red Optim vs Red Eng, no target) -->
+            <div class="redcov-chart-container">
+                <div class="redcov-chart-header">
+                    <div>
+                        <div class="redcov-chart-title">
+                            <i class="fas fa-layer-group" style="color:#8B0000;"></i> Red Coverage Breakdown Kabupaten Level
+                        </div>
+                        <div class="redcov-chart-sub">Red Optim vs Red Engineering volume & percentage trend</div>
+                    </div>
+                </div>
+                <div id="chartKabBreakdown" style="height: 340px; width: 100%;"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 3: Comparison Table (NOP Level Table BEFORE Kabupaten)      -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <div id="pane-comparison" class="redcov-tab-pane">
+
+        <!-- Filter Card -->
+        <div class="redcov-filter-card" style="margin-bottom: 14px;">
+            <div class="redcov-filter-controls">
+                <div class="redcov-filter-group">
+                    <label class="redcov-filter-label"><i class="fas fa-calendar-check"></i> Current Week</label>
+                    <select id="compCurrWeek" class="redcov-select" onchange="loadComparisonTable()">
+                        {% for yw in yearweeks %}
+                        <option value="{{ yw }}" {% if yw == default_yw %}selected{% endif %}>W{{ (yw|string)[4:] }} ({{ yw }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="redcov-filter-group">
+                    <label class="redcov-filter-label"><i class="fas fa-calendar-alt"></i> Compare Week</label>
+                    <select id="compPrevWeek" class="redcov-select" onchange="loadComparisonTable()">
+                        {% for yw in yearweeks %}
+                        <option value="{{ yw }}" {% if loop.index == 2 %}selected{% endif %}>W{{ (yw|string)[4:] }} ({{ yw }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="redcov-action-group">
+                <a id="btnExportCsv" href="/api/sow/redcov/export?week={{ default_yw }}&region={{ current_region }}" class="redcov-btn-secondary" title="Export to CSV">
+                    <i class="fas fa-download"></i> Export CSV
+                </a>
+                <button class="redcov-btn-primary" onclick="loadComparisonTable()">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+        </div>
+
+        <!-- Table 1: NOP / Branch Level Comparison WoW (Located BEFORE Kabupaten level!) -->
+        <div class="redcov-table-card" style="margin-bottom: 18px;">
+            <div style="padding:12px 16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-size:13px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-sitemap" style="color:#8B0000;"></i>
+                    <span>NOP / Branch Level Performance Comparison WoW</span>
+                </div>
+                <div id="nopTableTargetBadge" class="badge-pass">Target: {{ "%.2f"|format(target_val) }}%</div>
+            </div>
+            <div class="redcov-table-responsive">
+                <table class="redcov-table" id="nopTable">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left;">NOP / Branch</th>
+                            <th>Total Grids</th>
+                            <th>Red Cov</th>
+                            <th>% Red Cov</th>
+                            <th>Red Optim</th>
+                            <th>% Red Optim</th>
+                            <th>Red Eng</th>
+                            <th>% Red Eng</th>
+                            <th>Prev Optim</th>
+                            <th>Prev Optim %</th>
+                            <th>Δ WoW (pp)</th>
+                            <th>Target</th>
+                            <th style="text-align:center;">Target Status</th>
+                            <th style="text-align:center;">WoW Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="nopTableBody">
+                        <tr><td colspan="14" style="text-align:center; padding:16px;">Loading NOP level comparison...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Table 2: Kabupaten Level Comparison WoW -->
+        <div class="redcov-table-card">
+            <div style="padding:12px 16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                <div style="font-size:13px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-table" style="color:#8B0000;"></i>
+                    <span>Kabupaten Level Red Coverage Comparison WoW</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <span style="font-size:11px; font-weight:700; color:var(--text-muted);">NOP:</span>
+                        <select id="kabFilterBranch" class="redcov-select" style="height:32px; font-size:11.5px; min-width:115px;" onchange="filterComparisonTable()">
+                            <option value="ALL">All NOPs</option>
+                            <option value="AMBON">AMBON</option>
+                            <option value="JAYAPURA">JAYAPURA</option>
+                            <option value="TIMIKA">TIMIKA</option>
+                            <option value="SORONG">SORONG</option>
+                        </select>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <span style="font-size:11px; font-weight:700; color:var(--text-muted);">Target:</span>
+                        <select id="kabFilterStatus" class="redcov-select" style="height:32px; font-size:11.5px; min-width:115px;" onchange="filterComparisonTable()">
+                            <option value="ALL">All Status</option>
+                            <option value="PASS">PASS Only</option>
+                            <option value="BREACH">BREACH Only</option>
+                        </select>
+                    </div>
+                    <input type="text" id="kabSearchInput" placeholder="Search Kabupaten..." class="redcov-select" style="height:32px; font-size:11.5px; min-width:145px;" oninput="filterComparisonTable()">
+                    <div id="tableTargetBadge" class="badge-pass" style="margin-left:4px;">Target: {{ "%.2f"|format(target_val) }}%</div>
+                </div>
+            </div>
+            <div class="redcov-table-responsive">
+                <table class="redcov-table" id="kabTable">
+                    <thead>
+                        <tr>
+                            <th class="sortable" onclick="sortTableBy('branch')" style="text-align:left;">NOP / Branch <span class="sort-icon" id="sort-branch"></span></th>
+                            <th class="sortable" onclick="sortTableBy('kabupaten')" style="text-align:left;">Kabupaten <span class="sort-icon" id="sort-kabupaten"></span></th>
+                            <th class="sortable" onclick="sortTableBy('total_grid')">Total Grids <span class="sort-icon" id="sort-total_grid"></span></th>
+                            <th class="sortable" onclick="sortTableBy('red_cov')">Red Cov <span class="sort-icon" id="sort-red_cov"></span></th>
+                            <th class="sortable" onclick="sortTableBy('red_cov_pct')">% Red Cov <span class="sort-icon" id="sort-red_cov_pct"></span></th>
+                            <th class="sortable" onclick="sortTableBy('red_optim')">Red Optim <span class="sort-icon" id="sort-red_optim"></span></th>
+                            <th class="sortable" onclick="sortTableBy('red_optim_pct')">% Red Optim <span class="sort-icon" id="sort-red_optim_pct"></span></th>
+                            <th class="sortable" onclick="sortTableBy('red_eng')">Red Eng <span class="sort-icon" id="sort-red_eng"></span></th>
+                            <th class="sortable" onclick="sortTableBy('red_eng_pct')">% Red Eng <span class="sort-icon" id="sort-red_eng_pct"></span></th>
+                            <th class="sortable" onclick="sortTableBy('prev_red_optim')">Prev Optim <span class="sort-icon" id="sort-prev_red_optim"></span></th>
+                            <th class="sortable" onclick="sortTableBy('prev_red_optim_pct')">Prev Optim % <span class="sort-icon" id="sort-prev_red_optim_pct"></span></th>
+                            <th class="sortable" onclick="sortTableBy('wow_ro_delta_pp')">Δ WoW (pp) <span class="sort-icon" id="sort-wow_ro_delta_pp"></span></th>
+                            <th class="sortable" onclick="sortTableBy('more_than_3_wks')">Grids > 3 Wks <span class="sort-icon" id="sort-more_than_3_wks"></span></th>
+                            <th class="sortable" onclick="sortTableBy('forming_cluster')">Cluster Grids <span class="sort-icon" id="sort-forming_cluster"></span></th>
+                            <th style="text-align:center;">Target Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kabTableBody">
+                        <tr><td colspan="15" style="text-align:center; padding:20px;">Loading comparison data...</td></tr>
+                    </tbody>
+                    <tfoot id="kabTableFoot" style="font-weight:800; background:var(--secondary);">
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- Import Modal                                                   -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div id="redcovImportModal" class="modal" style="display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.55); justify-content:center; align-items:center; backdrop-filter:blur(2px);">
+    <div class="modal-content" style="max-width:520px; background:var(--redcov-card-bg); border-radius:14px; padding:22px; width:92%; border:1px solid var(--border); box-shadow:0 10px 25px rgba(0,0,0,0.2);">
+        <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+            <h3 style="margin:0; font-size:1.15rem; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-file-import" style="color:#8B0000;"></i> Import Redcov Data
+            </h3>
+            <span class="close" onclick="closeRedcovImportModal()" style="cursor:pointer; font-size:1.4rem; color:var(--text-muted);">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div style="margin-bottom:14px;">
+                <label style="display:block; margin-bottom:6px; font-size:12px; font-weight:700; text-transform:uppercase; color:var(--text-muted);">Upload Redcov File (.xlsx or .csv)</label>
+                <div style="border:2px dashed var(--border); border-radius:10px; padding:24px 16px; text-align:center; cursor:pointer; background:var(--secondary); transition:all 0.18s ease;"
+                     onclick="document.getElementById('redcovFileInput').click();"
+                     id="redcovDropZone">
+                    <i class="fas fa-cloud-upload-alt" style="font-size:32px; color:#8B0000; margin-bottom:8px;"></i>
+                    <p style="margin:0; font-size:13px; font-weight:600; color:var(--text-main);">Click to browse or drag & drop file</p>
+                    <p style="margin:4px 0 0; font-size:11px; color:var(--text-muted);">Supports Excel (.xlsx, .xls) and CSV</p>
+                    <input type="file" id="redcovFileInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleRedcovFileSelect(this)">
+                </div>
+                <div id="redcovFilePreview" style="margin-top:10px; display:none; padding:8px 12px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2); border-radius:8px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-file-excel" style="color:#10b981; font-size:16px;"></i>
+                        <span id="redcovFileName" style="font-weight:600; font-size:12px; color:var(--text-main); word-break:break-all;"></span>
+                        <button type="button" onclick="removeRedcovFile()" style="margin-left:auto; background:none; border:none; color:#ef4444; cursor:pointer; font-size:14px;" title="Remove file">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top:18px;">
+                <button type="button" onclick="submitRedcovImport()" style="width:100%; height:38px; background:#8B0000; color:white; border:none; border-radius:8px; font-weight:600; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;" disabled id="redcovImportBtn">
+                    <i class="fas fa-upload"></i> Start Import
+                </button>
+                <div id="redcovImportStatus" style="margin-top:10px; font-size:12px; text-align:center; display:none;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- Chart Enlarge Modal                                             -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div id="chartEnlargeModal" class="redcov-enlarge-modal">
+    <div class="redcov-enlarge-box">
+        <div class="redcov-enlarge-header">
+            <div>
+                <h3 id="enlargeModalTitle" style="margin:0; font-size:16px; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-chart-line" style="color:#8B0000;"></i> Chart Enlarge View
+                </h3>
+                <div id="enlargeModalSubtitle" style="font-size:11.5px; color:var(--text-muted); margin-top:2px;"></div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <button type="button" class="redcov-btn-secondary" style="height:32px; padding:0 12px; font-size:11.5px;" onclick="downloadEnlargedChart()">
+                    <i class="fas fa-download"></i> Save PNG
+                </button>
+                <button type="button" onclick="closeChartEnlargeModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-muted);" title="Close">
+                    &times;
+                </button>
+            </div>
+        </div>
+        <div class="redcov-enlarge-body">
+            <div id="enlargedChartContainer" style="width:100%; height:100%;"></div>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/redcov_dashboard.js') }}?v={{ range(1000, 9999) | random }}"></script>
+{% endblock %}

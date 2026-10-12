@@ -4,193 +4,1586 @@
 {% block subSow_open %}open{% endblock %}
 {% block nav_sow_summary %}active{% endblock %}
 
-{% block page_title %}SOW Summary{% endblock %}
-{% block page_sub %}Scope of Work — Quarterly Performance Targets ({{ default_year }}){% endblock %}
-
-{% block topbar_chips %}
-<div class="info-chip" title="Database Source">
-    <i class="fas fa-database"></i> sow.sow_target
-</div>
-{% endblock %}
+{% block page_title %}SOW Summary Dashboard{% endblock %}
+{% block page_sub %}Regional Health & Quality Metrics — AREA 4 (PUMA){% endblock %}
 
 {% block page_content %}
-<div class="sow-container">
-    <div class="card filter-panel">
-        <div class="filter-bar">
-            <div class="filter-group">
-                <label class="filter-label">Target Year</label>
-                <select class="f-select" id="filterYear">
-                    {% for y in years %}
-                    <option value="{{ y }}" {% if y == default_year %}selected{% endif %}>{{ y }}</option>
-                    {% endfor %}
-                    {% if not years %}
-                    <option value="{{ default_year }}">{{ default_year }}</option>
-                    {% endif %}
-                </select>
-            </div>
+<div class="sow-summary-wrapper">
 
-            <div class="filter-group">
-                <label class="filter-label">Region (Optional)</label>
-                <select class="f-select" id="filterRegion">
-                    <option value="">All Regions</option>
-                    <option value="PUMA">PUMA</option>
-                </select>
+    <!-- Top Executive Header Banner -->
+    <div class="executive-banner">
+        <div class="banner-title-area">
+            <div class="banner-brand">
+                <span class="brand-tag">PUMA NETWORK PERFORMANCE</span>
+                <span class="brand-divider">|</span>
+                <span class="brand-week" id="bannerWeekTitle">WEEK 39</span>
             </div>
+            <div class="banner-subtitle">
+                <i class="fas fa-network-wired" style="color: #60a5fa; margin-right: 6px;"></i>
+                Regional Health & Quality Metrics — AREA 4 Executive Scorecard
+            </div>
+        </div>
+        <div class="banner-stats">
+            <div class="stat-pill stat-total">
+                <span class="stat-num" id="statTotalKpi">6</span>
+                <span class="stat-text">Total KPIs</span>
+            </div>
+            <div class="stat-pill stat-ach">
+                <span class="stat-num" id="statAchKpi">3</span>
+                <span class="stat-text">ACH</span>
+            </div>
+            <div class="stat-pill stat-ny">
+                <span class="stat-num" id="statNyAchKpi">3</span>
+                <span class="stat-text">NY ACH</span>
+            </div>
+        </div>
+    </div>
 
-            <button class="btn-apply" id="btnRefresh" style="margin-bottom: 2px;">
-                <i class="fas fa-sync-alt"></i> Refresh
+    <!-- SOW Status Summary & Submenu Dashboards Header -->
+    <div class="quick-nav-header">
+        <div class="quick-nav-title">
+            <i class="fas fa-th-large" style="color: #38bdf8;"></i> SOW Status Summary &amp; Submenu Dashboards
+        </div>
+        <div class="quick-nav-tip">
+            Click any card to open the dedicated submenu dashboard
+        </div>
+    </div>
+
+    <!-- 6 Core SOW KPI Cards Strip (Directly linked to submenus, 2-col on mobile) -->
+    <div class="kpi-cards-grid" id="kpiCardsStrip">
+        <!-- 1. RHI Card -->
+        <a href="/sow/rhi" class="kpi-card-colorful theme-emerald" id="card_RHI" title="Open RHI Dashboard">
+            <div class="card-glow"></div>
+            <div class="card-top">
+                <span class="card-icon"><i class="fas fa-heartbeat"></i></span>
+                <span class="card-tag">RHI</span>
+                <span class="card-week-badge" id="cweek_RHI">W39</span>
+            </div>
+            <div class="card-metric-name">Radio Health Index</div>
+            <div class="card-val" id="cval_RHI">93.84%</div>
+            <div class="card-meta">
+                <span class="meta-prev" id="cprev_RHI">Prev: 93.91%</span>
+                <span class="meta-wow wow-flat" id="cwow_RHI">▼ -0.07 pp</span>
+            </div>
+            <div class="card-bottom">
+                <span class="status-pill status-ach" id="cstat_RHI">ACH</span>
+                <span class="target-chip">Tgt: 93.55%</span>
+                <span class="open-link">Open <i class="fas fa-arrow-right"></i></span>
+            </div>
+        </a>
+
+        <!-- 2. CEI Card -->
+        <a href="/sow/cei" class="kpi-card-colorful theme-cyan" id="card_CEI" title="Open CEI Dashboard">
+            <div class="card-glow"></div>
+            <div class="card-top">
+                <span class="card-icon"><i class="fas fa-smile"></i></span>
+                <span class="card-tag">CEI</span>
+                <span class="card-week-badge" id="cweek_CEI">W37</span>
+            </div>
+            <div class="card-metric-name">Customer Experience Index</div>
+            <div class="card-val" id="cval_CEI">94.48%</div>
+            <div class="card-meta">
+                <span class="meta-prev" id="cprev_CEI">Prev: 95.39%</span>
+                <span class="meta-wow wow-down" id="cwow_CEI">▼ -0.91 pp</span>
+            </div>
+            <div class="card-bottom">
+                <span class="status-pill status-ach" id="cstat_CEI">ACH</span>
+                <span class="target-chip">Tgt: 93.95%</span>
+                <span class="open-link">Open <i class="fas fa-arrow-right"></i></span>
+            </div>
+        </a>
+
+        <!-- 3. Redcov Card -->
+        <a href="/sow/redcov" class="kpi-card-colorful theme-amber" id="card_Redcov" title="Open Redcov Dashboard">
+            <div class="card-glow"></div>
+            <div class="card-top">
+                <span class="card-icon"><i class="fas fa-satellite-dish"></i></span>
+                <span class="card-tag">REDCOV</span>
+                <span class="card-week-badge" id="cweek_Redcov">W39</span>
+            </div>
+            <div class="card-metric-name">Red Coverage Optim</div>
+            <div class="card-val" id="cval_Redcov">0.16%</div>
+            <div class="card-meta">
+                <span class="meta-prev" id="cprev_Redcov">Prev: 0.16%</span>
+                <span class="meta-wow wow-flat" id="cwow_Redcov">― 0.00 pp</span>
+            </div>
+            <div class="card-bottom">
+                <span class="status-pill status-ach" id="cstat_Redcov">ACH</span>
+                <span class="target-chip">Tgt: ≤ 0.23%</span>
+                <span class="open-link">Open <i class="fas fa-arrow-right"></i></span>
+            </div>
+        </a>
+
+        <!-- 4. ONX Card -->
+        <a href="/sow/crowdsource?tab=onx" class="kpi-card-colorful theme-blue" id="card_ONX" title="Open ONX Benchmark">
+            <div class="card-glow"></div>
+            <div class="card-top">
+                <span class="card-icon"><i class="fas fa-trophy"></i></span>
+                <span class="card-tag">ONX</span>
+                <span class="card-week-badge" id="cweek_ONX">W38</span>
+            </div>
+            <div class="card-metric-name">ONX Mobile Wins</div>
+            <div class="card-val" id="cval_ONX">13 <span class="val-unit">/16</span></div>
+            <div class="card-meta">
+                <span class="meta-prev" id="cprev_ONX">Prev: 13 wins</span>
+                <span class="meta-wow wow-flat" id="cwow_ONX">― 0 delta</span>
+            </div>
+            <div class="card-bottom">
+                <span class="status-pill status-ny" id="cstat_ONX">NY ACH</span>
+                <span class="target-chip">Tgt: 14 wins</span>
+                <span class="open-link">Open <i class="fas fa-arrow-right"></i></span>
+            </div>
+        </a>
+
+        <!-- 5. Unbalance Card -->
+        <a href="/sow/ran_capacity?mode=unbalance" class="kpi-card-colorful theme-violet" id="card_Unbalance" title="Open RAN Capacity Unbalance">
+            <div class="card-glow"></div>
+            <div class="card-top">
+                <span class="card-icon"><i class="fas fa-balance-scale"></i></span>
+                <span class="card-tag">UNBALANCE</span>
+                <span class="card-week-badge" id="cweek_Unbalance">W39</span>
+            </div>
+            <div class="card-metric-name">Unbalance Sector (P1)</div>
+            <div class="card-val" id="cval_Unbalance">2.24%</div>
+            <div class="card-meta">
+                <span class="meta-prev" id="cprev_Unbalance">Prev: 2.12%</span>
+                <span class="meta-wow wow-down" id="cwow_Unbalance">▼ +0.12 pp</span>
+            </div>
+            <div class="card-bottom">
+                <span class="status-pill status-ny" id="cstat_Unbalance">NY ACH</span>
+                <span class="target-chip">Tgt: ≤ 1.85%</span>
+                <span class="open-link">Open <i class="fas fa-arrow-right"></i></span>
+            </div>
+        </a>
+
+        <!-- 6. RCI Card -->
+        <a href="/sow/ran_capacity?mode=rci" class="kpi-card-colorful theme-rose" id="card_RCI" title="Open RAN Capacity RCI">
+            <div class="card-glow"></div>
+            <div class="card-top">
+                <span class="card-icon"><i class="fas fa-sliders-h"></i></span>
+                <span class="card-tag">RCI</span>
+                <span class="card-week-badge" id="cweek_RCI">W39</span>
+            </div>
+            <div class="card-metric-name">Direct Optim (RCI)</div>
+            <div class="card-val" id="cval_RCI">0.58%</div>
+            <div class="card-meta">
+                <span class="meta-prev" id="cprev_RCI">Prev: 0.61%</span>
+                <span class="meta-wow wow-up" id="cwow_RCI">▲ -0.03 pp</span>
+            </div>
+            <div class="card-bottom">
+                <span class="status-pill status-ny" id="cstat_RCI">NY ACH</span>
+                <span class="target-chip">Tgt: ≤ 0.42%</span>
+                <span class="open-link">Open <i class="fas fa-arrow-right"></i></span>
+            </div>
+        </a>
+    </div>
+
+    <!-- Elevated Scene / Tab Navigation Bar -->
+    <div class="sow-scene-navigation">
+        <div class="scene-tabs-container">
+            <button class="scene-tab active" id="tabScene1" onclick="switchScene('scene1')">
+                <div class="scene-tab-icon"><i class="fas fa-medal"></i></div>
+                <div class="scene-tab-text">
+                    <span class="scene-tab-title">Regional Achievement</span>
+                    <span class="scene-tab-sub">Target vs Actual Performance</span>
+                </div>
+                <span class="scene-tab-pill">6 KPIs</span>
+            </button>
+            <button class="scene-tab" id="tabScene2" onclick="switchScene('scene2')">
+                <div class="scene-tab-icon"><i class="fas fa-heartbeat"></i></div>
+                <div class="scene-tab-text">
+                    <span class="scene-tab-title">PUMA OKR Scorecard</span>
+                    <span class="scene-tab-sub">Health &amp; Movement Dynamics</span>
+                </div>
+                <span class="scene-tab-pill">WoW Dynamics</span>
+            </button>
+            <button class="scene-tab" id="tabScene3" onclick="switchScene('scene3')">
+                <div class="scene-tab-icon"><i class="fas fa-bullseye"></i></div>
+                <div class="scene-tab-text">
+                    <span class="scene-tab-title">Annual Target Matrix Reference</span>
+                    <span class="scene-tab-sub">Baseline &amp; Quarterly Milestones</span>
+                </div>
+                <span class="scene-tab-pill">Quarterly</span>
             </button>
         </div>
     </div>
 
-    <div class="card table-card" style="padding: 0;">
-        <div class="table-card-header">
-            <div class="table-card-title">
-                <i class="fas fa-bullseye" style="color: #4facfe; margin-right: 8px;"></i>
-                SOW Target Matrix
+    <!-- SCENE 1: Regional Achievement Panel -->
+    <div class="scene-pane active" id="scene1Pane">
+        <div class="panel-card panel-achievement">
+            <div class="panel-header-badge badge-navy">
+                <div class="badge-title">
+                    <i class="fas fa-medal" style="margin-right: 8px;"></i> Regional Achievement
+                </div>
+                <div class="badge-sub">AREA 4 — REGIONAL PUMA</div>
             </div>
-            <div class="live-badge" id="dataStatus">
-                <div class="live-dot"></div> READY
+
+            <div class="mobile-table-hint">
+                <i class="fas fa-arrows-left-right"></i> Swipe horizontally to view all metrics
             </div>
-        </div>
-        <div class="table-scroll">
-            <table class="data-table" id="targetTable">
-                <thead>
-                    <tr>
-                        <th style="width: 250px;">SOW Metric</th>
-                        <th class="text-center">Baseline</th>
-                        <th class="text-center">Q1 Target</th>
-                        <th class="text-center">Q2 Target</th>
-                        <th class="text-center">Q3 Target</th>
-                        <th class="text-center">Q4 Target</th>
-                    </tr>
-                </thead>
-                <tbody id="targetBody">
-                    <tr>
-                        <td colspan="6" class="empty-state">Loading targets...</td>
-                    </tr>
-                </tbody>
-            </table>
+
+            <div class="table-scroll-container">
+                <table class="scorecard-table table-uniform" id="tableAchievement">
+                    <thead>
+                        <tr class="header-row-primary">
+                            <th class="th-kpi">KPI</th>
+                            <th class="th-center">Target Q3</th>
+                            <th class="th-center">Prev Week</th>
+                            <th class="th-center">Latest Week</th>
+                            <th class="th-center">WoW</th>
+                            <th class="th-center">Gap Q3</th>
+                            <th class="th-center">Status Q3</th>
+                            <th class="th-center">Latest Weeknum</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyAchievement">
+                        <tr>
+                            <td colspan="8" class="td-loading">
+                                <i class="fas fa-spinner fa-spin"></i> Loading Regional Achievement data...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
+
+    <!-- SCENE 2: PUMA OKR Scorecard (Health & Movement Dynamics) -->
+    <div class="scene-pane" id="scene2Pane">
+        <div class="panel-card panel-dynamics">
+            <div class="panel-header-badge badge-maroon">
+                <div class="badge-title">
+                    <i class="fas fa-heartbeat" style="margin-right: 8px;"></i> PUMA OKR Scorecard
+                </div>
+                <div class="badge-sub">Health &amp; Movement Dynamics</div>
+            </div>
+
+            <div class="mobile-table-hint">
+                <i class="fas fa-arrows-left-right"></i> Swipe horizontally to view all insights
+            </div>
+
+            <div class="table-scroll-container">
+                <table class="scorecard-table dynamics-table" id="tableDynamics">
+                    <thead>
+                        <tr class="header-row-maroon">
+                            <th style="width: 200px;">KPI</th>
+                            <th class="th-center" style="width: 150px;">WoW Trend</th>
+                            <th class="th-center" style="width: 90px;">Status</th>
+                            <th>Key Insight</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyDynamics">
+                        <tr>
+                            <td colspan="4" class="td-loading">
+                                <i class="fas fa-spinner fa-spin"></i> Loading OKR Dynamics...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCENE 3: Annual Target Matrix Reference -->
+    <div class="scene-pane" id="scene3Pane">
+        <div class="panel-card matrix-reference-card">
+            <div class="matrix-card-header">
+                <div class="matrix-title">
+                    <i class="fas fa-bullseye" style="color: #38bdf8; margin-right: 8px;"></i>
+                    Annual Target Matrix Reference
+                </div>
+                <div class="matrix-controls">
+                    <select class="f-select f-select-sm" id="filterYear">
+                        {% for y in years %}
+                        <option value="{{ y }}" {% if y == default_year %}selected{% endif %}>Year {{ y }}</option>
+                        {% endfor %}
+                        {% if not years %}
+                        <option value="{{ default_year }}">Year {{ default_year }}</option>
+                        {% endif %}
+                    </select>
+                    <select class="f-select f-select-sm" id="filterRegion">
+                        <option value="">All Regions</option>
+                        <option value="PUMA">PUMA</option>
+                    </select>
+                    <button class="btn-refresh-sm" id="btnRefreshMatrix" title="Refresh Target Matrix">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+            </div>
+
+            <div class="mobile-table-hint">
+                <i class="fas fa-arrows-left-right"></i> Swipe horizontally to view all quarterly targets
+            </div>
+
+            <div class="table-scroll-container" style="border-top: 1px solid var(--border);">
+                <table class="scorecard-table matrix-table" id="targetTable">
+                    <thead>
+                        <tr class="header-row-matrix">
+                            <th style="width: 240px;">SOW Metric</th>
+                            <th class="th-center">Baseline</th>
+                            <th class="th-center">Q1 Target</th>
+                            <th class="th-center">Q2 Target</th>
+                            <th class="th-center th-active-q3">
+                                Q3 Target <span class="active-q-tag">Active</span>
+                            </th>
+                            <th class="th-center">Q4 Target</th>
+                        </tr>
+                    </thead>
+                    <tbody id="targetBody">
+                        <tr>
+                            <td colspan="6" class="td-loading"><i class="fas fa-spinner fa-spin"></i> Loading matrix...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
 </div>
 
+<!-- STYLES -->
 <style>
-    .sow-container {
+    .sow-summary-wrapper {
         padding: 16px 20px 48px;
         display: flex;
         flex-direction: column;
-        gap: 16px;
-    }
-    .text-center { text-align: center !important; }
-    
-    .target-val {
-        font-weight: 600;
-        font-family: 'JetBrains Mono', 'Consolas', monospace;
-        font-size: 14px;
+        gap: 18px;
+        max-width: 1800px;
+        margin: 0 auto;
     }
 
-    [data-theme="dark"] .target-val { color: #4facfe; }
-    [data-theme="light"] .target-val { color: #0284c7; }
-
-    .metric-name {
-        font-weight: 600;
+    /* Executive Top Banner */
+    .executive-banner {
+        background: linear-gradient(135deg, #091e3a 0%, #172554 40%, #1e1b4b 100%);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: 14px;
+        padding: 18px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.35);
+        position: relative;
+        overflow: hidden;
+    }
+    .executive-banner::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -20%;
+        width: 140%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(56, 189, 248, 0.12) 0%, transparent 60%);
+        pointer-events: none;
+    }
+    .banner-title-area {
+        position: relative;
+        z-index: 1;
+    }
+    .banner-brand {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
+        font-family: 'Inter', system-ui, sans-serif;
     }
-    .metric-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: #4facfe;
-        opacity: 0.7;
+    .brand-tag {
+        font-size: 20px;
+        font-weight: 900;
+        letter-spacing: 1px;
+        color: #ffffff;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    }
+    .brand-divider {
+        font-size: 20px;
+        font-weight: 700;
+        color: #f97316;
+    }
+    .brand-week {
+        font-size: 20px;
+        font-weight: 800;
+        color: #38bdf8;
+        letter-spacing: 0.5px;
+    }
+    .banner-subtitle {
+        margin-top: 4px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #cbd5e1;
+        font-style: italic;
+    }
+    .banner-stats {
+        display: flex;
+        gap: 12px;
+        position: relative;
+        z-index: 1;
+    }
+    .stat-pill {
+        padding: 8px 16px;
+        border-radius: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 90px;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .stat-num {
+        font-size: 18px;
+        font-weight: 800;
+        font-family: 'JetBrains Mono', Consolas, monospace;
+    }
+    .stat-text {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .stat-total .stat-num { color: #f8fafc; }
+    .stat-total .stat-text { color: #94a3b8; }
+    .stat-ach { border-color: rgba(34, 197, 94, 0.4); background: rgba(22, 101, 52, 0.25); }
+    .stat-ach .stat-num { color: #4ade80; }
+    .stat-ach .stat-text { color: #86efac; }
+    .stat-ny { border-color: rgba(244, 63, 94, 0.4); background: rgba(159, 18, 57, 0.25); }
+    .stat-ny .stat-num { color: #fb7185; }
+    .stat-ny .stat-text { color: #fda4af; }
+
+    /* Quick Nav Strip Header */
+    .quick-nav-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 4px;
+        margin-bottom: -6px;
+    }
+    .quick-nav-title {
+        font-size: 14px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--foreground);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .quick-nav-tip {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted-foreground);
+    }
+
+    /* 6 Colorful Top KPI Cards Grid */
+    .kpi-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 12px;
+    }
+    .kpi-card-colorful {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 13px 15px;
+        text-decoration: none;
+        color: inherit;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s, border-color 0.2s;
+    }
+    .kpi-card-colorful:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.2);
+    }
+    .card-glow {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        transition: height 0.2s;
+    }
+    .kpi-card-colorful:hover .card-glow {
+        height: 5px;
+    }
+
+    /* Card Themes */
+    .theme-emerald { border-left: 3px solid #10b981; }
+    .theme-emerald .card-glow { background: #10b981; }
+    .theme-emerald .card-icon { color: #10b981; }
+
+    .theme-cyan { border-left: 3px solid #06b6d4; }
+    .theme-cyan .card-glow { background: #06b6d4; }
+    .theme-cyan .card-icon { color: #06b6d4; }
+
+    .theme-amber { border-left: 3px solid #f59e0b; background: rgba(245, 158, 11, 0.03); }
+    .theme-amber .card-glow { background: #f59e0b; }
+    .theme-amber .card-icon { color: #f59e0b; }
+
+    .theme-rose { border-left: 3px solid #f43f5e; }
+    .theme-rose .card-glow { background: #f43f5e; }
+    .theme-rose .card-icon { color: #f43f5e; }
+
+    .theme-violet { border-left: 3px solid #8b5cf6; }
+    .theme-violet .card-glow { background: #8b5cf6; }
+    .theme-violet .card-icon { color: #8b5cf6; }
+
+    .theme-blue { border-left: 3px solid #3b82f6; }
+    .theme-blue .card-glow { background: #3b82f6; }
+    .theme-blue .card-icon { color: #3b82f6; }
+
+    .card-top {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .card-icon {
+        font-size: 13px;
+    }
+    .card-tag {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: var(--muted-foreground);
+    }
+    .card-week-badge {
+        margin-left: auto;
+        font-size: 10px;
+        font-weight: 700;
+        background: rgba(148, 163, 184, 0.15);
+        color: var(--muted-foreground);
+        padding: 1px 6px;
+        border-radius: 4px;
+    }
+    .card-metric-name {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted-foreground);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .card-val {
+        font-size: 22px;
+        font-weight: 900;
+        font-family: 'JetBrains Mono', Consolas, monospace;
+        letter-spacing: -0.5px;
+        line-height: 1.1;
+    }
+    .val-unit {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted-foreground);
+    }
+    .card-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 11px;
+        margin-top: 2px;
+    }
+    .meta-prev {
+        color: var(--muted-foreground);
+        font-size: 10px;
+        font-weight: 500;
+    }
+    .meta-wow {
+        font-size: 11px;
+        font-weight: 700;
+    }
+    .wow-up { color: #10b981; }
+    .wow-down { color: #ef4444; }
+    .wow-flat { color: #64748b; }
+
+    .card-bottom {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 4px;
+        padding-top: 6px;
+        border-top: 1px dashed var(--border);
+    }
+    .status-pill {
+        font-size: 10px;
+        font-weight: 800;
+        padding: 2px 6px;
+        border-radius: 4px;
+        text-transform: uppercase;
+    }
+    .status-ach {
+        background: #dcfce7;
+        color: #15803d;
+    }
+    .status-ny {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
+    [data-theme="dark"] .status-ach {
+        background: rgba(34, 197, 94, 0.2);
+        color: #4ade80;
+    }
+    [data-theme="dark"] .status-ny {
+        background: rgba(244, 63, 94, 0.2);
+        color: #fb7185;
+    }
+    .target-chip {
+        font-size: 10px;
+        color: var(--muted-foreground);
+        font-weight: 600;
+    }
+    .open-link {
+        margin-left: auto;
+        font-size: 10px;
+        font-weight: 700;
+        color: #38bdf8;
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        opacity: 0.85;
+    }
+    .kpi-card-colorful:hover .open-link {
+        opacity: 1;
+        transform: translateX(2px);
+    }
+
+    /* Elevated Scene / Tab Navigation Bar */
+    .sow-scene-navigation {
+        margin-top: 6px;
+        margin-bottom: 2px;
+    }
+    .scene-tabs-container {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        background: rgba(15, 23, 42, 0.03);
+        padding: 6px;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+    }
+    [data-theme="dark"] .scene-tabs-container {
+        background: rgba(15, 23, 42, 0.5);
+    }
+    .scene-tab {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 13px 18px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--muted-foreground);
+        font-family: inherit;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    }
+    .scene-tab:hover {
+        color: var(--foreground);
+        transform: translateY(-2px);
+        border-color: rgba(56, 189, 248, 0.4);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+    }
+    .scene-tab.active {
+        background: linear-gradient(135deg, rgba(2, 132, 199, 0.08) 0%, rgba(56, 189, 248, 0.04) 100%);
+        border-color: #0284c7;
+        color: #0284c7;
+        box-shadow: 0 6px 20px -4px rgba(2, 132, 199, 0.25);
+    }
+    [data-theme="dark"] .scene-tab.active {
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.15) 0%, rgba(2, 132, 199, 0.06) 100%);
+        border-color: #38bdf8;
+        color: #38bdf8;
+        box-shadow: 0 6px 20px -4px rgba(56, 189, 248, 0.25);
+    }
+    .scene-tab-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: rgba(148, 163, 184, 0.12);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        color: var(--muted-foreground);
+        flex-shrink: 0;
+        transition: all 0.22s;
+    }
+    .scene-tab.active .scene-tab-icon {
+        background: #0284c7;
+        color: #ffffff;
+    }
+    [data-theme="dark"] .scene-tab.active .scene-tab-icon {
+        background: #0284c7;
+        color: #ffffff;
+    }
+    .scene-tab-text {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+        flex: 1;
+        text-align: left;
+    }
+    .scene-tab-title {
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: -0.2px;
+    }
+    .scene-tab-sub {
+        font-size: 11px;
+        color: var(--muted-foreground);
+        font-weight: 500;
+    }
+    .scene-tab.active .scene-tab-sub {
+        color: var(--foreground);
+        opacity: 0.85;
+    }
+    .scene-tab-pill {
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background: rgba(148, 163, 184, 0.15);
+        color: var(--muted-foreground);
+        padding: 3px 8px;
+        border-radius: 6px;
+        margin-left: auto;
+    }
+    .scene-tab.active .scene-tab-pill {
+        background: rgba(2, 132, 199, 0.15);
+        color: #0284c7;
+    }
+    [data-theme="dark"] .scene-tab.active .scene-tab-pill {
+        background: rgba(56, 189, 248, 0.2);
+        color: #38bdf8;
+    }
+
+    /* Scene Panes */
+    .scene-pane {
+        display: none;
+        animation: fadeInScene 0.22s ease-in-out;
+    }
+    .scene-pane.active {
+        display: block;
+    }
+    @keyframes fadeInScene {
+        from { opacity: 0; transform: translateY(4px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .panel-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.08);
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Panel Header Badges */
+    .panel-header-badge {
+        padding: 14px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .badge-navy {
+        background: linear-gradient(135deg, #0F3D5E 0%, #164e63 100%);
+        color: #ffffff;
+        border-bottom: 2px solid #0284c7;
+    }
+    .badge-maroon {
+        background: linear-gradient(135deg, #8B0000 0%, #991b1b 100%);
+        color: #ffffff;
+        border-bottom: 2px solid #dc2626;
+    }
+    .badge-title {
+        font-size: 16px;
+        font-weight: 900;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+    }
+    .badge-sub {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        background: rgba(255, 255, 255, 0.15);
+        padding: 3px 10px;
+        border-radius: 6px;
+    }
+
+    /* Mobile Table Hint */
+    .mobile-table-hint {
+        display: none;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 14px;
+        font-size: 11px;
+        font-weight: 600;
+        color: #0284c7;
+        background: rgba(56, 189, 248, 0.08);
+        border-bottom: 1px solid var(--border);
+    }
+    [data-theme="dark"] .mobile-table-hint {
+        color: #38bdf8;
+        background: rgba(56, 189, 248, 0.12);
+    }
+
+    /* Table Styles */
+    .table-scroll-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .scorecard-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+    }
+    .scorecard-table th {
+        padding: 11px 16px;
+        font-weight: 800;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        white-space: nowrap;
+    }
+    .header-row-primary th {
+        background: #0F3D5E;
+        color: #ffffff;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .header-row-maroon th {
+        background: #8B0000;
+        color: #ffffff;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .header-row-matrix th {
+        background: #1e293b;
+        color: #f8fafc;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    [data-theme="dark"] .header-row-matrix th {
+        background: #0f172a;
+    }
+    .th-active-q3 {
+        background: #0369a1 !important;
+        color: #ffffff !important;
+    }
+    .active-q-tag {
+        font-size: 9px;
+        font-weight: 800;
+        background: #38bdf8;
+        color: #0f172a;
+        padding: 1px 5px;
+        border-radius: 4px;
+        margin-left: 4px;
+        letter-spacing: 0.5px;
+    }
+
+    .scorecard-table td {
+        padding: 11px 16px;
+        border-bottom: 1px solid var(--border);
+        color: var(--foreground);
+        font-size: 12px;
+        vertical-align: middle;
+        transition: background 0.15s;
+    }
+    .scorecard-table tbody tr:hover td {
+        background: rgba(56, 189, 248, 0.04);
+    }
+    .th-kpi { text-align: left; }
+    .th-center { text-align: center; }
+    .td-center { text-align: center; }
+    .td-loading { text-align: center; padding: 32px; color: var(--muted-foreground); font-style: italic; }
+
+    /* Weeknum Teal Badge Column */
+    .weeknum-badge {
+        background: #7ED3B8;
+        color: #064e3b;
+        font-weight: 800;
+        font-family: 'JetBrains Mono', Consolas, monospace;
+        padding: 3px 8px;
+        border-radius: 4px;
+        display: inline-block;
+        font-size: 11px;
+    }
+    [data-theme="dark"] .weeknum-badge {
+        background: #0f766e;
+        color: #ccfbf1;
+    }
+
+    /* Table Badges & Numbers */
+    .val-mono {
+        font-family: 'JetBrains Mono', Consolas, monospace;
+        font-weight: 700;
+    }
+    .gap-positive { color: #10b981; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+    .gap-negative { color: #ef4444; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+
+    .badge-ach {
+        background: #A8E6CF;
+        color: #064e3b;
+        font-weight: 800;
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 4px;
+        display: inline-block;
+        letter-spacing: 0.5px;
+    }
+    .badge-ny {
+        background: #E8E6F0;
+        color: #581c87;
+        font-weight: 800;
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 4px;
+        display: inline-block;
+        letter-spacing: 0.5px;
+    }
+    [data-theme="dark"] .badge-ach {
+        background: rgba(34, 197, 94, 0.25);
+        color: #4ade80;
+    }
+    [data-theme="dark"] .badge-ny {
+        background: rgba(216, 180, 254, 0.2);
+        color: #e9d5ff;
+    }
+
+    /* PUMA OKR Scorecard Dynamics Styling */
+    .dynamics-divider-row td {
+        padding: 8px 16px;
+        font-weight: 800;
+        font-size: 12px;
+        letter-spacing: 0.5px;
+    }
+    .banner-improved {
+        background: #E8F5E9 !important;
+        color: #166534 !important;
+        border-top: 1px solid #bbf7d0;
+        border-bottom: 1px solid #bbf7d0;
+    }
+    [data-theme="dark"] .banner-improved {
+        background: #143522 !important;
+        color: #86efac !important;
+        border-color: #166534;
+    }
+
+    .banner-degraded {
+        background: #FCE4E0 !important;
+        color: #991b1b !important;
+        border-top: 1px solid #fecaca;
+        border-bottom: 1px solid #fecaca;
+    }
+    [data-theme="dark"] .banner-degraded {
+        background: #3d1b1b !important;
+        color: #fca5a5 !important;
+        border-color: #991b1b;
+    }
+
+    .banner-maintained {
+        background: #F5F5F5 !important;
+        color: #334155 !important;
+        border-top: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    [data-theme="dark"] .banner-maintained {
+        background: #1e2430 !important;
+        color: #94a3b8 !important;
+        border-color: #334155;
+    }
+
+    .dynamics-kpi-name {
+        font-weight: 700;
+        color: var(--foreground);
+        white-space: nowrap;
+    }
+    .dynamics-trend {
+        font-family: 'JetBrains Mono', Consolas, monospace;
+        font-weight: 700;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+    .trend-improved { color: #15803d; }
+    .trend-degraded { color: #b91c1c; }
+    .trend-maintained { color: #0284c7; }
+    [data-theme="dark"] .trend-improved { color: #4ade80; }
+    [data-theme="dark"] .trend-degraded { color: #f87171; }
+    [data-theme="dark"] .trend-maintained { color: #38bdf8; }
+
+    .dynamics-insight {
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--foreground);
+    }
+
+    /* Target Matrix Reference */
+    .matrix-reference-card {
+        padding: 0;
+        border-radius: 14px;
+        overflow: hidden;
+    }
+    .matrix-card-header {
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--card);
+    }
+    .matrix-title {
+        font-size: 15px;
+        font-weight: 800;
+        color: var(--foreground);
+    }
+    .matrix-controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    .f-select-sm {
+        padding: 5px 10px;
+        font-size: 11px;
+        border-radius: 6px;
+    }
+    .btn-refresh-sm {
+        padding: 5px 12px;
+        font-size: 11px;
+        font-weight: 700;
+        background: var(--muted);
+        border: 1px solid var(--border);
+        color: var(--foreground);
+        border-radius: 6px;
+        cursor: pointer;
+    }
+    .btn-refresh-sm:hover {
+        background: var(--card);
+    }
+
+    /* ═════════════════════════════════════════════════════════ */
+    /* RESPONSIVE & MOBILE VIEW OPTIMIZATION                     */
+    /* ═════════════════════════════════════════════════════════ */
+    @media (max-width: 1400px) {
+        .kpi-cards-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 900px) {
+        .kpi-cards-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .scene-tabs-container { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+        .sow-summary-wrapper {
+            padding: 10px 10px 40px;
+            gap: 12px;
+        }
+
+        /* Banner Mobile */
+        .executive-banner {
+            padding: 14px 16px;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+        }
+        .banner-brand {
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .brand-tag, .brand-week {
+            font-size: 16px;
+        }
+        .brand-divider {
+            font-size: 16px;
+        }
+        .banner-subtitle {
+            font-size: 11px;
+            margin-top: 2px;
+        }
+        .banner-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            width: 100%;
+        }
+        .stat-pill {
+            min-width: 0;
+            padding: 6px 4px;
+            border-radius: 8px;
+        }
+        .stat-num {
+            font-size: 16px;
+        }
+        .stat-text {
+            font-size: 9px;
+        }
+
+        /* Quick Nav Mobile */
+        .quick-nav-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 2px;
+            margin-bottom: -4px;
+        }
+        .quick-nav-title {
+            font-size: 12px;
+        }
+        .quick-nav-tip {
+            display: none;
+        }
+
+        /* 6 KPI Cards Mobile Grid */
+        .kpi-cards-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+        .kpi-card-colorful {
+            padding: 10px 12px;
+            border-radius: 10px;
+            gap: 4px;
+        }
+        .card-val {
+            font-size: 18px;
+        }
+        .card-metric-name {
+            font-size: 10px;
+        }
+        .card-meta {
+            font-size: 9px;
+        }
+        .meta-prev {
+            font-size: 9px;
+        }
+        .meta-wow {
+            font-size: 10px;
+        }
+        .card-bottom {
+            margin-top: 2px;
+            padding-top: 4px;
+        }
+        .status-pill {
+            font-size: 9px;
+            padding: 1px 5px;
+        }
+        .target-chip {
+            font-size: 9px;
+        }
+        .open-link {
+            font-size: 9px;
+        }
+
+        /* Tabs Mobile: Scrollable Segmented Bar */
+        .scene-tabs-container {
+            display: flex;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            gap: 6px;
+            padding: 4px;
+            border-radius: 12px;
+            scrollbar-width: none;
+        }
+        .scene-tabs-container::-webkit-scrollbar {
+            display: none;
+        }
+        .scene-tab {
+            flex: 0 0 auto;
+            min-width: 130px;
+            padding: 8px 12px;
+            gap: 8px;
+            border-radius: 8px;
+        }
+        .scene-tab-icon {
+            width: 28px;
+            height: 28px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+        .scene-tab-title {
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .scene-tab-sub {
+            display: none;
+        }
+        .scene-tab-pill {
+            font-size: 9px;
+            padding: 2px 6px;
+        }
+
+        /* Table Mobile Hint & Sticky Columns */
+        .mobile-table-hint {
+            display: flex;
+        }
+        .scorecard-table th,
+        .scorecard-table td {
+            padding: 8px 10px;
+            font-size: 11px;
+        }
+
+        /* Sticky First Column for Smooth Horizontal Scrolling */
+        .scorecard-table th:first-child,
+        .scorecard-table td:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 3;
+            background: var(--card);
+            box-shadow: 2px 0 6px rgba(0, 0, 0, 0.08);
+            min-width: 130px;
+            max-width: 160px;
+        }
+        .header-row-primary th:first-child {
+            background: #0F3D5E !important;
+            color: #ffffff;
+            z-index: 4;
+        }
+        .header-row-maroon th:first-child {
+            background: #8B0000 !important;
+            color: #ffffff;
+            z-index: 4;
+        }
+        .header-row-matrix th:first-child {
+            background: #1e293b !important;
+            color: #ffffff;
+            z-index: 4;
+        }
+        [data-theme="dark"] .scorecard-table td:first-child {
+            background: #1e293b;
+        }
+        .dynamics-insight {
+            min-width: 260px;
+            font-size: 11px;
+        }
+
+        /* Matrix Controls Mobile */
+        .matrix-card-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px 14px;
+        }
+        .matrix-controls {
+            width: 100%;
+            display: flex;
+            gap: 6px;
+        }
+        .f-select-sm {
+            flex: 1;
+        }
     }
 </style>
 
+<!-- SCRIPTS -->
 <script>
+function switchScene(sceneId) {
+    document.querySelectorAll('.scene-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.scene-pane').forEach(p => p.classList.remove('active'));
+
+    const tabBtn = document.getElementById('tab' + sceneId.charAt(0).toUpperCase() + sceneId.slice(1));
+    const pane = document.getElementById(sceneId + 'Pane');
+
+    if (tabBtn) tabBtn.classList.add('active');
+    if (pane) pane.classList.add('active');
+
+    try {
+        localStorage.setItem('sow_summary_active_scene', sceneId);
+        history.replaceState(null, null, '#' + sceneId);
+    } catch(e) {}
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    const bannerWeekTitle = document.getElementById('bannerWeekTitle');
+    const statTotalKpi = document.getElementById('statTotalKpi');
+    const statAchKpi = document.getElementById('statAchKpi');
+    const statNyAchKpi = document.getElementById('statNyAchKpi');
+
+    const tbodyAchievement = document.getElementById('tbodyAchievement');
+    const tbodyDynamics = document.getElementById('tbodyDynamics');
+
     const filterYear = document.getElementById('filterYear');
     const filterRegion = document.getElementById('filterRegion');
-    const btnRefresh = document.getElementById('btnRefresh');
+    const btnRefreshMatrix = document.getElementById('btnRefreshMatrix');
     const targetBody = document.getElementById('targetBody');
-    const dataStatus = document.getElementById('dataStatus');
 
-    function formatVal(val, isCount) {
+    function fmt(val, isCount) {
         if (val === null || val === undefined || val === '') return '—';
         const num = parseFloat(val);
         if (isNaN(num)) return val;
-        
-        if (isCount) {
-            return num.toLocaleString();
-        }
-        
-        // If it's a small decimal (e.g. 0.003), show more digits
-        if (Math.abs(num) < 0.1 && num !== 0) {
-            return (num * 100).toFixed(4) + '%';
-        }
-        
-        // If it looks like a percentage (0.96 -> 96%)
-        if (num > 0 && num <= 1.0) {
+        if (isCount) return Math.round(num).toLocaleString();
+
+        // If stored as decimal ratio (e.g. 0.00234 for 0.23% or 0.9355 for 93.55%)
+        if (Math.abs(num) <= 1.0 && num !== 0) {
             return (num * 100).toFixed(2) + '%';
         }
-        
-        return num.toFixed(2);
+        return num.toFixed(2) + '%';
     }
 
+    async function loadScorecardData() {
+        try {
+            const resp = await fetch('/api/sow/summary-availability');
+            const res = await resp.json();
+
+            if (res.status !== 'success') {
+                tbodyAchievement.innerHTML = '<tr><td colspan="8" class="td-loading text-danger">Error loading scorecard data</td></tr>';
+                tbodyDynamics.innerHTML = '<tr><td colspan="4" class="td-loading text-danger">Error loading dynamics data</td></tr>';
+                return;
+            }
+
+            const metrics = res.metrics;
+            const latestW = res.latest_week || 202639;
+
+            // Update Banner
+            if (bannerWeekTitle) {
+                const wShort = String(latestW).slice(-2);
+                bannerWeekTitle.innerText = `WEEK ${wShort}`;
+            }
+            if (statTotalKpi) statTotalKpi.innerText = res.total_metrics || metrics.length;
+            if (statAchKpi) statAchKpi.innerText = res.ach_count || 0;
+            if (statNyAchKpi) statNyAchKpi.innerText = res.ny_ach_count || 0;
+
+            // Update Top 6 Cards Strip
+            metrics.forEach(m => {
+                const cVal = document.getElementById('cval_' + m.id);
+                const cPrev = document.getElementById('cprev_' + m.id);
+                const cWow = document.getElementById('cwow_' + m.id);
+                const cStat = document.getElementById('cstat_' + m.id);
+                const cWeek = document.getElementById('cweek_' + m.id);
+
+                if (cVal) {
+                    cVal.innerText = m.is_count ? m.latest_val.toLocaleString() : (m.latest_val !== null ? m.latest_val.toFixed(2) + '%' : '—');
+                }
+                if (cPrev) {
+                    cPrev.innerText = m.prev_val !== null ? `Prev: ${m.is_count ? m.prev_val : m.prev_val.toFixed(2) + '%'}` : 'Prev: —';
+                }
+                if (cWeek && m.latest_week) {
+                    cWeek.innerText = 'W' + String(m.latest_week).slice(-2);
+                }
+                if (cWow && m.wow !== null) {
+                    const arrow = m.wow > 0 ? '▲' : (m.wow < 0 ? '▼' : '―');
+                    const sign = m.wow > 0 ? '+' : '';
+                    const unit = m.is_count ? '' : ' pp';
+                    cWow.innerText = `${arrow} ${sign}${m.wow.toFixed(2)}${unit}`;
+                    
+                    if (m.higher_better) {
+                        cWow.className = 'meta-wow ' + (m.wow > 0 ? 'wow-up' : (m.wow < 0 ? 'wow-down' : 'wow-flat'));
+                    } else {
+                        cWow.className = 'meta-wow ' + (m.wow < 0 ? 'wow-up' : (m.wow > 0 ? 'wow-down' : 'wow-flat'));
+                    }
+                }
+                if (cStat) {
+                    cStat.innerText = m.status;
+                    cStat.className = 'status-pill ' + (m.ach ? 'status-ach' : 'status-ny');
+                }
+            });
+
+            // 1. Render Regional Achievement Table (Clean, Uniform Table Layout)
+            let achHtml = '';
+            metrics.forEach(m => {
+                const targetStr = m.is_count ? m.target : (m.target !== null ? m.target.toFixed(2) + '%' : '—');
+                const prevStr = m.prev_val !== null ? (m.is_count ? m.prev_val : m.prev_val.toFixed(2) + '%') : '—';
+                const latestStr = m.latest_val !== null ? (m.is_count ? m.latest_val : m.latest_val.toFixed(2) + '%') : '—';
+
+                // WoW string
+                let wowStr = '—';
+                let wowColor = '';
+                if (m.wow !== null && m.prev_val !== null) {
+                    const arrow = m.wow > 0 ? '▲' : (m.wow < 0 ? '▼' : '―');
+                    const sign = m.wow > 0 ? '+' : '';
+                    const unit = m.is_count ? '' : ' pp';
+                    wowStr = `${arrow} ${sign}${m.wow.toFixed(2)}${unit}`;
+                    const isGood = m.higher_better ? (m.wow > 0) : (m.wow < 0);
+                    wowColor = m.wow === 0 ? 'color: #64748b;' : (isGood ? 'color: #10b981;' : 'color: #ef4444;');
+                }
+
+                // Gap string
+                let gapStr = '—';
+                let gapClass = '';
+                if (m.gap !== null) {
+                    const sign = m.gap > 0 ? '+' : '';
+                    const unit = m.is_count ? '' : ' pp';
+                    gapStr = `${sign}${m.gap.toFixed(2)}${unit}`;
+                    const isPass = m.higher_better ? (m.gap >= 0) : (m.gap <= 0);
+                    gapClass = isPass ? 'gap-positive' : 'gap-negative';
+                }
+
+                const statusBadge = m.ach ? '<span class="badge-ach">ACH</span>' : '<span class="badge-ny">NY ACH</span>';
+                const weeknumBadge = m.latest_week ? `<span class="weeknum-badge">${m.latest_week}</span>` : '—';
+
+                achHtml += `
+                    <tr>
+                        <td style="font-weight: 700; white-space: nowrap;">
+                            <i class="${m.icon}" style="color: ${m.color}; margin-right: 8px; width: 14px; text-align: center;"></i>
+                            ${m.name}
+                        </td>
+                        <td class="td-center val-mono">${targetStr}</td>
+                        <td class="td-center val-mono">${prevStr}</td>
+                        <td class="td-center val-mono">${latestStr}</td>
+                        <td class="td-center val-mono" style="${wowColor}">${wowStr}</td>
+                        <td class="td-center ${gapClass}">${gapStr}</td>
+                        <td class="td-center">${statusBadge}</td>
+                        <td class="td-center">${weeknumBadge}</td>
+                    </tr>
+                `;
+            });
+            tbodyAchievement.innerHTML = achHtml;
+
+            // 2. Render PUMA OKR Scorecard Dynamics (6 KPIs)
+            const improvedList = metrics.filter(m => m.movement === 'improved');
+            const degradedList = metrics.filter(m => m.movement === 'degraded');
+            const maintainedList = metrics.filter(m => m.movement === 'maintained');
+
+            let dynHtml = '';
+
+            function renderSectionRows(list, typeClass) {
+                let sHtml = '';
+                list.forEach(m => {
+                    const pVal = m.prev_val !== null ? (m.is_count ? m.prev_val : m.prev_val.toFixed(2) + '%') : '—';
+                    const lVal = m.latest_val !== null ? (m.is_count ? m.latest_val : m.latest_val.toFixed(2) + '%') : '—';
+
+                    const trendStr = `${pVal} → ${lVal}`;
+                    const statusBadge = m.ach ? '<span class="badge-ach">ACH</span>' : '<span class="badge-ny">NY ACH</span>';
+
+                    sHtml += `
+                        <tr>
+                            <td class="dynamics-kpi-name">
+                                <i class="${m.icon}" style="color: ${m.color}; margin-right: 8px; font-size: 12px;"></i>
+                                ${m.name}
+                            </td>
+                            <td class="td-center dynamics-trend ${typeClass}">${trendStr}</td>
+                            <td class="td-center">${statusBadge}</td>
+                            <td class="dynamics-insight">${m.insight}</td>
+                        </tr>
+                    `;
+                });
+                return sHtml;
+            }
+
+            // Section 1: Improved
+            if (improvedList.length > 0) {
+                dynHtml += `
+                    <tr class="dynamics-divider-row banner-improved">
+                        <td colspan="4">
+                            <i class="fas fa-arrow-trend-up" style="margin-right: 6px;"></i>
+                            IMPROVED (${improvedList.length} KPIs) — Positive Week-over-Week Movement
+                        </td>
+                    </tr>
+                `;
+                dynHtml += renderSectionRows(improvedList, 'trend-improved');
+            }
+
+            // Section 2: Degraded
+            if (degradedList.length > 0) {
+                dynHtml += `
+                    <tr class="dynamics-divider-row banner-degraded">
+                        <td colspan="4">
+                            <i class="fas fa-arrow-trend-down" style="margin-right: 6px;"></i>
+                            DEGRADED (${degradedList.length} KPIs) — Drop or Target Drag Factors
+                        </td>
+                    </tr>
+                `;
+                dynHtml += renderSectionRows(degradedList, 'trend-degraded');
+            }
+
+            // Section 3: Maintained
+            if (maintainedList.length > 0) {
+                dynHtml += `
+                    <tr class="dynamics-divider-row banner-maintained">
+                        <td colspan="4">
+                            <i class="fas fa-equals" style="margin-right: 6px;"></i>
+                            MAINTAINED (${maintainedList.length} KPIs) — Steady &amp; Baseline Performance
+                        </td>
+                    </tr>
+                `;
+                dynHtml += renderSectionRows(maintainedList, 'trend-maintained');
+            }
+
+            tbodyDynamics.innerHTML = dynHtml;
+
+        } catch (err) {
+            console.error('Failed to load scorecard data:', err);
+            tbodyAchievement.innerHTML = '<tr><td colspan="8" class="td-loading text-danger">Failed to fetch data</td></tr>';
+            tbodyDynamics.innerHTML = '<tr><td colspan="4" class="td-loading text-danger">Failed to fetch data</td></tr>';
+        }
+    }
+
+    // Load Target Matrix Reference with enhanced styling
     async function loadTargets() {
-        dataStatus.innerHTML = '<div class="live-dot" style="background: #fbbf24;"></div> LOADING';
-        targetBody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fas fa-spinner fa-spin"></i> Fetching data...</td></tr>';
-        
+        targetBody.innerHTML = '<tr><td colspan="6" class="td-loading"><i class="fas fa-spinner fa-spin"></i> Loading matrix...</td></tr>';
         const year = filterYear.value;
         const region = filterRegion.value;
         const url = `/api/sow/targets?year=${year}${region ? '&region=' + encodeURIComponent(region) : ''}`;
-        
         try {
             const resp = await fetch(url);
             const data = await resp.json();
-            
             if (data.status === 'success') {
-                if (data.targets.length === 0) {
-                    targetBody.innerHTML = '<tr><td colspan="6" class="empty-state">No targets found for ' + year + (region ? ' in ' + region : '') + '</td></tr>';
+                if (!data.targets || data.targets.length === 0) {
+                    targetBody.innerHTML = '<tr><td colspan="6" class="td-loading">No targets found for ' + year + '</td></tr>';
                 } else {
                     let html = '';
+                    const metricMeta = {
+                        'rhi': { icon: 'fas fa-heartbeat', color: '#10b981', tag: 'Quality' },
+                        'cei': { icon: 'fas fa-smile', color: '#06b6d4', tag: 'Experience' },
+                        'redcov': { icon: 'fas fa-satellite-dish', color: '#f59e0b', tag: 'Coverage' },
+                        'onx': { icon: 'fas fa-trophy', color: '#3b82f6', tag: 'Benchmark' },
+                        'ookla': { icon: 'fas fa-tachometer-alt', color: '#ec4899', tag: 'Speed' },
+                        'unbalance': { icon: 'fas fa-balance-scale', color: '#8b5cf6', tag: 'Capacity' },
+                        'rci': { icon: 'fas fa-sliders-h', color: '#f43f5e', tag: 'Optimization' },
+                        '4g_good_thp': { icon: 'fas fa-broadcast-tower', color: '#10b981', tag: 'Throughput' },
+                        '5g_good_thp': { icon: 'fas fa-bolt', color: '#10b981', tag: 'Throughput' },
+                        'payload': { icon: 'fas fa-network-wired', color: '#3b82f6', tag: 'Traffic' }
+                    };
+
                     data.targets.forEach(item => {
+                        const mKey = (item.sow || '').toLowerCase();
+                        const meta = metricMeta[mKey] || { icon: 'fas fa-chart-bar', color: '#64748b', tag: 'Metric' };
+
+                        const bVal = (item.formatted && item.formatted.baseline) ? item.formatted.baseline : fmt(item.baseline, item.is_count);
+                        const q1Val = (item.formatted && item.formatted.q1) ? item.formatted.q1 : fmt(item.q1, item.is_count);
+                        const q2Val = (item.formatted && item.formatted.q2) ? item.formatted.q2 : fmt(item.q2, item.is_count);
+                        const q3Val = (item.formatted && item.formatted.q3) ? item.formatted.q3 : fmt(item.q3, item.is_count);
+                        const q4Val = (item.formatted && item.formatted.q4) ? item.formatted.q4 : fmt(item.q4, item.is_count);
+
                         html += `
                             <tr>
-                                <td>
-                                    <div class="metric-name">
-                                        <div class="metric-dot"></div>
-                                        ${item.title}
+                                <td style="font-weight: 700; white-space: nowrap;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <i class="${meta.icon}" style="color: ${meta.color}; width: 14px; text-align: center;"></i>
+                                        <span>${item.title}</span>
+                                        <span style="font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; background: rgba(148, 163, 184, 0.15); color: var(--muted-foreground); text-transform: uppercase;">${meta.tag}</span>
                                     </div>
                                 </td>
-                                <td class="text-center target-val">${formatVal(item.baseline, item.is_count)}</td>
-                                <td class="text-center target-val" style="background: rgba(79, 172, 254, 0.03);">${formatVal(item.q1, item.is_count)}</td>
-                                <td class="text-center target-val">${formatVal(item.q2, item.is_count)}</td>
-                                <td class="text-center target-val" style="background: rgba(79, 172, 254, 0.03);">${formatVal(item.q3, item.is_count)}</td>
-                                <td class="text-center target-val">${formatVal(item.q4, item.is_count)}</td>
+                                <td class="td-center val-mono">${bVal}</td>
+                                <td class="td-center val-mono" style="background: rgba(56, 189, 248, 0.02);">${q1Val}</td>
+                                <td class="td-center val-mono">${q2Val}</td>
+                                <td class="td-center val-mono" style="background: rgba(2, 132, 199, 0.08); font-weight: 800; color: #0284c7;">${q3Val}</td>
+                                <td class="td-center val-mono">${q4Val}</td>
                             </tr>
                         `;
                     });
                     targetBody.innerHTML = html;
                 }
-                dataStatus.innerHTML = '<div class="live-dot" style="background: #00e676;"></div> READY';
-            } else {
-                targetBody.innerHTML = `<tr><td colspan="6" class="empty-state text-danger">Error: ${data.message}</td></tr>`;
-                dataStatus.innerHTML = '<div class="live-dot" style="background: #ef4444;"></div> ERROR';
             }
         } catch (err) {
-            console.error(err);
-            targetBody.innerHTML = '<tr><td colspan="6" class="empty-state text-danger">Network error fetching targets</td></tr>';
-            dataStatus.innerHTML = '<div class="live-dot" style="background: #ef4444;"></div> ERROR';
+            targetBody.innerHTML = '<tr><td colspan="6" class="td-loading text-danger">Error fetching matrix</td></tr>';
         }
     }
 
-    btnRefresh.onclick = loadTargets;
+    btnRefreshMatrix.onclick = loadTargets;
     filterYear.onchange = loadTargets;
     filterRegion.onchange = loadTargets;
 
-    // Initial load
+    // Restore active scene if URL hash exists or stored
+    const hash = window.location.hash.replace('#', '');
+    if (hash && ['scene1', 'scene2', 'scene3'].includes(hash)) {
+        switchScene(hash);
+    } else {
+        const saved = localStorage.getItem('sow_summary_active_scene');
+        if (saved && ['scene1', 'scene2', 'scene3'].includes(saved)) {
+            switchScene(saved);
+        }
+    }
+
+    // Initial Load
+    loadScorecardData();
     loadTargets();
 });
 </script>

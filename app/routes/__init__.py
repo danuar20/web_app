@@ -109,4 +109,17 @@ sow = sow_routes.sow
 from . import cei_routes
 cei = cei_routes.cei
 
+# RHI Dashboard — /sow/rhi
+from . import rhi_routes
+rhi = rhi_routes.rhi
+
+# Redcov Dashboard — /sow/redcov
+from . import redcov_routes
+redcov = redcov_routes.redcov
+
+# RAN Capacity Dashboard — /sow/ran_capacity
+from . import ran_capacity_routes
+ran_capacity = ran_capacity_routes.ran_capacity
+
+
 

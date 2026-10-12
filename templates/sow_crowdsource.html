@@ -7,11 +7,7 @@
 {% block page_title %}SOW Crowdsource{% endblock %}
 {% block page_sub %}Scope of Work — Crowdsource Benchmark Performance{% endblock %}
 
-{% block topbar_chips %}
-<div class="info-chip" title="Database Source">
-    <i class="fas fa-database"></i> sow.onx_rank_score · sow.fb_share
-</div>
-{% endblock %}
+{% block topbar_chips %}{% endblock %}
 
 {% block page_content %}
 <!-- SheetJS for Excel Export -->
@@ -43,6 +39,145 @@
         --sow-card-bg: rgba(26, 31, 55, 0.75);
         --sow-border: rgba(79, 172, 254, 0.15);
         --sow-text-sub: #94a3b8;
+    }
+
+    /* ── Top Executive Banner ── */
+    .sow-exec-banner {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #334155 100%);
+        border-radius: 12px;
+        padding: 16px 22px;
+        color: #ffffff;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.28);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        margin-bottom: 14px;
+    }
+
+    .sow-exec-title-box {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .sow-exec-title {
+        font-size: 16px;
+        font-weight: 800;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .sow-exec-subtitle {
+        font-size: 11.5px;
+        opacity: 0.88;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .sow-exec-kpis {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        flex-wrap: wrap;
+    }
+
+    .sow-exec-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        border-right: 1px solid rgba(255, 255, 255, 0.22);
+        padding-right: 22px;
+    }
+
+    .sow-exec-item:last-child {
+        border-right: none;
+        padding-right: 0;
+    }
+
+    .sow-exec-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        opacity: 0.85;
+        letter-spacing: 0.5px;
+    }
+
+    .sow-exec-val {
+        font-size: 22px;
+        font-weight: 800;
+        font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+    }
+
+    /* Executive Text Summary */
+    .sow-exec-summary-box {
+        padding: 16px 20px;
+        border-left: 4px solid #4facfe;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        background: var(--sow-card-bg);
+        border-radius: 4px 12px 12px 4px;
+        border: 1px solid var(--sow-border);
+        border-left-width: 4px;
+    }
+
+    .sow-exec-summary-title {
+        font-size: 12.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: #4facfe;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+    }
+
+    .sow-exec-summary-list {
+        margin: 0;
+        padding-left: 0;
+        list-style: none;
+        font-size: 12px;
+        line-height: 1.6;
+        color: var(--text-main);
+    }
+
+    .sow-exec-summary-list li {
+        margin-bottom: 8px;
+        position: relative;
+        padding-left: 18px;
+    }
+
+    .sow-exec-summary-list li::before {
+        content: "•";
+        position: absolute;
+        left: 2px;
+        top: 0px;
+        color: #4facfe;
+        font-size: 16px;
+        line-height: 1.2;
+    }
+
+    /* ── Middle Row 2-Pane Container ── */
+    .sow-mid-row-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        align-items: stretch;
+        margin-top: 14px;
+    }
+
+    @media (max-width: 1050px) {
+        .sow-mid-row-grid {
+            grid-template-columns: 1fr;
+        }
     }
 
     .sow-container {
@@ -1107,6 +1242,9 @@
         <button type="button" class="sow-tab-btn" id="tabBtnTrend" onclick="switchMainTab('trend')">
             <i class="fas fa-chart-line"></i> Trend Metrics
         </button>
+        <button type="button" class="sow-tab-btn" id="tabBtnComparison" onclick="switchMainTab('comparison')">
+            <i class="fas fa-table"></i> Comparison Table
+        </button>
 
         <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
             <button type="button" class="btn-secondary" onclick="openImportModal()">
@@ -1214,13 +1352,37 @@
                     </button>
                 </div>
             </div>
+        </div>
 
-            <!-- Custom Multi-Year Quarterly Target Controls (Read-Only) -->
-            <div class="quarter-targets-bar">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-weight: 700; color: #4facfe;">
-                        <i class="fas fa-bullseye"></i> Quarterly Targets (Sourced from Database)
-                    </span>
+        <!-- Top Executive Banner (Matching Redcov & RAN Capacity Style) -->
+        <div class="sow-exec-banner" id="execBanner">
+            <div class="sow-exec-title-box">
+                <div class="sow-exec-title">
+                    <i class="fas fa-trophy" style="color: #4facfe;"></i>
+                    <span id="bannerRegionTitle">MALUKU DAN PAPUA</span> ONX BENCHMARK | WEEK <span id="bannerWeekNum">--</span>
+                </div>
+                <div class="sow-exec-subtitle">
+                    <span>ONX Crowdsource Experience &amp; Speed Monitoring</span>
+                    <span style="opacity:0.6;">•</span>
+                    <span id="bannerScopeBadge" style="background:rgba(255,255,255,0.18); padding:1px 7px; border-radius:4px; font-weight:700;">TELKOMSEL</span>
+                </div>
+            </div>
+            <div class="sow-exec-kpis">
+                <div class="sow-exec-item">
+                    <span class="sow-exec-label" id="bannerTargetLabel">Target (Q2)</span>
+                    <span class="sow-exec-val" id="bannerTarget" style="color:#38bdf8;">14</span>
+                </div>
+                <div class="sow-exec-item">
+                    <span class="sow-exec-label">Ach. (#Wins)</span>
+                    <span class="sow-exec-val" id="bannerAch">--</span>
+                </div>
+                <div class="sow-exec-item">
+                    <span class="sow-exec-label">Ach. Gap</span>
+                    <span class="sow-exec-val" id="bannerGap" style="color:#a7f3d0;">--</span>
+                </div>
+                <div class="sow-exec-item">
+                    <span class="sow-exec-label">Status</span>
+                    <span class="sow-exec-val" id="bannerStatus" style="font-size:16px;">--</span>
                 </div>
             </div>
         </div>
@@ -1302,6 +1464,16 @@
                     Formula: #lose = 16 - #win
                 </div>
             </div>
+        </div>
+
+        <!-- Executive Performance Highlights (Matching Redcov/RAN Capacity) -->
+        <div class="sow-exec-summary-box" style="margin-top: 2px; margin-bottom: 6px;">
+            <div class="sow-exec-summary-title">
+                <i class="fas fa-info-circle"></i> Executive Performance Highlights
+            </div>
+            <ul class="sow-exec-summary-list" id="execBulletsList">
+                <li>Loading executive performance highlights...</li>
+            </ul>
         </div>
 
         <!-- Main Chart Card -->
@@ -1417,25 +1589,6 @@
                 <div class="filter-title">
                     <i class="fas fa-chart-line"></i> Trend Metrics Filters
                 </div>
-                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                    <!-- Toggle Trend vs Status -->
-                    <div class="toggle-group-pills">
-                        <button type="button" class="toggle-pill active" id="btnModeTrend" onclick="setTrendMode('trend')">
-                            <i class="fas fa-chart-line"></i> Trend
-                        </button>
-                        <button type="button" class="toggle-pill" id="btnModeStatus" onclick="setTrendMode('status')">
-                            <i class="fas fa-stream"></i> Status
-                        </button>
-                    </div>
-                    <div class="filter-presets">
-                        <button type="button" class="filter-preset-btn" onclick="setQuickRange('2026', 'trend')">2026 Full</button>
-                        <button type="button" class="filter-preset-btn" onclick="setQuickRange('last12', 'trend')">Last 12W</button>
-                        <button type="button" class="filter-preset-btn" onclick="setQuickRange('all', 'trend')">All</button>
-                    </div>
-                    <button type="button" class="btn-secondary" style="height: 28px; padding: 0 10px; font-size: 11px;" onclick="openTrendSmartExportModal()" title="Export 16 Trend Charts formatted for PowerPoint (Smart Fit PPT)">
-                        <i class="fas fa-camera" style="color: #0ea5e9;"></i> Smart Export PNG
-                    </button>
-                </div>
             </div>
 
             <div class="filter-grid">
@@ -1469,12 +1622,12 @@
                     </select>
                 </div>
 
-                <!-- From Week -->
+                <!-- From Week (Default 202601) -->
                 <div class="filter-group filter-group-week">
                     <label class="filter-label" for="filterTrendStartYw"><i class="fas fa-calendar-alt"></i> From Week</label>
                     <select id="filterTrendStartYw" class="filter-select">
                         {% for yw in yearweeks|reverse %}
-                        <option value="{{ yw }}" {% if yw == 202602 %}selected{% endif %}>{{ yw }}</option>
+                        <option value="{{ yw }}" {% if yw == 202601 or yw == default_start_yw %}selected{% endif %}>{{ yw }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -1497,24 +1650,41 @@
                 </div>
             </div>
 
-            <!-- Multi-Select Providers Bar -->
-            <div class="provider-checkboxes-bar">
-                <span style="font-size: 12px; font-weight: 700; margin-right: 4px;">Providers (Multi-Select):</span>
-                <label class="provider-check-label" style="color: var(--p-indosat);">
-                    <input type="checkbox" class="provider-check-box" value="Indosat" checked onchange="onProviderToggle()"> Indosat
-                </label>
-                <label class="provider-check-label" style="color: var(--p-telkomsel);">
-                    <input type="checkbox" class="provider-check-box" value="Telkomsel" checked onchange="onProviderToggle()"> Telkomsel
-                </label>
-                <label class="provider-check-label" style="color: var(--p-xl);">
-                    <input type="checkbox" class="provider-check-box" value="XL" checked onchange="onProviderToggle()"> XL
-                </label>
-                <label class="provider-check-label" style="color: var(--p-smartfren);">
-                    <input type="checkbox" class="provider-check-box" value="Smartfren" onchange="onProviderToggle()"> Smartfren
-                </label>
-                <label class="provider-check-label" style="color: var(--p-3);">
-                    <input type="checkbox" class="provider-check-box" value="3" onchange="onProviderToggle()"> 3
-                </label>
+            <!-- Multi-Select Providers Bar with Trend/Status Mode & Smart Export -->
+            <div class="provider-checkboxes-bar" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span style="font-size: 12px; font-weight: 700; margin-right: 4px;">Providers (Multi-Select):</span>
+                    <label class="provider-check-label" style="color: var(--p-indosat);">
+                        <input type="checkbox" class="provider-check-box" value="Indosat" checked onchange="onProviderToggle()"> Indosat
+                    </label>
+                    <label class="provider-check-label" style="color: var(--p-telkomsel);">
+                        <input type="checkbox" class="provider-check-box" value="Telkomsel" checked onchange="onProviderToggle()"> Telkomsel
+                    </label>
+                    <label class="provider-check-label" style="color: var(--p-xl);">
+                        <input type="checkbox" class="provider-check-box" value="XL" checked onchange="onProviderToggle()"> XL
+                    </label>
+                    <label class="provider-check-label" style="color: var(--p-smartfren);">
+                        <input type="checkbox" class="provider-check-box" value="Smartfren" onchange="onProviderToggle()"> Smartfren
+                    </label>
+                    <label class="provider-check-label" style="color: var(--p-3);">
+                        <input type="checkbox" class="provider-check-box" value="3" onchange="onProviderToggle()"> 3
+                    </label>
+
+                    <!-- View Mode: Trend vs Status (Positioned after Provider multi-select) -->
+                    <div class="toggle-group-pills" style="margin-left: 10px;">
+                        <button type="button" class="toggle-pill active" id="btnModeTrend" onclick="setTrendMode('trend')">
+                            <i class="fas fa-chart-line"></i> Trend
+                        </button>
+                        <button type="button" class="toggle-pill" id="btnModeStatus" onclick="setTrendMode('status')">
+                            <i class="fas fa-stream"></i> Status
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Smart Export PNG at the right -->
+                <button type="button" class="btn-secondary" style="height: 28px; padding: 0 12px; font-size: 11px; margin-left: auto;" onclick="openTrendSmartExportModal()" title="Export 16 Trend Charts formatted for PowerPoint (Smart Fit PPT)">
+                    <i class="fas fa-camera" style="color: #0ea5e9;"></i> Smart Export PNG
+                </button>
             </div>
         </div>
 
@@ -1547,6 +1717,122 @@
             <!-- Populated dynamically via JS to match only selected providers -->
         </div>
 
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         TAB 3: KABUPATEN COMPARISON & ISSUE ANALYSIS
+         ══════════════════════════════════════════════════════ -->
+    <div class="tab-content-pane" id="paneComparison">
+        <div class="filter-card" style="margin-bottom: 14px;">
+            <div class="filter-card-header">
+                <div class="filter-title"><i class="fas fa-table"></i> Kabupaten Issue Analysis</div>
+                <button type="button" class="btn-apply" onclick="loadKabupatenComparison()"><i class="fas fa-sync-alt"></i> Refresh</button>
+            </div>
+            <div class="filter-grid">
+                <div class="filter-group">
+                    <label class="filter-label"><i class="fas fa-compass"></i> Region</label>
+                    <select id="comparisonRegion" class="filter-select" onchange="loadKabupatenComparison()">
+                        {% for reg in kab_regions %}
+                        <option value="{{ reg }}" {% if reg == "MALUKU DAN PAPUA" %}selected{% endif %}>{{ reg }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label"><i class="fas fa-signal"></i> Provider</label>
+                    <select id="comparisonProvider" class="filter-select" onchange="loadKabupatenComparison()">
+                        {% for p in providers %}<option value="{{ p }}" {% if p == default_provider %}selected{% endif %}>{{ p }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label"><i class="fas fa-calendar-check"></i> Yearweek</label>
+                    <select id="comparisonYearweek" class="filter-select" onchange="loadKabupatenComparison()">
+                        {% for yw in yearweeks %}<option value="{{ yw }}" {% if yw == default_end_yw %}selected{% endif %}>{{ yw }}</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="summary-grid" style="grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 14px;">
+            <!-- Card 1: Kabupaten Analyzed -->
+            <div class="kpi-card">
+                <div class="kpi-card-header">
+                    <span class="kpi-card-title">Kabupaten Analyzed</span>
+                    <div class="kpi-card-icon" style="background: rgba(79,172,254,.15); color:#4facfe"><i class="fas fa-city"></i></div>
+                </div>
+                <div class="kpi-card-val-row">
+                    <span class="kpi-card-val" id="compTotal">--</span>
+                    <span class="kpi-card-sub" style="font-size:12px; font-weight:600;">Kabupatens</span>
+                </div>
+                <div class="kpi-card-sub" id="compScopeSub" style="font-weight:600; color:var(--sow-text-main); margin-top:4px;">Selected Region</div>
+                <div class="kpi-card-sub" id="compMetricsSub" style="font-size:11px; opacity:0.8;">16 Crowdsource Metrics Monitored</div>
+            </div>
+
+            <!-- Card 2: Target Achieved -->
+            <div class="kpi-card">
+                <div class="kpi-card-header">
+                    <span class="kpi-card-title">Target Achieved</span>
+                    <div class="kpi-card-icon" style="background: rgba(98,159,150,.15); color:#629f96"><i class="fas fa-check-circle"></i></div>
+                </div>
+                <div class="kpi-card-val-row">
+                    <span class="kpi-card-val" id="compAchieved" style="color:#629f96;">--</span>
+                    <span class="kpi-card-sub" id="compAchievedPct" style="color:#629f96; font-weight:600;">(--%)</span>
+                </div>
+                <div class="kpi-card-sub" id="compAchievedSub" style="font-weight:600; color:#629f96; margin-top:4px;">≥ 14 wins</div>
+                <div class="kpi-card-sub" id="compTopPerformer" style="font-size:11px; color:var(--sow-text-sub);">Top: --</div>
+            </div>
+
+            <!-- Card 3: Below Target -->
+            <div class="kpi-card">
+                <div class="kpi-card-header">
+                    <span class="kpi-card-title">Below Target</span>
+                    <div class="kpi-card-icon" style="background: rgba(248,151,158,.15); color:#f8979e"><i class="fas fa-exclamation-triangle"></i></div>
+                </div>
+                <div class="kpi-card-val-row">
+                    <span class="kpi-card-val" id="compBreaching" style="color:#f8979e;">--</span>
+                    <span class="kpi-card-sub" id="compBreachingPct" style="color:#f8979e; font-weight:600;">(--%)</span>
+                </div>
+                <div class="kpi-card-sub" id="compBreachingSub" style="font-weight:600; color:#f8979e; margin-top:4px;">Kabupaten needing action</div>
+                <div class="kpi-card-sub" id="compLowestPerformer" style="font-size:11px; color:var(--sow-text-sub);">Lowest: --</div>
+            </div>
+
+            <!-- Card 4: Region Avg Win -->
+            <div class="kpi-card">
+                <div class="kpi-card-header">
+                    <span class="kpi-card-title">Region Avg Win</span>
+                    <div class="kpi-card-icon" style="background: rgba(245,158,11,.15); color:#f59e0b"><i class="fas fa-chart-line"></i></div>
+                </div>
+                <div class="kpi-card-val-row">
+                    <span class="kpi-card-val" id="compAvg" style="color:#f59e0b;">--</span>
+                    <span class="kpi-card-sub" style="font-size:12px; font-weight:600;">/ 16 Wins</span>
+                </div>
+                <div class="kpi-card-sub" id="compAvgRate" style="font-weight:600; color:var(--sow-text-main); margin-top:4px;">--% average win rate</div>
+                <div class="kpi-card-sub" id="compWowSummary" style="font-size:11px; color:var(--sow-text-sub);">WoW: --</div>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <div class="table-card-header">
+                <div class="table-card-title">
+                    <i class="fas fa-table" style="color:#4facfe"></i>
+                    <span>Kabupaten Comparison Table — Week <span id="comparisonWeekLabel">--</span></span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <input type="text" id="compSearchInput" placeholder="Search Kabupaten..." class="filter-select" style="width: 170px; height: 30px; font-size: 11px; padding: 2px 8px;" oninput="filterComparisonTable()">
+                    <select id="compStatusFilter" class="filter-select" style="width: 120px; height: 30px; font-size: 11px; padding: 2px 6px;" onchange="filterComparisonTable()">
+                        <option value="all">All Status</option>
+                        <option value="met">Target Met</option>
+                        <option value="breach">Below Target</option>
+                    </select>
+                    <span class="kpi-badge badge-win" id="comparisonTargetBadge"><i class="fas fa-bullseye"></i> Target: 14 wins</span>
+                </div>
+            </div>
+            <div class="table-responsive" style="max-height: 620px; overflow-y:auto;">
+                <table class="sow-table" id="comparisonTable">
+                    <thead><tr><th>#</th><th>Kabupaten</th><th>#Win</th><th>#Lose</th><th>Win Rate</th><th>Target</th><th>Δ WoW</th><th>Issue Status</th></tr></thead>
+                    <tbody id="comparisonTableBody"><tr><td colspan="8" style="text-align:center;padding:20px">Select Region, Provider and Yearweek, then Refresh.</td></tr></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     </div>
@@ -2360,33 +2646,177 @@
     function switchMainTab(tab) {
         document.getElementById("tabBtnAchievement").classList.toggle("active", tab === "achievement");
         document.getElementById("tabBtnTrend").classList.toggle("active", tab === "trend");
+        document.getElementById("tabBtnComparison").classList.toggle("active", tab === "comparison");
 
         const paneAch = document.getElementById("paneAchievement");
         const paneTr = document.getElementById("paneTrend");
+        const paneCmp = document.getElementById("paneComparison");
+
+        const show = (pane) => {
+            pane.style.display = "flex";
+            pane.classList.add("active");
+        };
+        const hide = (pane) => {
+            pane.style.display = "none";
+            pane.classList.remove("active");
+        };
 
         if (tab === "achievement") {
-            paneAch.style.display = "flex";
-            paneAch.classList.add("active");
-            paneTr.style.display = "none";
-            paneTr.classList.remove("active");
+            show(paneAch); hide(paneTr); hide(paneCmp);
             if (sowChart) sowChart.resize();
-        } else {
-            paneAch.style.display = "none";
-            paneAch.classList.remove("active");
-            paneTr.style.display = "flex";
-            paneTr.classList.add("active");
-
-            // Automatically resize all trend mini-charts to available width
+        }
+        if (tab === "trend") {
+            hide(paneAch); show(paneTr); hide(paneCmp);
             setTimeout(() => {
                 if (trendChartInstances) {
                     Object.values(trendChartInstances).forEach(c => { if (c) c.resize(); });
                 }
             }, 60);
-
             if (!trendMetricsStore) {
                 applyTrendFilters();
             }
         }
+        if (tab === "comparison") {
+            hide(paneAch); hide(paneTr); show(paneCmp);
+            if (!kabupatenComparisonLoaded) loadKabupatenComparison();
+        }
+    }
+
+    let kabupatenComparisonLoaded = false;
+
+    async function loadKabupatenComparison() {
+        const region = document.getElementById("comparisonRegion").value;
+        const provider = document.getElementById("comparisonProvider").value;
+        const yearweek = document.getElementById("comparisonYearweek").value;
+        const tbody = document.getElementById("comparisonTableBody");
+        if (!region || !provider || !yearweek) return;
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px">Loading Kabupaten comparison...</td></tr>';
+        try {
+            const resp = await fetch("/api/sow/kabupaten-comparison", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ region, provider, yearweek: parseInt(yearweek, 10) })
+            });
+            const result = await resp.json();
+            if (result.status !== "success") throw new Error(result.message || "Load failed");
+            renderKabupatenComparison(result);
+            kabupatenComparisonLoaded = true;
+        } catch (err) {
+            console.error("Kabupaten comparison error:", err);
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:#f8979e">Failed to load comparison data.</td></tr>';
+        }
+    }
+
+    let currentComparisonData = null;
+
+    function renderKabupatenComparison(result) {
+        currentComparisonData = result;
+        const kabs = result.kabupatens || [];
+        const s = result.summary || {};
+        const target = result.target || 14;
+        const qLabel = result.quarter_label || `Q${Math.min(4, Math.max(1, Math.floor(((parseInt(result.yearweek, 10) % 100) - 1) / 13) + 1))}`;
+
+        document.getElementById("comparisonWeekLabel").textContent = result.yearweek;
+
+        // Dynamic Target Badge above table (Changes dynamically per Yearweek / Quarter)
+        const targetBadge = document.getElementById("comparisonTargetBadge");
+        if (targetBadge) {
+            targetBadge.innerHTML = `<i class="fas fa-bullseye"></i> Target (${qLabel}): ${target} wins`;
+        }
+
+        const total = s.total_kabupaten !== undefined ? s.total_kabupaten : kabs.length;
+        const achieved = s.achieved_count !== undefined ? s.achieved_count : kabs.filter(k => k.win >= target).length;
+        const breaching = s.breaching_count !== undefined ? s.breaching_count : (total - achieved);
+        const achPct = s.achieved_pct !== undefined ? s.achieved_pct : (total ? Math.round(achieved / total * 1000) / 10 : 0);
+        const brchPct = s.breaching_pct !== undefined ? s.breaching_pct : (total ? Math.round(breaching / total * 1000) / 10 : 0);
+        const avgWin = s.avg_win !== undefined ? s.avg_win : (total ? (kabs.reduce((sum, k) => sum + k.win, 0) / total).toFixed(1) : "--");
+        const avgRate = s.avg_rate !== undefined ? s.avg_rate : (total ? Math.round(kabs.reduce((sum, k) => sum + k.rate, 0) / total * 10) / 10 : "--");
+        const gap = s.gap_to_target !== undefined ? s.gap_to_target : (typeof avgWin === 'number' ? (avgWin - target).toFixed(1) : '--');
+
+        // Card 1: Kabupaten Analyzed
+        setText("compTotal", total);
+        setText("compScopeSub", `${result.region || 'Region'} • ${result.provider || 'Telkomsel'}`);
+        setText("compMetricsSub", `16 Crowdsource Metrics Monitored`);
+
+        // Card 2: Target Achieved
+        setText("compAchieved", achieved);
+        setText("compAchievedPct", `(${achPct}%)`);
+        setText("compAchievedSub", `≥ ${target} wins (${qLabel} Target: Met)`);
+        if (s.top_performer) {
+            setText("compTopPerformer", `Top: ${s.top_performer.location} (${s.top_performer.win}W, ${s.top_performer.rate}%)`);
+        } else {
+            setText("compTopPerformer", `Achievement Rate: ${achPct}%`);
+        }
+
+        // Card 3: Below Target
+        setText("compBreaching", breaching);
+        setText("compBreachingPct", `(${brchPct}%)`);
+        setText("compBreachingSub", `< ${target} wins (Needs Action)`);
+        if (s.lowest_performer) {
+            setText("compLowestPerformer", `Lowest: ${s.lowest_performer.location} (${s.lowest_performer.win}W, ${s.lowest_performer.rate}%)`);
+        } else {
+            setText("compLowestPerformer", breaching > 0 ? "Kabupaten needing recovery" : "All meet target");
+        }
+
+        // Card 4: Region Avg Win
+        setText("compAvg", avgWin);
+        const gapSign = (typeof gap === 'number' && gap > 0) ? `+${gap}` : `${gap}`;
+        setText("compAvgRate", `${avgRate}% Win Rate • Gap: ${gapSign} W`);
+        const wowImproved = s.improved_count !== undefined ? s.improved_count : kabs.filter(k => k.wow > 0).length;
+        const wowDeclined = s.declined_count !== undefined ? s.declined_count : kabs.filter(k => k.wow < 0).length;
+        setText("compWowSummary", `WoW: ▲ ${wowImproved} Improved • ▼ ${wowDeclined} Declined`);
+
+        // Filter and render rows
+        filterComparisonTable();
+    }
+
+    function filterComparisonTable() {
+        if (!currentComparisonData) return;
+        const result = currentComparisonData;
+        const kabs = result.kabupatens || [];
+        const target = result.target || 14;
+        const tbody = document.getElementById("comparisonTableBody");
+        if (!tbody) return;
+
+        const search = (document.getElementById("compSearchInput")?.value || "").toLowerCase().trim();
+        const status = document.getElementById("compStatusFilter")?.value || "all";
+
+        let filtered = kabs.filter(k => {
+            if (search && !k.location.toLowerCase().includes(search)) return false;
+            const met = (k.win >= target);
+            if (status === "met" && !met) return false;
+            if (status === "breach" && met) return false;
+            return true;
+        });
+
+        if (!filtered.length) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--sow-text-sub);">No kabupatens matching filter criteria (out of ${kabs.length} total).</td></tr>`;
+            return;
+        }
+
+        // Stable sort: win_rate desc then location asc
+        const rows = [...filtered].sort((a, b) => (b.rate - a.rate) || a.location.localeCompare(b.location));
+        tbody.innerHTML = rows.map((k, i) => {
+            const met = (k.win >= target);
+            const wow = (k.wow === null || k.wow === undefined) ? '<span style="color:#94a3b8">—</span>'
+                : (k.wow > 0 ? `<span style="color:#629f96;font-weight:600;">▲ +${k.wow}</span>`
+                : k.wow < 0 ? `<span style="color:#f8979e;font-weight:600;">▼ ${k.wow}</span>` : `<span style="color:#94a3b8">● 0</span>`);
+            return `<tr>
+                <td style="color:var(--sow-text-sub); font-size:11px;">${i + 1}</td>
+                <td style="font-weight:600;text-align:left;">${k.location}</td>
+                <td style="color:#629f96;font-weight:700;">${k.win}</td>
+                <td style="color:#f8979e;">${k.lose}</td>
+                <td>${k.rate}%</td>
+                <td>${met ? '<span class="kpi-badge badge-win">Met</span>' : '<span class="kpi-badge badge-lose">Breach</span>'}</td>
+                <td>${wow}</td>
+                <td>${met ? '<span class="kpi-badge badge-win"><i class="fas fa-check-circle"></i> Healthy</span>' : '<span class="kpi-badge badge-lose"><i class="fas fa-exclamation-circle"></i> Critical Issue</span>'}</td>
+            </tr>`;
+        }).join("");
+    }
+
+    function setText(id, val) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
     }
 
     // ── Level & Region Cascading Logic ──
@@ -2676,7 +3106,7 @@
             if (data.status === "success") {
                 chartDataStore = data;
                 updateAchievementChart(data);
-                updateSummaryCards(data.summary);
+                updateSummaryCards(data.summary, data);
                 populateDetailWeekSelect(data.labels);
 
                 const weekToSelect = (currentSelectedWeek && data.labels.includes(String(currentSelectedWeek)))
@@ -2704,18 +3134,119 @@
         sowChart.update();
     }
 
-    function updateSummaryCards(summary) {
+    function updateSummaryCards(summary, fullData) {
         if (!summary) return;
+        
+        // Dynamic Quarter Calculation (e.g. week 32 -> Q3, week 20 -> Q2)
+        const ywNum = parseInt(summary.latest_yearweek, 10);
+        const wkNum = ywNum ? (ywNum % 100) : 1;
+        const qNum = Math.min(4, Math.max(1, Math.floor((wkNum - 1) / 13) + 1));
+        const qLabel = summary.latest_quarter || `Q${qNum}`;
+
+        // 1. Update Executive Banner
+        if (fullData) {
+            setText("bannerRegionTitle", fullData.location || fullData.level || "Region");
+            setText("bannerWeekNum", summary.latest_yearweek || "--");
+            setText("bannerScopeBadge", (fullData.provider || "Telkomsel").toUpperCase());
+            setText("bannerTargetLabel", `Target (${qLabel})`);
+            setText("bannerTarget", summary.latest_target || 14);
+            setText("bannerAch", `${summary.latest_win || 0} Wins`);
+            
+            const gap = (summary.latest_win || 0) - (summary.latest_target || 14);
+            const gapEl = document.getElementById("bannerGap");
+            if (gapEl) {
+                if (gap >= 0) {
+                    gapEl.textContent = `+${gap} (Met)`;
+                    gapEl.style.color = "#a7f3d0";
+                } else {
+                    gapEl.textContent = `${gap} Wins`;
+                    gapEl.style.color = "#fca5ab";
+                }
+            }
+
+            const statusEl = document.getElementById("bannerStatus");
+            if (statusEl) {
+                if (summary.latest_win >= summary.latest_target) {
+                    statusEl.innerHTML = `<span style="color:#a7f3d0;"><i class="fas fa-check-circle"></i> TARGET MET</span>`;
+                } else {
+                    statusEl.innerHTML = `<span style="color:#fca5ab;"><i class="fas fa-exclamation-circle"></i> BELOW TARGET</span>`;
+                }
+            }
+        }
+
+        // 2. Executive Highlights Bullets
+        const bulletsList = document.getElementById("execBulletsList");
+        if (bulletsList) {
+            const loc = fullData ? fullData.location : "Region";
+            const prv = fullData ? fullData.provider : "Telkomsel";
+            const latestWk = summary.latest_yearweek ? `Week ${summary.latest_yearweek}` : "Latest week";
+            const targetMetText = summary.latest_win >= summary.latest_target
+                ? `<strong style="color:#629f96;">ACHIEVED</strong> (met ${qLabel}-target of ${summary.latest_target} wins)`
+                : `<strong style="color:#f8979e;">BREACHED</strong> (${summary.latest_win}/${summary.latest_target} wins, target ${summary.latest_target})`;
+
+            // Bullet 1: Current week achievement
+            const bullet1 = `<li><strong>${loc} (${prv}) — ${latestWk}:</strong> ${summary.latest_win}/16 Wins (${summary.latest_rate}%) is ${targetMetText}.</li>`;
+
+            // Bullet 2: Information on which metrics are lose
+            let bullet2 = "";
+            const loseList = summary.lose_metrics || [];
+            if (loseList.length > 0) {
+                const loseBadges = loseList.map(m => {
+                    const scoreStr = (m.score !== null && m.score !== undefined) ? `, score ${m.score}` : '';
+                    return `<span class="kpi-badge badge-lose" style="padding: 2px 7px; font-size: 11px; margin: 1px 2px; display: inline-block;"><strong>${m.title}</strong> (Rank ${m.rank || '—'}${scoreStr})</span>`;
+                }).join(" ");
+                bullet2 = `<li><strong>Trailing Metrics (${loseList.length} Loses):</strong> ${loseBadges}</li>`;
+            } else {
+                bullet2 = `<li><strong>Trailing Metrics:</strong> <span class="kpi-badge badge-win" style="padding: 2px 7px; font-size: 11px;"><i class="fas fa-check-circle"></i> Clean Sweep</span> All 16 metrics won (0 loses).</li>`;
+            }
+
+            // Bullet 3: WoW Metric Movements (maintain, move to win, move to lose)
+            let bullet3 = "";
+            if (summary.prev_yearweek) {
+                const movedWin = (summary.moved_to_win || []).map(m => `<span class="kpi-badge badge-win" style="padding: 2px 7px; font-size: 11px;">▲ <strong>${m.title}</strong></span>`);
+                const movedLose = (summary.moved_to_lose || []).map(m => `<span class="kpi-badge badge-lose" style="padding: 2px 7px; font-size: 11px;">▼ <strong>${m.title}</strong></span>`);
+                const maintLose = (summary.maintained_lose || []).map(m => `<span style="color:#f8979e; font-weight:600;">${m.title}</span>`);
+                const maintWinCount = summary.maintained_win_count !== undefined ? summary.maintained_win_count : (summary.latest_win - (summary.moved_to_win || []).length);
+
+                const movementItems = [];
+                if (movedWin.length > 0) {
+                    movementItems.push(`<strong>Move to Win:</strong> ${movedWin.join(" ")}`);
+                }
+                if (movedLose.length > 0) {
+                    movementItems.push(`<strong>Move to Lose:</strong> ${movedLose.join(" ")}`);
+                }
+
+                const maintItems = [];
+                if (maintWinCount > 0) {
+                    maintItems.push(`<span style="color:#629f96; font-weight:600;">${maintWinCount} won</span>`);
+                }
+                if (maintLose.length > 0) {
+                    maintItems.push(`<span style="color:#f8979e; font-weight:600;">${maintLose.length} lost</span> (${maintLose.join(", ")})`);
+                }
+                movementItems.push(`<strong>Maintain:</strong> ${maintItems.join(" & ") || 'all metrics maintained'}`);
+
+                bullet3 = `<li><strong>WoW Metrics (vs Wk ${summary.prev_yearweek}):</strong> ${movementItems.join(" · ")}.</li>`;
+            }
+
+            // Bullet 4: Consistency & Range
+            const bestText = summary.best_week ? `Week ${summary.best_week.yearweek} (${summary.best_week.win} Wins)` : "N/A";
+            const lowText = summary.lowest_week ? `Week ${summary.lowest_week.yearweek} (${summary.lowest_week.win} Wins)` : "N/A";
+            const bullet4 = `<li><strong>Consistency & Range:</strong> Target met in <strong>${summary.target_met_count}/${summary.total_weeks} weeks</strong> (${summary.target_met_pct}%) · Avg: <strong>${summary.avg_win} Wins/wk</strong> (${summary.avg_rate}%) · Range: Best ${bestText}, Lowest ${lowText}.</li>`;
+
+            bulletsList.innerHTML = bullet1 + bullet2 + (bullet3 ? bullet3 : "") + bullet4;
+        }
+
+        // 3. Existing Cards
         document.getElementById("cardLatestWin").textContent = summary.latest_win;
         document.getElementById("cardLatestSub").textContent = `/ 16 Wins (Wk ${summary.latest_yearweek || '--'})`;
 
         const latestBadge = document.getElementById("cardLatestBadge");
         if (summary.latest_win >= summary.latest_target) {
             latestBadge.className = "kpi-badge badge-win";
-            latestBadge.innerHTML = `<i class="fas fa-check-circle"></i> Target ${summary.latest_target}: Met (${summary.latest_rate}%)`;
+            latestBadge.innerHTML = `<i class="fas fa-check-circle"></i> Target ${qLabel}: Met (${summary.latest_rate}%)`;
         } else {
             latestBadge.className = "kpi-badge badge-lose";
-            latestBadge.innerHTML = `<i class="fas fa-exclamation-circle"></i> Below Target ${summary.latest_target} (${summary.latest_rate}%)`;
+            latestBadge.innerHTML = `<i class="fas fa-exclamation-circle"></i> Below Target ${qLabel} (${summary.latest_rate}%)`;
         }
 
         document.getElementById("cardTargetCount").textContent = `${summary.target_met_count} / ${summary.total_weeks}`;
@@ -2793,6 +3324,96 @@
         const pillNoRank = document.getElementById("pillNoRankCount");
         pillNoRank.style.display = data.no_rank_count > 0 ? "inline-flex" : "none";
         pillNoRank.textContent = `${data.no_rank_count} No Rank`;
+
+        // Synchronize Executive Banner & Highlights with the currently inspected week
+        const qLabel = data.quarter_label || `Q${Math.min(4, Math.max(1, Math.floor(((parseInt(data.yearweek, 10) % 100) - 1) / 13) + 1))}`;
+        setText("bannerTargetLabel", `Target (${qLabel})`);
+        setText("bannerWeekNum", data.yearweek);
+
+        let targetForWeek = 14;
+        if (chartDataStore && chartDataStore.labels) {
+            const idx = chartDataStore.labels.indexOf(String(data.yearweek));
+            if (idx >= 0 && chartDataStore.targets && chartDataStore.targets[idx] !== undefined) {
+                targetForWeek = chartDataStore.targets[idx];
+            }
+        }
+        setText("bannerTarget", targetForWeek);
+        setText("bannerAch", `${data.win_count} Wins`);
+
+        const gap = data.win_count - targetForWeek;
+        const gapEl = document.getElementById("bannerGap");
+        if (gapEl) {
+            if (gap >= 0) {
+                gapEl.textContent = `+${gap} (Met)`;
+                gapEl.style.color = "#a7f3d0";
+            } else {
+                gapEl.textContent = `${gap} Wins`;
+                gapEl.style.color = "#fca5ab";
+            }
+        }
+
+        const statusEl = document.getElementById("bannerStatus");
+        if (statusEl) {
+            if (data.win_count >= targetForWeek) {
+                statusEl.innerHTML = `<span style="color:#a7f3d0;"><i class="fas fa-check-circle"></i> TARGET MET</span>`;
+            } else {
+                statusEl.innerHTML = `<span style="color:#fca5ab;"><i class="fas fa-exclamation-circle"></i> BELOW TARGET</span>`;
+            }
+        }
+
+        // Also update highlights bullets for inspected week if detail includes WoW
+        const bulletsList = document.getElementById("execBulletsList");
+        if (bulletsList && data.lose_metrics !== undefined) {
+            const loc = data.location || "Region";
+            const prv = data.provider || "Telkomsel";
+            const rate = Math.round((data.win_count / 16.0) * 1000) / 10;
+            const targetMetText = data.win_count >= targetForWeek
+                ? `<strong style="color:#629f96;">ACHIEVED</strong> (met ${qLabel}-target of ${targetForWeek} wins)`
+                : `<strong style="color:#f8979e;">BREACHED</strong> (${data.win_count}/${targetForWeek} wins, target ${targetForWeek})`;
+
+            const bullet1 = `<li><strong>${loc} (${prv}) — Week ${data.yearweek}:</strong> ${data.win_count}/16 Wins (${rate}%) is ${targetMetText}.</li>`;
+
+            let bullet2 = "";
+            const loseList = data.lose_metrics || [];
+            if (loseList.length > 0) {
+                const loseBadges = loseList.map(m => {
+                    const scoreStr = (m.score !== null && m.score !== undefined) ? `, score ${m.score}` : '';
+                    return `<span class="kpi-badge badge-lose" style="padding: 2px 7px; font-size: 11px; margin: 1px 2px; display: inline-block;"><strong>${m.metric_title || m.title}</strong> (Rank ${m.rank || '—'}${scoreStr})</span>`;
+                }).join(" ");
+                bullet2 = `<li><strong>Trailing Metrics (${loseList.length} Loses):</strong> ${loseBadges}</li>`;
+            } else {
+                bullet2 = `<li><strong>Trailing Metrics:</strong> <span class="kpi-badge badge-win" style="padding: 2px 7px; font-size: 11px;"><i class="fas fa-check-circle"></i> Clean Sweep</span> All 16 metrics won (0 loses).</li>`;
+            }
+
+            let bullet3 = "";
+            if (data.prev_yearweek) {
+                const movedWin = (data.moved_to_win || []).map(m => `<span class="kpi-badge badge-win" style="padding: 2px 7px; font-size: 11px;">▲ <strong>${m.metric_title || m.title}</strong></span>`);
+                const movedLose = (data.moved_to_lose || []).map(m => `<span class="kpi-badge badge-lose" style="padding: 2px 7px; font-size: 11px;">▼ <strong>${m.metric_title || m.title}</strong></span>`);
+                const maintLose = (data.maintained_lose || []).map(m => `<span style="color:#f8979e; font-weight:600;">${m.metric_title || m.title}</span>`);
+                const maintWinCount = data.maintained_win_count !== undefined ? data.maintained_win_count : (data.win_count - (data.moved_to_win || []).length);
+
+                const movementItems = [];
+                if (movedWin.length > 0) movementItems.push(`<strong>Move to Win:</strong> ${movedWin.join(" ")}`);
+                if (movedLose.length > 0) movementItems.push(`<strong>Move to Lose:</strong> ${movedLose.join(" ")}`);
+
+                const maintItems = [];
+                if (maintWinCount > 0) maintItems.push(`<span style="color:#629f96; font-weight:600;">${maintWinCount} won</span>`);
+                if (maintLose.length > 0) maintItems.push(`<span style="color:#f8979e; font-weight:600;">${maintLose.length} lost</span> (${maintLose.join(", ")})`);
+                movementItems.push(`<strong>Maintain:</strong> ${maintItems.join(" & ") || 'all metrics maintained'}`);
+
+                bullet3 = `<li><strong>WoW Metrics (vs Wk ${data.prev_yearweek}):</strong> ${movementItems.join(" · ")}.</li>`;
+            }
+
+            let bullet4 = "";
+            if (chartDataStore && chartDataStore.summary) {
+                const s = chartDataStore.summary;
+                const bestText = s.best_week ? `Week ${s.best_week.yearweek} (${s.best_week.win} Wins)` : "N/A";
+                const lowText = s.lowest_week ? `Week ${s.lowest_week.yearweek} (${s.lowest_week.win} Wins)` : "N/A";
+                bullet4 = `<li><strong>Consistency & Range:</strong> Target met in <strong>${s.target_met_count}/${s.total_weeks} weeks</strong> (${s.target_met_pct}%) · Avg: <strong>${s.avg_win} Wins/wk</strong> (${s.avg_rate}%) · Range: Best ${bestText}, Lowest ${lowText}.</li>`;
+            }
+
+            bulletsList.innerHTML = bullet1 + bullet2 + (bullet3 ? bullet3 : "") + bullet4;
+        }
 
         data.metrics.forEach((m, idx) => {
             const tr = document.createElement("tr");
