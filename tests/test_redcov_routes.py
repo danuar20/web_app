@@ -33,11 +33,11 @@ def viewer_client(client):
 
 
 def test_redcov_page_authenticated(auth_client):
-    """Authenticated users should see the SOW Redcov page with tabs and components."""
+    """Authenticated users should see the OKR Redcov page with tabs and components."""
     res = auth_client.get("/sow/redcov")
     assert res.status_code == 200
     html = res.data.decode("utf-8")
-    assert "SOW Redcov" in html
+    assert "OKR Redcov" in html
     assert "Redcov Achievement" in html
     assert "Trend & Regional Analysis" in html
     assert "Comparison Table" in html

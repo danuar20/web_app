@@ -4,7 +4,7 @@
 {% block subSow_open %}open{% endblock %}
 {% block nav_sow_summary %}active{% endblock %}
 
-{% block page_title %}SOW Summary Dashboard{% endblock %}
+{% block page_title %}OKR Summary Dashboard{% endblock %}
 {% block page_sub %}Regional Health & Quality Metrics — AREA 4 (PUMA){% endblock %}
 
 {% block page_content %}
@@ -16,7 +16,7 @@
             <div class="banner-brand">
                 <span class="brand-tag">PUMA NETWORK PERFORMANCE</span>
                 <span class="brand-divider">|</span>
-                <span class="brand-week" id="bannerWeekTitle">WEEK 39</span>
+                <span class="brand-week" id="bannerWeekTitle">WEEK --</span>
             </div>
             <div class="banner-subtitle">
                 <i class="fas fa-network-wired" style="color: #60a5fa; margin-right: 6px;"></i>
@@ -25,154 +25,158 @@
         </div>
         <div class="banner-stats">
             <div class="stat-pill stat-total">
-                <span class="stat-num" id="statTotalKpi">6</span>
+                <span class="stat-num" id="statTotalKpi">—</span>
                 <span class="stat-text">Total KPIs</span>
             </div>
             <div class="stat-pill stat-ach">
-                <span class="stat-num" id="statAchKpi">3</span>
+                <span class="stat-num" id="statAchKpi">—</span>
                 <span class="stat-text">ACH</span>
             </div>
             <div class="stat-pill stat-ny">
-                <span class="stat-num" id="statNyAchKpi">3</span>
+                <span class="stat-num" id="statNyAchKpi">—</span>
                 <span class="stat-text">NY ACH</span>
+            </div>
+            <div class="stat-pill stat-none" id="statNoDataPill" style="display:none;">
+                <span class="stat-num" id="statNoDataKpi">0</span>
+                <span class="stat-text">No Data</span>
             </div>
         </div>
     </div>
 
-    <!-- SOW Status Summary & Submenu Dashboards Header -->
+    <!-- OKR Status Summary & Submenu Dashboards Header -->
     <div class="quick-nav-header">
         <div class="quick-nav-title">
-            <i class="fas fa-th-large" style="color: #38bdf8;"></i> SOW Status Summary &amp; Submenu Dashboards
+            <i class="fas fa-th-large" style="color: #38bdf8;"></i> OKR Status Summary &amp; Submenu Dashboards
         </div>
         <div class="quick-nav-tip">
             Click any card to open the dedicated submenu dashboard
         </div>
     </div>
 
-    <!-- 6 Core SOW KPI Cards Strip (Directly linked to submenus, 2-col on mobile) -->
+    <!-- 6 Core OKR KPI Cards Strip (Directly linked to submenus, 2-col on mobile) -->
     <div class="kpi-cards-grid" id="kpiCardsStrip">
         <!-- 1. RHI Card -->
-        <a href="/sow/rhi" class="kpi-card-colorful theme-emerald" id="card_RHI" title="Open RHI Dashboard">
+        <a href="/okr/rhi" class="kpi-card-colorful theme-emerald" id="card_RHI" title="Open RHI Dashboard">
             <div class="card-glow"></div>
             <div class="card-top">
                 <span class="card-icon"><i class="fas fa-heartbeat"></i></span>
                 <span class="card-tag">RHI</span>
-                <span class="card-week-badge" id="cweek_RHI">W39</span>
+                <span class="card-week-badge" id="cweek_RHI">—</span>
             </div>
             <div class="card-metric-name">Radio Health Index</div>
-            <div class="card-val" id="cval_RHI">93.84%</div>
+            <div class="card-val" id="cval_RHI">—</div>
             <div class="card-meta">
-                <span class="meta-prev" id="cprev_RHI">Prev: 93.91%</span>
-                <span class="meta-wow wow-flat" id="cwow_RHI">▼ -0.07 pp</span>
+                <span class="meta-prev" id="cprev_RHI">Prev: —</span>
+                <span class="meta-wow wow-flat" id="cwow_RHI">WoW —</span>
             </div>
             <div class="card-bottom">
                 <span class="status-pill status-ach" id="cstat_RHI">ACH</span>
-                <span class="target-chip">Tgt: 93.55%</span>
+                <span class="target-chip" id="ctgt_RHI">Tgt: —</span>
                 <span class="open-link">Open <i class="fas fa-arrow-right"></i></span>
             </div>
         </a>
 
         <!-- 2. CEI Card -->
-        <a href="/sow/cei" class="kpi-card-colorful theme-cyan" id="card_CEI" title="Open CEI Dashboard">
+        <a href="/okr/cei" class="kpi-card-colorful theme-cyan" id="card_CEI" title="Open CEI Dashboard">
             <div class="card-glow"></div>
             <div class="card-top">
                 <span class="card-icon"><i class="fas fa-smile"></i></span>
                 <span class="card-tag">CEI</span>
-                <span class="card-week-badge" id="cweek_CEI">W37</span>
+                <span class="card-week-badge" id="cweek_CEI">—</span>
             </div>
             <div class="card-metric-name">Customer Experience Index</div>
-            <div class="card-val" id="cval_CEI">94.48%</div>
+            <div class="card-val" id="cval_CEI">—</div>
             <div class="card-meta">
-                <span class="meta-prev" id="cprev_CEI">Prev: 95.39%</span>
-                <span class="meta-wow wow-down" id="cwow_CEI">▼ -0.91 pp</span>
+                <span class="meta-prev" id="cprev_CEI">Prev: —</span>
+                <span class="meta-wow wow-flat" id="cwow_CEI">WoW —</span>
             </div>
             <div class="card-bottom">
                 <span class="status-pill status-ach" id="cstat_CEI">ACH</span>
-                <span class="target-chip">Tgt: 93.95%</span>
+                <span class="target-chip" id="ctgt_CEI">Tgt: —</span>
                 <span class="open-link">Open <i class="fas fa-arrow-right"></i></span>
             </div>
         </a>
 
         <!-- 3. Redcov Card -->
-        <a href="/sow/redcov" class="kpi-card-colorful theme-amber" id="card_Redcov" title="Open Redcov Dashboard">
+        <a href="/okr/redcov" class="kpi-card-colorful theme-amber" id="card_Redcov" title="Open Redcov Dashboard">
             <div class="card-glow"></div>
             <div class="card-top">
                 <span class="card-icon"><i class="fas fa-satellite-dish"></i></span>
                 <span class="card-tag">REDCOV</span>
-                <span class="card-week-badge" id="cweek_Redcov">W39</span>
+                <span class="card-week-badge" id="cweek_Redcov">—</span>
             </div>
             <div class="card-metric-name">Red Coverage Optim</div>
-            <div class="card-val" id="cval_Redcov">0.16%</div>
+            <div class="card-val" id="cval_Redcov">—</div>
             <div class="card-meta">
-                <span class="meta-prev" id="cprev_Redcov">Prev: 0.16%</span>
-                <span class="meta-wow wow-flat" id="cwow_Redcov">― 0.00 pp</span>
+                <span class="meta-prev" id="cprev_Redcov">Prev: —</span>
+                <span class="meta-wow wow-flat" id="cwow_Redcov">WoW —</span>
             </div>
             <div class="card-bottom">
                 <span class="status-pill status-ach" id="cstat_Redcov">ACH</span>
-                <span class="target-chip">Tgt: ≤ 0.23%</span>
+                <span class="target-chip" id="ctgt_Redcov">Tgt: —</span>
                 <span class="open-link">Open <i class="fas fa-arrow-right"></i></span>
             </div>
         </a>
 
         <!-- 4. ONX Card -->
-        <a href="/sow/crowdsource?tab=onx" class="kpi-card-colorful theme-blue" id="card_ONX" title="Open ONX Benchmark">
+        <a href="/okr/crowdsource?tab=onx" class="kpi-card-colorful theme-blue" id="card_ONX" title="Open ONX Benchmark">
             <div class="card-glow"></div>
             <div class="card-top">
                 <span class="card-icon"><i class="fas fa-trophy"></i></span>
                 <span class="card-tag">ONX</span>
-                <span class="card-week-badge" id="cweek_ONX">W38</span>
+                <span class="card-week-badge" id="cweek_ONX">—</span>
             </div>
             <div class="card-metric-name">ONX Mobile Wins</div>
-            <div class="card-val" id="cval_ONX">13 <span class="val-unit">/16</span></div>
+            <div class="card-val" id="cval_ONX">—</div>
             <div class="card-meta">
-                <span class="meta-prev" id="cprev_ONX">Prev: 13 wins</span>
-                <span class="meta-wow wow-flat" id="cwow_ONX">― 0 delta</span>
+                <span class="meta-prev" id="cprev_ONX">Prev: —</span>
+                <span class="meta-wow wow-flat" id="cwow_ONX">WoW —</span>
             </div>
             <div class="card-bottom">
                 <span class="status-pill status-ny" id="cstat_ONX">NY ACH</span>
-                <span class="target-chip">Tgt: 14 wins</span>
+                <span class="target-chip" id="ctgt_ONX">Tgt: —</span>
                 <span class="open-link">Open <i class="fas fa-arrow-right"></i></span>
             </div>
         </a>
 
         <!-- 5. Unbalance Card -->
-        <a href="/sow/ran_capacity?mode=unbalance" class="kpi-card-colorful theme-violet" id="card_Unbalance" title="Open RAN Capacity Unbalance">
+        <a href="/okr/ran_capacity?mode=unbalance" class="kpi-card-colorful theme-violet" id="card_Unbalance" title="Open RAN Capacity Unbalance">
             <div class="card-glow"></div>
             <div class="card-top">
                 <span class="card-icon"><i class="fas fa-balance-scale"></i></span>
                 <span class="card-tag">UNBALANCE</span>
-                <span class="card-week-badge" id="cweek_Unbalance">W39</span>
+                <span class="card-week-badge" id="cweek_Unbalance">—</span>
             </div>
             <div class="card-metric-name">Unbalance Sector (P1)</div>
-            <div class="card-val" id="cval_Unbalance">2.24%</div>
+            <div class="card-val" id="cval_Unbalance">—</div>
             <div class="card-meta">
-                <span class="meta-prev" id="cprev_Unbalance">Prev: 2.12%</span>
-                <span class="meta-wow wow-down" id="cwow_Unbalance">▼ +0.12 pp</span>
+                <span class="meta-prev" id="cprev_Unbalance">Prev: —</span>
+                <span class="meta-wow wow-flat" id="cwow_Unbalance">WoW —</span>
             </div>
             <div class="card-bottom">
                 <span class="status-pill status-ny" id="cstat_Unbalance">NY ACH</span>
-                <span class="target-chip">Tgt: ≤ 1.85%</span>
+                <span class="target-chip" id="ctgt_Unbalance">Tgt: —</span>
                 <span class="open-link">Open <i class="fas fa-arrow-right"></i></span>
             </div>
         </a>
 
         <!-- 6. RCI Card -->
-        <a href="/sow/ran_capacity?mode=rci" class="kpi-card-colorful theme-rose" id="card_RCI" title="Open RAN Capacity RCI">
+        <a href="/okr/ran_capacity?mode=rci" class="kpi-card-colorful theme-rose" id="card_RCI" title="Open RAN Capacity RCI">
             <div class="card-glow"></div>
             <div class="card-top">
                 <span class="card-icon"><i class="fas fa-sliders-h"></i></span>
                 <span class="card-tag">RCI</span>
-                <span class="card-week-badge" id="cweek_RCI">W39</span>
+                <span class="card-week-badge" id="cweek_RCI">—</span>
             </div>
             <div class="card-metric-name">Direct Optim (RCI)</div>
-            <div class="card-val" id="cval_RCI">0.58%</div>
+            <div class="card-val" id="cval_RCI">—</div>
             <div class="card-meta">
-                <span class="meta-prev" id="cprev_RCI">Prev: 0.61%</span>
-                <span class="meta-wow wow-up" id="cwow_RCI">▲ -0.03 pp</span>
+                <span class="meta-prev" id="cprev_RCI">Prev: —</span>
+                <span class="meta-wow wow-flat" id="cwow_RCI">WoW —</span>
             </div>
             <div class="card-bottom">
                 <span class="status-pill status-ny" id="cstat_RCI">NY ACH</span>
-                <span class="target-chip">Tgt: ≤ 0.42%</span>
+                <span class="target-chip" id="ctgt_RCI">Tgt: —</span>
                 <span class="open-link">Open <i class="fas fa-arrow-right"></i></span>
             </div>
         </a>
@@ -227,12 +231,12 @@
                     <thead>
                         <tr class="header-row-primary">
                             <th class="th-kpi">KPI</th>
-                            <th class="th-center">Target Q3</th>
+                            <th class="th-center" id="thColTarget">Target</th>
                             <th class="th-center">Prev Week</th>
                             <th class="th-center">Latest Week</th>
                             <th class="th-center">WoW</th>
-                            <th class="th-center">Gap Q3</th>
-                            <th class="th-center">Status Q3</th>
+                            <th class="th-center" id="thColGap">Gap</th>
+                            <th class="th-center" id="thColStatus">Status</th>
                             <th class="th-center">Latest Weeknum</th>
                         </tr>
                     </thead>
@@ -319,14 +323,12 @@
                 <table class="scorecard-table matrix-table" id="targetTable">
                     <thead>
                         <tr class="header-row-matrix">
-                            <th style="width: 240px;">SOW Metric</th>
+                            <th style="width: 240px;">OKR Metric</th>
                             <th class="th-center">Baseline</th>
-                            <th class="th-center">Q1 Target</th>
-                            <th class="th-center">Q2 Target</th>
-                            <th class="th-center th-active-q3">
-                                Q3 Target <span class="active-q-tag">Active</span>
-                            </th>
-                            <th class="th-center">Q4 Target</th>
+                            <th class="th-center" id="matrixThQ1">Q1 Target</th>
+                            <th class="th-center" id="matrixThQ2">Q2 Target</th>
+                            <th class="th-center" id="matrixThQ3">Q3 Target</th>
+                            <th class="th-center" id="matrixThQ4">Q4 Target</th>
                         </tr>
                     </thead>
                     <tbody id="targetBody">
@@ -626,6 +628,16 @@
         background: rgba(244, 63, 94, 0.2);
         color: #fb7185;
     }
+    .status-none {
+        background: #f1f5f9;
+        color: #64748b;
+        border: 1px solid #cbd5e1;
+    }
+    [data-theme="dark"] .status-none {
+        background: rgba(148, 163, 184, 0.18);
+        color: #cbd5e1;
+        border-color: rgba(148, 163, 184, 0.35);
+    }
     .target-chip {
         font-size: 10px;
         color: var(--muted-foreground);
@@ -870,7 +882,7 @@
     [data-theme="dark"] .header-row-matrix th {
         background: #0f172a;
     }
-    .th-active-q3 {
+    .th-active-q, .th-active-q3 {
         background: #0369a1 !important;
         color: #ffffff !important;
     }
@@ -952,6 +964,14 @@
     [data-theme="dark"] .badge-ny {
         background: rgba(216, 180, 254, 0.2);
         color: #e9d5ff;
+    }
+    .badge-none {
+        background: #e2e8f0;
+        color: #475569;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 11px;
     }
 
     /* PUMA OKR Scorecard Dynamics Styling */
@@ -1295,6 +1315,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const statTotalKpi = document.getElementById('statTotalKpi');
     const statAchKpi = document.getElementById('statAchKpi');
     const statNyAchKpi = document.getElementById('statNyAchKpi');
+    const statNoDataPill = document.getElementById('statNoDataPill');
+    const statNoDataKpi = document.getElementById('statNoDataKpi');
 
     const tbodyAchievement = document.getElementById('tbodyAchievement');
     const tbodyDynamics = document.getElementById('tbodyDynamics');
@@ -1317,45 +1339,89 @@ document.addEventListener('DOMContentLoaded', function() {
         return num.toFixed(2) + '%';
     }
 
+    /* Metric values arrive from the API already expressed in their display unit
+       (percent as 93.55, count as 14). A null means the database had nothing to
+       report, so render an em dash rather than a 0. */
+    function fmtMetric(val, isCount) {
+        if (val === null || val === undefined) return '—';
+        return isCount ? val.toLocaleString() : val.toFixed(2) + '%';
+    }
+
     async function loadScorecardData() {
         try {
-            const resp = await fetch('/api/sow/summary-availability');
-            const res = await resp.json();
+            const r = await fetch('/api/sow/summary-availability');
+            const res = await r.json();
+            if (res.status === 'error') throw new Error(res.message);
 
-            if (res.status !== 'success') {
-                tbodyAchievement.innerHTML = '<tr><td colspan="8" class="td-loading text-danger">Error loading scorecard data</td></tr>';
-                tbodyDynamics.innerHTML = '<tr><td colspan="4" class="td-loading text-danger">Error loading dynamics data</td></tr>';
-                return;
-            }
-
-            const metrics = res.metrics;
-            const latestW = res.latest_week || 202639;
+            const metrics = res.metrics || [];
+            const latestW = res.latest_week;
+            const activeQ = res.active_quarter || (latestW ? Math.min(4, Math.max(1, Math.floor(((Number(latestW) % 100) - 1) / 13) + 1)) : 4);
+            const qLabel = res.active_quarter_label || ('Q' + activeQ);
 
             // Update Banner
             if (bannerWeekTitle) {
-                const wShort = String(latestW).slice(-2);
-                bannerWeekTitle.innerText = `WEEK ${wShort}`;
+                bannerWeekTitle.innerText = latestW ? `WEEK ${String(latestW).slice(-2)}` : 'WEEK --';
             }
-            if (statTotalKpi) statTotalKpi.innerText = res.total_metrics || metrics.length;
-            if (statAchKpi) statAchKpi.innerText = res.ach_count || 0;
-            if (statNyAchKpi) statNyAchKpi.innerText = res.ny_ach_count || 0;
+
+            // Update Dynamic Table Headers
+            const thColTarget = document.getElementById('thColTarget');
+            const thColGap = document.getElementById('thColGap');
+            const thColStatus = document.getElementById('thColStatus');
+            if (thColTarget) thColTarget.innerText = `Target (${qLabel})`;
+            if (thColGap) thColGap.innerText = `Gap (${qLabel})`;
+            if (thColStatus) thColStatus.innerText = `Status (${qLabel})`;
+
+            // Dynamically highlight active quarter in Scene 3 Target Matrix
+            [1, 2, 3, 4].forEach(qNum => {
+                const thEl = document.getElementById('matrixThQ' + qNum);
+                if (thEl) {
+                    if (qNum === activeQ) {
+                        thEl.className = 'th-center th-active-q';
+                        thEl.innerHTML = `Q${qNum} Target <span class="active-q-tag">Active</span>`;
+                    } else {
+                        thEl.className = 'th-center';
+                        thEl.innerHTML = `Q${qNum} Target`;
+                    }
+                }
+            });
+
+            // Banner Stats Calculation
+            const total = res.total_metrics || metrics.length;
+            const achCount = res.ach_count !== undefined ? res.ach_count : metrics.filter(m => m.ach === true).length;
+            const nyCount = res.ny_ach_count !== undefined ? res.ny_ach_count : metrics.filter(m => m.ach === false).length;
+            const noDataCount = metrics.filter(m => m.ach === null).length;
+
+            if (statTotalKpi) statTotalKpi.innerText = total || '—';
+            if (statAchKpi) statAchKpi.innerText = achCount;
+            if (statNyAchKpi) statNyAchKpi.innerText = nyCount;
+            
+            if (statNoDataPill && statNoDataKpi) {
+                statNoDataKpi.innerText = noDataCount;
+                statNoDataPill.style.display = noDataCount > 0 ? 'flex' : 'none';
+            }
 
             // Update Top 6 Cards Strip
             metrics.forEach(m => {
-                const cVal = document.getElementById('cval_' + m.id);
-                const cPrev = document.getElementById('cprev_' + m.id);
-                const cWow = document.getElementById('cwow_' + m.id);
-                const cStat = document.getElementById('cstat_' + m.id);
-                const cWeek = document.getElementById('cweek_' + m.id);
+                const cardKey = m.id || m.id_prefix;
+                const cVal = document.getElementById('cval_' + cardKey);
+                const cPrev = document.getElementById('cprev_' + cardKey);
+                const cWow = document.getElementById('cwow_' + cardKey);
+                const cStat = document.getElementById('cstat_' + cardKey);
+                const cWeek = document.getElementById('cweek_' + cardKey);
+                const cTgt = document.getElementById('ctgt_' + cardKey);
 
                 if (cVal) {
-                    cVal.innerText = m.is_count ? m.latest_val.toLocaleString() : (m.latest_val !== null ? m.latest_val.toFixed(2) + '%' : '—');
+                    cVal.innerText = m.is_count ? (m.latest_val !== null ? m.latest_val.toLocaleString() : '—') : (m.latest_val !== null ? m.latest_val.toFixed(2) + '%' : '—');
                 }
                 if (cPrev) {
                     cPrev.innerText = m.prev_val !== null ? `Prev: ${m.is_count ? m.prev_val : m.prev_val.toFixed(2) + '%'}` : 'Prev: —';
                 }
                 if (cWeek && m.latest_week) {
                     cWeek.innerText = 'W' + String(m.latest_week).slice(-2);
+                }
+                if (cTgt) {
+                    const qBadge = m.target_quarter || qLabel;
+                    cTgt.innerText = m.target !== null ? `Tgt (${qBadge}): ${fmtMetric(m.target, m.is_count)}` : 'Tgt: —';
                 }
                 if (cWow && m.wow !== null) {
                     const arrow = m.wow > 0 ? '▲' : (m.wow < 0 ? '▼' : '―');
@@ -1370,8 +1436,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
                 if (cStat) {
-                    cStat.innerText = m.status;
-                    cStat.className = 'status-pill ' + (m.ach ? 'status-ach' : 'status-ny');
+                    cStat.innerText = m.status || (m.ach === true ? 'ACH' : (m.ach === false ? 'NY ACH' : '—'));
+                    cStat.className = 'status-pill ' + (m.ach === true ? 'status-ach' : (m.ach === false ? 'status-ny' : 'status-none'));
                 }
             });
 
@@ -1381,6 +1447,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 const targetStr = m.is_count ? m.target : (m.target !== null ? m.target.toFixed(2) + '%' : '—');
                 const prevStr = m.prev_val !== null ? (m.is_count ? m.prev_val : m.prev_val.toFixed(2) + '%') : '—';
                 const latestStr = m.latest_val !== null ? (m.is_count ? m.latest_val : m.latest_val.toFixed(2) + '%') : '—';
+                const rowTargetDisplay = (m.target_quarter && m.target_quarter !== qLabel)
+                    ? `${targetStr} <span style="font-size:10px; opacity:0.8; font-weight:600;">(${m.target_quarter})</span>`
+                    : targetStr;
 
                 // WoW string
                 let wowStr = '—';
@@ -1397,7 +1466,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Gap string
                 let gapStr = '—';
                 let gapClass = '';
-                if (m.gap !== null) {
+                if (m.gap !== null && m.gap !== undefined) {
                     const sign = m.gap > 0 ? '+' : '';
                     const unit = m.is_count ? '' : ' pp';
                     gapStr = `${sign}${m.gap.toFixed(2)}${unit}`;
@@ -1405,7 +1474,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     gapClass = isPass ? 'gap-positive' : 'gap-negative';
                 }
 
-                const statusBadge = m.ach ? '<span class="badge-ach">ACH</span>' : '<span class="badge-ny">NY ACH</span>';
+                const statusBadge = m.ach ? '<span class="badge-ach">ACH</span>' : (m.ach === false ? '<span class="badge-ny">NY ACH</span>' : '<span class="badge-none">NO DATA</span>');
                 const weeknumBadge = m.latest_week ? `<span class="weeknum-badge">${m.latest_week}</span>` : '—';
 
                 achHtml += `
@@ -1414,7 +1483,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <i class="${m.icon}" style="color: ${m.color}; margin-right: 8px; width: 14px; text-align: center;"></i>
                             ${m.name}
                         </td>
-                        <td class="td-center val-mono">${targetStr}</td>
+                        <td class="td-center val-mono">${rowTargetDisplay}</td>
                         <td class="td-center val-mono">${prevStr}</td>
                         <td class="td-center val-mono">${latestStr}</td>
                         <td class="td-center val-mono" style="${wowColor}">${wowStr}</td>

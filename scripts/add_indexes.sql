@@ -107,12 +107,22 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_ta4g_date
     ON "measTA4G" ("Date");
 
 
+-- ── SOW / OKR Tables ──────────────────────────────────────────────────────────
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rhi_score_weeknum
+    ON sow.rhi_score (weeknum);
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_rhi_score_weeknum_remark
+    ON sow.rhi_score (weeknum, remark_week);
+
+
 -- ── Verify indexes were created ────────────────────────────────────────────────
 SELECT schemaname, tablename, indexname
 FROM pg_indexes
 WHERE tablename IN (
     '4g_kpi_zte', '5g_kpi_zte', '2g_kpi_zte',
     'traffic_payload', '4g_kpi_zte_daily',
-    '2G_pl_hy', '4G_pl_hy', 'measTA4G'
+    '2G_pl_hy', '4G_pl_hy', 'measTA4G',
+    'rhi_score'
 )
 ORDER BY tablename, indexname;

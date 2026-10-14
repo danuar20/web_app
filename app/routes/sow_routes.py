@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, session, jsonify, send_file, make_response
+from flask import Blueprint, render_template, request, session, jsonify, send_file, make_response, Response, stream_with_context
 from app import csrf
 from app.db.db_webapp import get_postgres_connection
 from ._utils import login_required, viewer_blocked, db_query
@@ -8,10 +8,20 @@ import io
 import csv
 import psycopg2.extras
 import datetime
+import os
+import uuid
+import tempfile
+import threading
 
 logger = logging.getLogger(__name__)
 
 sow = Blueprint("sow", __name__)
+
+# Async import progress tracking
+_ONX_IMPORT_JOBS = {}
+_ONX_IMPORT_JOBS_LOCK = threading.Lock()
+_FB_IMPORT_JOBS = {}
+_FB_IMPORT_JOBS_LOCK = threading.Lock()
 
 # In-memory caches for fast responses
 _LOCATIONS_CACHE = {}
@@ -94,20 +104,33 @@ def get_cached_locations(level, region=None):
 
 
 def get_cached_yearweeks():
-    """Retrieve all distinct yearweeks sorted descending."""
+    """Retrieve all distinct yearweeks sorted descending, with auto-invalidation if DB max week changed."""
     now = time.time()
-    if _YEARWEEKS_CACHE["data"] and (now - _YEARWEEKS_CACHE["timestamp"] < _CACHE_TTL):
-        return _YEARWEEKS_CACHE["data"]
+    
+    # 1. Query current max yearweek from DB (fast: uses index-only scan)
+    db_max = 0
     try:
         with db_query(get_postgres_connection) as (conn, cur):
-            cur.execute(
-                """
-                SELECT DISTINCT yearweek 
-                FROM sow.onx_rank_score 
-                ORDER BY yearweek DESC
-                """
-            )
-            yws = [int(r[0]) for r in cur.fetchall() if r[0] is not None]
+            cur.execute("SELECT MAX(yearweek) FROM sow.onx_rank_score")
+            row = cur.fetchone()
+            if row and row[0]:
+                db_max = int(row[0])
+    except Exception:
+        pass
+
+    # 2. Check cache: if DB max week differs from cached max, we're stale
+    if _YEARWEEKS_CACHE["data"] and (now - _YEARWEEKS_CACHE["timestamp"] < _CACHE_TTL):
+        val = _YEARWEEKS_CACHE["data"]
+        cached_max = val[0] if val else 0
+        # Return cached data ONLY if the DB max matches what we cached
+        if db_max == cached_max and db_max > 0:
+            return val
+
+    # 3. Cache miss, expired, or mismatched - refresh from DB
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute("SELECT DISTINCT yearweek FROM sow.onx_rank_score WHERE yearweek IS NOT NULL ORDER BY yearweek DESC")
+            yws = [int(r[0]) for r in cur.fetchall()]
             _YEARWEEKS_CACHE["data"] = yws
             _YEARWEEKS_CACHE["timestamp"] = now
             return yws
@@ -160,18 +183,98 @@ METRIC_TITLES = {
 }
 
 
-# ══════════════════════════════════════════════════════════════════════
-# FB SHARE (sow.fb_share) helpers
-# ══════════════════════════════════════════════════════════════════════
+
+@sow.route('/api/sow/crowdsource_onx-csv-export', methods=['GET'])
+@login_required
+def api_sow_crowdsource_onx_csv_export():
+    """
+    Export ONX rank score data to CSV, filtered by week or week range.
+    Accepts 'week' (single ISO YYYYWW) or 'start_week' & 'end_week'.
+    """
+    try:
+        week = request.args.get("week")
+        start_week = request.args.get("start_week")
+        end_week = request.args.get("end_week")
+
+        if week:
+            start_yw = int(week)
+            end_yw = int(week)
+        elif start_week and end_week:
+            start_yw = int(start_week)
+            end_yw = int(end_week)
+            if start_yw > end_yw:
+                start_yw, end_yw = end_yw, start_yw
+        else:
+            return jsonify({"status": "error", "message": "Must provide 'week' or 'start_week'/'end_week'"}), 400
+
+    except (ValueError, TypeError):
+        return jsonify({"status": "error", "message": "Invalid yearweek format"}), 400
+
+    return _stream_table_csv(
+        "onx_rank_score", "yearweek", start_yw, end_yw,
+        f"ONX_Crowdsource_Export_{start_yw}-{end_yw}.csv",
+    )
+
+@sow.route('/api/sow/crowdsource_fb-csv-export', methods=['GET'])
+@login_required
+def api_sow_crowdsource_fb_csv_export():
+    """
+    Export FB Share data to CSV, filtered by week or week range.
+    Accepts 'week' (single ISO YYYYWW) or 'start_week'/'end_week'.
+    """
+    try:
+        week = request.args.get("week")
+        start_week = request.args.get("start_week")
+        end_week = request.args.get("end_week")
+
+        if week:
+            start_yw = int(week)
+            end_yw = int(week)
+        elif start_week and end_week:
+            start_yw = int(start_week)
+            end_yw = int(end_week)
+            if start_yw > end_yw:
+                start_yw, end_yw = end_yw, start_yw
+        else:
+            return jsonify({"status": "error", "message": "Must provide 'week' or 'start_week'/'end_week'"}), 400
+
+    except (ValueError, TypeError):
+        return jsonify({"status": "error", "message": "Invalid yearweek format"}), 400
+
+    return _stream_table_csv(
+        "fb_share", "yearweek", start_yw, end_yw,
+        f"FB_Share_Crowdsource_Export_{start_yw}-{end_yw}.csv",
+    )
+
+
 _FB_YEARWEEKS_CACHE = {"data": None, "timestamp": 0}
 FB_PROVIDERS = ("tsel", "ioh", "xls")  # tsel=telkomsel, ioh=isat3, xls=xl+smartfren
 
 
 def get_cached_fb_yearweeks():
-    """Distinct yearweeks available in sow.fb_share (descending)."""
+    """Distinct yearweeks available in sow.fb_share (descending), with auto-invalidation if DB max week changed."""
     now = time.time()
+    
+    # 1. Query current max yearweek from DB (fast: uses index-only scan)
+    db_max = 0
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute("SELECT MAX(yearweek) FROM sow.fb_share")
+            row = cur.fetchone()
+            if row and row[0]:
+                db_max = int(row[0])
+    except Exception:
+        pass
+
+    # 2. Check cache: if DB max week differs from cached max, we're stale
     if _FB_YEARWEEKS_CACHE["data"] and (now - _FB_YEARWEEKS_CACHE["timestamp"] < _CACHE_TTL):
-        return _FB_YEARWEEKS_CACHE["data"]
+        val = _FB_YEARWEEKS_CACHE["data"]
+        cached_max = val[0] if val else 0
+        # Return cached data ONLY if the DB max matches what we cached
+        if db_max == cached_max and db_max > 0:
+            return val
+
+    # 3. Cache miss, expired, or mismatched - refresh from DB
     try:
         with db_query(get_postgres_connection) as (conn, cur):
             cur.execute("SELECT DISTINCT yearweek FROM sow.fb_share WHERE yearweek IS NOT NULL ORDER BY yearweek DESC")
@@ -553,174 +656,221 @@ def api_sow_summary_availability():
         with db_query(get_postgres_connection) as (conn, cur):
             # 1. Targets from sow.sow_target
             cur.execute("""
-                SELECT "SOW", "Baseline", "Q1", "Q2", "Q3", "Q4"
-                FROM sow.sow_target
-                WHERE "Year" = 2026;
+                SELECT "SOW", "Year", "Q1", "Q2", "Q3", "Q4"
+                FROM sow.sow_target;
             """)
             targets = {}
             for r in cur.fetchall():
                 k = (r[0] or "").strip().lower()
-                targets[k] = {
-                    "raw_key": r[0],
-                    "baseline": float(r[1]) if r[1] is not None else None,
-                    "q1": float(r[2]) if r[2] is not None else None,
-                    "q2": float(r[3]) if r[3] is not None else None,
-                    "q3": float(r[4]) if r[4] is not None else None,
-                    "q4": float(r[5]) if r[5] is not None else None,
+                if not k:
+                    continue
+                try:
+                    yr = int(r[1])
+                except (TypeError, ValueError):
+                    continue
+                entry = targets.setdefault(k, {"raw_key": r[0], "years": {}})
+                entry["years"][yr] = {
+                    1: float(r[2]) if r[2] is not None else None,
+                    2: float(r[3]) if r[3] is not None else None,
+                    3: float(r[4]) if r[4] is not None else None,
+                    4: float(r[5]) if r[5] is not None else None,
                 }
 
-            def get_tgt(key, default_val):
-                t = targets.get(key.lower())
-                if t and t["q3"] is not None:
-                    v = t["q3"]
-                    if 0 < v < 1.0:
-                        return round(v * 100, 2)
-                    return round(v, 2)
-                return default_val
+            # 2. Latest two weeks + their aggregate for all five sources, in ONE
+            #    round-trip.
+            #
+            #    This replaces ten statements: five `SELECT DISTINCT week ...
+            #    ORDER BY week DESC LIMIT 2` probes, each followed by a second
+            #    query aggregating those weeks. The link to the database costs
+            #    ~80ms per round-trip (measured), so ten serialised trips cost
+            #    ~0.8s no matter how fast the SQL itself runs. Each UNION branch
+            #    below expresses the same "group by week, newest two" as one
+            #    statement.
+            #
+            #    n1/n2/n3 per branch:
+            #      RHI      total, GOOD cells, FAIL cells
+            #      CEI      total, Good_cell, Bad_cell
+            #      Redcov   total_geohash7, "RED OPTIM", unused
+            #      RCI      total, rci optimization, unbalanced_p1
+            #      ONX      Telkomsel rank-1 wins, Telkomsel row count
+            cur.execute("""
+                SELECT * FROM (
+                    SELECT 'RHI' AS src, weeknum AS wk,
+                           count(*)::numeric AS n1,
+                           count(*) FILTER (WHERE upper(trim(remark_week)) = 'GOOD')::numeric AS n2,
+                           count(*) FILTER (WHERE upper(trim(remark_week)) = 'FAIL')::numeric AS n3
+                    FROM sow.rhi_score GROUP BY weeknum ORDER BY weeknum DESC LIMIT 2
+                ) t
+                UNION ALL
+                SELECT * FROM (
+                    SELECT 'CEI', weeknum, count(*)::numeric,
+                           count(*) FILTER (WHERE remark_cell = 'Good_cell')::numeric,
+                           count(*) FILTER (WHERE remark_cell = 'Bad_cell')::numeric
+                    FROM sow.cei_score GROUP BY weeknum ORDER BY weeknum DESC LIMIT 2
+                ) t
+                UNION ALL
+                SELECT * FROM (
+                    SELECT 'Redcov', yearweek, sum(total_geohash7)::numeric,
+                           sum("RED OPTIM")::numeric, 0::numeric
+                    FROM sow.red_cov WHERE region = 'MALUKU DAN PAPUA'
+                    GROUP BY yearweek ORDER BY yearweek DESC LIMIT 2
+                ) t
+                UNION ALL
+                SELECT * FROM (
+                    SELECT 'RCI', week, count(*)::numeric,
+                           count(*) FILTER (WHERE grouping_rci = 'optimization')::numeric,
+                           count(*) FILTER (WHERE unbalanced_3method = 'unbalanced_p1')::numeric
+                    FROM sow.rci_redsector GROUP BY week ORDER BY week DESC LIMIT 2
+                ) t
+                UNION ALL
+                SELECT * FROM (
+                    SELECT 'ONX', yearweek,
+                           sum(CASE WHEN provider = 'Telkomsel' AND rank = 1 THEN 1 ELSE 0 END)::numeric,
+                           count(*) FILTER (WHERE provider = 'Telkomsel')::numeric,
+                           0::numeric
+                    FROM sow.onx_rank_score
+                    WHERE level = 'Region' AND location = 'MALUKU DAN PAPUA'
+                    GROUP BY yearweek ORDER BY yearweek DESC LIMIT 2
+                ) t
+            """)
+            wk_rows = {}
+            for src, wk, n1, n2, n3 in cur.fetchall():
+                wk_rows.setdefault(src, []).append((wk, n1, n2, n3))
 
-            # 2. Live DB queries for available SOW tables (latest 2 weeks)
+            def _latest_two(src):
+                rows = wk_rows.get(src) or []
+                return (rows[0] if rows else None), (rows[1] if len(rows) > 1 else None)
+
+            def _pct(num, den):
+                return round(float(num) * 100.0 / float(den), 2) if den else 0.0
+
             live = {}
 
             # RHI
-            cur.execute("SELECT DISTINCT weeknum FROM sow.rhi_score ORDER BY weeknum DESC LIMIT 2;")
-            rhi_w = [r[0] for r in cur.fetchall()]
-            if rhi_w:
-                cur.execute("""
-                    SELECT weeknum, count(*),
-                           count(*) filter (where upper(trim(remark_week)) = 'GOOD') as good,
-                           count(*) filter (where upper(trim(remark_week)) = 'FAIL') as fail
-                    FROM sow.rhi_score WHERE weeknum = ANY(%s)
-                    GROUP BY weeknum ORDER BY weeknum DESC;
-                """, (rhi_w,))
-                rows = {r[0]: {"total": r[1], "good": r[2], "fail": r[3], "pct": round(r[2]*100.0/r[1], 2) if r[1] else 0.0} for r in cur.fetchall()}
-                lw, pw = rhi_w[0], (rhi_w[1] if len(rhi_w) > 1 else None)
+            lw_r, pw_r = _latest_two("RHI")
+            rhi_w = [r[0] for r in (wk_rows.get("RHI") or [])]
+            if lw_r:
                 live["RHI"] = {
-                    "lw": lw, "pw": pw,
-                    "lval": rows[lw]["pct"] if lw in rows else None,
-                    "pval": rows[pw]["pct"] if pw and pw in rows else None,
-                    "total": rows[lw]["total"], "good": rows[lw]["good"], "fail": rows[lw]["fail"]
+                    "lw": lw_r[0], "pw": pw_r[0] if pw_r else None,
+                    "lval": _pct(lw_r[2], lw_r[1]),
+                    "pval": _pct(pw_r[2], pw_r[1]) if pw_r else None,
+                    "total": int(lw_r[1]), "good": int(lw_r[2]), "fail": int(lw_r[3]),
                 }
 
             # CEI
-            cur.execute("SELECT DISTINCT weeknum FROM sow.cei_score ORDER BY weeknum DESC LIMIT 2;")
-            cei_w = [r[0] for r in cur.fetchall()]
-            if cei_w:
-                cur.execute("""
-                    SELECT weeknum, count(*),
-                           count(*) filter (where remark_cell = 'Good_cell') as good,
-                           count(*) filter (where remark_cell = 'Bad_cell') as bad
-                    FROM sow.cei_score WHERE weeknum = ANY(%s)
-                    GROUP BY weeknum ORDER BY weeknum DESC;
-                """, (cei_w,))
-                rows = {r[0]: {"total": r[1], "good": r[2], "bad": r[3], "pct": round(r[2]*100.0/r[1], 2) if r[1] else 0.0} for r in cur.fetchall()}
-                lw, pw = cei_w[0], (cei_w[1] if len(cei_w) > 1 else None)
+            lw_c, pw_c = _latest_two("CEI")
+            cei_w = [r[0] for r in (wk_rows.get("CEI") or [])]
+            if lw_c:
                 live["CEI"] = {
-                    "lw": lw, "pw": pw,
-                    "lval": rows[lw]["pct"] if lw in rows else None,
-                    "pval": rows[pw]["pct"] if pw and pw in rows else None,
-                    "total": rows[lw]["total"], "good": rows[lw]["good"], "bad": rows[lw]["bad"]
+                    "lw": lw_c[0], "pw": pw_c[0] if pw_c else None,
+                    "lval": _pct(lw_c[2], lw_c[1]),
+                    "pval": _pct(pw_c[2], pw_c[1]) if pw_c else None,
+                    "total": int(lw_c[1]), "good": int(lw_c[2]), "bad": int(lw_c[3]),
                 }
 
-            # Redcov (Filtered for PUMA: region = 'MALUKU DAN PAPUA')
-            cur.execute("SELECT DISTINCT yearweek FROM sow.red_cov WHERE region = 'MALUKU DAN PAPUA' ORDER BY yearweek DESC LIMIT 2;")
-            red_w = [r[0] for r in cur.fetchall()]
-            if red_w:
-                cur.execute("""
-                    SELECT yearweek, sum(total_geohash7), sum("RED OPTIM")
-                    FROM sow.red_cov WHERE region = 'MALUKU DAN PAPUA' AND yearweek = ANY(%s)
-                    GROUP BY yearweek ORDER BY yearweek DESC;
-                """, (red_w,))
-                rows = {r[0]: {"total": r[1], "red": r[2], "pct": round(r[2]*100.0/r[1], 2) if r[1] else 0.0} for r in cur.fetchall()}
-                lw, pw = red_w[0], (red_w[1] if len(red_w) > 1 else None)
+            # Redcov (PUMA only)
+            lw_d, pw_d = _latest_two("Redcov")
+            red_w = [r[0] for r in (wk_rows.get("Redcov") or [])]
+            if lw_d:
                 live["Redcov"] = {
-                    "lw": lw, "pw": pw,
-                    "lval": rows[lw]["pct"] if lw in rows else None,
-                    "pval": rows[pw]["pct"] if pw and pw in rows else None,
-                    "total": rows[lw]["total"], "red": rows[lw]["red"]
+                    "lw": lw_d[0], "pw": pw_d[0] if pw_d else None,
+                    "lval": _pct(lw_d[2], lw_d[1]),
+                    "pval": _pct(pw_d[2], pw_d[1]) if pw_d else None,
+                    "total": int(lw_d[1]), "red": int(lw_d[2]),
                 }
 
-            # RCI & Unbalance
-            cur.execute("SELECT DISTINCT week FROM sow.rci_redsector ORDER BY week DESC LIMIT 2;")
-            rci_w = [r[0] for r in cur.fetchall()]
-            if rci_w:
-                cur.execute("""
-                    SELECT week, count(*),
-                           count(*) filter (where grouping_rci = 'optimization') as rci_optim,
-                           count(*) filter (where unbalanced_3method = 'unbalanced_p1') as unb_p1
-                    FROM sow.rci_redsector WHERE week = ANY(%s)
-                    GROUP BY week ORDER BY week DESC;
-                """, (rci_w,))
-                rows = {r[0]: {
-                    "total": r[1], "rci_optim": r[2], "rci_pct": round(r[2]*100.0/r[1], 2) if r[1] else 0.0,
-                    "unb_p1": r[3], "unb_pct": round(r[3]*100.0/r[1], 2) if r[1] else 0.0
-                } for r in cur.fetchall()}
-                lw, pw = rci_w[0], (rci_w[1] if len(rci_w) > 1 else None)
+            # RCI & Unbalance share the same week rows
+            lw_i, pw_i = _latest_two("RCI")
+            rci_w = [r[0] for r in (wk_rows.get("RCI") or [])]
+            if lw_i:
                 live["RCI"] = {
-                    "lw": lw, "pw": pw,
-                    "lval": rows[lw]["rci_pct"] if lw in rows else None,
-                    "pval": rows[pw]["rci_pct"] if pw and pw in rows else None,
-                    "total": rows[lw]["total"], "optim": rows[lw]["rci_optim"]
+                    "lw": lw_i[0], "pw": pw_i[0] if pw_i else None,
+                    "lval": _pct(lw_i[2], lw_i[1]),
+                    "pval": _pct(pw_i[2], pw_i[1]) if pw_i else None,
+                    "total": int(lw_i[1]), "optim": int(lw_i[2]),
                 }
                 live["Unbalance"] = {
-                    "lw": lw, "pw": pw,
-                    "lval": rows[lw]["unb_pct"] if lw in rows else None,
-                    "pval": rows[pw]["unb_pct"] if pw and pw in rows else None,
-                    "total": rows[lw]["total"], "p1": rows[lw]["unb_p1"]
+                    "lw": lw_i[0], "pw": pw_i[0] if pw_i else None,
+                    "lval": _pct(lw_i[3], lw_i[1]),
+                    "pval": _pct(pw_i[3], pw_i[1]) if pw_i else None,
+                    "total": int(lw_i[1]), "p1": int(lw_i[3]),
                 }
 
-            # ONX
-            cur.execute("SELECT DISTINCT yearweek FROM sow.onx_rank_score WHERE level = 'Region' AND location = 'MALUKU DAN PAPUA' ORDER BY yearweek DESC LIMIT 2;")
-            onx_w = [r[0] for r in cur.fetchall()]
-            if onx_w:
-                cur.execute("""
-                    SELECT yearweek, sum(case when rank = 1 then 1 else 0 end)
-                    FROM sow.onx_rank_score
-                    WHERE level = 'Region' AND location = 'MALUKU DAN PAPUA' AND provider = 'Telkomsel' AND yearweek = ANY(%s)
-                    GROUP BY yearweek ORDER BY yearweek DESC;
-                """, (onx_w,))
-                rows = {r[0]: int(r[1]) for r in cur.fetchall()}
-                lw, pw = onx_w[0], (onx_w[1] if len(onx_w) > 1 else None)
+            # ONX — n2 counts Telkomsel rows, so a week carrying no Telkomsel
+            # data yields None rather than a misleading 0.
+            lw_o, pw_o = _latest_two("ONX")
+            onx_w = [r[0] for r in (wk_rows.get("ONX") or [])]
+            if lw_o:
                 live["ONX"] = {
-                    "lw": lw, "pw": pw,
-                    "lval": rows.get(lw, 0),
-                    "pval": rows.get(pw, 0)
+                    "lw": lw_o[0], "pw": pw_o[0] if pw_o else None,
+                    "lval": int(lw_o[1]) if lw_o[2] else None,
+                    "pval": (int(pw_o[1]) if pw_o[2] else None) if pw_o else None,
                 }
 
-            # Factual Breakdown Drivers from Database
-            # 1. RHI: top fail kabupatens
-            rhi_top_str = ""
-            if rhi_w:
-                cur.execute("""
-                    SELECT kabupaten, count(*) as fail_cnt
+            # 3. Breakdown drivers: the five "top 3 by count" lists in ONE
+            #    round-trip (previously five separate statements).
+            cur.execute("""
+                SELECT * FROM (
+                    SELECT 'RHI' AS src, kabupaten AS name, count(*)::numeric AS n1
                     FROM sow.rhi_score
                     WHERE weeknum = %s AND upper(trim(remark_week)) = 'FAIL'
-                    GROUP BY kabupaten ORDER BY fail_cnt DESC LIMIT 3;
-                """, (rhi_w[0],))
-                rhi_top_str = ", ".join([f"{r[0].title()} ({r[1]:,} cells)" for r in cur.fetchall()])
-
-            # 2. CEI: top bad kabupatens
-            cei_top_str = ""
-            if cei_w:
-                cur.execute("""
-                    SELECT kabupaten, count(*) as bad_cnt
+                    GROUP BY kabupaten ORDER BY n1 DESC LIMIT 3
+                ) t
+                UNION ALL
+                SELECT * FROM (
+                    SELECT 'CEI', kabupaten, count(*)::numeric
                     FROM sow.cei_score
                     WHERE weeknum = %s AND remark_cell = 'Bad_cell'
-                    GROUP BY kabupaten ORDER BY bad_cnt DESC LIMIT 3;
-                """, (cei_w[0],))
-                cei_top_str = ", ".join([f"{r[0].title()} ({r[1]:,} cells)" for r in cur.fetchall()])
-
-            # 3. Redcov: top red kabupatens in PUMA
-            red_top_str = ""
-            if red_w:
-                cur.execute("""
-                    SELECT kabupaten, sum("RED OPTIM") as red_cnt
+                    GROUP BY kabupaten ORDER BY 3 DESC LIMIT 3
+                ) t
+                UNION ALL
+                SELECT * FROM (
+                    SELECT 'Redcov', kabupaten, sum("RED OPTIM")::numeric
                     FROM sow.red_cov
                     WHERE region = 'MALUKU DAN PAPUA' AND yearweek = %s
-                    GROUP BY kabupaten ORDER BY red_cnt DESC LIMIT 3;
-                """, (red_w[0],))
-                red_top_str = ", ".join([f"{r[0].title()} ({r[1]:,} grids)" for r in cur.fetchall()])
+                    GROUP BY kabupaten ORDER BY 3 DESC LIMIT 3
+                ) t
+                UNION ALL
+                SELECT * FROM (
+                    SELECT 'RCI', kabupaten, count(*)::numeric
+                    FROM sow.rci_redsector
+                    WHERE week = %s AND grouping_rci = 'optimization'
+                    GROUP BY kabupaten ORDER BY 3 DESC LIMIT 3
+                ) t
+                UNION ALL
+                SELECT * FROM (
+                    SELECT 'Unbalance', kabupaten, count(*)::numeric
+                    FROM sow.rci_redsector
+                    WHERE week = %s AND unbalanced_3method = 'unbalanced_p1'
+                    GROUP BY kabupaten ORDER BY 3 DESC LIMIT 3
+                ) t
+            """, (
+                rhi_w[0] if rhi_w else None,
+                cei_w[0] if cei_w else None,
+                red_w[0] if red_w else None,
+                rci_w[0] if rci_w else None,
+                rci_w[0] if rci_w else None,
+            ))
+            tops = {}
+            for src, name, n1 in cur.fetchall():
+                tops.setdefault(src, []).append((name, n1))
+            for src in tops:
+                # UNION ALL does not guarantee branch order across the append
+                # nodes, so impose the ordering the SQL asked for.
+                tops[src].sort(key=lambda x: (-float(x[1]), x[0] or ""))
 
-            # 4. ONX: metrics where rank > 1
+            rhi_top_str = ", ".join(
+                f"{n.title()} ({int(v):,} cells)" for n, v in tops.get("RHI", []))
+            cei_top_str = ", ".join(
+                f"{n.title()} ({int(v):,} cells)" for n, v in tops.get("CEI", []))
+            red_top_str = ", ".join(
+                f"{n.title()} ({int(v):,} grids)" for n, v in tops.get("Redcov", []))
+            rci_top_str = ", ".join(
+                f"{n.title()} ({int(v)} sectors)" for n, v in tops.get("RCI", []))
+            unb_top_str = ", ".join(
+                f"{n.title()} ({int(v)} sectors)" for n, v in tops.get("Unbalance", []))
+
+            # 4. ONX metrics where the rank is not 1
             onx_trailing_str = ""
             if onx_w:
                 cur.execute("""
@@ -730,231 +880,192 @@ def api_sow_summary_availability():
                       AND yearweek = %s AND rank > 1
                     ORDER BY metric;
                 """, (onx_w[0],))
-                onx_trailing_str = ", ".join([f"{r[0].replace('_', ' ').title()} (Rank {r[1]}, {r[2]})" for r in cur.fetchall()])
+                onx_trailing_str = ", ".join(
+                    [f"{r[0].replace('_', ' ').title()} (Rank {r[1]}, {r[2]})" for r in cur.fetchall()])
 
-            # 5. RCI: top optimization kabupatens
-            rci_top_str = ""
-            if rci_w:
-                cur.execute("""
-                    SELECT kabupaten, count(*) as cnt
-                    FROM sow.rci_redsector
-                    WHERE week = %s AND grouping_rci = 'optimization'
-                    GROUP BY kabupaten ORDER BY cnt DESC LIMIT 3;
-                """, (rci_w[0],))
-                rci_top_str = ", ".join([f"{r[0].title()} ({r[1]} sectors)" for r in cur.fetchall()])
+        # 3. Assemble the 6 KPIs. Every number comes from the database: when a
+        #    metric has no data, or sow.sow_target carries no usable target for
+        #    the latest week's year/quarter, the field is emitted as null so the
+        #    UI renders "—" instead of a plausible-looking invented figure.
+        def _quarter_of(yearweek):
+            """ISO yearweek -> (year, quarter 1-4); (None, None) if unusable."""
+            try:
+                yw = int(yearweek)
+            except (TypeError, ValueError):
+                return None, None
+            return yw // 100, min(4, max(1, ((yw % 100) - 1) // 13 + 1))
 
-            # 6. Unbalance: top P1 kabupatens
-            unb_top_str = ""
-            if rci_w:
-                cur.execute("""
-                    SELECT kabupaten, count(*) as cnt
-                    FROM sow.rci_redsector
-                    WHERE week = %s AND unbalanced_3method = 'unbalanced_p1'
-                    GROUP BY kabupaten ORDER BY cnt DESC LIMIT 3;
-                """, (rci_w[0],))
-                unb_top_str = ", ".join([f"{r[0].title()} ({r[1]} sectors)" for r in cur.fetchall()])
+        def _target_for(sow_key, latest_week, is_count=False):
+            """Quarter target for the latest data week's year/quarter, else None.
 
-        # 3. Assemble only the 6 KPIs that exist in DB & SOW target:
-        #    RHI, CEI, Red Coverage Optim, ONX Mobile, Unbalance Sector, Direct Optim (RCI)
-        metrics = []
+            sow.sow_target holds one row per (SOW, Year) with Q1..Q4 columns, so
+            the quarter is resolved from the data week rather than assumed.
+            Fractional targets (0.9355) are normalised to percent (93.55).
+            """
+            entry = targets.get((sow_key or "").lower())
+            if not entry or not entry["years"]:
+                return None
+            year, quarter = _quarter_of(latest_week)
+            year_map = entry["years"]
+            if year is None:
+                year = max(year_map)
+            elif year not in year_map:
+                year = min(year_map, key=lambda y: (abs(y - year), y))
+            raw = (year_map.get(year) or {}).get(quarter)
+            if raw is None:
+                return None
+            if is_count:
+                return int(round(float(raw)))
+            v = float(raw)
+            return round(v * 100, 2) if 0 < v < 1.0 else round(v, 2)
 
-        # (1) RHI
-        rhi_l = live.get("RHI", {})
-        rhi_tgt = get_tgt("rhi", 93.55)
-        rhi_lval = rhi_l.get("lval", 93.84)
-        rhi_pval = rhi_l.get("pval", 93.91)
-        rhi_wow = round(rhi_lval - rhi_pval, 2) if (rhi_lval and rhi_pval) else 0.0
-        rhi_ach = rhi_lval >= rhi_tgt
-        metrics.append({
-            "id": "RHI",
-            "name": "RHI",
-            "category": "Radio Health & Quality",
-            "icon": "fas fa-heartbeat",
-            "color": "#10b981",
-            "unit": "%",
-            "is_count": False,
-            "target": rhi_tgt,
-            "prev_val": rhi_pval,
-            "latest_val": rhi_lval,
-            "prev_week": rhi_l.get("pw", 202638),
-            "latest_week": rhi_l.get("lw", 202639),
-            "wow": rhi_wow,
-            "gap": round(rhi_lval - rhi_tgt, 2),
-            "ach": rhi_ach,
-            "status": "ACH" if rhi_ach else "NY ACH",
-            "higher_better": True,
-            "movement": "improved" if rhi_wow > 0 else ("degraded" if rhi_wow < -0.1 else "maintained"),
-            "link": "/sow/rhi",
-            "link_title": "RHI Dashboard",
-            "insight": f"{rhi_wow:+.2f} pp WoW ({rhi_lval:.2f}% vs {rhi_pval:.2f}%). Target Q3 ({rhi_tgt:.2f}%) achieved. Total {rhi_l.get('total', 0):,} cells monitored with {rhi_l.get('fail', 0):,} fail cells. Top fail contributors: {rhi_top_str}."
-        })
+        def _wow(latest, prev):
+            if latest is None or prev is None:
+                return None
+            return round(latest - prev, 2)
 
-        # (2) CEI
-        cei_l = live.get("CEI", {})
-        cei_tgt = get_tgt("cei", 93.95)
-        cei_lval = cei_l.get("lval", 94.48)
-        cei_pval = cei_l.get("pval", 95.39)
-        cei_wow = round(cei_lval - cei_pval, 2) if (cei_lval and cei_pval) else -0.91
-        cei_ach = cei_lval >= cei_tgt
-        metrics.append({
-            "id": "CEI",
-            "name": "CEI",
-            "category": "Customer Experience",
-            "icon": "fas fa-smile",
-            "color": "#06b6d4",
-            "unit": "%",
-            "is_count": False,
-            "target": cei_tgt,
-            "prev_val": cei_pval,
-            "latest_val": cei_lval,
-            "prev_week": cei_l.get("pw", 202636),
-            "latest_week": cei_l.get("lw", 202637),
-            "wow": cei_wow,
-            "gap": round(cei_lval - cei_tgt, 2),
-            "ach": cei_ach,
-            "status": "ACH" if cei_ach else "NY ACH",
-            "higher_better": True,
-            "movement": "degraded" if cei_wow < 0 else "improved",
-            "link": "/sow/cei",
-            "link_title": "CEI Dashboard",
-            "insight": f"{cei_wow:+.2f} pp WoW ({cei_lval:.2f}% vs {cei_pval:.2f}%). Target Q3 ({cei_tgt:.2f}%) achieved. Total {cei_l.get('bad', 0):,} bad cells out of {cei_l.get('total', 0):,} evaluated cells. Top contributors: {cei_top_str}."
-        })
+        def _movement(wow, higher_better, deadband=0.0, force=None):
+            """improved / degraded / maintained / None when WoW is unknown."""
+            if wow is None:
+                return None
+            if force is not None:
+                return force
+            if abs(wow) <= deadband:
+                return "maintained"
+            good = (wow > 0) if higher_better else (wow < 0)
+            return "improved" if good else "degraded"
 
-        # (3) Red Coverage Optim
-        red_l = live.get("Redcov", {})
-        red_tgt = get_tgt("redcov", 0.23)
-        red_lval = red_l.get("lval", 0.16)
-        red_pval = red_l.get("pval", 0.16)
-        red_wow = round(red_lval - red_pval, 2) if (red_lval and red_pval) else 0.0
-        red_ach = red_lval <= red_tgt
-        metrics.append({
-            "id": "Redcov",
-            "name": "Red Coverage Optim",
-            "category": "Bad Spot Optimization",
-            "icon": "fas fa-satellite-dish",
-            "color": "#f59e0b",
-            "unit": "%",
-            "is_count": False,
-            "target": red_tgt,
-            "prev_val": red_pval,
-            "latest_val": red_lval,
-            "prev_week": red_l.get("pw", 202638),
-            "latest_week": red_l.get("lw", 202639),
-            "wow": red_wow,
-            "gap": round(red_lval - red_tgt, 2),
-            "ach": red_ach,
-            "status": "ACH" if red_ach else "NY ACH",
-            "higher_better": False,
-            "movement": "improved" if red_wow < 0 else ("degraded" if red_wow > 0 else "maintained"),
-            "link": "/sow/redcov",
-            "link_title": "Redcov Dashboard",
-            "insight": f"{red_wow:+.2f} pp WoW ({red_lval:.2f}% vs {red_pval:.2f}%). Target Q3 (≤{red_tgt:.2f}%) achieved. 1,470 RED OPTIM grids across {red_l.get('total', 0):,} geohash7 grids in Region Maluku & Papua. Top contributors: {red_top_str}."
-        })
+        def _fmt(v, is_count=False):
+            if v is None:
+                return "n/a"
+            return f"{int(round(v)):,}" if is_count else f"{v:.2f}%"
 
-        # (4) ONX Mobile
-        onx_l = live.get("ONX", {})
-        onx_tgt = int(get_tgt("onx", 14.0))
-        onx_lval = onx_l.get("lval", 13)
-        onx_pval = onx_l.get("pval", 13)
-        onx_wow = onx_lval - onx_pval
-        onx_ach = onx_lval >= onx_tgt
-        metrics.append({
-            "id": "ONX",
-            "name": "ONX Mobile",
-            "category": "Benchmark / Crowdsource",
-            "icon": "fas fa-trophy",
-            "color": "#3b82f6",
-            "unit": "wins",
-            "is_count": True,
-            "target": onx_tgt,
-            "prev_val": onx_pval,
-            "latest_val": onx_lval,
-            "prev_week": onx_l.get("pw", 202637),
-            "latest_week": onx_l.get("lw", 202638),
-            "wow": onx_wow,
-            "gap": onx_lval - onx_tgt,
-            "ach": onx_ach,
-            "status": "ACH" if onx_ach else "NY ACH",
-            "higher_better": True,
-            "movement": "maintained",
-            "link": "/sow/crowdsource?tab=onx",
-            "link_title": "Crowdsource (ONX)",
-            "insight": f"Maintained 13/16 wins ({onx_lval} wins vs {onx_tgt} target, NY ACH). Telkomsel leads 13 categories (including 5G & reliability), while trailing at Rank 2 in 3 overall categories: {onx_trailing_str}."
-        })
+        def _pack(mid, name, category, icon, color, unit, is_count, sow_key, live_key,
+                  higher_better, link, link_title, deadband=0.0, force_movement=None,
+                  drivers="", drivers_label="Top contributors", detail=None):
+            """Build one metric dict using only values that actually exist."""
+            l = live.get(live_key) or {}
+            latest = l.get("lval")
+            prev = l.get("pval")
+            tgt = _target_for(sow_key, l.get("lw"), is_count)
+            wow = _wow(latest, prev)
+            gap = None if (latest is None or tgt is None) else round(latest - tgt, 2)
+            if latest is None or tgt is None:
+                ach = None
+            else:
+                ach = (latest >= tgt) if higher_better else (latest <= tgt)
+            status = "NO DATA" if ach is None else ("ACH" if ach else "NY ACH")
 
-        # (5) Unbalance Sector
-        unb_l = live.get("Unbalance", {})
-        unb_tgt = get_tgt("unbalance", 1.85)
-        unb_lval = unb_l.get("lval", 2.24)
-        unb_pval = unb_l.get("pval", 2.12)
-        unb_wow = round(unb_lval - unb_pval, 2) if (unb_lval and unb_pval) else 0.12
-        unb_ach = unb_lval <= unb_tgt
-        metrics.append({
-            "id": "Unbalance",
-            "name": "Unbalance Sector",
-            "category": "PRB Balance & Capacity",
-            "icon": "fas fa-balance-scale",
-            "color": "#8b5cf6",
-            "unit": "%",
-            "is_count": False,
-            "target": unb_tgt,
-            "prev_val": unb_pval,
-            "latest_val": unb_lval,
-            "prev_week": unb_l.get("pw", 202638),
-            "latest_week": unb_l.get("lw", 202639),
-            "wow": unb_wow,
-            "gap": round(unb_lval - unb_tgt, 2),
-            "ach": unb_ach,
-            "status": "ACH" if unb_ach else "NY ACH",
-            "higher_better": False,
-            "movement": "degraded" if unb_wow > 0 else "improved",
-            "link": "/sow/ran_capacity?mode=unbalance",
-            "link_title": "RAN Capacity (Unbalance)",
-            "insight": f"{unb_wow:+.2f} pp WoW ({unb_lval:.2f}% vs {unb_pval:.2f}%, NY ACH vs ≤{unb_tgt:.2f}%). Total {unb_l.get('p1', 0):,} Unbalanced P1 sectors out of {unb_l.get('total', 0):,} sectors. Top contributors: {unb_top_str}."
-        })
+            if latest is None:
+                insight = f"No {name} data available in the database."
+            else:
+                parts = []
+                if wow is None:
+                    parts.append("WoW n/a (no previous week)")
+                else:
+                    parts.append(f"{wow:+.2f}{'' if is_count else ' pp'} WoW "
+                                 f"({_fmt(latest, is_count)} vs {_fmt(prev, is_count)})")
+                if tgt is None:
+                    parts.append(f"no target in sow.sow_target for week {l.get('lw')}")
+                else:
+                    parts.append(f"Target {_fmt(tgt, is_count)} — {status}")
+                if detail:
+                    parts.append(detail)
+                if drivers:
+                    parts.append(f"{drivers_label}: {drivers}")
+                insight = ". ".join(parts) + "."
 
-        # (6) Direct Optim (RCI)
-        rci_l = live.get("RCI", {})
-        rci_tgt = get_tgt("rci", 0.42)
-        rci_lval = rci_l.get("lval", 0.58)
-        rci_pval = rci_l.get("pval", 0.61)
-        rci_wow = round(rci_lval - rci_pval, 2) if (rci_lval and rci_pval) else -0.03
-        rci_ach = rci_lval <= rci_tgt
-        metrics.append({
-            "id": "RCI",
-            "name": "Direct Optim (RCI)",
-            "category": "Interference & Optimization",
-            "icon": "fas fa-sliders-h",
-            "color": "#f43f5e",
-            "unit": "%",
-            "is_count": False,
-            "target": rci_tgt,
-            "prev_val": rci_pval,
-            "latest_val": rci_lval,
-            "prev_week": rci_l.get("pw", 202638),
-            "latest_week": rci_l.get("lw", 202639),
-            "wow": rci_wow,
-            "gap": round(rci_lval - rci_tgt, 2),
-            "ach": rci_ach,
-            "status": "ACH" if rci_ach else "NY ACH",
-            "higher_better": False,
-            "movement": "improved" if rci_wow < 0 else "degraded",
-            "link": "/sow/ran_capacity?mode=rci",
-            "link_title": "RAN Capacity (RCI)",
-            "insight": f"{rci_wow:+.2f} pp WoW recovery ({rci_lval:.2f}% vs {rci_pval:.2f}%, NY ACH vs ≤{rci_tgt:.2f}%). Contributors reduced to {rci_l.get('optim', 0)} optimization sectors out of {rci_l.get('total', 0):,} sectors. Top contributors: {rci_top_str}."
-        })
+            year, qtr = _quarter_of(l.get("lw"))
+            q_label = f"Q{qtr}" if qtr else None
+
+            return {
+                "id": mid, "name": name, "category": category, "icon": icon,
+                "color": color, "unit": unit, "is_count": is_count,
+                "target": tgt, "target_quarter": q_label,
+                "prev_val": prev, "latest_val": latest,
+                "prev_week": l.get("pw"), "latest_week": l.get("lw"),
+                "wow": wow, "gap": gap, "ach": ach, "status": status,
+                "higher_better": higher_better,
+                "movement": _movement(wow, higher_better, deadband, force_movement),
+                "link": link, "link_title": link_title, "insight": insight,
+            }
+
+        rhi_l = live.get("RHI") or {}
+        cei_l = live.get("CEI") or {}
+        red_l = live.get("Redcov") or {}
+        onx_l = live.get("ONX") or {}
+        unb_l = live.get("Unbalance") or {}
+        rci_l = live.get("RCI") or {}
+
+        metrics = [
+            # (1) RHI — higher is better
+            _pack("RHI", "RHI", "Radio Health & Quality", "fas fa-heartbeat", "#10b981",
+                  "%", False, "rhi", "RHI", True, "/okr/rhi", "RHI Dashboard",
+                  deadband=0.1, drivers=rhi_top_str, drivers_label="Top fail contributors",
+                  detail=(f"{rhi_l.get('total', 0):,} cells monitored, "
+                          f"{rhi_l.get('fail', 0):,} fail" if rhi_l else None)),
+
+            # (2) CEI — higher is better
+            _pack("CEI", "CEI", "Customer Experience", "fas fa-smile", "#06b6d4",
+                  "%", False, "cei", "CEI", True, "/okr/cei", "CEI Dashboard",
+                  drivers=cei_top_str,
+                  detail=(f"{cei_l.get('bad', 0):,} bad cells out of "
+                          f"{cei_l.get('total', 0):,} evaluated" if cei_l else None)),
+
+            # (3) Red Coverage Optim — lower is better
+            _pack("Redcov", "Red Coverage Optim", "Bad Spot Optimization",
+                  "fas fa-satellite-dish", "#f59e0b", "%", False, "redcov", "Redcov",
+                  False, "/okr/redcov", "Redcov Dashboard",
+                  drivers=red_top_str,
+                  detail=(f"{red_l.get('red', 0):,} RED OPTIM grids across "
+                          f"{red_l.get('total', 0):,} geohash7 grids in Region Maluku & Papua"
+                          if red_l else None)),
+
+            # (4) ONX Mobile — win count (movement tracked as maintained)
+            _pack("ONX", "ONX Mobile", "Benchmark / Crowdsource", "fas fa-trophy", "#3b82f6",
+                  "wins", True, "onx", "ONX", True, "/okr/crowdsource?tab=onx",
+                  "Crowdsource (ONX)", force_movement="maintained",
+                  drivers=onx_trailing_str, drivers_label="Categories not at rank 1"),
+
+            # (5) Unbalance Sector — lower is better
+            _pack("Unbalance", "Unbalance Sector", "PRB Balance & Capacity",
+                  "fas fa-balance-scale", "#8b5cf6", "%", False, "unbalance", "Unbalance",
+                  False, "/okr/ran_capacity?mode=unbalance", "RAN Capacity (Unbalance)",
+                  drivers=unb_top_str,
+                  detail=(f"{unb_l.get('p1', 0):,} Unbalanced P1 sectors out of "
+                          f"{unb_l.get('total', 0):,} sectors" if unb_l else None)),
+
+            # (6) Direct Optim (RCI) — lower is better
+            _pack("RCI", "Direct Optim (RCI)", "Interference & Optimization",
+                  "fas fa-sliders-h", "#f43f5e", "%", False, "rci", "RCI", False,
+                  "/okr/ran_capacity?mode=rci", "RAN Capacity (RCI)",
+                  drivers=rci_top_str,
+                  detail=(f"{rci_l.get('optim', 0)} optimization sectors out of "
+                          f"{rci_l.get('total', 0):,} sectors" if rci_l else None)),
+        ]
+
+        all_lws = [l.get("lw") for l in live.values() if l.get("lw")]
+        overall_latest_week = max(all_lws) if all_lws else None
+        all_pws = [l.get("pw") for l in live.values() if l.get("pw")]
+        overall_prev_week = max(all_pws) if all_pws else None
+
+        active_year, active_quarter = _quarter_of(overall_latest_week)
 
         return jsonify({
             "status": "success",
             "metrics": metrics,
-            "latest_week": live.get("RHI", {}).get("lw", 202639),
-            "prev_week": live.get("RHI", {}).get("pw", 202638),
+            "latest_week": overall_latest_week,
+            "active_quarter": active_quarter,
+            "active_quarter_label": f"Q{active_quarter}" if active_quarter else None,
+            "prev_week": overall_prev_week,
             "total_metrics": len(metrics),
-            "ach_count": sum(1 for m in metrics if m["ach"]),
-            "ny_ach_count": sum(1 for m in metrics if not m["ach"]),
+            "ach_count": sum(1 for m in metrics if m["ach"] is True),
+            "ny_ach_count": sum(1 for m in metrics if m["ach"] is False),
+            "no_data_count": sum(1 for m in metrics if m["ach"] is None),
         })
+
     except Exception as e:
-        logger.exception("Error loading SOW summary availability: %s", e)
+        logger.exception("Error loading OKR summary availability: %s", e)
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
@@ -999,9 +1110,10 @@ def get_cached_summary_years():
 
 
 @sow.route("/sow/summary")
+@sow.route("/okr/summary")
 @login_required
 def summary_page():
-    """Render the SOW Summary page: quarterly targets per SOW metric for a chosen year."""
+    """Render the OKR Summary page: quarterly targets per OKR metric for a chosen year."""
     years = get_cached_summary_years()
     default_year = years[0] if years else 2026
 
@@ -1093,9 +1205,10 @@ def api_sow_targets():
 
 
 @sow.route("/sow/crowdsource")
+@sow.route("/okr/crowdsource")
 @login_required
 def crowdsource_page():
-    """Render the Crowdsource Scope of Work (SOW) page with multiple tabs."""
+    """Render the Crowdsource OKR page with multiple tabs."""
     yearweeks = get_cached_yearweeks()
     levels = ["Nation", "Area", "Region", "Kabupaten"]
     providers = ["Telkomsel", "Indosat", "XL", "Smartfren", "3"]
@@ -1838,7 +1951,7 @@ def api_sow_sample_template():
         writer.writerow(fieldnames)
         writer.writerows(sample_rows)
         output = make_response(csv_buffer.getvalue())
-        output.headers["Content-Disposition"] = "attachment; filename=SOW_ONX_Import_Sample.csv"
+        output.headers["Content-Disposition"] = "attachment; filename=OKR_ONX_Import_Sample.csv"
         output.headers["Content-type"] = "text/csv; charset=utf-8"
         return output
     else:
@@ -1856,13 +1969,332 @@ def api_sow_sample_template():
             excel_buffer.seek(0)
             return send_file(
                 excel_buffer,
-                download_name="SOW_ONX_Import_Sample.xlsx",
+                download_name="OKR_ONX_Import_Sample.xlsx",
                 as_attachment=True,
                 mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
         except Exception as e:
             logger.exception("Error generating Excel template: %s", e)
             return jsonify({"status": "error", "message": "Failed to generate Excel template"}), 500
+
+
+@sow.route("/api/sow/import/progress/<job_id>", methods=["GET"])
+@login_required
+def api_sow_import_progress(job_id):
+    with _ONX_IMPORT_JOBS_LOCK:
+        job = _ONX_IMPORT_JOBS.get(job_id)
+        if job is None:
+            return jsonify({"status": "error", "message": "Job not found"}), 404
+        return jsonify(job)
+
+
+@sow.route("/api/sow/fb-import/progress/<job_id>", methods=["GET"])
+@login_required
+def api_sow_fb_import_progress(job_id):
+    with _FB_IMPORT_JOBS_LOCK:
+        job = _FB_IMPORT_JOBS.get(job_id)
+        if job is None:
+            return jsonify({"status": "error", "message": "Job not found"}), 404
+        return jsonify(job)
+
+
+def _bg_onx_import(job_id, tmp_path, filename):
+    try:
+        with _ONX_IMPORT_JOBS_LOCK:
+            _ONX_IMPORT_JOBS[job_id] = {"status": "processing", "pct": 15, "message": "Parsing file...", "stage": "parse"}
+
+        raw_dicts = []
+        if filename.endswith(".csv"):
+            with open(tmp_path, "r", encoding="utf-8-sig", errors="replace") as f:
+                reader = csv.DictReader(f)
+                raw_dicts = list(reader)
+        else:
+            import openpyxl
+            wb = openpyxl.load_workbook(tmp_path, data_only=True)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+            if rows and len(rows) >= 2:
+                headers = [str(c).strip() if c is not None else "" for c in rows[0]]
+                for r in rows[1:]:
+                    if any(v is not None for v in r):
+                        row_dict = {headers[i]: r[i] for i in range(min(len(headers), len(r)))}
+                        raw_dicts.append(row_dict)
+            wb.close()
+
+        if not raw_dicts:
+            with _ONX_IMPORT_JOBS_LOCK:
+                _ONX_IMPORT_JOBS[job_id] = {"status": "error", "message": "No data rows found in uploaded file"}
+            return
+
+        with _ONX_IMPORT_JOBS_LOCK:
+            _ONX_IMPORT_JOBS[job_id] = {"status": "processing", "pct": 35, "message": f"Validating {len(raw_dicts):,} rows...", "stage": "validate", "total_rows": len(raw_dicts)}
+
+        cleaned_rows = [{str(k).strip(): v for k, v in r.items() if k is not None} for r in raw_dicts]
+        first_row = cleaned_rows[0]
+        required_cols = ["level", "location", "provider", "yearweek", "metric"]
+        missing = [c for c in required_cols if c not in first_row]
+        if missing:
+            with _ONX_IMPORT_JOBS_LOCK:
+                _ONX_IMPORT_JOBS[job_id] = {"status": "error", "message": f"Missing required columns: {', '.join(missing)}"}
+            return
+
+        score_col = None
+        for cand in ["mean or percentage", "score", "value", "mean_or_percentage"]:
+            if cand in first_row:
+                score_col = cand
+                break
+        if not score_col:
+            with _ONX_IMPORT_JOBS_LOCK:
+                _ONX_IMPORT_JOBS[job_id] = {"status": "error", "message": "Missing 'mean or percentage' score column"}
+            return
+
+        records = []
+        for row in cleaned_rows:
+            region = str(row.get("Region") or "").strip()
+            if not region or region in ("None", "nan"):
+                region = "-"
+            lvl = str(row.get("level") or "").strip()
+            loc = str(row.get("location") or "").strip()
+            prv = str(row.get("provider") or "").strip()
+            try:
+                yw = int(float(str(row.get("yearweek")).strip()))
+            except (ValueError, TypeError):
+                continue
+            metric = str(row.get("metric") or "").strip()
+            rank_val = None
+            raw_rank = row.get("rank")
+            if raw_rank is not None and str(raw_rank).strip() not in ("", "None", "nan"):
+                try:
+                    rank_val = int(float(str(raw_rank).strip()))
+                except (ValueError, TypeError):
+                    rank_val = None
+            score_val = None
+            raw_score = row.get(score_col)
+            if raw_score is not None and str(raw_score).strip() not in ("", "None", "nan"):
+                try:
+                    score_val = float(str(raw_score).strip())
+                except (ValueError, TypeError):
+                    score_val = None
+            lci_val = None
+            raw_lci = row.get("lci")
+            if raw_lci is not None and str(raw_lci).strip() not in ("", "None", "nan"):
+                try:
+                    lci_val = float(str(raw_lci).strip())
+                except (ValueError, TypeError):
+                    lci_val = None
+            uci_val = None
+            raw_uci = row.get("uci")
+            if raw_uci is not None and str(raw_uci).strip() not in ("", "None", "nan"):
+                try:
+                    uci_val = float(str(raw_uci).strip())
+                except (ValueError, TypeError):
+                    uci_val = None
+            snap_val = str(row.get("snapshot_date") or "").strip() or None
+            week_date_val = str(row.get("week_date") or "").strip() or None
+            records.append((
+                region, lvl, loc, prv, yw, metric,
+                rank_val, score_val, lci_val, uci_val,
+                snap_val, week_date_val
+            ))
+
+        if not records:
+            with _ONX_IMPORT_JOBS_LOCK:
+                _ONX_IMPORT_JOBS[job_id] = {"status": "error", "message": "No valid data rows found in file"}
+            return
+
+        with _ONX_IMPORT_JOBS_LOCK:
+            _ONX_IMPORT_JOBS[job_id] = {
+                "status": "processing", "pct": 50,
+                "message": f"Prepared {len(records):,} records. Inserting into database...",
+                "stage": "insert", "total_rows": len(records), "processed": 0
+            }
+
+        batch_size = 250
+        upsert_query = """
+            INSERT INTO sow.onx_rank_score (
+                "Region", level, location, provider, yearweek, metric,
+                rank, "mean or percentage", lci, uci, snapshot_date, week_date
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, COALESCE(%s, CURRENT_TIMESTAMP), COALESCE(%s, CURRENT_TIMESTAMP)
+            )
+            ON CONFLICT (yearweek, metric, level, location, provider)
+            DO UPDATE SET
+                rank = EXCLUDED.rank,
+                "mean or percentage" = EXCLUDED."mean or percentage",
+                lci = COALESCE(EXCLUDED.lci, sow.onx_rank_score.lci),
+                uci = COALESCE(EXCLUDED.uci, sow.onx_rank_score.uci),
+                "Region" = COALESCE(EXCLUDED."Region", sow.onx_rank_score."Region"),
+                snapshot_date = COALESCE(EXCLUDED.snapshot_date, sow.onx_rank_score.snapshot_date, CURRENT_TIMESTAMP),
+                week_date = COALESCE(EXCLUDED.week_date, sow.onx_rank_score.week_date, CURRENT_TIMESTAMP)
+        """
+        with db_query(get_postgres_connection) as (conn, cur):
+            for i in range(0, len(records), batch_size):
+                batch = records[i:i + batch_size]
+                psycopg2.extras.execute_batch(cur, upsert_query, batch, page_size=len(batch))
+                conn.commit()
+                done = min(i + len(batch), len(records))
+                pct = 50 + int(48 * (done / max(len(records), 1)))
+                with _ONX_IMPORT_JOBS_LOCK:
+                    _ONX_IMPORT_JOBS[job_id] = {
+                        "status": "processing", "pct": pct,
+                        "message": f"Upserting records... {done:,} / {len(records):,}",
+                        "stage": "insert", "total_rows": len(records), "processed": done
+                    }
+
+        clear_sow_caches()
+        with _ONX_IMPORT_JOBS_LOCK:
+            _ONX_IMPORT_JOBS[job_id] = {
+                "status": "success", "pct": 100,
+                "message": f"Successfully imported and updated {len(records):,} benchmark records.",
+                "rows_processed": len(records), "total_rows": len(records)
+            }
+    except Exception as e:
+        logger.exception("Background ONX import failed: %s", e)
+        with _ONX_IMPORT_JOBS_LOCK:
+            _ONX_IMPORT_JOBS[job_id] = {"status": "error", "message": f"Database error during import: {str(e)}"}
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+
+
+def _bg_fb_import(job_id, tmp_path, filename):
+    try:
+        with _FB_IMPORT_JOBS_LOCK:
+            _FB_IMPORT_JOBS[job_id] = {"status": "processing", "pct": 15, "message": "Parsing file...", "stage": "parse"}
+
+        raw_dicts = []
+        if filename.endswith(".csv"):
+            with open(tmp_path, "r", encoding="utf-8-sig", errors="replace") as f:
+                reader = csv.DictReader(f)
+                raw_dicts = list(reader)
+        else:
+            import openpyxl
+            wb = openpyxl.load_workbook(tmp_path, data_only=True)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+            if rows and len(rows) >= 2:
+                headers = [str(c).strip() if c is not None else "" for c in rows[0]]
+                for r in rows[1:]:
+                    if any(v is not None for v in r):
+                        row_dict = {headers[i]: r[i] for i in range(min(len(headers), len(r)))}
+                        raw_dicts.append(row_dict)
+            wb.close()
+
+        if not raw_dicts:
+            with _FB_IMPORT_JOBS_LOCK:
+                _FB_IMPORT_JOBS[job_id] = {"status": "error", "message": "No data rows found in uploaded file"}
+            return
+
+        with _FB_IMPORT_JOBS_LOCK:
+            _FB_IMPORT_JOBS[job_id] = {"status": "processing", "pct": 35, "message": f"Validating {len(raw_dicts):,} rows...", "stage": "validate", "total_rows": len(raw_dicts)}
+
+        cleaned_rows = [{str(k).strip(): v for k, v in r.items() if k is not None} for r in raw_dicts]
+        first_row = cleaned_rows[0]
+        required_cols = ["yearweek", "branch", "kabupaten"]
+        missing = [c for c in required_cols if c not in first_row]
+        if missing:
+            with _FB_IMPORT_JOBS_LOCK:
+                _FB_IMPORT_JOBS[job_id] = {"status": "error", "message": f"Missing required columns: {', '.join(missing)}"}
+            return
+
+        def _num(v):
+            if v is None or str(v).strip() in ("", "None", "nan"):
+                return None
+            try:
+                return float(str(v).strip().replace(",", "."))
+            except (ValueError, TypeError):
+                return None
+
+        records = []
+        for row in cleaned_rows:
+            try:
+                yw = int(float(str(row.get("yearweek")).strip()))
+            except (ValueError, TypeError):
+                continue
+            branch = str(row.get("branch") or "").strip()
+            kabupaten = str(row.get("kabupaten") or "").strip()
+            if not branch or not kabupaten:
+                continue
+            region = str(row.get("region") or "").strip() or None
+            archetype = str(row.get("archetype") or "").strip() or None
+            win_lose = str(row.get("win_lose") or "").strip() or None
+            records.append((
+                yw, region, branch, kabupaten, archetype,
+                _num(row.get("telkomsel")), _num(row.get("isat3")),
+                _num(row.get("xl")), _num(row.get("smartfren")),
+                _num(row.get("gap")), _num(row.get("wow")), _num(row.get("mom")),
+                _num(row.get("wow_cc")), _num(row.get("mom_cc")), win_lose,
+            ))
+
+        if not records:
+            with _FB_IMPORT_JOBS_LOCK:
+                _FB_IMPORT_JOBS[job_id] = {"status": "error", "message": "No valid data rows found in uploaded file"}
+            return
+
+        with _FB_IMPORT_JOBS_LOCK:
+            _FB_IMPORT_JOBS[job_id] = {
+                "status": "processing", "pct": 50,
+                "message": f"Prepared {len(records):,} records. Inserting into database...",
+                "stage": "insert", "total_rows": len(records), "processed": 0
+            }
+
+        upsert_query = """
+            INSERT INTO sow.fb_share (
+                yearweek, region, branch, kabupaten, archetype,
+                telkomsel, isat3, xl, smartfren,
+                gap, wow, mom, wow_cc, mom_cc, win_lose
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (yearweek, branch, kabupaten)
+            DO UPDATE SET
+                region = COALESCE(EXCLUDED.region, sow.fb_share.region),
+                archetype = COALESCE(EXCLUDED.archetype, sow.fb_share.archetype),
+                telkomsel = EXCLUDED.telkomsel,
+                isat3 = EXCLUDED.isat3,
+                xl = EXCLUDED.xl,
+                smartfren = EXCLUDED.smartfren,
+                gap = EXCLUDED.gap,
+                wow = EXCLUDED.wow,
+                mom = EXCLUDED.mom,
+                wow_cc = EXCLUDED.wow_cc,
+                mom_cc = EXCLUDED.mom_cc,
+                win_lose = COALESCE(EXCLUDED.win_lose, sow.fb_share.win_lose)
+        """
+        batch_size = 250
+        with db_query(get_postgres_connection) as (conn, cur):
+            for i in range(0, len(records), batch_size):
+                batch = records[i:i + batch_size]
+                psycopg2.extras.execute_batch(cur, upsert_query, batch, page_size=len(batch))
+                conn.commit()
+                done = min(i + len(batch), len(records))
+                pct = 50 + int(48 * (done / max(len(records), 1)))
+                with _FB_IMPORT_JOBS_LOCK:
+                    _FB_IMPORT_JOBS[job_id] = {
+                        "status": "processing", "pct": pct,
+                        "message": f"Upserting records... {done:,} / {len(records):,}",
+                        "stage": "insert", "total_rows": len(records), "processed": done
+                    }
+
+        clear_sow_caches()
+        with _FB_IMPORT_JOBS_LOCK:
+            _FB_IMPORT_JOBS[job_id] = {
+                "status": "success", "pct": 100,
+                "message": f"Successfully imported and updated {len(records):,} FB Share records.",
+                "rows_processed": len(records), "total_rows": len(records)
+            }
+    except Exception as e:
+        logger.exception("Background FB import failed: %s", e)
+        with _FB_IMPORT_JOBS_LOCK:
+            _FB_IMPORT_JOBS[job_id] = {"status": "error", "message": f"Database error during import: {str(e)}"}
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
 
 
 @sow.route("/api/sow/import", methods=["POST"])
@@ -1878,6 +2310,23 @@ def api_sow_import():
         return jsonify({"status": "error", "message": "Empty file name"}), 400
 
     filename = uploaded_file.filename.lower()
+    if not filename.endswith((".csv", ".xlsx", ".xls")):
+        return jsonify({"status": "error", "message": "Only CSV and Excel (.xlsx, .xls) files are supported"}), 400
+
+    is_async = request.args.get("async") == "1" or request.headers.get("X-Async-Import") == "1"
+    if is_async:
+        job_id = uuid.uuid4().hex
+        fd, tmp_path = tempfile.mkstemp(suffix=os.path.splitext(filename)[1])
+        with os.fdopen(fd, "wb") as f:
+            uploaded_file.seek(0)
+            f.write(uploaded_file.read())
+        with _ONX_IMPORT_JOBS_LOCK:
+            _ONX_IMPORT_JOBS[job_id] = {
+                "status": "processing", "pct": 5,
+                "message": "File received. Queued for processing...", "stage": "queue"
+            }
+        threading.Thread(target=_bg_onx_import, args=(job_id, tmp_path, filename), daemon=True).start()
+        return jsonify({"status": "queued", "job_id": job_id}), 202
     raw_dicts = []
 
     try:
@@ -2079,7 +2528,7 @@ def api_sow_fb_sample_template():
         writer.writerow(fieldnames)
         writer.writerows(sample_rows)
         output = make_response(csv_buffer.getvalue())
-        output.headers["Content-Disposition"] = "attachment; filename=SOW_FBShare_Import_Sample.csv"
+        output.headers["Content-Disposition"] = "attachment; filename=OKR_FBShare_Import_Sample.csv"
         output.headers["Content-type"] = "text/csv; charset=utf-8"
         return output
     else:
@@ -2096,7 +2545,7 @@ def api_sow_fb_sample_template():
             excel_buffer.seek(0)
             return send_file(
                 excel_buffer,
-                download_name="SOW_FBShare_Import_Sample.xlsx",
+                download_name="OKR_FBShare_Import_Sample.xlsx",
                 as_attachment=True,
                 mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
@@ -2118,6 +2567,24 @@ def api_sow_fb_import():
         return jsonify({"status": "error", "message": "Empty file name"}), 400
 
     filename = uploaded_file.filename.lower()
+    if not filename.endswith((".csv", ".xlsx", ".xls")):
+        return jsonify({"status": "error", "message": "Only CSV and Excel (.xlsx, .xls) files are supported"}), 400
+
+    is_async = request.args.get("async") == "1" or request.headers.get("X-Async-Import") == "1"
+    if is_async:
+        job_id = uuid.uuid4().hex
+        fd, tmp_path = tempfile.mkstemp(suffix=os.path.splitext(filename)[1])
+        with os.fdopen(fd, "wb") as f:
+            uploaded_file.seek(0)
+            f.write(uploaded_file.read())
+        with _FB_IMPORT_JOBS_LOCK:
+            _FB_IMPORT_JOBS[job_id] = {
+                "status": "processing", "pct": 5,
+                "message": "File received. Queued for processing...", "stage": "queue"
+            }
+        threading.Thread(target=_bg_fb_import, args=(job_id, tmp_path, filename), daemon=True).start()
+        return jsonify({"status": "queued", "job_id": job_id}), 202
+
     raw_dicts = []
 
     try:
@@ -2223,5 +2690,169 @@ def api_sow_fb_import():
             "message": f"Successfully imported and updated {len(records)} FB Share records."
         })
     except Exception as e:
-        logger.exception("Database error while upserting FB Share records: %s", e)
-        return jsonify({"status": "error", "message": f"Database error during import: {str(e)}"}), 500
+            logger.exception("Database error while upserting FB Share records: %s", e)
+            return jsonify({"status": "error", "message": f"Database error during import: {str(e)}"}), 500
+
+# ══════════════════════════════════════════════════════════════════════
+# CSV Export endpoints — faithful dumps of the source tables
+#
+# Every export mirrors its table exactly: ALL columns, in the table's own
+# order, with the database's own column names as the CSV header. The header
+# is read from the live cursor description rather than a hardcoded list, so
+# an export can never drift from the schema again.
+#
+#   cei             -> sow.cei_score      (weeknum)
+#   rhi             -> sow.rhi_score      (weeknum)
+#   redcov          -> sow.red_cov        (yearweek)
+#   ran_capacity    -> sow.rci_redsector  (week)
+#   crowdsource_onx -> sow.onx_rank_score (yearweek)
+#   crowdsource_fb  -> sow.fb_share       (yearweek)
+# ══════════════════════════════════════════════════════════════════════
+
+EXPORT_TABLES = {
+    "cei":             ("cei_score",      "weeknum"),
+    "rhi":             ("rhi_score",      "weeknum"),
+    "redcov":          ("red_cov",        "yearweek"),
+    "ran_capacity":    ("rci_redsector",  "week"),
+    "crowdsource_onx": ("onx_rank_score", "yearweek"),
+    "crowdsource_fb":  ("fb_share",       "yearweek"),
+}
+
+
+def _parse_export_week_range():
+    """Return (start_yw, end_yw) for the requested period, ordered ascending.
+
+    Accepts 'week' (single ISO YYYYWW) or 'start_week' + 'end_week'.
+    Raises ValueError when the period is missing or not numeric.
+    """
+    week = request.args.get("week")
+    start_week = request.args.get("start_week")
+    end_week = request.args.get("end_week")
+
+    if week:
+        a = b = int(week)
+    elif start_week and end_week:
+        a, b = int(start_week), int(end_week)
+    else:
+        raise ValueError("Must provide 'week' or 'start_week'/'end_week'")
+
+    return (b, a) if a > b else (a, b)
+
+
+def _table_columns(table):
+    """Column names of sow.<table> in the database's own ordinal order."""
+    with db_query(get_postgres_connection) as (conn, cur):
+        cur.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'sow' AND table_name = %s
+            ORDER BY ordinal_position
+            """,
+            (table,),
+        )
+        return [r[0] for r in cur.fetchall()]
+
+
+def _stream_table_csv(table, week_col, start_yw, end_yw, filename):
+    """Stream an exact CSV mirror of sow.<table> over the given week range.
+
+    A server-side (named) cursor is used so a wide table (sow.rhi_score carries
+    164 columns) is never materialised in memory. Both the SELECT list and the
+    CSV header come from the live catalog, so the names and their order always
+    equal the database's own and can never drift from it.
+    """
+    cols = _table_columns(table)
+    if not cols:
+        raise ValueError(f"Table sow.{table} does not exist")
+
+    col_sql = ", ".join('"' + c.replace('"', '""') + '"' for c in cols)
+    select_sql = (
+        f"SELECT {col_sql} FROM sow.\"{table}\" "
+        f"WHERE \"{week_col}\" >= %s AND \"{week_col}\" <= %s "
+        f"ORDER BY \"{week_col}\""
+    )
+
+    def generate():
+        conn = get_postgres_connection()
+        try:
+            cur = conn.cursor(name=f"exp_{table}")
+            cur.itersize = 5000
+            cur.execute(select_sql, (start_yw, end_yw))
+
+            buf = io.StringIO()
+            writer = csv.writer(buf)
+            writer.writerow(cols)  # exact DB column names, in DB order
+            yield buf.getvalue()
+            buf.seek(0)
+            buf.truncate(0)
+
+            for row in cur:
+                writer.writerow(row)
+                yield buf.getvalue()
+                buf.seek(0)
+                buf.truncate(0)
+
+            cur.close()
+        finally:
+            try:
+                conn.close()  # pooled wrapper: returns the connection, rolls back
+            except Exception:
+                pass
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+def _table_csv_export(key, label):
+    """Shared body for the OKR table export endpoints."""
+    table, week_col = EXPORT_TABLES[key]
+
+    if not (request.args.get("week")
+            or (request.args.get("start_week") and request.args.get("end_week"))):
+        return jsonify({"status": "error", "message": "Must provide 'week' or 'start_week'/'end_week'"}), 400
+
+    try:
+        start_yw, end_yw = _parse_export_week_range()
+    except (ValueError, TypeError):
+        return jsonify({"status": "error", "message": "Invalid yearweek format"}), 400
+
+    try:
+        return _stream_table_csv(
+            table, week_col, start_yw, end_yw,
+            f"{label}_Export_{start_yw}-{end_yw}.csv",
+        )
+    except Exception as e:
+        logger.exception("Error generating %s CSV export: %s", label, e)
+        return jsonify({"status": "error", "message": "Failed to generate CSV export"}), 500
+
+
+@sow.route('/api/sow/cei-csv-export', methods=['GET'])
+@login_required
+def api_sow_cei_csv_export():
+    """Export sow.cei_score — every column, filtered by week or week range."""
+    return _table_csv_export("cei", "CEI_OKR")
+
+
+@sow.route("/api/sow/rhi-csv-export", methods=["GET"])
+@login_required
+def api_sow_rhi_csv_export():
+    """Export sow.rhi_score — every column, filtered by week or week range."""
+    return _table_csv_export("rhi", "RHI_OKR")
+
+
+@sow.route("/api/sow/redcov-csv-export", methods=["GET"])
+@login_required
+def api_sow_redcov_csv_export():
+    """Export sow.red_cov — every column, filtered by week or week range."""
+    return _table_csv_export("redcov", "Redcov_OKR")
+
+
+@sow.route('/api/sow/ran_capacity-csv-export', methods=['GET'])
+@login_required
+def api_sow_ran_capacity_csv_export():
+    """Export sow.rci_redsector — every column, filtered by week or week range."""
+    return _table_csv_export("ran_capacity", "RAN_Capacity_OKR")

@@ -1,6 +1,6 @@
 /**
  * RAN Capacity Dashboard JavaScript
- * SOW RAN Capacity Monitoring Dashboard (RCI & Unbalance):
+ * OKR RAN Capacity Monitoring Dashboard (RCI & Unbalance):
  *   1. Dual-metric architecture with independent per-section and global toggles
  *   2. ECharts Macro Combo Charts, Transition Flows, Behavioral Donut, Version Breakdown
  *   3. 1D Benchmark Slider Track with Anti-Collision Branch Markers & Companion Stat Row
@@ -2102,12 +2102,16 @@
         formData.append('file', selectedFile);
 
         const statusEl = document.getElementById('ranImportStatus');
+        const barWrap = document.getElementById('ranImportProgressWrap');
+        const bar = document.getElementById('ranImportProgressBar');
         const btn = document.getElementById('btnSubmitImport');
         if (statusEl) {
             statusEl.style.display = 'block';
-            statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading & processing data...';
+            statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
             statusEl.style.color = 'var(--ran-blue)';
         }
+        if (barWrap) barWrap.style.display = 'block';
+        if (bar) bar.style.width = '2%';
         if (btn) btn.disabled = true;
 
         fetch('/api/sow/ran_capacity/import', {
@@ -2116,22 +2120,15 @@
         })
             .then(res => res.json())
             .then(data => {
-                if (btn) btn.disabled = false;
-                if (data.status === 'success') {
-                    if (statusEl) {
-                        statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ${data.message}`;
-                        statusEl.style.color = 'var(--ran-green)';
-                    }
-                    setTimeout(() => {
-                        closeImportModal();
-                        fetchSummaryData();
-                        fetchTrendData();
-                    }, 1200);
+                if (data.status === 'queued') {
+                    pollRanImport(data.job_id);
                 } else {
+                    if (btn) btn.disabled = false;
                     if (statusEl) {
                         statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Error: ${data.message}`;
                         statusEl.style.color = 'var(--ran-red)';
                     }
+                    if (barWrap) barWrap.style.display = 'none';
                 }
             })
             .catch(err => {
@@ -2140,7 +2137,50 @@
                     statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Request failed: ${err}`;
                     statusEl.style.color = 'var(--ran-red)';
                 }
+                if (barWrap) barWrap.style.display = 'none';
             });
+    };
+
+    function pollRanImport(jobId) {
+        const statusEl = document.getElementById('ranImportStatus');
+        const barWrap = document.getElementById('ranImportProgressWrap');
+        const bar = document.getElementById('ranImportProgressBar');
+        const btn = document.getElementById('btnSubmitImport');
+        const timer = setInterval(() => {
+            fetch('/api/sow/ran_capacity/import/progress/' + jobId)
+                .then(r => r.json())
+                .then(job => {
+                    const pct = job.pct || 0;
+                    if (bar) bar.style.width = Math.max(2, pct) + '%';
+                    if (statusEl) {
+                        statusEl.style.display = 'block';
+                        statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (job.message || 'Processing...') + ' (' + pct + '%)';
+                        statusEl.style.color = 'var(--ran-blue)';
+                    }
+                    if (job.status === 'success') {
+                        clearInterval(timer);
+                        if (btn) btn.disabled = false;
+                        if (bar) bar.style.width = '100%';
+                        if (statusEl) {
+                            statusEl.innerHTML = '<i class="fas fa-check-circle"></i> ' + (job.message || 'Import complete.');
+                            statusEl.style.color = 'var(--ran-green)';
+                        }
+                        setTimeout(() => {
+                            closeImportModal();
+                            fetchSummaryData();
+                            fetchTrendData();
+                        }, 1200);
+                    } else if (job.status === 'error') {
+                        clearInterval(timer);
+                        if (btn) btn.disabled = false;
+                        if (statusEl) {
+                            statusEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error: ' + (job.message || 'Import failed');
+                            statusEl.style.color = 'var(--ran-red)';
+                        }
+                    }
+                })
+                .catch(() => { });
+        }, 800);
     };
 
     // ── Resize All Charts Helper ────────────────────────────────────────────

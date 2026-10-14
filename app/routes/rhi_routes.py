@@ -12,8 +12,12 @@ Provides:
 import csv
 import io
 import logging
+import os
+import tempfile
+import threading
 import time
 from collections import defaultdict
+from uuid import uuid4
 import psycopg2.extras
 from flask import Blueprint, render_template, request, session, jsonify, make_response, send_file
 from app import csrf
@@ -26,6 +30,10 @@ rhi = Blueprint("rhi", __name__)
 
 _RHI_CACHE = {}
 _RHI_CACHE_TTL = 900  # 15 minutes
+
+# In-memory job progress tracking for async background imports
+_IMPORT_JOBS = {}
+_IMPORT_JOBS_LOCK = threading.Lock()
 
 # Top Fail KPI labels map
 FAIL_REASON_LABELS = {
@@ -231,11 +239,30 @@ def _get_branch_map():
 
 
 def _get_yearweeks():
+    """Get list of weeknums, with auto-invalidation if DB max week changed."""
     now = time.time()
+    
+    # 1. Query current max week from DB (this is fast: uses index-only scan)
+    db_max = 0
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute("SELECT MAX(weeknum) FROM sow.rhi_score")
+            row = cur.fetchone()
+            if row and row[0]:
+                db_max = int(row[0])
+    except Exception:
+        pass
+
+    # 2. Check cache and compare max week
     if "_yearweeks" in _RHI_CACHE:
         val, exp = _RHI_CACHE["_yearweeks"]
         if now < exp:
-            return val
+            cached_max = val[0] if val else 0
+            # If DB max differs from cached max (either higher OR lower after manual delete), refresh
+            if db_max == cached_max and db_max > 0:
+                return val  # Cache is still valid
+
+    # 3. Cache miss, expired, or mismatched - refresh from DB
     try:
         with db_query(get_postgres_connection) as (conn, cur):
             cur.execute("SELECT DISTINCT weeknum FROM sow.rhi_score ORDER BY weeknum DESC")
@@ -306,6 +333,7 @@ def _get_target_for_week(yearweek):
 # Page View
 # ══════════════════════════════════════════════════════════════════════
 @rhi.route("/sow/rhi")
+@rhi.route("/okr/rhi")
 @login_required
 def rhi_dashboard_page():
     yearweeks = _get_yearweeks()
@@ -1400,6 +1428,7 @@ def _get_rhi_sample_rows():
 
 @rhi.route("/api/sow/rhi/sample", methods=["GET"])
 @rhi.route("/api/sow/rhi/sample-template", methods=["GET"])
+@login_required
 def api_sow_rhi_sample_template():
     """Download sample CSV or XLSX template for importing into sow.rhi_score."""
     file_format = (request.args.get("format") or "xlsx").lower()
@@ -1423,7 +1452,7 @@ def api_sow_rhi_sample_template():
                 out,
                 mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 as_attachment=True,
-                download_name="sow_rhi_sample_template.xlsx",
+                download_name="okr_rhi_sample_template.xlsx",
             )
         except ImportError:
             file_format = "csv"
@@ -1436,110 +1465,129 @@ def api_sow_rhi_sample_template():
         cw.writerow([row_dict.get(c, "") for c in RHI_COLUMNS])
 
     output = make_response(si.getvalue())
-    output.headers["Content-Disposition"] = "attachment; filename=sow_rhi_sample_template.csv"
+    output.headers["Content-Disposition"] = "attachment; filename=okr_rhi_sample_template.csv"
     output.headers["Content-type"] = "text/csv; charset=utf-8"
     return output
 
 
 @rhi.route("/api/sow/rhi/import", methods=["POST"])
 @csrf.exempt
+@login_required
 def api_sow_rhi_import():
-    """Import records into sow.rhi_score from uploaded CSV or Excel file."""
+    """Async import handler for RHI data."""
     if "file" not in request.files:
         return jsonify({"status": "error", "message": "No file uploaded"}), 400
 
     file = request.files["file"]
-    filename = (file.filename or "").lower()
-    if not (filename.endswith(".xlsx") or filename.endswith(".xls") or filename.endswith(".csv")):
-        return jsonify({
-            "status": "error",
-            "message": "Invalid file format. Please upload .xlsx, .xls, or .csv"
-        }), 400
+    filename = file.filename
+    job_id = str(uuid4())
+    
+    # Save to temp
+    fd, path = tempfile.mkstemp(suffix=os.path.splitext(filename)[1])
+    with os.fdopen(fd, 'wb') as f:
+        file.save(f)
 
-    raw_dicts = []
-    header_lookup = {}
+    with _IMPORT_JOBS_LOCK:
+        _IMPORT_JOBS[job_id] = {"status": "queued", "pct": 0, "message": "Queued..."}
+
+    threading.Thread(target=_bg_rhi_import, args=(job_id, path, filename), daemon=True).start()
+    return jsonify({"status": "queued", "job_id": job_id})
+
+@rhi.route("/api/sow/rhi/import/progress/<job_id>")
+@login_required
+def api_sow_rhi_import_progress(job_id):
+    with _IMPORT_JOBS_LOCK:
+        return jsonify(_IMPORT_JOBS.get(job_id, {"status": "error", "message": "Not found"}))
+
+def _bg_rhi_import(job_id, file_path, filename):
     try:
-        if filename.endswith(".xlsx") or filename.endswith(".xls"):
-            import openpyxl
-            file_stream = io.BytesIO(file.read())
-            wb = openpyxl.load_workbook(file_stream, data_only=True)
-            ws = wb.active
+        file_size = os.path.getsize(file_path)
+        with _IMPORT_JOBS_LOCK:
+            _IMPORT_JOBS[job_id] = {"status": "processing", "pct": 10, "message": "Parsing file...", "stage": "parse"}
 
-            rows = list(ws.iter_rows(values_only=True))
-            if not rows or len(rows) < 2:
-                return jsonify({"status": "error", "message": "Uploaded Excel sheet is empty"}), 400
+        # Native COPY fast-path (matches your psql \COPY pipeline)
+        import csv as _csv
+        from io import StringIO
 
-            headers = [str(h).strip() if h is not None else "" for h in rows[0]]
-            header_lookup = {h.lower(): idx for idx, h in enumerate(headers) if h}
+        if filename.lower().endswith(".csv"):
+            with open(file_path, 'r', encoding='utf-8-sig', errors='replace') as f:
+                conn = get_postgres_connection()
+                conn.autocommit = True
+                cur = conn.cursor()
+                try:
+                    # Real byte-count progress: wrap the file to count bytes read
+                    class _CountingReader:
+                        _read = f.read
+                        def __init__(self, f, total, job_id):
+                            self._f = f
+                            self._total = total
+                            self._job_id = job_id
+                            self._n = 0
+                        def read(self, size=-1):
+                            chunk = self._f.read(size)
+                            self._n += len(chunk)
+                            pct = min(99, 10 + int(89 * self._n / max(self._total, 1)))
+                            with _IMPORT_JOBS_LOCK:
+                                _IMPORT_JOBS[self._job_id] = {
+                                    "status": "processing", "pct": pct,
+                                    "message": f"Uploading to database... {self._n/1048576:.1f}/{self._total/1048576:.1f} MB",
+                                    "stage": "copy",
+                                }
+                            return chunk
 
-            for row in rows[1:]:
-                if not any(row):
-                    continue
-                row_dict = {}
-                for h_name, idx in header_lookup.items():
-                    if idx < len(row):
-                        row_dict[h_name] = row[idx]
-                raw_dicts.append(row_dict)
+                    cr = _CountingReader(f, file_size, job_id)
+                    cur.copy_expert(
+                        "COPY sow.rhi_score FROM STDIN WITH (FORMAT CSV, HEADER, NULL '')",
+                        cr,
+                    )
+                    conn.commit()
+                    clear_rhi_caches()
+                    status = "success"
+                    msg = f"Import complete."
+                finally:
+                    cur.close()
+                    conn.close()
         else:
-            file_text = file.read().decode("utf-8-sig", errors="replace")
-            reader = csv.DictReader(io.StringIO(file_text))
-            if not reader.fieldnames:
-                return jsonify({"status": "error", "message": "Uploaded CSV is empty"}), 400
+            # .xlsx path
+            import openpyxl
+            wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
+            ws = wb.active
+            buf = StringIO()
+            w = _csv.writer(buf)
+            rows = ws.iter_rows(values_only=True)
+            header = next(rows)
+            w.writerow(header)
+            n = 0
+            for row in rows:
+                w.writerow(row)
+                n += 1
+                if n % 5000 == 0:
+                    with _IMPORT_JOBS_LOCK:
+                        _IMPORT_JOBS[job_id] = {"status": "processing", "pct": 50, "message": f"Parsing Excel rows... {n:,}", "stage": "parse"}
+            buf.seek(0)
+            wb.close()
+            conn = get_postgres_connection()
+            # conn.autocommit = True # REMOVED (let manual commit handle it)
+            cur = conn.cursor()
+            try:
+                cur.copy_expert(
+                    "COPY sow.rhi_score FROM STDIN WITH (FORMAT CSV, HEADER, NULL '')",
+                    buf,
+                )
+                conn.commit()
+                clear_rhi_caches()
+                status = "success"
+                msg = f"Import complete."
+            finally:
+                cur.close()
+                conn.close()
 
-            header_lookup = {str(h).strip().lower(): h for h in reader.fieldnames if h}
-            for row in reader:
-                raw_dicts.append({k.strip().lower(): v for k, v in row.items() if k})
+        with _IMPORT_JOBS_LOCK:
+            _IMPORT_JOBS[job_id] = {"status": status, "pct": 100, "message": msg}
+
     except Exception as e:
-        logger.exception("Error parsing uploaded RHI file: %s", e)
-        return jsonify({"status": "error", "message": f"Error parsing file: {str(e)}"}), 400
-
-    if "weeknum" not in header_lookup:
-        return jsonify({
-            "status": "error",
-            "message": "Missing required column 'weeknum' in uploaded file"
-        }), 400
-
-    insert_records = []
-    for r in raw_dicts:
-        row_map = {str(k).strip().lower(): v for k, v in r.items() if k is not None}
-        raw_yw = row_map.get("weeknum")
-        try:
-            yw = int(float(str(raw_yw).strip()))
-        except (ValueError, TypeError):
-            continue
-
-        record = []
-        for col in RHI_COLUMNS:
-            val = row_map.get(col.lower())
-            if col == "weeknum":
-                record.append(yw)
-            elif col in RHI_INT_COLS:
-                record.append(_safe_int(val, default=0))
-            elif col in RHI_FLOAT_COLS:
-                record.append(_safe_float(val, default=None))
-            else:
-                record.append(_safe_str(val, default=None))
-        insert_records.append(tuple(record))
-
-    if not insert_records:
-        return jsonify({"status": "error", "message": "No valid data rows with proper weeknum found"}), 400
-
-    col_names = ", ".join([f'"{c}"' for c in RHI_COLUMNS])
-    val_placeholders = ", ".join(["%s"] * len(RHI_COLUMNS))
-    insert_query = f"INSERT INTO sow.rhi_score ({col_names}) VALUES ({val_placeholders})"
-
-    try:
-        with db_query(get_postgres_connection) as (conn, cur):
-            psycopg2.extras.execute_batch(cur, insert_query, insert_records, page_size=500)
-            conn.commit()
-
-        clear_rhi_caches()
-
-        return jsonify({
-            "status": "success",
-            "rows_processed": len(insert_records),
-            "message": f"Successfully imported {len(insert_records):,} records into sow.rhi_score"
-        })
-    except Exception as e:
-        logger.exception("Database error while importing RHI records: %s", e)
-        return jsonify({"status": "error", "message": f"Database error during import: {str(e)}"}), 500
+        logger.exception("Import failed: %s", e)
+        with _IMPORT_JOBS_LOCK:
+            _IMPORT_JOBS[job_id] = {"status": "error", "message": f"Import failed: {str(e)}"}
+    finally:
+        if os.path.exists(file_path): os.unlink(file_path)

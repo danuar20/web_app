@@ -148,12 +148,30 @@ def _get_regions():
 
 
 def _get_yearweeks():
-    """Distinct weeks in sow.rci_redsector, sorted descending."""
+    """Distinct weeks in sow.rci_redsector, with auto-invalidation if DB max week changed."""
     now = time.time()
+    
+    # 1. Query current max week from DB (fast: index-only scan)
+    db_max = 0
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute("SELECT MAX(week) FROM sow.rci_redsector")
+            row = cur.fetchone()
+            if row and row[0]:
+                db_max = int(row[0])
+    except Exception:
+        pass
+
+    # 2. Check cache: if DB max week differs from cached max, we're stale
     if "_yearweeks" in _RAN_CACHE:
         val, exp = _RAN_CACHE["_yearweeks"]
         if now < exp:
-            return val
+            cached_max = val[0] if val else 0
+            # Return cached data ONLY if the DB max matches what we cached
+            if db_max == cached_max and db_max > 0:
+                return val  # Cache is still valid
+
+    # 3. Cache miss, expired, or mismatched - refresh from DB
     try:
         with db_query(get_postgres_connection) as (conn, cur):
             cur.execute("SELECT DISTINCT week FROM sow.rci_redsector ORDER BY week DESC")
@@ -278,7 +296,9 @@ def _get_sample_rows():
 # MAIN VIEW ROUTE
 # ══════════════════════════════════════════════════════════════════════
 @ran_capacity.route("/sow/ran_capacity")
+@ran_capacity.route("/okr/ran_capacity")
 @login_required
+@viewer_blocked
 def ran_capacity_page():
     regions = _get_regions()
     current_region = request.args.get("region", "PUMA")
@@ -1563,7 +1583,7 @@ def api_ran_capacity_sample_template():
             writer.writerow(row)
         csv_bytes = csv_buffer.getvalue().encode("utf-8-sig")
         response = make_response(csv_bytes)
-        response.headers["Content-Disposition"] = "attachment; filename=SOW_RAN_Capacity_Sample.csv"
+        response.headers["Content-Disposition"] = "attachment; filename=OKR_RAN_Capacity_Sample.csv"
         response.headers["Content-Type"] = "text/csv; charset=utf-8"
         return response
     else:
@@ -1584,21 +1604,21 @@ def api_ran_capacity_sample_template():
                 bottom=Side(style="thin", color="D9D9D9")
             )
 
-            for col_idx, h in enumerate(headers, 1):
-                cell = ws.cell(row=1, column=col_idx, value=h)
+            ws.append(headers)
+            for col_num in range(1, len(headers) + 1):
+                cell = ws.cell(row=1, column=col_num)
                 cell.fill = header_fill
                 cell.font = header_font
                 cell.alignment = Alignment(horizontal="center", vertical="center")
                 cell.border = border
+            ws.row_dimensions[1].height = 24
 
-            for row_idx, r in enumerate(sample_rows, 2):
-                for col_idx, val in enumerate(r, 1):
-                    cell = ws.cell(row=row_idx, column=col_idx, value=val)
+            for row_idx, row_data in enumerate(sample_rows, start=2):
+                ws.append(row_data)
+                for col_num in range(1, len(headers) + 1):
+                    cell = ws.cell(row=row_idx, column=col_num)
                     cell.border = border
-                    if isinstance(val, (int, float)):
-                        cell.alignment = Alignment(horizontal="right", vertical="center")
-                    else:
-                        cell.alignment = Alignment(horizontal="left", vertical="center")
+                    cell.alignment = Alignment(vertical="center")
 
             for col in ws.columns:
                 max_len = max(len(str(cell.value or "")) for cell in col)
@@ -1610,7 +1630,7 @@ def api_ran_capacity_sample_template():
             excel_buffer.seek(0)
             return send_file(
                 excel_buffer,
-                download_name="SOW_RAN_Capacity_Sample.xlsx",
+                download_name="OKR_RAN_Capacity_Sample.xlsx",
                 as_attachment=True,
                 mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )

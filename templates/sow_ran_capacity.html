@@ -4,8 +4,8 @@
 {% block subSow_open %}open{% endblock %}
 {% block nav_sow_ran_capacity %}active{% endblock %}
 
-{% block page_title %}SOW RAN Capacity{% endblock %}
-{% block page_sub %}Scope of Work — RAN Capacity (RCI & Unbalance) Monitoring{% endblock %}
+{% block page_title %}OKR RAN Capacity{% endblock %}
+{% block page_sub %}Objectives and Key Results — RAN Capacity (RCI & Unbalance) Monitoring{% endblock %}
 
 {% block topbar_chips %}
 <div class="info-chip" title="Latest Week in sow.rci_redsector">
@@ -889,14 +889,11 @@
                 <button class="ran-btn-primary" onclick="openImportModal()" title="Import Data">
                     <i class="fas fa-file-upload"></i> Import Data
                 </button>
-                <a href="/api/sow/ran_capacity/sample?format=xlsx" class="ran-btn-secondary" title="Sample XLSX">
-                    <i class="fas fa-file-excel" style="color:#10b981;"></i> Sample XLSX
-                </a>
                 <a href="/api/sow/ran_capacity/sample?format=csv" class="ran-btn-secondary" title="Sample CSV">
                     <i class="fas fa-file-csv" style="color:#0284c7;"></i> Sample CSV
                 </a>
-                <button class="ran-btn-secondary" onclick="exportCurrentData()" title="Export CSV">
-                    <i class="fas fa-file-export"></i> Export CSV
+                <button type="button" class="ran-btn-secondary" onclick="openExportCsvModal('ran_capacity')" title="Export RAN Capacity data">
+                    <i class="fas fa-file-export"></i> Export Data
                 </button>
             </div>
         </div>
@@ -1024,7 +1021,7 @@
                         <button id="trendToggleRci" class="ran-sec-btn active" onclick="setTrendSectionMode('rci')">RCI</button>
                         <button id="trendToggleUnb" class="ran-sec-btn" onclick="setTrendSectionMode('unbalance')">Unbalance</button>
                     </div>
-                    <button class="ran-btn-secondary" style="padding: 2px 7px; font-size: 11px;" onclick="enlargeChart('macroTrend')" title="Enlarge">
+                    <button class="ran-btn-secondary" style="padding: 2px 7px; font-size: 11px;" onclick="enlargeChart('macroTrend')" title="View chart">
                         <i class="fas fa-expand"></i>
                     </button>
                 </div>
@@ -1048,7 +1045,7 @@
                             <button id="transToggleRci" class="ran-sec-btn active" onclick="setTransSectionMode('rci')">RCI</button>
                             <button id="transToggleUnb" class="ran-sec-btn" onclick="setTransSectionMode('unbalance')">Unbalance</button>
                         </div>
-                        <button class="ran-btn-secondary" style="padding: 2px 7px; font-size: 11px;" onclick="enlargeChart('transition')" title="Enlarge">
+                        <button class="ran-btn-secondary" style="padding: 2px 7px; font-size: 11px;" onclick="enlargeChart('transition')" title="View chart">
                             <i class="fas fa-expand"></i>
                         </button>
                     </div>
@@ -1354,6 +1351,9 @@
             <input type="file" id="ranImportFileInput" style="display: none;" accept=".csv,.xlsx,.xls" onchange="onFileSelected(this)">
         </div>
         <div id="ranImportStatus" style="font-size: 12px; display: none;"></div>
+        <div id="ranImportProgressWrap" style="display: none; height: 6px; width: 100%; background: rgba(0,0,0,0.08); border-radius: 3px; overflow: hidden; margin-top: 4px;">
+            <div id="ranImportProgressBar" style="height: 100%; width: 0%; background: var(--ran-blue, #145DA0); transition: width 0.25s ease;"></div>
+        </div>
         <div style="display: flex; justify-content: flex-end; gap: 8px;">
             <button class="ran-btn-secondary" onclick="closeImportModal()">Cancel</button>
             <button id="btnSubmitImport" class="ran-btn-primary" onclick="submitImport()">Upload & Import</button>
@@ -1383,4 +1383,7 @@
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 <!-- Load Dashboard JS with cache-busting -->
 <script src="{{ url_for('static', filename='js/ran_capacity_dashboard.js') }}?v=1.0.0"></script>
+
+{% include '_modal_csv.html' %}
+
 {% endblock %}

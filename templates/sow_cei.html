@@ -4,8 +4,8 @@
 {% block subSow_open %}open{% endblock %}
 {% block nav_sow_cei %}active{% endblock %}
 
-{% block page_title %}SOW CEI{% endblock %}
-{% block page_sub %}Scope of Work — Customer Experience Index{% endblock %}
+{% block page_title %}OKR CEI{% endblock %}
+{% block page_sub %}Objectives and Key Results — Customer Experience Index{% endblock %}
 
 {% block topbar_chips %}
 <div class="info-chip" title="Latest Week in sow.cei_score">
@@ -1185,12 +1185,12 @@
                 </div>
             </div>
             <div class="cei-action-group">
-                <a href="/api/sow/cei/sample?format=xlsx" class="cei-btn-secondary" title="Download sample Excel template">
-                    <i class="fas fa-file-excel" style="color:#10b981;"></i> Sample XLSX
-                </a>
                 <a href="/api/sow/cei/sample?format=csv" class="cei-btn-secondary" title="Download sample CSV template">
                     <i class="fas fa-file-csv" style="color:#38bdf8;"></i> Sample CSV
                 </a>
+                <button type="button" class="cei-btn-secondary" onclick="openExportCsvModal('cei')" title="Export CEI data">
+                    <i class="fas fa-file-export" style="color:#38bdf8;"></i> Export Data
+                </button>
                 <button type="button" class="cei-btn-secondary" onclick="openSmartPngModal()" title="Export Presentation-Ready PNG">
                     <i class="fas fa-camera" style="color:#0284c7;"></i> Smart PNG
                 </button>
@@ -1304,7 +1304,7 @@
                         <div style="font-size:11px; color:var(--text-muted); font-weight:600;">
                             Focus Week: <span id="branchContribWeekLbl" style="color:#0F3B66; font-weight:700;">--</span>
                         </div>
-                        <button type="button" class="cei-btn-secondary" style="height:28px; padding:0 8px; font-size:11px;" onclick="openChartEnlargeModal('branchContrib')" title="Enlarge Chart">
+                        <button type="button" class="cei-btn-secondary" style="height:28px; padding:0 8px; font-size:11px;" onclick="openChartEnlargeModal('branchContrib')" title="View chart">
                             <i class="fas fa-expand"></i>
                         </button>
                     </div>
@@ -1356,7 +1356,7 @@
                     <div id="achTargetInfo" style="font-size:12px; font-weight:700; color:var(--text-muted);">
                         Target Pass: --%
                     </div>
-                    <button type="button" class="cei-btn-secondary" style="height:28px; padding:0 8px; font-size:11px;" onclick="openChartEnlargeModal('achievement')" title="Enlarge Chart">
+                    <button type="button" class="cei-btn-secondary" style="height:28px; padding:0 8px; font-size:11px;" onclick="openChartEnlargeModal('achievement')" title="View chart">
                         <i class="fas fa-expand"></i>
                     </button>
                 </div>
@@ -1391,10 +1391,10 @@
                             <button id="btnTrendAll" class="cei-seg-btn" onclick="setTrendCellFilter('all')">All cells</button>
                         </div>
                     </div>
-                    <a id="btnExportTrendCsv" href="#" class="cei-btn-secondary" style="height:30px; padding:0 10px; font-size:11.5px;" onclick="exportCurrentTrend('csv')">
-                        <i class="fas fa-file-csv" style="color:#38bdf8;"></i> CSV
-                    </a>
-                    <button type="button" class="cei-btn-secondary" style="height:30px; padding:0 9px; font-size:11.5px;" onclick="openChartEnlargeModal('trendChart')" title="Enlarge Chart">
+                    <a id="btnExportTrendCsv" href="#" class="cei-btn-secondary" style="height:30px; padding:0 10px; font-size:11.5px;" onclick="openExportCsvModal('cei')">
+                                            <i class="fas fa-file-csv" style="color:#38bdf8;"></i> CSV
+                                        </a>
+                    <button type="button" class="cei-btn-secondary" style="height:30px; padding:0 9px; font-size:11.5px;" onclick="openChartEnlargeModal('trendChart')" title="View chart">
                         <i class="fas fa-expand"></i>
                     </button>
                 </div>
@@ -1451,7 +1451,7 @@
                 <div class="cei-card-title">
                     <i class="fas fa-chart-line" style="color:#0F3B66;"></i> % Good Cell Trend vs Target
                 </div>
-                <button type="button" class="cei-btn-secondary" style="height:28px; padding:0 8px; font-size:11px;" onclick="openChartEnlargeModal('geoGoodPct')" title="Enlarge Chart">
+                <button type="button" class="cei-btn-secondary" style="height:28px; padding:0 8px; font-size:11px;" onclick="openChartEnlargeModal('geoGoodPct')" title="View chart">
                     <i class="fas fa-expand"></i>
                 </button>
             </div>
@@ -1707,7 +1707,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-bottom:1px solid var(--border); background:var(--card);">
             <div>
                 <h3 id="enlargeModalTitle" style="margin:0; font-size:15px; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:8px;">
-                    <i class="fas fa-chart-line" style="color:#0F3B66;"></i> Chart Enlarge View
+                    <i class="fas fa-chart-line" style="color:#0F3B66;"></i> Chart
                 </h3>
                 <div id="enlargeModalSubtitle" style="font-size:11.5px; color:var(--text-muted); margin-top:2px;"></div>
             </div>
@@ -1795,5 +1795,6 @@
 <!-- External Libraries: SheetJS (XLSX export) and html2canvas (Smart PNG export) -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="{{ url_for('static', filename='js/cei_dashboard.js') }}?v={{ range(1000, 9999) | random }}"></script>
+<script src="{{ url_for('static', filename='js/cei_dashboard.js') }}?v=1.0.3"></script>
+{% include '_modal_csv.html' %}
 {% endblock %}

@@ -1,0 +1,423 @@
+<style>
+    /* ══════════════════════════════════════════════════════════════════
+       Export Data Modal — shared by the OKR submenus
+       (RHI, CEI, Redcov, RAN Capacity) via the _modal_csv.html partial.
+       Fully self-contained: these rules are scoped under .export-csv-modal
+       so they never leak into the host page's own filter bar.
+       Theme: navy #0F3B66 / accent #38bdf8.
+       ══════════════════════════════════════════════════════════════════ */
+    .export-csv-modal {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        background: rgba(15, 23, 42, 0.62);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        z-index: 999999;
+    }
+
+    .export-csv-modal.open {
+        display: flex !important;
+    }
+
+    .export-csv-modal .exp-card {
+        width: 100%;
+        max-width: 460px;
+        background: #ffffff;
+        color: #0f172a;
+        border: 1px solid #cbd5e1;
+        border-radius: 14px;
+        box-shadow: 0 24px 64px rgba(2, 6, 23, 0.38);
+        overflow: hidden;
+        animation: expPop 0.18s ease-out;
+    }
+
+    @keyframes expPop {
+        from { opacity: 0; transform: translateY(10px) scale(0.985); }
+        to   { opacity: 1; transform: none; }
+    }
+
+    .export-csv-modal .exp-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 15px 20px;
+        background: linear-gradient(90deg, #09233D 0%, #0F3B66 58%, #18528C 100%);
+        color: #ffffff;
+    }
+
+    .export-csv-modal .exp-title {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 14.5px;
+        font-weight: 800;
+        letter-spacing: 0.2px;
+    }
+
+    .export-csv-modal .exp-title i {
+        color: #7dd3fc;
+        font-size: 15px;
+    }
+
+    .export-csv-modal .exp-close {
+        border: none;
+        background: rgba(255, 255, 255, 0.14);
+        color: #ffffff;
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        line-height: 1;
+        transition: background 0.16s ease, transform 0.16s ease;
+    }
+
+    .export-csv-modal .exp-close:hover {
+        background: rgba(255, 255, 255, 0.28);
+        transform: rotate(90deg);
+    }
+
+    .export-csv-modal .exp-body {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 20px;
+    }
+
+    .export-csv-modal .exp-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        width: 100%;
+    }
+
+    .export-csv-modal .exp-field.hidden {
+        display: none;
+    }
+
+    .export-csv-modal .exp-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: #64748b;
+    }
+
+    .export-csv-modal .exp-label i {
+        color: #0F3B66;
+        font-size: 11px;
+    }
+
+    .export-csv-modal .exp-select {
+        width: 100%;
+        height: 38px;
+        padding: 0 10px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        background: #f8fafc;
+        color: #0f172a;
+        font-size: 12.5px;
+        font-weight: 600;
+        outline: none;
+        cursor: pointer;
+        transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+    }
+
+    .export-csv-modal .exp-select:hover {
+        border-color: #94a3b8;
+    }
+
+    .export-csv-modal .exp-select:focus {
+        border-color: #38bdf8;
+        background: #ffffff;
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.22);
+    }
+
+    .export-csv-modal .exp-hint {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 9px 12px;
+        border-radius: 8px;
+        background: rgba(15, 59, 102, 0.06);
+        border: 1px solid rgba(15, 59, 102, 0.14);
+        font-size: 11px;
+        font-weight: 600;
+        color: #475569;
+    }
+
+    .export-csv-modal .exp-hint i {
+        color: #0284c7;
+    }
+
+    .export-csv-modal .exp-foot {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 9px;
+        padding: 14px 20px;
+        border-top: 1px solid #e2e8f0;
+        background: #f8fafc;
+    }
+
+    .export-csv-modal .exp-btn {
+        height: 36px;
+        padding: 0 16px;
+        border-radius: 8px;
+        font-size: 12.5px;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border: 1px solid transparent;
+        transition: all 0.16s ease;
+    }
+
+    .export-csv-modal .exp-btn-ghost {
+        background: #ffffff;
+        border-color: #cbd5e1;
+        color: #334155;
+    }
+
+    .export-csv-modal .exp-btn-ghost:hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+    }
+
+    .export-csv-modal .exp-btn-primary {
+        background: linear-gradient(135deg, #0F3B66 0%, #18528C 100%);
+        color: #ffffff;
+        box-shadow: 0 3px 12px rgba(15, 59, 102, 0.32);
+    }
+
+    .export-csv-modal .exp-btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgba(15, 59, 102, 0.42);
+    }
+
+    /* ── Dark theme ── */
+    [data-theme="dark"] .export-csv-modal .exp-card {
+        background: #1e293b;
+        color: #f8fafc;
+        border-color: #334155;
+    }
+
+    [data-theme="dark"] .export-csv-modal .exp-label {
+        color: #94a3b8;
+    }
+
+    [data-theme="dark"] .export-csv-modal .exp-label i {
+        color: #38bdf8;
+    }
+
+    [data-theme="dark"] .export-csv-modal .exp-select {
+        background: #0f172a;
+        color: #f8fafc;
+        border-color: #334155;
+    }
+
+    [data-theme="dark"] .export-csv-modal .exp-select:focus {
+        background: #0b1220;
+        border-color: #38bdf8;
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.24);
+    }
+
+    [data-theme="dark"] .export-csv-modal .exp-hint {
+        background: rgba(56, 189, 248, 0.08);
+        border-color: rgba(56, 189, 248, 0.22);
+        color: #cbd5e1;
+    }
+
+    [data-theme="dark"] .export-csv-modal .exp-foot {
+        background: #172033;
+        border-top-color: #334155;
+    }
+
+    [data-theme="dark"] .export-csv-modal .exp-btn-ghost {
+        background: #0f172a;
+        border-color: #334155;
+        color: #e2e8f0;
+    }
+
+    [data-theme="dark"] .export-csv-modal .exp-btn-ghost:hover {
+        background: #1e293b;
+        border-color: #475569;
+    }
+</style>
+
+<div id="exportCsvModal" class="export-csv-modal">
+    <div class="exp-card" role="dialog" aria-modal="true" aria-labelledby="expModalTitle">
+        <div class="exp-head">
+            <div class="exp-title" id="expModalTitle">
+                <i class="fas fa-file-export"></i> Export Data
+            </div>
+            <button type="button" class="exp-close" onclick="closeExportCsvModal()" title="Close" aria-label="Close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div class="exp-body">
+            <div class="exp-field">
+                <label class="exp-label" for="exportCsvType"><i class="fas fa-filter"></i> Export Period Mode</label>
+                <select id="exportCsvType" class="exp-select" onchange="updateCsvExportOptions()">
+                    <option value="single">Single Week</option>
+                    <option value="range">Range Week</option>
+                </select>
+            </div>
+
+            <div class="exp-field" id="singleWeekExport">
+                <label class="exp-label" for="exportCsvWeekSingle"><i class="fas fa-calendar-alt"></i> Select Week</label>
+                <select id="exportCsvWeekSingle" class="exp-select"></select>
+            </div>
+
+            <div class="exp-field hidden" id="dateRangeExport">
+                <label class="exp-label" for="exportCsvStartYw"><i class="fas fa-calendar-alt"></i> From Week</label>
+                <select id="exportCsvStartYw" class="exp-select"></select>
+            </div>
+
+            <div class="exp-field hidden" id="dateRangeExport2">
+                <label class="exp-label" for="exportCsvEndYw"><i class="fas fa-calendar-check"></i> To Week</label>
+                <select id="exportCsvEndYw" class="exp-select"></select>
+            </div>
+
+            <div class="exp-hint">
+                <i class="fas fa-circle-info"></i>
+                <span>The file downloads as CSV using the weeks available on this page.</span>
+            </div>
+        </div>
+
+        <div class="exp-foot">
+            <button type="button" class="exp-btn exp-btn-ghost" onclick="closeExportCsvModal()">Cancel</button>
+            <button type="button" class="exp-btn exp-btn-primary" id="confirmExportCsvBtn" onclick="confirmCsvExport()">
+                <i class="fas fa-download"></i> Export
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentExportTarget = '';
+
+    /* Resolve the page's real week dropdowns. CEI & RHI name their selects
+       trendStartWeek / trendEndWeek / gaugeWeek / compWeek, so those are the
+       fallbacks that make the modal populate instead of rendering empty. */
+    function _expPickWeekSelect(ids) {
+        for (const id of ids) {
+            const el = document.getElementById(id);
+            if (el && el.tagName === 'SELECT' && el.options && el.options.length) {
+                return el;
+            }
+        }
+        return null;
+    }
+
+    function openExportCsvModal(target) {
+        currentExportTarget = target;
+
+        const modal = document.getElementById('exportCsvModal');
+        const singleWeekDiv = document.getElementById('singleWeekExport');
+        const rangeStartDiv = document.getElementById('dateRangeExport');
+        const rangeEndDiv = document.getElementById('dateRangeExport2');
+        const exportCsvType = document.getElementById('exportCsvType');
+
+        const weekSelectSingle = document.getElementById('exportCsvWeekSingle');
+        const weekSelectStart = document.getElementById('exportCsvStartYw');
+        const weekSelectEnd = document.getElementById('exportCsvEndYw');
+
+        const sourceStart = _expPickWeekSelect(
+            ['filterStartYw', 'filterWeek', 'fbStartYw', 'trendStartWeek', 'gaugeWeek', 'compWeek']
+        );
+        const sourceEnd = _expPickWeekSelect(
+            ['filterEndYw', 'filterWeek', 'fbEndYw', 'trendEndWeek', 'gaugeWeek', 'compWeek']
+        );
+
+        if (sourceStart) {
+            weekSelectSingle.innerHTML = sourceStart.innerHTML;
+            weekSelectStart.innerHTML = sourceStart.innerHTML;
+        }
+        weekSelectEnd.innerHTML = (sourceEnd || sourceStart) ? (sourceEnd || sourceStart).innerHTML : '';
+
+        // Single-week default: the newest week (yearweek lists are newest-first).
+        if (weekSelectSingle.options.length) {
+            weekSelectSingle.value = weekSelectSingle.options[0].value;
+        }
+        // Range default: mirror whatever the page currently has selected.
+        if (sourceStart && sourceStart.value) {
+            weekSelectStart.value = sourceStart.value;
+        }
+        if (sourceEnd && sourceEnd.value) {
+            weekSelectEnd.value = sourceEnd.value;
+        } else if (weekSelectEnd.options.length) {
+            weekSelectEnd.value = weekSelectEnd.options[weekSelectEnd.options.length - 1].value;
+        }
+
+        singleWeekDiv.classList.remove('hidden');
+        rangeStartDiv.classList.add('hidden');
+        rangeEndDiv.classList.add('hidden');
+        exportCsvType.value = 'single';
+
+        modal.classList.add('open');
+    }
+
+    function closeExportCsvModal() {
+        const modal = document.getElementById('exportCsvModal');
+        if (modal) modal.classList.remove('open');
+    }
+
+    function updateCsvExportOptions() {
+        const type = document.getElementById('exportCsvType').value;
+        const singleWeekDiv = document.getElementById('singleWeekExport');
+        const rangeStartDiv = document.getElementById('dateRangeExport');
+        const rangeEndDiv = document.getElementById('dateRangeExport2');
+
+        if (type === 'single') {
+            singleWeekDiv.classList.remove('hidden');
+            rangeStartDiv.classList.add('hidden');
+            rangeEndDiv.classList.add('hidden');
+        } else {
+            singleWeekDiv.classList.add('hidden');
+            rangeStartDiv.classList.remove('hidden');
+            rangeEndDiv.classList.remove('hidden');
+        }
+    }
+
+    function confirmCsvExport() {
+        const type = document.getElementById('exportCsvType').value;
+        let url = `/api/sow/${currentExportTarget}-csv-export?`;
+
+        if (type === 'single') {
+            const w = document.getElementById('exportCsvWeekSingle').value;
+            if (!w) { alert('Please select a week to export.'); return; }
+            url += 'week=' + encodeURIComponent(w);
+        } else {
+            const a = document.getElementById('exportCsvStartYw').value;
+            const b = document.getElementById('exportCsvEndYw').value;
+            if (!a || !b) { alert('Please select both the From and To week.'); return; }
+            url += 'start_week=' + encodeURIComponent(a) + '&end_week=' + encodeURIComponent(b);
+        }
+
+        window.location.href = url;
+        closeExportCsvModal();
+    }
+
+    /* Close on backdrop click / Escape, matching the other OKR modals. */
+    document.addEventListener('click', function (e) {
+        const modal = document.getElementById('exportCsvModal');
+        if (modal && e.target === modal) closeExportCsvModal();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeExportCsvModal();
+    });
+</script>

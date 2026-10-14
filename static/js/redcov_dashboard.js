@@ -1789,6 +1789,10 @@
         if (btn) btn.disabled = true;
         const status = document.getElementById('redcovImportStatus');
         if (status) status.style.display = 'none';
+        const progContainer = document.getElementById('redcovImportProgressContainer');
+        if (progContainer) progContainer.style.display = 'none';
+        const progBar = document.getElementById('redcovImportProgressBar');
+        if (progBar) progBar.style.width = '0%';
     };
 
     window.submitRedcovImport = async function () {
@@ -1796,9 +1800,19 @@
 
         const btn = document.getElementById('redcovImportBtn');
         const status = document.getElementById('redcovImportStatus');
+        const progContainer = document.getElementById('redcovImportProgressContainer');
+        const progBar = document.getElementById('redcovImportProgressBar');
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Queuing...';
+        }
+        if (status) {
+            status.style.display = 'none';
+            status.innerHTML = '';
+        }
+        if (progContainer) {
+            progContainer.style.display = 'block';
+            if (progBar) progBar.style.width = '0%';
         }
 
         const formData = new FormData();
@@ -1811,29 +1825,67 @@
             });
             const data = await res.json();
 
-            if (status) {
-                status.style.display = 'block';
-                if (data.status === 'success') {
-                    status.style.color = '#10b981';
-                    status.innerHTML = `<i class="fas fa-check-circle"></i> ${data.message}`;
-                    setTimeout(() => {
-                        closeRedcovImportModal();
-                        window.location.reload();
-                    }, 1500);
-                } else {
-                    status.style.color = '#ef4444';
-                    status.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${data.message}`;
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="fas fa-upload"></i> Retry Import';
+            if (data.status === 'queued' && data.job_id) {
+                const poll = setInterval(async () => {
+                    try {
+                        const pRes = await fetch('/api/sow/redcov/import/progress/' + data.job_id);
+                        const pData = await pRes.json();
+
+                        if (progContainer && pData.status !== 'queued') {
+                            progContainer.style.display = 'block';
+                            if (progBar) progBar.style.width = (pData.pct || 0) + '%';
+                        }
+
+                        if (pData.status === 'processing') {
+                            if (status) {
+                                status.style.display = 'block';
+                                status.style.color = '#8B0000';
+                                status.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${pData.pct}%: ${pData.message}`;
+                            }
+                        } else if (pData.status === 'success') {
+                            clearInterval(poll);
+                            if (progBar) progBar.style.width = '100%';
+                            status.style.color = '#10b981';
+                            status.innerHTML = `<i class="fas fa-check-circle"></i> ${pData.message || 'Import complete'}`;
+                            setTimeout(() => {
+                                closeRedcovImportModal();
+                                window.location.reload();
+                            }, 1500);
+                        } else if (pData.status === 'error') {
+                            clearInterval(poll);
+                            if (progContainer) progContainer.style.display = 'none';
+                            if (status) {
+                                status.style.color = '#ef4444';
+                                status.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${pData.message}`;
+                            }
+                            if (btn) {
+                                btn.disabled = false;
+                                btn.innerHTML = '<i class="fas fa-upload"></i> Retry Import';
+                            }
+                        }
+                    } catch (e) {
+                        // transient poll error — keep polling
                     }
+                }, 800);
+                // Safety timeout: stop after 10 minutes
+                setTimeout(() => clearInterval(poll), 600000);
+            } else {
+                // Direct error from POST (validation etc.)
+                if (status) {
+                    status.style.display = 'block';
+                    status.style.color = '#ef4444';
+                    status.innerHTML = data.message;
+                }
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-upload"></i> Retry Import';
                 }
             }
         } catch (e) {
             if (status) {
                 status.style.display = 'block';
                 status.style.color = '#ef4444';
-                status.innerHTML = `<i class="fas fa-times-circle"></i> Network error: ${e.message}`;
+                status.innerHTML = '<i class="fas fa-times-circle"></i> Network error: ' + e.message;
             }
             if (btn) {
                 btn.disabled = false;
@@ -1863,7 +1915,7 @@
         chartEnlargedInstance = echarts.init(container);
 
         if (chartType === 'coverage') {
-            titleEl.innerHTML = '<i class="fas fa-chart-area" style="color:#8B0000;"></i> Trend Coverage PUMA (Enlarged)';
+            titleEl.innerHTML = '<i class="fas fa-chart-area" style="color:#8B0000;"></i> Trend Coverage PUMA';
             subtitleEl.textContent = 'Total Good Coverage vs Total Red Coverage & Percentage Red Coverage Trend';
 
             const isShareMode = coverageMetricMode === 'share';
@@ -1962,7 +2014,7 @@
             chartEnlargedInstance.setOption(opt);
 
         } else if (chartType === 'breakdown') {
-            titleEl.innerHTML = '<i class="fas fa-layer-group" style="color:#8B0000;"></i> Red Coverage Breakdown & Target (Enlarged)';
+            titleEl.innerHTML = '<i class="fas fa-layer-group" style="color:#8B0000;"></i> Red Coverage Breakdown & Target';
             subtitleEl.textContent = 'Optimization vs Engineering Breakdown & % Red Optim Trend with Dynamic Target Threshold';
 
             const targetSeries = currentTrendData.breakdown_trend.target || [];
@@ -2091,7 +2143,7 @@
             backgroundColor: '#ffffff'
         });
         const a = document.createElement('a');
-        a.download = `SOW_Redcov_${currentEnlargedType || 'chart'}_enlarged.png`;
+        a.download = `OKR_Redcov_${currentEnlargedType || 'chart'}_enlarged.png`;
         a.href = url;
         document.body.appendChild(a);
         a.click();

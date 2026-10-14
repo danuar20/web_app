@@ -33,11 +33,11 @@ def viewer_client(client):
 
 
 def test_ran_capacity_page_authenticated(auth_client):
-    """Authenticated user should see the SOW RAN Capacity page."""
+    """Authenticated user should see the OKR RAN Capacity page."""
     res = auth_client.get("/sow/ran_capacity")
     assert res.status_code == 200
     html = res.data.decode("utf-8")
-    assert "SOW RAN Capacity" in html
+    assert "OKR RAN Capacity" in html
     assert "RAN Capacity Achievement" in html
     assert "Trend & Regional Analysis" in html
     assert "Comparison & Sector Table" in html

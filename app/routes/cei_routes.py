@@ -9,7 +9,11 @@ Replicates the 3-section layout:
 import csv
 import io
 import logging
+import os
+import tempfile
+import threading
 import time
+import uuid
 from collections import defaultdict
 import psycopg2.extras
 from flask import Blueprint, render_template, request, session, jsonify, make_response, send_file
@@ -94,11 +98,30 @@ def _get_branch_map():
 
 
 def _get_yearweeks():
+    """Get list of weeknums, with auto-invalidation if DB max week changed."""
     now = time.time()
+    
+    # 1. Query current max week from DB (fast: uses index-only scan)
+    db_max = 0
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute("SELECT MAX(weeknum) FROM sow.cei_score")
+            row = cur.fetchone()
+            if row and row[0]:
+                db_max = int(row[0])
+    except Exception:
+        pass
+
+    # 2. Check cache and compare max week
     if "_yearweeks" in _CEI_CACHE:
         val, exp = _CEI_CACHE["_yearweeks"]
         if now < exp:
-            return val
+            cached_max = val[0] if val else 0
+            # If DB max differs from cached max (higher OR lower after manual delete), cache is stale
+            if db_max == cached_max and db_max > 0:
+                return val  # Cache is still valid
+
+    # 3. Cache miss, expired, or mismatched - refresh from DB
     try:
         with db_query(get_postgres_connection) as (conn, cur):
             cur.execute("SELECT DISTINCT weeknum FROM sow.cei_score ORDER BY weeknum DESC")
@@ -166,6 +189,7 @@ def _get_target_for_week(yearweek):
 
 
 @cei.route("/sow/cei")
+@cei.route("/okr/cei")
 @login_required
 def cei_dashboard_page():
     yearweeks = _get_yearweeks()
@@ -743,7 +767,7 @@ def api_sow_cei_sample_template():
         writer.writerow(headers)
         writer.writerows(sample_rows)
         output = make_response(csv_buffer.getvalue())
-        output.headers["Content-Disposition"] = "attachment; filename=SOW_CEI_Import_Sample.csv"
+        output.headers["Content-Disposition"] = "attachment; filename=OKR_CEI_Import_Sample.csv"
         output.headers["Content-type"] = "text/csv; charset=utf-8"
         return output
     else:
@@ -760,7 +784,7 @@ def api_sow_cei_sample_template():
             excel_buffer.seek(0)
             return send_file(
                 excel_buffer,
-                download_name="SOW_CEI_Import_Sample.xlsx",
+                download_name="OKR_CEI_Import_Sample.xlsx",
                 as_attachment=True,
                 mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
@@ -769,116 +793,132 @@ def api_sow_cei_sample_template():
             return jsonify({"status": "error", "message": "Failed to generate Excel template"}), 500
 
 
+# ══════════════════════════════════════════════════════════════════════
+# CEI Import — async background worker + COPY FROM STDIN + live progress
+# ══════════════════════════════════════════════════════════════════════
+_CEI_IMPORT_JOBS = {}
+_CEI_IMPORT_JOBS_LOCK = threading.Lock()
+
+
+class _CeiCountingReader:
+    def __init__(self, fh, total_bytes, job_id):
+        self._fh = fh
+        self._total = max(1, int(total_bytes or 0))
+        self._job_id = job_id
+
+    def read(self, size=-1):
+        chunk = self._fh.read(size)
+        self._update(len(chunk))
+        return chunk
+
+    def _update(self, n):
+        if n <= 0: return
+        with _CEI_IMPORT_JOBS_LOCK:
+            job = _CEI_IMPORT_JOBS.get(self._job_id)
+            if not job: return
+            job["_read"] = job.get("_read", 0) + n
+            read_bytes = job["_read"]
+        pct = 10 + int(70 * min(1.0, read_bytes / float(self._total)))
+        _cei_set_job(self._job_id, status="processing", pct=pct,
+                     message="Uploading to database... %.1f/%.1f MB" % (
+                         read_bytes / 1048576.0, self._total / 1048576.0))
+
+    def readable(self): return True
+    def writable(self): return False
+
+
+def _cei_set_job(job_id, **kw):
+    with _CEI_IMPORT_JOBS_LOCK:
+        job = _CEI_IMPORT_JOBS.get(job_id)
+        if job: job.update(kw)
+
+
 @cei.route("/api/sow/cei/import", methods=["POST"])
 @csrf.exempt
 @login_required
 def api_sow_cei_import():
-    """Import records into sow.cei_score from uploaded CSV or Excel file."""
-    if "file" not in request.files:
-        return jsonify({"status": "error", "message": "No file uploaded"}), 400
-
+    if "file" not in request.files: return jsonify({"status": "error", "message": "No file uploaded"}), 400
     uploaded_file = request.files["file"]
     filename = (uploaded_file.filename or "").lower()
-
     if not filename.endswith((".csv", ".xlsx", ".xls")):
         return jsonify({"status": "error", "message": "Only CSV and Excel (.xlsx, .xls) files are supported"}), 400
 
-    raw_dicts = []
+    job_id = uuid.uuid4().hex
+    tmp_path = os.path.join(tempfile.gettempdir(), "cei_%s%s" % (job_id, os.path.splitext(filename)[1]))
+    uploaded_file.save(tmp_path)
+    with _CEI_IMPORT_JOBS_LOCK:
+        _CEI_IMPORT_JOBS[job_id] = {"status": "processing", "pct": 2, "message": "Queued...", "created": time.time(), "_read": 0}
+    threading.Thread(target=_bg_cei_import, args=(job_id, tmp_path, filename), daemon=True).start()
+    return jsonify({"status": "queued", "job_id": job_id}), 202
+
+
+@cei.route("/api/sow/cei/import/progress/<job_id>", methods=["GET"])
+@login_required
+def api_sow_cei_import_progress(job_id):
+    with _CEI_IMPORT_JOBS_LOCK:
+        job = _CEI_IMPORT_JOBS.get(job_id)
+        if job is None: return jsonify({"status": "error", "message": "Job not found"}), 404
+        snapshot = {k: v for k, v in job.items() if not k.startswith("_")}
+    return jsonify(snapshot)
+
+
+def _bg_cei_import(job_id, tmp_path, filename):
     try:
+        _cei_set_job(job_id, status="processing", pct=5, message="Parsing file...")
+        raw_rows = []
         if filename.endswith(".csv"):
-            file_bytes = uploaded_file.read()
-            text = file_bytes.decode("utf-8-sig", errors="replace")
-            stream = io.StringIO(text)
-            reader = csv.DictReader(stream)
-            raw_dicts = list(reader)
-        elif filename.endswith((".xlsx", ".xls")):
-            import openpyxl
-            wb = openpyxl.load_workbook(uploaded_file.stream, data_only=True)
-            ws = wb.active
-            rows = list(ws.iter_rows(values_only=True))
-            if not rows or len(rows) < 2:
-                return jsonify({"status": "error", "message": "Uploaded Excel sheet is empty"}), 400
-            headers = [str(c).strip() if c is not None else "" for c in rows[0]]
+            with open(tmp_path, "r", encoding="utf-8-sig", errors="replace", newline="") as fh:
+                reader = csv.reader(fh)
+                headers = next(reader)
+                idx = {str(h).strip().lower(): i for i, h in enumerate(headers)}
+                for r in reader:
+                    if any(r): raw_rows.append([r[idx.get(c, -1)] if idx.get(c, -1) != -1 else "" for c in CEI_COLUMNS])
+        else:
+            from python_calamine import CalamineWorkbook
+            wb = CalamineWorkbook.from_path(tmp_path)
+            rows = list(wb.get_sheet_by_index(0).to_python())
+            idx = {str(h).strip().lower(): i for i, h in enumerate(rows[0])}
             for r in rows[1:]:
-                if any(v is not None for v in r):
-                    row_dict = {headers[i]: r[i] for i in range(min(len(headers), len(r)))}
-                    raw_dicts.append(row_dict)
-    except Exception as e:
-        logger.exception("Failed to parse uploaded file: %s", e)
-        return jsonify({"status": "error", "message": f"File parsing failed: {str(e)}"}), 400
+                raw_rows.append([r[idx.get(c, -1)] if idx.get(c, -1) != -1 else "" for c in CEI_COLUMNS])
 
-    if not raw_dicts:
-        return jsonify({"status": "error", "message": "No data rows found in uploaded file"}), 400
+        converted = []
+        weeknums = set()
+        week_idx = CEI_COLUMNS.index("weeknum")
+        int_idx = {CEI_COLUMNS.index(c) for c in CEI_INT_COLS}
+        float_idx = {CEI_COLUMNS.index(c) for c in CEI_FLOAT_COLS}
 
-    # Clean headers (strip whitespaces and lowercase match)
-    first_row = raw_dicts[0]
-    header_lookup = {str(k).strip().lower(): str(k) for k in first_row.keys() if k is not None}
+        for r in raw_rows:
+            yw = _safe_int(r[week_idx], 0)
+            if yw <= 0: continue
+            weeknums.add(yw)
+            out = []
+            for i, val in enumerate(r):
+                if i == week_idx: out.append(str(yw))
+                elif i in int_idx: out.append(str(_safe_int(val, 0)))
+                elif i in float_idx: out.append("" if (fv := _safe_float(val)) is None else str(fv))
+                else: out.append(_safe_str(val, ""))
+            converted.append(out)
 
-    if "weeknum" not in header_lookup:
-        return jsonify({
-            "status": "error",
-            "message": "Missing required column 'weeknum' in uploaded file"
-        }), 400
-
-    # Build tuples in exact order of CEI_COLUMNS
-    insert_records = []
-    for r in raw_dicts:
-        # Create row dict with lowered keys
-        row_map = {str(k).strip().lower(): v for k, v in r.items() if k is not None}
-
-        # Check valid weeknum
-        raw_yw = row_map.get("weeknum")
-        try:
-            yw = int(float(str(raw_yw).strip()))
-        except (ValueError, TypeError):
-            continue
-
-        record = []
-        for col in CEI_COLUMNS:
-            val = row_map.get(col.lower())
-            if col == "weeknum":
-                record.append(yw)
-            elif col in CEI_INT_COLS:
-                record.append(_safe_int(val, default=0))
-            elif col in CEI_FLOAT_COLS:
-                record.append(_safe_float(val, default=None))
-            else:
-                record.append(_safe_str(val, default=None))
-        insert_records.append(tuple(record))
-
-    if not insert_records:
-        return jsonify({"status": "error", "message": "No valid data rows with proper weeknum found"}), 400
-
-    col_names = ", ".join([f'"{c}"' for c in CEI_COLUMNS])
-    val_placeholders = ", ".join(["%s"] * len(CEI_COLUMNS))
-    insert_query = f"INSERT INTO sow.cei_score ({col_names}) VALUES ({val_placeholders})"
-
-    # Smart Upsert (same flow as Redcoverage import): replace existing rows for
-    # every weeknum present in the uploaded file, so re-importing a week updates
-    # the data instead of creating duplicate records.
-    weeknums = sorted({rec[0] for rec in insert_records})
-    week_list = ", ".join(["%s"] * len(weeknums))
-    delete_query = f"DELETE FROM sow.cei_score WHERE weeknum IN ({week_list})"
-
-    try:
-        with db_query(get_postgres_connection) as (conn, cur):
-            cur.execute(delete_query, tuple(weeknums))
-            deleted = cur.rowcount
-            psycopg2.extras.execute_batch(cur, insert_query, insert_records, page_size=500)
+        _cei_set_job(job_id, status="processing", pct=15, message="Uploading...")
+        buf = io.StringIO()
+        csv.writer(buf, lineterminator="\n").writerows(converted)
+        payload = buf.getvalue().encode("utf-8")
+        
+        with get_postgres_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM sow.cei_score WHERE weeknum IN (%s)" % ",".join(["%s"]*len(weeknums)), tuple(weeknums))
+            cur.copy_expert("COPY sow.cei_score (%s) FROM STDIN WITH (FORMAT CSV, NULL '')" % 
+                            ",".join(['"%s"' % c for c in CEI_COLUMNS]), _CeiCountingReader(io.BytesIO(payload), len(payload), job_id))
             conn.commit()
+            cur.close()
+            conn.close()
 
         clear_cei_caches()
-
-        return jsonify({
-            "status": "success",
-            "rows_processed": len(insert_records),
-            "weeks_replaced": len(weeknums),
-            "rows_replaced": deleted,
-            "message": f"Successfully imported {len(insert_records):,} records into sow.cei_score ({len(weeknums)} week(s) replaced)"
-        })
+        _cei_set_job(job_id, status="success", pct=100, message="Import complete.")
     except Exception as e:
-        logger.exception("Database error while importing CEI records: %s", e)
-        return jsonify({"status": "error", "message": f"Database error during import: {str(e)}"}), 500
+        _cei_set_job(job_id, status="error", pct=0, message=str(e))
+    finally:
+        if os.path.exists(tmp_path): os.remove(tmp_path)
 
 
 # ══════════════════════════════════════════════════════════════════════

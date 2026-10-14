@@ -4,8 +4,8 @@
 {% block subSow_open %}open{% endblock %}
 {% block nav_sow_crowdsource %}active{% endblock %}
 
-{% block page_title %}SOW Crowdsource{% endblock %}
-{% block page_sub %}Scope of Work — Crowdsource Benchmark Performance{% endblock %}
+{% block page_title %}OKR Crowdsource{% endblock %}
+{% block page_sub %}Objectives and Key Results — Crowdsource Benchmark Performance{% endblock %}
 
 {% block topbar_chips %}{% endblock %}
 
@@ -426,6 +426,53 @@
     .btn-secondary:hover {
         background: rgba(79, 172, 254, 0.2);
         border-color: #4facfe;
+    }
+
+    .btn-primary {
+        height: 32px;
+        padding: 0 13px;
+        border-radius: 7px;
+        border: 1px solid rgba(79, 172, 254, 0.4);
+        background: linear-gradient(135deg, #4facfe 0%, #00c6ff 100%);
+        color: #ffffff !important;
+        font-size: 11.5px;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        box-shadow: 0 2px 8px rgba(79, 172, 254, 0.35);
+        white-space: nowrap;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        text-decoration: none;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 14px rgba(79, 172, 254, 0.5);
+        filter: brightness(1.08);
+        border-color: #38bdf8;
+    }
+
+    .btn-primary:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 6px rgba(79, 172, 254, 0.3);
+    }
+
+    .btn-primary i {
+        font-size: 12px;
+        color: #ffffff !important;
+    }
+
+    .btn-primary.btn-fb {
+        background: linear-gradient(135deg, #1877f2 0%, #0ea5e9 100%);
+        border-color: rgba(24, 119, 242, 0.4);
+        box-shadow: 0 2px 8px rgba(24, 119, 242, 0.35);
+    }
+
+    .btn-primary.btn-fb:hover {
+        box-shadow: 0 4px 14px rgba(24, 119, 242, 0.5);
+        border-color: #1877f2;
     }
 
     /* ── Multi-Year Quarterly Target Bar ── */
@@ -945,42 +992,50 @@
     .import-modal-overlay {
         position: fixed;
         top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0, 0, 0, 0.55);
-        backdrop-filter: blur(5px);
+        background: rgba(15, 23, 42, 0.72) !important;
+        backdrop-filter: blur(6px) !important;
         display: none;
         align-items: center;
         justify-content: center;
-        z-index: 9999;
+        z-index: 10000 !important;
     }
 
     .import-modal-overlay.open { display: flex !important; }
 
     .import-modal-card {
-        background: var(--bg-main);
-        border: 1px solid var(--sow-border);
-        border-radius: 16px;
-        width: 90%;
+        background: #ffffff !important;
+        color: #0f172a !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 14px !important;
+        width: 92%;
         max-width: 520px;
-        padding: 24px;
+        padding: 22px 24px;
         display: flex;
         flex-direction: column;
         gap: 16px;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35) !important;
+    }
+
+    [data-theme="dark"] .import-modal-card {
+        background: #1e293b !important;
+        color: #f8fafc !important;
+        border-color: #334155 !important;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65) !important;
     }
 
     .import-drop-zone {
-        border: 2px dashed rgba(79, 172, 254, 0.4);
+        border: 2px dashed rgba(79, 172, 254, 0.45);
         border-radius: 12px;
-        padding: 30px 20px;
+        padding: 28px 20px;
         text-align: center;
         cursor: pointer;
-        background: rgba(79, 172, 254, 0.04);
+        background: rgba(79, 172, 254, 0.05);
         transition: all 0.2s ease;
     }
 
     .import-drop-zone:hover {
-        border-color: #4facfe;
-        background: rgba(79, 172, 254, 0.08);
+        border-color: #38bdf8;
+        background: rgba(79, 172, 254, 0.12);
     }
 
     /* ══════════════ Platform Switcher (ONX / FB Share) ══════════════ */
@@ -1247,17 +1302,17 @@
         </button>
 
         <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
-            <button type="button" class="btn-secondary" onclick="openImportModal()">
-                <i class="fas fa-file-upload"></i> Import Excel / CSV
+            <button type="button" class="btn-primary" onclick="openImportModal()" title="Import Excel / CSV" style="display: flex; align-items: center; gap: 6px;">
+                <i class="fas fa-file-import"></i> Import Data
             </button>
             <div style="display: inline-flex; gap: 4px;">
-                <a href="/api/sow/sample-template?format=xlsx" class="btn-secondary" title="Sample XLSX">
-                    <i class="fas fa-file-excel" style="color: #10b981;"></i> Sample XLSX
-                </a>
-                <a href="/api/sow/sample-template?format=csv" class="btn-secondary" title="Sample CSV">
-                    <i class="fas fa-file-csv" style="color: #4facfe;"></i> Sample CSV
-                </a>
-            </div>
+                            <a href="/api/sow/sample-template?format=csv" class="btn-secondary" title="Sample CSV">
+                                <i class="fas fa-file-csv" style="color: #4facfe;"></i> Sample CSV
+                            </a>
+                            <button type="button" class="btn-secondary" onclick="openExportCsvModal('crowdsource_onx')" title="Export Data">
+                                <i class="fas fa-file-export"></i> Export Data
+                            </button>
+                        </div>
         </div>
     </div>
 
@@ -1857,17 +1912,14 @@
                     <button type="button" class="filter-preset-btn" onclick="fbQuickRange('all')">All</button>
                 </div>
                 <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
-                    <button type="button" class="btn-secondary" onclick="openFbImportModal()">
-                        <i class="fas fa-file-upload"></i> Import Excel / CSV
+                    <button type="button" class="btn-primary btn-fb" onclick="openFbImportModal()" title="Import Excel / CSV" style="display: flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-file-import"></i> Import Data
                     </button>
                     <div style="display: inline-flex; gap: 4px;">
-                        <a href="/api/sow/fb-sample-template?format=xlsx" class="btn-secondary" title="Sample XLSX">
-                            <i class="fas fa-file-excel" style="color: #10b981;"></i> Sample XLSX
-                        </a>
-                        <a href="/api/sow/fb-sample-template?format=csv" class="btn-secondary" title="Sample CSV">
-                            <i class="fas fa-file-csv" style="color: #4facfe;"></i> Sample CSV
-                        </a>
-                    </div>
+                                                <button type="button" class="btn-secondary" onclick="openExportCsvModal('crowdsource_fb')" title="Export Data">
+                                                    <i class="fas fa-file-export"></i> Export Data
+                                                </button>
+                                            </div>
                 </div>
             </div>
             <div class="filter-grid">
@@ -2274,72 +2326,111 @@
     </div>
 </div>
 
-<!-- ── Import Excel / CSV Modal ── -->
-<div class="import-modal-overlay" id="importModalOverlay">
+<!-- ── Import ONX Benchmark Data Modal ── -->
+<div class="import-modal-overlay" id="importModalOverlay" onclick="if(event.target === this) closeImportModal()">
     <div class="import-modal-card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px;">
-                <i class="fas fa-file-import" style="color: #4facfe;"></i> Import Benchmark Data
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--sow-border); padding-bottom: 12px;">
+            <div style="font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px; color: var(--text-main);">
+                <i class="fas fa-file-import" style="color: #4facfe;"></i> Import ONX Benchmark Data
             </div>
-            <button type="button" onclick="closeImportModal()" style="background: transparent; border: none; font-size: 16px; cursor: pointer; color: var(--sow-text-sub);">
+            <button type="button" onclick="closeImportModal()" style="background: transparent; border: none; font-size: 18px; cursor: pointer; color: var(--sow-text-sub);" title="Close">
                 <i class="fas fa-times"></i>
             </button>
         </div>
 
-        <div style="font-size: 13px; color: var(--sow-text-sub); line-height: 1.4;">
-            Upload an Excel (.xlsx, .xls) or CSV file with latest week records. Includes <code>snapshot_date</code> and <code>week_date</code> columns. Existing records with matching (yearweek, metric, level, location, provider) will be automatically updated.
+        <div style="font-size: 12.5px; color: var(--sow-text-sub); line-height: 1.45;">
+            Upload an Excel (.xlsx, .xls) or CSV file with benchmark records into <code>sow.onx_rank_score</code>. Existing records matching (yearweek, metric, level, location, provider) will be automatically updated.
         </div>
 
-        <div class="import-drop-zone" onclick="document.getElementById('importFileInput').click()">
+        <div class="import-drop-zone" id="onxDropZone" onclick="document.getElementById('importFileInput').click()">
             <i class="fas fa-cloud-upload-alt" style="font-size: 36px; color: #4facfe; margin-bottom: 8px;"></i>
-            <div style="font-weight: 600; font-size: 13px;" id="importDropText">Click to select or drag & drop file</div>
+            <div style="font-weight: 600; font-size: 13px; color: var(--text-main);" id="importDropText">Click to select or drag & drop file</div>
             <div style="font-size: 11px; color: var(--sow-text-sub); margin-top: 4px;">Supports .xlsx, .xls, .csv</div>
             <input type="file" id="importFileInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="onFileSelected(this)">
         </div>
 
-        <div id="importStatus" style="font-size: 13px; display: none; padding: 10px; border-radius: 8px;"></div>
+        <!-- File Selected Preview -->
+        <div id="onxFilePreview" style="display:none; padding:10px 14px; background:rgba(79, 172, 254, 0.08); border:1px solid rgba(79, 172, 254, 0.25); border-radius:8px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-file-alt" style="color:#4facfe;"></i>
+                <span id="onxFileName" style="font-size:12px; font-weight:700; color:var(--text-main); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+            </div>
+        </div>
 
-        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+        <!-- Progress Bar Container (RHI Style) -->
+        <div id="importProgressContainer" style="display:none; margin-top:4px;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:var(--sow-text-sub); margin-bottom:4px;">
+                <span id="importProgressStage">Uploading...</span>
+                <span id="importProgressPct">0%</span>
+            </div>
+            <div style="width:100%; height:8px; background:var(--sow-border); border-radius:4px; overflow:hidden;">
+                <div id="importProgressBar" style="width:0%; height:100%; background:linear-gradient(90deg, #4facfe, #00f2fe); transition:width 0.25s ease;"></div>
+            </div>
+            <div id="importProgressDetail" style="font-size:10px; color:var(--sow-text-sub); margin-top:4px; text-align:right;">0 / 0 rows</div>
+        </div>
+
+        <div id="importStatus" style="font-size: 12.5px; display: none; padding: 10px 14px; border-radius: 8px; font-weight:600;"></div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; border-top: 1px solid var(--sow-border); padding-top: 12px;">
             <button type="button" class="btn-secondary" onclick="closeImportModal()">Cancel</button>
-            <button type="button" class="btn-apply" id="btnSubmitImport" onclick="submitImport()">
-                <i class="fas fa-upload"></i> Start Import
+            <button type="button" class="btn-apply" id="btnSubmitImport" onclick="submitImport()" disabled>
+                <i class="fas fa-upload"></i> Upload & Import
             </button>
         </div>
     </div>
 </div>
 
-<!-- ── Import Excel / CSV Modal ── -->
-<div class="import-modal-overlay" id="fbImportModalOverlay">
+<!-- ── Import FB Share Data Modal ── -->
+<div class="import-modal-overlay" id="fbImportModalOverlay" onclick="if(event.target === this) closeFbImportModal()">
     <div class="import-modal-card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--sow-border); padding-bottom: 12px;">
+            <div style="font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px; color: var(--text-main);">
                 <i class="fab fa-facebook" style="color: #1877f2;"></i> Import FB Share Data
             </div>
-            <button type="button" onclick="closeFbImportModal()" style="background: transparent; border: none; font-size: 16px; cursor: pointer; color: var(--sow-text-sub);">
+            <button type="button" onclick="closeFbImportModal()" style="background: transparent; border: none; font-size: 18px; cursor: pointer; color: var(--sow-text-sub);" title="Close">
                 <i class="fas fa-times"></i>
             </button>
         </div>
 
-        <div style="font-size: 13px; color: var(--sow-text-sub); line-height: 1.4;">
+        <div style="font-size: 12.5px; color: var(--sow-text-sub); line-height: 1.45;">
             Upload an Excel (.xlsx, .xls) or CSV file into <code>sow.fb_share</code>.
             Columns: <code>yearweek, region, branch, kabupaten, archetype, telkomsel, isat3, xl, smartfren, gap, wow, mom, wow_cc, mom_cc, win_lose</code>.
             Required: <code>yearweek, branch, kabupaten</code>.
-            Existing records with matching (yearweek, branch, kabupaten) will be automatically updated.
         </div>
 
-        <div class="import-drop-zone" onclick="document.getElementById('fbImportFileInput').click()">
+        <div class="import-drop-zone" id="fbDropZone" onclick="document.getElementById('fbImportFileInput').click()">
             <i class="fas fa-cloud-upload-alt" style="font-size: 36px; color: #1877f2; margin-bottom: 8px;"></i>
-            <div style="font-weight: 600; font-size: 13px;" id="fbImportDropText">Click to select or drag & drop file</div>
+            <div style="font-weight: 600; font-size: 13px; color: var(--text-main);" id="fbImportDropText">Click to select or drag & drop file</div>
             <div style="font-size: 11px; color: var(--sow-text-sub); margin-top: 4px;">Supports .xlsx, .xls, .csv</div>
             <input type="file" id="fbImportFileInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="onFbFileSelected(this)">
         </div>
 
-        <div id="fbImportStatus" style="font-size: 13px; display: none; padding: 10px; border-radius: 8px;"></div>
+        <!-- File Selected Preview -->
+        <div id="fbFilePreview" style="display:none; padding:10px 14px; background:rgba(24, 119, 242, 0.08); border:1px solid rgba(24, 119, 242, 0.25); border-radius:8px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-file-alt" style="color:#1877f2;"></i>
+                <span id="fbFileName" style="font-size:12px; font-weight:700; color:var(--text-main); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+            </div>
+        </div>
 
-        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+        <!-- Progress Bar Container (RHI Style) -->
+        <div id="fbImportProgressContainer" style="display:none; margin-top:4px;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:var(--sow-text-sub); margin-bottom:4px;">
+                <span id="fbImportProgressStage">Uploading...</span>
+                <span id="fbImportProgressPct">0%</span>
+            </div>
+            <div style="width:100%; height:8px; background:var(--sow-border); border-radius:4px; overflow:hidden;">
+                <div id="fbImportProgressBar" style="width:0%; height:100%; background:linear-gradient(90deg, #1877f2, #38bdf8); transition:width 0.25s ease;"></div>
+            </div>
+            <div id="fbImportProgressDetail" style="font-size:10px; color:var(--sow-text-sub); margin-top:4px; text-align:right;">0 / 0 rows</div>
+        </div>
+
+        <div id="fbImportStatus" style="font-size: 12.5px; display: none; padding: 10px 14px; border-radius: 8px; font-weight:600;"></div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; border-top: 1px solid var(--sow-border); padding-top: 12px;">
             <button type="button" class="btn-secondary" onclick="closeFbImportModal()">Cancel</button>
-            <button type="button" class="btn-apply" id="btnSubmitFbImport" onclick="submitFbImport()">
-                <i class="fas fa-upload"></i> Start Import
+            <button type="button" class="btn-apply" id="btnSubmitFbImport" onclick="submitFbImport()" disabled>
+                <i class="fas fa-upload"></i> Upload & Import
             </button>
         </div>
     </div>
@@ -2540,14 +2631,6 @@
                     }
                 });
                 ctx.stroke();
-
-                // Target label
-                const firstY = y.getPixelForValue(targets[0] || 14);
-                ctx.fillStyle = '#475569';
-                ctx.font = '600 12px Inter, sans-serif';
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'bottom';
-                ctx.fillText('Target ' + (targets[0] || 14), left + 4, firstY - 3);
                 ctx.restore();
             }
 
@@ -3516,7 +3599,7 @@
         ctx.fillText("Target", 268, legY + 12);
 
         const link = document.createElement("a");
-        link.download = `SOW_Crowdsource_${document.getElementById("filterLocation").value}.png`;
+        link.download = `OKR_Crowdsource_${document.getElementById("filterLocation").value}.png`;
         link.href = exportCanvas.toDataURL("image/png");
         link.click();
     }
@@ -3532,7 +3615,7 @@
             summaryRows.push([yw, w, l, t, w >= t ? "Target Met" : "Below Target", ((w/16)*100).toFixed(1)]);
         });
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), "Weekly_Trend");
-        XLSX.writeFile(wb, `SOW_Crowdsource_${chartDataStore.location}.xlsx`);
+        XLSX.writeFile(wb, `OKR_Crowdsource_${chartDataStore.location}.xlsx`);
     }
 
     // ══════════════════════════════════════════════════════
@@ -3957,20 +4040,44 @@
     }
 
     // ── FB Share Import Modal ──
+    let fbImportPollInterval = null;
+
     function openFbImportModal() {
         document.getElementById("fbImportModalOverlay").classList.add("open");
         document.getElementById("fbImportStatus").style.display = "none";
+        document.getElementById("fbImportProgressContainer").style.display = "none";
+        document.getElementById("fbFilePreview").style.display = "none";
         document.getElementById("fbImportFileInput").value = "";
         document.getElementById("fbImportDropText").textContent = "Click to select or drag & drop file";
+        const btn = document.getElementById("btnSubmitFbImport");
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-upload"></i> Upload & Import';
+        if (fbImportPollInterval) {
+            clearInterval(fbImportPollInterval);
+            fbImportPollInterval = null;
+        }
     }
 
     function closeFbImportModal() {
         document.getElementById("fbImportModalOverlay").classList.remove("open");
+        if (fbImportPollInterval) {
+            clearInterval(fbImportPollInterval);
+            fbImportPollInterval = null;
+        }
     }
 
     function onFbFileSelected(input) {
+        const btn = document.getElementById("btnSubmitFbImport");
+        const preview = document.getElementById("fbFilePreview");
+        const nameEl = document.getElementById("fbFileName");
         if (input.files && input.files[0]) {
-            document.getElementById("fbImportDropText").textContent = input.files[0].name;
+            const f = input.files[0];
+            nameEl.textContent = `${f.name} (${(f.size / 1024).toFixed(1)} KB)`;
+            preview.style.display = "block";
+            btn.disabled = false;
+        } else {
+            preview.style.display = "none";
+            btn.disabled = true;
         }
     }
 
@@ -3981,26 +4088,83 @@
             return;
         }
 
+        const btn = document.getElementById("btnSubmitFbImport");
+        const statusEl = document.getElementById("fbImportStatus");
+        const progContainer = document.getElementById("fbImportProgressContainer");
+        const progBar = document.getElementById("fbImportProgressBar");
+        const progPct = document.getElementById("fbImportProgressPct");
+        const progStage = document.getElementById("fbImportProgressStage");
+        const progDetail = document.getElementById("fbImportProgressDetail");
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+        statusEl.style.display = "none";
+
+        progContainer.style.display = "block";
+        progBar.style.width = "10%";
+        progPct.textContent = "10%";
+        progStage.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading file...';
+        progDetail.textContent = "Connecting to server...";
+
         const formData = new FormData();
         formData.append("file", fileInput.files[0]);
 
-        const statusEl = document.getElementById("fbImportStatus");
-        statusEl.style.display = "block";
-        statusEl.style.background = "rgba(24, 119, 242, 0.1)";
-        statusEl.style.color = "#1877f2";
-        statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading & processing data...';
-
-        const btn = document.getElementById("btnSubmitFbImport");
-        btn.disabled = true;
-
         try {
-            const resp = await fetch("/api/sow/fb-import", {
+            const resp = await fetch("/api/sow/fb-import?async=1", {
                 method: "POST",
                 body: formData
             });
             const data = await resp.json();
 
-            if (data.status === "success") {
+            if (data.status === "queued" && data.job_id) {
+                fbImportPollInterval = setInterval(async () => {
+                    try {
+                        const pres = await fetch(`/api/sow/fb-import/progress/${data.job_id}`);
+                        const pdata = await pres.json();
+
+                        if (pdata.pct !== undefined) {
+                            progBar.style.width = pdata.pct + "%";
+                            progPct.textContent = pdata.pct + "%";
+                        }
+                        if (pdata.message) {
+                            progStage.textContent = pdata.message;
+                        }
+                        if (pdata.processed !== undefined && pdata.total_rows !== undefined) {
+                            progDetail.textContent = `${pdata.processed.toLocaleString()} / ${pdata.total_rows.toLocaleString()} rows`;
+                        }
+
+                        if (pdata.status === "success") {
+                            clearInterval(fbImportPollInterval);
+                            fbImportPollInterval = null;
+                            progBar.style.width = "100%";
+                            progPct.textContent = "100%";
+                            statusEl.style.display = "block";
+                            statusEl.style.background = "rgba(16, 185, 129, 0.15)";
+                            statusEl.style.color = "#10b981";
+                            statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ${pdata.message || "Import completed successfully."}`;
+                            setTimeout(() => {
+                                closeFbImportModal();
+                                fbApplyAll();
+                            }, 1500);
+                        } else if (pdata.status === "error") {
+                            clearInterval(fbImportPollInterval);
+                            fbImportPollInterval = null;
+                            progContainer.style.display = "none";
+                            statusEl.style.display = "block";
+                            statusEl.style.background = "rgba(239, 68, 68, 0.15)";
+                            statusEl.style.color = "#ef4444";
+                            statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${pdata.message || "Import failed"}`;
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-upload"></i> Try Again';
+                        }
+                    } catch (e) {
+                        // transient network error during polling
+                    }
+                }, 500);
+            } else if (data.status === "success") {
+                progBar.style.width = "100%";
+                progPct.textContent = "100%";
+                statusEl.style.display = "block";
                 statusEl.style.background = "rgba(16, 185, 129, 0.15)";
                 statusEl.style.color = "#10b981";
                 statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ${data.message}`;
@@ -4009,35 +4173,65 @@
                     fbApplyAll();
                 }, 1500);
             } else {
+                progContainer.style.display = "none";
+                statusEl.style.display = "block";
                 statusEl.style.background = "rgba(239, 68, 68, 0.15)";
                 statusEl.style.color = "#ef4444";
-                statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${data.message}`;
+                statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${data.message || "Import failed"}`;
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-upload"></i> Try Again';
             }
         } catch (err) {
             console.error("FB Import error:", err);
+            progContainer.style.display = "none";
+            statusEl.style.display = "block";
             statusEl.style.background = "rgba(239, 68, 68, 0.15)";
             statusEl.style.color = "#ef4444";
-            statusEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Import failed. Please check console.';
-        } finally {
+            statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Network error: ${err.message}`;
             btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-upload"></i> Try Again';
         }
     }
 
-    // ── Import Modal Functions ──
+    // ── ONX Import Modal Functions ──
+    let onxImportPollInterval = null;
+
     function openImportModal() {
         document.getElementById("importModalOverlay").classList.add("open");
         document.getElementById("importStatus").style.display = "none";
+        document.getElementById("importProgressContainer").style.display = "none";
+        document.getElementById("onxFilePreview").style.display = "none";
         document.getElementById("importFileInput").value = "";
         document.getElementById("importDropText").textContent = "Click to select or drag & drop file";
+        const btn = document.getElementById("btnSubmitImport");
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-upload"></i> Upload & Import';
+        if (onxImportPollInterval) {
+            clearInterval(onxImportPollInterval);
+            onxImportPollInterval = null;
+        }
     }
 
     function closeImportModal() {
         document.getElementById("importModalOverlay").classList.remove("open");
+        if (onxImportPollInterval) {
+            clearInterval(onxImportPollInterval);
+            onxImportPollInterval = null;
+        }
     }
 
     function onFileSelected(input) {
+        const btn = document.getElementById("btnSubmitImport");
+        const preview = document.getElementById("onxFilePreview");
+        const nameEl = document.getElementById("onxFileName");
         if (input.files && input.files[0]) {
-            document.getElementById("importDropText").textContent = input.files[0].name;
+            const f = input.files[0];
+            nameEl.textContent = `${f.name} (${(f.size / 1024).toFixed(1)} KB)`;
+            preview.style.display = "block";
+            btn.disabled = false;
+        } else {
+            preview.style.display = "none";
+            btn.disabled = true;
         }
     }
 
@@ -4048,26 +4242,83 @@
             return;
         }
 
+        const btn = document.getElementById("btnSubmitImport");
+        const statusEl = document.getElementById("importStatus");
+        const progContainer = document.getElementById("importProgressContainer");
+        const progBar = document.getElementById("importProgressBar");
+        const progPct = document.getElementById("importProgressPct");
+        const progStage = document.getElementById("importProgressStage");
+        const progDetail = document.getElementById("importProgressDetail");
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+        statusEl.style.display = "none";
+
+        progContainer.style.display = "block";
+        progBar.style.width = "10%";
+        progPct.textContent = "10%";
+        progStage.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading file...';
+        progDetail.textContent = "Connecting to server...";
+
         const formData = new FormData();
         formData.append("file", fileInput.files[0]);
 
-        const statusEl = document.getElementById("importStatus");
-        statusEl.style.display = "block";
-        statusEl.style.background = "rgba(79, 172, 254, 0.1)";
-        statusEl.style.color = "#4facfe";
-        statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading & processing data...';
-
-        const btn = document.getElementById("btnSubmitImport");
-        btn.disabled = true;
-
         try {
-            const resp = await fetch("/api/sow/import", {
+            const resp = await fetch("/api/sow/import?async=1", {
                 method: "POST",
                 body: formData
             });
             const data = await resp.json();
 
-            if (data.status === "success") {
+            if (data.status === "queued" && data.job_id) {
+                onxImportPollInterval = setInterval(async () => {
+                    try {
+                        const pres = await fetch(`/api/sow/import/progress/${data.job_id}`);
+                        const pdata = await pres.json();
+
+                        if (pdata.pct !== undefined) {
+                            progBar.style.width = pdata.pct + "%";
+                            progPct.textContent = pdata.pct + "%";
+                        }
+                        if (pdata.message) {
+                            progStage.textContent = pdata.message;
+                        }
+                        if (pdata.processed !== undefined && pdata.total_rows !== undefined) {
+                            progDetail.textContent = `${pdata.processed.toLocaleString()} / ${pdata.total_rows.toLocaleString()} rows`;
+                        }
+
+                        if (pdata.status === "success") {
+                            clearInterval(onxImportPollInterval);
+                            onxImportPollInterval = null;
+                            progBar.style.width = "100%";
+                            progPct.textContent = "100%";
+                            statusEl.style.display = "block";
+                            statusEl.style.background = "rgba(16, 185, 129, 0.15)";
+                            statusEl.style.color = "#10b981";
+                            statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ${pdata.message || "Import completed successfully."}`;
+                            setTimeout(() => {
+                                closeImportModal();
+                                applyAchievementFilters();
+                            }, 1500);
+                        } else if (pdata.status === "error") {
+                            clearInterval(onxImportPollInterval);
+                            onxImportPollInterval = null;
+                            progContainer.style.display = "none";
+                            statusEl.style.display = "block";
+                            statusEl.style.background = "rgba(239, 68, 68, 0.15)";
+                            statusEl.style.color = "#ef4444";
+                            statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${pdata.message || "Import failed"}`;
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-upload"></i> Try Again';
+                        }
+                    } catch (e) {
+                        // transient network error during polling
+                    }
+                }, 500);
+            } else if (data.status === "success") {
+                progBar.style.width = "100%";
+                progPct.textContent = "100%";
+                statusEl.style.display = "block";
                 statusEl.style.background = "rgba(16, 185, 129, 0.15)";
                 statusEl.style.color = "#10b981";
                 statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ${data.message}`;
@@ -4076,17 +4327,23 @@
                     applyAchievementFilters();
                 }, 1500);
             } else {
+                progContainer.style.display = "none";
+                statusEl.style.display = "block";
                 statusEl.style.background = "rgba(239, 68, 68, 0.15)";
                 statusEl.style.color = "#ef4444";
-                statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${data.message}`;
+                statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${data.message || "Import failed"}`;
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-upload"></i> Try Again';
             }
         } catch (err) {
             console.error("Import error:", err);
+            progContainer.style.display = "none";
+            statusEl.style.display = "block";
             statusEl.style.background = "rgba(239, 68, 68, 0.15)";
             statusEl.style.color = "#ef4444";
-            statusEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Failed to upload file.';
-        } finally {
+            statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Network error: ${err.message}`;
             btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-upload"></i> Try Again';
         }
     }
 
@@ -4364,7 +4621,7 @@
             ctx.font = "700 " + Math.round(18 * scale) + "px Inter, sans-serif";
             ctx.fillStyle = isDark ? "#f8fafc" : "#0f172a";
             ctx.textAlign = "left";
-            ctx.fillText(`SOW CROWDSOURCE — ${modeText}`, PadX + 12 * scale, PadY + 16 * scale);
+            ctx.fillText(`OKR CROWDSOURCE — ${modeText}`, PadX + 12 * scale, PadY + 16 * scale);
 
             // Subtitle
             ctx.font = "500 " + Math.round(11 * scale) + "px Inter, sans-serif";
@@ -4504,7 +4761,7 @@
                             throw new Error("Clipboard API not available");
                         }
                     } catch(clipErr) {
-                        const filename = `SOW_Crowdsource_Trend_Slide_${curSlide}.png`;
+                        const filename = `OKR_Crowdsource_Trend_Slide_${curSlide}.png`;
                         const a = document.createElement("a");
                         a.href = URL.createObjectURL(blob);
                         a.download = filename;
@@ -4542,9 +4799,9 @@
                     const canvas = renderTrendExportSlide(items, 1, 1, config);
                     const a = document.createElement("a");
                     a.href = canvas.toDataURL("image/png");
-                    a.download = `SOW_Crowdsource_${locName}_All_Metrics.png`;
+                    a.download = `OKR_Crowdsource_${locName}_All_Metrics.png`;
                     a.click();
-                    showPngToast("Downloaded SOW Trend PNG successfully!", "success");
+                    showPngToast("Downloaded OKR Trend PNG successfully!", "success");
                     closeTrendSmartExportModal();
                 } else {
                     showPngToast(`Downloading ${totalSlides} slides...`, "info");
@@ -4555,7 +4812,7 @@
                             const sCanvas = renderTrendExportSlide(sItems, s, totalSlides, config);
                             const a = document.createElement("a");
                             a.href = sCanvas.toDataURL("image/png");
-                            a.download = `SOW_Crowdsource_${locName}_Slide_${s}_of_${totalSlides}.png`;
+                            a.download = `OKR_Crowdsource_${locName}_Slide_${s}_of_${totalSlides}.png`;
                             a.click();
                             if (s === totalSlides) {
                                 showPngToast(`All ${totalSlides} slides downloaded successfully!`, "success");
@@ -5806,6 +6063,131 @@
             XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(fbCityAoa(fbCompareStore.city_table)), "City_Compare");
         }
         XLSX.writeFile(wb, `FB_Share_${d.start_yearweek}_${d.end_yearweek}.xlsx`);
+    }
+</script>
+
+<div id="exportCsvModal" class="import-modal-overlay">
+    <div class="import-modal-card">
+        <div class="filter-card-header">
+            <div class="filter-title">
+                <i class="fas fa-download"></i> Export CSV Data
+            </div>
+            <button type="button" class="btn-secondary" onclick="closeExportCsvModal()" style="height: 30px; padding: 0 10px;">
+                <i class="fas fa-times"></i> Close
+            </button>
+        </div>
+        <div class="filter-grid" style="display: flex; flex-direction: column; gap: 12px;">
+            <div class="filter-group" style="width: 100%;">
+                <label class="filter-label" for="exportCsvType"><i class="fas fa-filter"></i> Export Period Mode</label>
+                <select id="exportCsvType" class="filter-select" onchange="updateCsvExportOptions()">
+                    <option value="single">Single Week</option>
+                    <option value="range">Range Week</option>
+                </select>
+            </div>
+            <div class="filter-group" id="singleWeekExport" style="display: flex; width: 100%;">
+                <label class="filter-label" for="exportCsvWeekSingle"><i class="fas fa-calendar-alt"></i> Select Week</label>
+                <select id="exportCsvWeekSingle" class="filter-select" style="width: 100%;"></select>
+            </div>
+            <div class="filter-group" id="dateRangeExport" style="display: none; width: 100%;">
+                <label class="filter-label" for="exportCsvStartYw"><i class="fas fa-calendar-alt"></i> From Week</label>
+                <select id="exportCsvStartYw" class="filter-select" style="width: 100%;"></select>
+            </div>
+            <div class="filter-group" id="dateRangeExport2" style="display: none; width: 100%;">
+                <label class="filter-label" for="exportCsvEndYw"><i class="fas fa-calendar-check"></i> To Week</label>
+                <select id="exportCsvEndYw" class="filter-select" style="width: 100%;"></select>
+            </div>
+        </div>
+        <div class="filter-actions" style="margin-top: 16px; justify-content: flex-end;">
+            <button type="button" class="btn-secondary" onclick="closeExportCsvModal()">Cancel</button>
+            <button type="button" class="btn-apply" id="confirmExportCsvBtn" onclick="confirmCsvExport()">
+                <i class="fas fa-download"></i> Export
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentExportType = 'single';
+    let exportTarget = '';
+
+    function openExportCsvModal(target) {
+        exportTarget = target;
+        const modal = document.getElementById('exportCsvModal');
+        const singleWeekDiv = document.getElementById('singleWeekExport');
+        const rangeStartDiv = document.getElementById('dateRangeExport');
+        const rangeEndDiv = document.getElementById('dateRangeExport2');
+        const exportCsvType = document.getElementById('exportCsvType');
+
+        const weekSelectSingle = document.getElementById('exportCsvWeekSingle');
+        const weekSelectStart = document.getElementById('exportCsvStartYw');
+        const weekSelectEnd = document.getElementById('exportCsvEndYw');
+
+        let sourceStart = document.getElementById('filterStartYw');
+        let sourceEnd = document.getElementById('filterEndYw');
+        if (target === 'crowdsource_fb') {
+            sourceStart = document.getElementById('fbStartYw');
+            sourceEnd = document.getElementById('fbEndYw');
+        }
+
+        if (sourceStart) {
+            weekSelectSingle.innerHTML = sourceStart.innerHTML;
+            weekSelectStart.innerHTML = sourceStart.innerHTML;
+        }
+        if (sourceEnd) {
+            weekSelectEnd.innerHTML = sourceEnd.innerHTML;
+        }
+        
+        if (sourceStart && sourceStart.value) weekSelectStart.value = sourceStart.value;
+        if (sourceEnd && sourceEnd.value) weekSelectEnd.value = sourceEnd.value;
+        if (sourceStart && sourceStart.options.length > 0) weekSelectSingle.value = sourceStart.options[0].value;
+
+        singleWeekDiv.style.display = 'flex';
+        rangeStartDiv.style.display = 'none';
+        rangeEndDiv.style.display = 'none';
+        exportCsvType.value = 'single';
+        currentExportType = 'single';
+
+        modal.classList.add('open');
+    }
+
+    function closeExportCsvModal() {
+        document.getElementById('exportCsvModal').classList.remove('open');
+    }
+
+    function updateCsvExportOptions() {
+        const type = document.getElementById('exportCsvType').value;
+        const singleWeekDiv = document.getElementById('singleWeekExport');
+        const rangeStartDiv = document.getElementById('dateRangeExport');
+        const rangeEndDiv = document.getElementById('dateRangeExport2');
+
+        if (type === 'single') {
+            singleWeekDiv.style.display = 'flex';
+            rangeStartDiv.style.display = 'none';
+            rangeEndDiv.style.display = 'none';
+            currentExportType = 'single';
+        } else {
+            singleWeekDiv.style.display = 'none';
+            rangeStartDiv.style.display = 'flex';
+            rangeEndDiv.style.display = 'flex';
+            currentExportType = 'range';
+        }
+    }
+
+    function confirmCsvExport() {
+        const weekSingle = document.getElementById('exportCsvWeekSingle').value;
+        const weekStart = document.getElementById('exportCsvStartYw').value;
+        const weekEnd = document.getElementById('exportCsvEndYw').value;
+        
+        let url = `/api/sow/${exportTarget}-csv-export?`;
+
+        if (currentExportType === 'single') {
+            url += `week=${weekSingle}`;
+        } else {
+            url += `start_week=${weekStart}&end_week=${weekEnd}`;
+        }
+
+        window.location.href = url;
+        closeExportCsvModal();
     }
 </script>
 {% endblock %}

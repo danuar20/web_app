@@ -1798,51 +1798,40 @@
 
     window.submitCeiImport = async function () {
         if (!selectedCeiFile) return;
-
         const btn = document.getElementById('ceiImportBtn');
         const status = document.getElementById('ceiImportStatus');
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
-        }
-
-        // Week number is auto-detected from the uploaded file's 'weeknum' column
-        // (same as Redcoverage import — no manual override field).
-        const formData = new FormData();
-        formData.append('file', selectedCeiFile);
-
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Queuing...'; }
+        const formData = new FormData(); formData.append('file', selectedCeiFile);
         try {
             const res = await fetch('/api/sow/cei/import', { method: 'POST', body: formData });
             const data = await res.json();
-
-            if (status) {
-                status.style.display = 'block';
-                if (data.status === 'success') {
-                    status.style.color = '#10b981';
-                    status.innerHTML = `<i class="fas fa-check-circle"></i> ${data.message}`;
-                    setTimeout(() => {
-                        closeCeiImportModal();
-                        window.location.reload();
-                    }, 1500);
-                } else {
-                    status.style.color = '#ef4444';
-                    status.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${data.message}`;
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="fas fa-upload"></i> Retry Import';
+            if (data.status === 'queued') {
+                const poll = setInterval(async () => {
+                    const pRes = await fetch('/api/sow/cei/import/progress/' + data.job_id);
+                    const pData = await pRes.json();
+                    if (pData.status === 'processing') {
+                        status.style.display = 'block';
+                        status.style.color = '#0F3B66';
+                        status.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${pData.pct}%: ${pData.message}`;
+                    } else if (pData.status === 'success') {
+                        clearInterval(poll);
+                        status.style.color = '#10b981';
+                        status.innerHTML = `<i class="fas fa-check-circle"></i> Import success!`;
+                        setTimeout(() => { closeCeiImportModal(); window.location.reload(); }, 1000);
+                    } else {
+                        clearInterval(poll);
+                        status.style.color = '#ef4444';
+                        status.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${pData.message}`;
+                        btn.disabled = false; btn.innerHTML = '<i class="fas fa-upload"></i> Retry Import';
                     }
-                }
+                }, 800);
+            } else {
+                status.style.display = 'block'; status.style.color = '#ef4444';
+                status.innerHTML = data.message; btn.disabled = false; btn.innerHTML = '<i class="fas fa-upload"></i> Retry Import';
             }
         } catch (e) {
-            if (status) {
-                status.style.display = 'block';
-                status.style.color = '#ef4444';
-                status.innerHTML = `<i class="fas fa-times-circle"></i> Network error: ${e.message}`;
-            }
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-upload"></i> Retry Import';
-            }
+            status.style.display = 'block'; status.style.color = '#ef4444';
+            status.innerHTML = 'Network error: ' + e.message; btn.disabled = false; btn.innerHTML = '<i class="fas fa-upload"></i> Retry Import';
         }
     };
 
@@ -1911,7 +1900,7 @@
         chartEnlargedInstance = echarts.init(container);
 
         let sourceInstance = null;
-        let titleText = 'Chart Enlarge View';
+        let titleText = 'Chart';
         let subText = '';
 
         if (type === 'branchContrib') {

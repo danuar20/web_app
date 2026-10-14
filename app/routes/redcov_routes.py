@@ -134,13 +134,31 @@ def _get_regions():
 
 
 def _get_yearweeks(region="MALUKU DAN PAPUA"):
-    """Distinct yearweeks in sow.red_cov for the given region, descending."""
+    """Distinct yearweeks in sow.red_cov, with auto-invalidation if DB max week changed."""
     now = time.time()
     cache_key = f"_yearweeks_{region}"
+    
+    # 1. Query max yearweek for this specific region (fast: index scan)
+    db_max = 0
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute("SELECT MAX(yearweek) FROM sow.red_cov WHERE region = %s", (region,))
+            row = cur.fetchone()
+            if row and row[0]:
+                db_max = int(row[0])
+    except Exception:
+        pass
+
+    # 2. Check cache: if DB max (for this region) differs from cached max, we're stale
     if cache_key in _REDCOV_CACHE:
         val, exp = _REDCOV_CACHE[cache_key]
         if now < exp:
-            return val
+            cached_max = val[0] if val else 0
+            # Return cached data ONLY if the region's DB max matches what we cached
+            if db_max == cached_max and db_max > 0:
+                return val  # Cache is still valid
+
+    # 3. Cache miss, expired, or mismatched - refresh from DB
     try:
         with db_query(get_postgres_connection) as (conn, cur):
             cur.execute(
@@ -254,7 +272,9 @@ def _get_redcov_sample_rows():
 # MAIN VIEW ROUTE
 # ══════════════════════════════════════════════════════════════════════
 @redcov.route("/sow/redcov")
+@redcov.route("/okr/redcov")
 @login_required
+@viewer_blocked
 def redcov_dashboard_page():
     regions = _get_regions()
     current_region = request.args.get("region", "MALUKU DAN PAPUA")
@@ -1096,7 +1116,7 @@ def api_redcov_export():
             "Bad Tiles RSRP", "Grids > 3 Wks", "Cluster Grids", "Target Q3", "Target Status"
         ]
 
-        return csv_response(out_rows, headers, f"SOW_Redcov_{region}_W{str(yw)[4:]}.csv")
+        return csv_response(out_rows, headers, f"OKR_Redcov_{region}_W{str(yw)[4:]}.csv")
 
     except Exception as e:
         logger.exception("Error exporting Redcov: %s", e)
@@ -1121,7 +1141,7 @@ def api_redcov_sample_template():
             writer.writerow(row)
         csv_bytes = csv_buffer.getvalue().encode("utf-8-sig")
         response = make_response(csv_bytes)
-        response.headers["Content-Disposition"] = "attachment; filename=SOW_Redcov_Import_Sample.csv"
+        response.headers["Content-Disposition"] = "attachment; filename=OKR_Redcov_Import_Sample.csv"
         response.headers["Content-Type"] = "text/csv; charset=utf-8"
         return response
     else:
@@ -1131,7 +1151,7 @@ def api_redcov_sample_template():
 
             wb = openpyxl.Workbook()
             ws = wb.active
-            ws.title = "SOW_Redcov_Data"
+            ws.title = "OKR_Redcov_Data"
 
             header_fill = PatternFill(start_color="8B0000", end_color="8B0000", fill_type="solid")
             header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
@@ -1168,7 +1188,7 @@ def api_redcov_sample_template():
             excel_buffer.seek(0)
             return send_file(
                 excel_buffer,
-                download_name="SOW_Redcov_Import_Sample.xlsx",
+                download_name="OKR_Redcov_Import_Sample.xlsx",
                 as_attachment=True,
                 mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )

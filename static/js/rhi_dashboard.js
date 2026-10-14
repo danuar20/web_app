@@ -996,17 +996,17 @@
 
         if (chartType === 'achievement') {
             if (!currentAchievementData) return;
-            titleHtml = '<i class="fas fa-chart-line" style="color:#0F3B66;"></i> RHI Trend Achievement (Enlarged View)';
+            titleHtml = '<i class="fas fa-chart-line" style="color:#0F3B66;"></i> RHI Trend Achievement';
             subtitle = 'Stacked Good & Fail Cells vs % Good Cell Achievement & Stepped Target Line';
             opt = buildAchievementOption(currentAchievementData, isDark, true);
         } else if (chartType === 'failTech') {
             if (!currentAchievementData) return;
-            titleHtml = '<i class="fas fa-layer-group" style="color:#0F3B66;"></i> Achievement RHI Puma — Fail per Tech (Enlarged View)';
+            titleHtml = '<i class="fas fa-layer-group" style="color:#0F3B66;"></i> Achievement RHI Puma — Fail per Tech';
             subtitle = 'Failure Volumes per Technology (2G/4G/5G) vs Ach % Line & Target RHI PUMA %';
             opt = buildFailTechOption(currentAchievementData, isDark, true);
         } else if (chartType === 'pumaGauge') {
             if (!currentSummaryData) return;
-            titleHtml = '<i class="fas fa-tachometer-alt" style="color:#0F3B66;"></i> Good cell PUMA (Enlarged View)';
+            titleHtml = '<i class="fas fa-tachometer-alt" style="color:#0F3B66;"></i> Good cell PUMA';
             subtitle = 'PUMA Regional Achievement vs Quarterly Target';
             opt = buildGaugeOption(
                 currentSummaryData.good_cell_pct,
@@ -1015,22 +1015,22 @@
             );
         } else if (chartType === 'indicatorMini') {
             if (!currentIndicatorData || !currentIndicatorData.indicator_cards) return;
-            titleHtml = '<i class="fas fa-layer-group" style="color:#0F3B66;"></i> Key Radio Indicators Failure Burden (Enlarged View)';
+            titleHtml = '<i class="fas fa-layer-group" style="color:#0F3B66;"></i> Key Radio Indicators Failure Burden';
             subtitle = 'Fail Cell Volume per Key Radio Indicator';
             opt = buildIndicatorMiniOption(currentIndicatorData.indicator_cards, isDark, true);
         } else if (chartType === 'techTrend') {
             if (!currentTrendData) return;
-            titleHtml = '<i class="fas fa-chart-line" style="color:#0F3B66;"></i> Technology Trend (% Good Cell) (Enlarged View)';
+            titleHtml = '<i class="fas fa-chart-line" style="color:#0F3B66;"></i> Technology Trend (% Good Cell)';
             subtitle = 'Overall PUMA vs 2G / 4G / 5G Network Achievement Trend';
             opt = buildTechTrendOption(currentTrendData, isDark, true);
         } else if (chartType === 'failReason') {
             if (!currentTrendData) return;
-            titleHtml = '<i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i> Top Fail Root Causes (Enlarged View)';
+            titleHtml = '<i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i> Top Fail Root Causes';
             subtitle = 'Stacked Fail Cell Counts per Root Cause KPI per Week';
             opt = buildFailReasonOption(currentTrendData, isDark, true);
         } else if (chartType === 'geoGoodPct') {
             if (!currentGeoData) return;
-            titleHtml = '<i class="fas fa-map-marked-alt" style="color:#0F3B66;"></i> % Good Cell Trend vs Target (Enlarged View)';
+            titleHtml = '<i class="fas fa-map-marked-alt" style="color:#0F3B66;"></i> % Good Cell Trend vs Target';
             subtitle = 'Geo Scope Achievement vs Stepped Quarterly Target';
             opt = buildGeoGoodPctOption(currentGeoData, isDark, true);
         }
@@ -1700,9 +1700,23 @@
 
         const btn = document.getElementById('btnSubmitRhiImport');
         const alertBox = document.getElementById('rhiImportAlert');
+        const progContainer = document.getElementById('rhiImportProgressContainer');
+        const progBar = document.getElementById('rhiImportProgressBar');
+        const progPct = document.getElementById('rhiImportProgressPct');
+        const progDetail = document.getElementById('rhiImportProgressDetail');
+        const progStage = document.getElementById('rhiImportProgressStage');
+
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+        }
+        if (alertBox) alertBox.style.display = 'none';
+        if (progContainer) {
+            progContainer.style.display = 'block';
+            if (progBar) progBar.style.width = '0%';
+            if (progPct) progPct.textContent = '0%';
+            if (progStage) progStage.textContent = 'Uploading...';
+            if (progDetail) progDetail.textContent = '';
         }
 
         const formData = new FormData();
@@ -1715,39 +1729,64 @@
             });
             const data = await res.json();
 
-            if (alertBox) {
-                alertBox.style.display = 'block';
-                if (data.status === 'success') {
-                    alertBox.style.background = 'rgba(16,185,129,0.15)';
-                    alertBox.style.color = '#10b981';
-                    alertBox.innerHTML = `<i class="fas fa-check-circle"></i> ${data.message}`;
+            if (data.status === 'queued' && data.job_id) {
+                // Poll progress until done
+                const poll = setInterval(async () => {
+                    try {
+                        const pres = await fetch(`/api/sow/rhi/import/progress/${data.job_id}`);
+                        const pdata = await pres.json();
 
-                    setTimeout(() => {
-                        closeRhiImportModal();
-                        window.location.reload();
-                    }, 1200);
-                } else {
-                    alertBox.style.background = 'rgba(239,68,68,0.15)';
-                    alertBox.style.color = '#ef4444';
-                    alertBox.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${data.message || 'Import failed'}`;
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="fas fa-upload"></i> Try Again';
+                        if (progContainer && pdata.status !== 'queued') {
+                            progContainer.style.display = 'block';
+                            if (progBar) progBar.style.width = (pdata.pct || 0) + '%';
+                            if (progPct) progPct.textContent = (pdata.pct || 0) + '%';
+                            if (progStage) progStage.textContent = pdata.message || pdata.status;
+                            if (progDetail) progDetail.textContent = pdata.message || '';
+                        }
+
+                        if (pdata.status === 'success') {
+                            clearInterval(poll);
+                            if (alertBox) {
+                                alertBox.style.display = 'block';
+                                alertBox.style.background = 'rgba(16,185,129,0.15)';
+                                alertBox.style.color = '#10b981';
+                                alertBox.innerHTML = `<i class="fas fa-check-circle"></i> ${pdata.message || 'Import complete'}`;
+                            }
+                            setTimeout(() => {
+                                closeRhiImportModal();
+                                window.location.reload();
+                            }, 1500);
+                        } else if (pdata.status === 'error') {
+                            clearInterval(poll);
+                            showRhiImportError(pdata.message || 'Import failed', btn, alertBox, progContainer);
+                        }
+                    } catch (e) {
+                        // transient poll error — keep polling
                     }
-                }
+                }, 500);
+                // Safety timeout: stop after 10 minutes
+                setTimeout(() => clearInterval(poll), 600000);
+            } else {
+                // Direct error from POST (validation etc.)
+                showRhiImportError(data.message || 'Import failed', btn, alertBox, progContainer);
             }
         } catch (e) {
-            if (alertBox) {
-                alertBox.style.display = 'block';
-                alertBox.style.background = 'rgba(239,68,68,0.15)';
-                alertBox.style.color = '#ef4444';
-                alertBox.innerHTML = `<i class="fas fa-exclamation-circle"></i> Error uploading file: ${e.message}`;
-            }
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-upload"></i> Try Again';
-            }
+            showRhiImportError('Error uploading file: ' + e.message, btn, alertBox, progContainer);
         }
     };
+
+    function showRhiImportError(message, btn, alertBox, progContainer) {
+        if (alertBox) {
+            alertBox.style.display = 'block';
+            alertBox.style.background = 'rgba(239,68,68,0.15)';
+            alertBox.style.color = '#ef4444';
+            alertBox.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+        }
+        if (progContainer) progContainer.style.display = 'none';
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-upload"></i> Try Again';
+        }
+    }
 
 })();
