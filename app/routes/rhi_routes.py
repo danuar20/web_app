@@ -50,6 +50,27 @@ FAIL_REASON_LABELS = {
     "cssr_data_service_5g": "5G Data Setup",
 }
 
+# Tech most fail KPI metadata mapping
+TECH_MOST_FAIL_KPIS = {
+    "4g": [
+        {"code": "cssr_data_service", "title": "4G CSSR Data", "color": "#2563eb", "avg_key": "avg_cssr_4g"},
+        {"code": "availability_4g", "title": "4G Availability", "color": "#0F3B66", "avg_key": "avg_avail_4g"},
+        {"code": "ccsr_data_service", "title": "4G CCSR Data", "color": "#4f46e5", "avg_key": "avg_ccsr_4g"},
+        {"code": "volte_retain_rate", "title": "VoLTE Retainability", "color": "#d97706", "avg_key": "avg_volte_ret"},
+        {"code": "volte_accessibility_sr", "title": "VoLTE Accessibility", "color": "#059669", "avg_key": "avg_volte_acc"},
+    ],
+    "2g": [
+        {"code": "availability_2g", "title": "2G Availability", "color": "#0F3B66", "avg_key": "avg_avail_2g"},
+        {"code": "ccsr_voice_rate", "title": "2G CCSR Voice", "color": "#0284c7", "avg_key": "avg_ccsr_2g"},
+        {"code": "sd_setup_sr_rate", "title": "2G SDSR", "color": "#7c3aed", "avg_key": "avg_sdsr_2g"},
+        {"code": "cssr_voice_rate", "title": "2G CSSR Voice", "color": "#db2777", "avg_key": "avg_cssr_2g"},
+    ],
+    "5g": [
+        {"code": "cssr_data_service_5g", "title": "5G CSSR Data", "color": "#0d9488", "avg_key": "avg_cssr_5g"},
+        {"code": "ccsr_data_service_5g", "title": "5G CCSR Data", "color": "#6366f1", "avg_key": "avg_ccsr_5g"},
+    ]
+}
+
 # Key RHI Indicator definitions
 RHI_INDICATORS = [
     {
@@ -598,36 +619,62 @@ def api_rhi_indicator_cards():
                 t_clean = (tech or "").strip().lower()
                 tech_hist[t_clean][yw] = {"total": tot or 0, "good": gd or 0}
 
-            # 2. Key Indicator Averages & Fail Cell counts for target and prev week
-            weeks_compare = [target_yw] + ([prev_yw] if prev_yw else [])
-            ind_exprs = []
-            for ind in RHI_INDICATORS:
-                ind_exprs.append(
-                    f'ROUND(AVG("{ind["val_col"]}") FILTER (WHERE tech = \'{ind["tech"]}\')::numeric, 2) AS avg_{ind["id"]}'
-                )
-                ind_exprs.append(
-                    f'COUNT(*) FILTER (WHERE tech = \'{ind["tech"]}\' AND "{ind["fail_col"]}" = 1) AS fail_{ind["id"]}'
-                )
-            q_ind = f"""
-                SELECT weeknum, {", ".join(ind_exprs)}
+            # 2. Breakdown by most_fail_kpi across sparkline weeks
+            cur.execute(
+                """
+                SELECT 
+                    weeknum,
+                    tech,
+                    COALESCE(most_fail_kpi_4g, most_fail_kpi_2g, most_fail_kpi_5g) AS kpi_code,
+                    COUNT(*) AS fail_count
                 FROM sow.rhi_score
-                WHERE weeknum = ANY(%s)
-                GROUP BY weeknum
-                ORDER BY weeknum ASC
-            """
-            cur.execute(q_ind, (spark_yws,))
-            ind_by_week = {}
-            for r in cur.fetchall():
-                yw = r[0]
-                idx = 1
-                row_map = {}
-                for ind in RHI_INDICATORS:
-                    row_map[f'avg_{ind["id"]}'] = float(r[idx]) if r[idx] is not None else 0.0
-                    row_map[f'fail_{ind["id"]}'] = int(r[idx + 1]) if r[idx + 1] is not None else 0
-                    idx += 2
-                ind_by_week[yw] = row_map
+                WHERE weeknum = ANY(%s) AND UPPER(TRIM(remark_week)) = 'FAIL'
+                GROUP BY weeknum, tech, kpi_code
+                ORDER BY weeknum ASC;
+                """,
+                (spark_yws,)
+            )
+            kpi_counts = {}
+            for yw, tech, kpi, cnt in cur.fetchall():
+                t_clean = (tech or "").strip().lower()
+                kpi_counts.setdefault(t_clean, {}).setdefault(kpi, {})[yw] = cnt
 
-            # 3. Top Fail Root Cause in target week for 2G, 4G, 5G
+            # 3. Overall KPI Averages in target week
+            cur.execute(
+                """
+                SELECT 
+                    ROUND(AVG(avail_cell_w4) FILTER (WHERE tech='4g')::numeric, 2),
+                    ROUND(AVG(cssr_data_service) FILTER (WHERE tech='4g')::numeric, 2),
+                    ROUND(AVG(ccsr_data_service) FILTER (WHERE tech='4g')::numeric, 2),
+                    ROUND(AVG(volte_retain_rate) FILTER (WHERE tech='4g')::numeric, 2),
+                    ROUND(AVG(volte_accessibility_sr) FILTER (WHERE tech='4g')::numeric, 2),
+                    ROUND(AVG(avail_cell_w4) FILTER (WHERE tech='2g')::numeric, 2),
+                    ROUND(AVG(ccsr_tch) FILTER (WHERE tech='2g')::numeric, 2),
+                    ROUND(AVG(sdsr) FILTER (WHERE tech='2g')::numeric, 2),
+                    ROUND(AVG(cssr_tch) FILTER (WHERE tech='2g')::numeric, 2),
+                    ROUND(AVG(cssr_data_service_5g) FILTER (WHERE tech='5g')::numeric, 2),
+                    ROUND(AVG(ccsr_data_service_5g) FILTER (WHERE tech='5g')::numeric, 2)
+                FROM sow.rhi_score
+                WHERE weeknum = %s;
+                """,
+                (target_yw,)
+            )
+            avg_row = cur.fetchone()
+            avg_map = {
+                "avg_avail_4g": float(avg_row[0]) if avg_row and avg_row[0] is not None else 0.0,
+                "avg_cssr_4g": float(avg_row[1]) if avg_row and avg_row[1] is not None else 0.0,
+                "avg_ccsr_4g": float(avg_row[2]) if avg_row and avg_row[2] is not None else 0.0,
+                "avg_volte_ret": float(avg_row[3]) if avg_row and avg_row[3] is not None else 0.0,
+                "avg_volte_acc": float(avg_row[4]) if avg_row and avg_row[4] is not None else 0.0,
+                "avg_avail_2g": float(avg_row[5]) if avg_row and avg_row[5] is not None else 0.0,
+                "avg_ccsr_2g": float(avg_row[6]) if avg_row and avg_row[6] is not None else 0.0,
+                "avg_sdsr_2g": float(avg_row[7]) if avg_row and avg_row[7] is not None else 0.0,
+                "avg_cssr_2g": float(avg_row[8]) if avg_row and avg_row[8] is not None else 0.0,
+                "avg_cssr_5g": float(avg_row[9]) if avg_row and avg_row[9] is not None else 0.0,
+                "avg_ccsr_5g": float(avg_row[10]) if avg_row and avg_row[10] is not None else 0.0,
+            }
+
+            # 4. Top Fail Root Cause in target week for 2G, 4G, 5G
             cur.execute(
                 """
                 SELECT tech,
@@ -690,57 +737,56 @@ def api_rhi_indicator_cards():
                 "top_fail_share": top_fail_share,
             })
 
-        # Format Indicator Cards
-        curr_ind = ind_by_week.get(target_yw, {})
-        prev_ind = ind_by_week.get(prev_yw, {}) if prev_yw else {}
-        
-        tech_fail_map = {c["tech"].lower(): c["fail"] for c in tech_cards}
-        total_fail_4g = tech_fail_map.get("4g", 0)
-        total_fail_2g = tech_fail_map.get("2g", 0)
+        # Format Indicator Cards grouped by Technology (4G, 2G, 5G)
+        res_by_tech = {}
+        for t_key in ["4g", "2g", "5g"]:
+            kpi_list = TECH_MOST_FAIL_KPIS.get(t_key, [])
+            tot_tech_fail = sum(kpi_counts.get(t_key, {}).get(item["code"], {}).get(target_yw, 0) for item in kpi_list)
+            cards = []
+            for item in kpi_list:
+                code = item["code"]
+                c_cnt = kpi_counts.get(t_key, {}).get(code, {}).get(target_yw, 0)
+                p_cnt = kpi_counts.get(t_key, {}).get(code, {}).get(prev_yw, 0) if prev_yw else None
+                d_cnt = (c_cnt - p_cnt) if p_cnt is not None else None
+                d_pct = round(((c_cnt - p_cnt) * 100.0 / p_cnt), 1) if (p_cnt and p_cnt > 0) else None
+                share = round(c_cnt * 100.0 / tot_tech_fail, 1) if tot_tech_fail else 0.0
+                trend = [kpi_counts.get(t_key, {}).get(code, {}).get(w, 0) for w in spark_yws]
+
+                cards.append({
+                    "code": code,
+                    "title": item["title"],
+                    "tech": t_key.upper(),
+                    "color": item["color"],
+                    "fail_count": c_cnt,
+                    "prev_fail_count": p_cnt,
+                    "delta_fail": d_cnt,
+                    "delta_pct": d_pct,
+                    "share": share,
+                    "avg_score": avg_map.get(item["avg_key"], 0.0),
+                    "unit": "%",
+                    "fail_trend": trend,
+                    "spark_weeks": [f"W{str(w)[4:]}" for w in spark_yws],
+                })
+
+            # Sort cards by fail count descending so top failure root cause is first
+            cards.sort(key=lambda x: x["fail_count"], reverse=True)
+            res_by_tech[t_key] = {
+                "tech": t_key.upper(),
+                "total_fails": tot_tech_fail,
+                "cards": cards,
+            }
+
         total_fail_all = sum(c["fail"] for c in tech_cards)
-
-        indicator_cards = []
-        for ind in RHI_INDICATORS:
-            val_c = curr_ind.get(f'avg_{ind["id"]}', 0.0)
-            val_p = prev_ind.get(f'avg_{ind["id"]}', None) if prev_yw else None
-            fail_c = curr_ind.get(f'fail_{ind["id"]}', 0)
-            fail_p = prev_ind.get(f'fail_{ind["id"]}', None) if prev_yw else None
-            delta = round(val_c - val_p, 2) if val_p is not None else None
-            delta_fail = (fail_c - fail_p) if fail_p is not None else None
-            
-            tech_key = ind["tech"].lower()
-            tech_fails = tech_fail_map.get(tech_key, 0)
-            fail_share = round((fail_c * 100.0 / tech_fails), 1) if tech_fails else 0.0
-
-            # 6-8 week trend of fail cells and scores
-            fail_trend = [ind_by_week.get(syw, {}).get(f'fail_{ind["id"]}', 0) for syw in spark_yws]
-            score_trend = [ind_by_week.get(syw, {}).get(f'avg_{ind["id"]}', 0.0) for syw in spark_yws]
-
-            indicator_cards.append({
-                "id": ind["id"],
-                "title": ind["title"],
-                "tech": ind["tech"].upper(),
-                "color": ind["color"],
-                "value": val_c,
-                "unit": ind["unit"],
-                "delta": delta,
-                "fail_count": fail_c,
-                "delta_fail": delta_fail,
-                "tech_fail_total": tech_fails,
-                "fail_share": fail_share,
-                "fail_trend": fail_trend,
-                "score_trend": score_trend,
-                "spark_weeks": [f"W{str(w)[4:]}" for w in spark_yws],
-            })
-
         res_data = {
             "status": "success",
             "yearweek": target_yw,
             "prev_yearweek": prev_yw,
             "tech_cards": tech_cards,
-            "indicator_cards": indicator_cards,
-            "total_fail_4g": total_fail_4g,
-            "total_fail_2g": total_fail_2g,
+            "indicators_by_tech": res_by_tech,
+            "indicator_cards": res_by_tech.get("4g", {}).get("cards", []),
+            "total_fail_4g": res_by_tech.get("4g", {}).get("total_fails", 0),
+            "total_fail_2g": res_by_tech.get("2g", {}).get("total_fails", 0),
+            "total_fail_5g": res_by_tech.get("5g", {}).get("total_fails", 0),
             "total_fail_all": total_fail_all,
         }
         _RHI_CACHE[cache_key] = (res_data, now + _RHI_CACHE_TTL)

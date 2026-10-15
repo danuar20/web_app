@@ -27,6 +27,7 @@
     let currentAchievementData = null;
     let currentSummaryData = null;
     let currentIndicatorData = null;
+    let currentIndicatorTech = '4g';
     let currentTrendData = null;
     let currentGeoData = null;
     let currentEnlargedType = null;
@@ -503,66 +504,120 @@
                 }).join('');
             }
 
-            // 2. Render 6 Key Indicator Cards (Matching Sample Picture Layout)
-            const indGrid = document.getElementById('indicatorCardsGrid');
-            if (indGrid && data.indicator_cards) {
-                const fail4g = data.total_fail_4g || 0;
-                const fail2g = data.total_fail_2g || 0;
-                const sorted = [...data.indicator_cards].sort((a, b) => (b.fail_count || 0) - (a.fail_count || 0));
-                const topC = sorted[0] || {};
-
-                const sumTextEl = document.getElementById('indicatorImpactText');
-                if (sumTextEl) {
-                    sumTextEl.innerHTML = `Total fails: <strong style="color:#ef4444;">${fail4g.toLocaleString()} (4G)</strong> & <strong style="color:#ef4444;">${fail2g.toLocaleString()} (2G)</strong> · Top contributor: <strong style="color:${topC.color};">${topC.title}</strong> (${(topC.fail_count || 0).toLocaleString()} cells • ${topC.fail_share || 0}% of ${topC.tech} fails)`;
-                }
-
-                indGrid.innerHTML = data.indicator_cards.map(ind => {
-                    const isPos = ind.delta !== null && ind.delta >= 0;
-                    const deltaIcon = isPos ? '▲' : '▼';
-                    const deltaClass = isPos ? 'val-pos' : 'val-neg';
-                    const deltaSign = (ind.delta !== null && ind.delta > 0) ? '+' : '';
-                    const deltaText = ind.delta !== null ? `${deltaIcon} ${deltaSign}${ind.delta}% WoW` : '--';
-
-                    const failCount = ind.fail_count || 0;
-                    const techFails = ind.tech_fail_total || 0;
-                    const shareText = techFails ? `${ind.fail_share}% of ${ind.tech} fails` : '0% of fails';
-
-                    // Trend is worsening if score dropped
-                    const isWorsened = ind.delta !== null && ind.delta < 0;
-
-                    // Generate small mini trend chart like sample picture (gray line + terminal status dot)
-                    const sparkSvg = generateSparklineSvg(ind.score_trend || [], isWorsened, 78, 26);
-                    const weekListStr = (ind.spark_weeks || []).join(', ');
-
-                    return `
-                        <div class="rhi-ind-card" style="border-top: 3px solid ${ind.color};">
-                            <div class="rhi-ind-card-title">
-                                <span>${ind.title}</span>
-                                <span class="tech-badge" style="color:${ind.color};">${ind.tech}</span>
-                            </div>
-                            <div class="rhi-ind-body">
-                                <div class="rhi-ind-left">
-                                    <div class="rhi-ind-val">
-                                        ${ind.value}<span class="unit">${ind.unit}</span>
-                                    </div>
-                                    <div class="rhi-ind-delta">
-                                        <span class="${deltaClass}">${deltaText}</span>
-                                    </div>
-                                    <div class="rhi-ind-subtext">
-                                        <strong>${failCount.toLocaleString()}</strong> fail cells <span style="opacity:0.85;">(${shareText})</span>
-                                    </div>
-                                </div>
-                                <div class="rhi-ind-chart-wrap" title="Weekly score trend (${weekListStr}): ${(ind.score_trend || []).join(' → ')}% · Fail cells: ${failCount.toLocaleString()}">
-                                    ${sparkSvg}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            }
+            // 2. Render Indicator Breakdown & Tech Mini Tabs
+            currentIndicatorData = data;
+            renderIndicatorBreakdown();
         } catch (e) {
             console.error('Error loading indicator cards:', e);
         }
+    }
+
+    // ── Mini Tab for Indicator Tech Selection (4G, 2G, 5G) ──
+    window.switchIndicatorTech = function (tech) {
+        currentIndicatorTech = tech;
+        const tabBtns = document.querySelectorAll('#indicatorTechTabs .rhi-mini-tab-btn');
+        tabBtns.forEach(btn => {
+            if (btn.getAttribute('data-tech') === tech) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+        renderIndicatorCardsForTech();
+    };
+
+    function renderIndicatorBreakdown() {
+        if (!currentIndicatorData) return;
+        
+        // Update mini-tab badge counts
+        const b4 = document.getElementById('pillBadge4G');
+        const b2 = document.getElementById('pillBadge2G');
+        const b5 = document.getElementById('pillBadge5G');
+        if (b4) b4.innerText = (currentIndicatorData.total_fail_4g || 0).toLocaleString();
+        if (b2) b2.innerText = (currentIndicatorData.total_fail_2g || 0).toLocaleString();
+        if (b5) b5.innerText = (currentIndicatorData.total_fail_5g || 0).toLocaleString();
+
+        renderIndicatorCardsForTech();
+    }
+
+    function renderIndicatorCardsForTech() {
+        if (!currentIndicatorData) return;
+        const byTech = currentIndicatorData.indicators_by_tech || {};
+        const techData = byTech[currentIndicatorTech] || { tech: currentIndicatorTech.toUpperCase(), total_fails: 0, cards: [] };
+        const cards = techData.cards || [];
+        const totalTechFails = techData.total_fails || 0;
+
+        const sumTextEl = document.getElementById('indicatorImpactText');
+        if (sumTextEl) {
+            if (totalTechFails === 0) {
+                sumTextEl.innerHTML = `Total <strong style="color:#10b981;">0 failed cells</strong> in ${techData.tech} Network · 100% Good Cell Achievement`;
+            } else {
+                const topC = cards[0] || {};
+                sumTextEl.innerHTML = `Total <strong>${techData.tech}</strong> fails: <strong style="color:#ef4444;">${totalTechFails.toLocaleString()} cells</strong> across ${cards.length} root cause KPIs · Top contributor: <strong style="color:${topC.color || '#ef4444'};">${topC.title}</strong> (${(topC.fail_count || 0).toLocaleString()} cells • ${topC.share || 0}%)`;
+            }
+        }
+
+        const indGrid = document.getElementById('indicatorCardsGrid');
+        if (!indGrid) return;
+
+        if (!cards.length || (totalTechFails === 0 && currentIndicatorTech === '5g')) {
+            indGrid.innerHTML = `
+                <div style="grid-column: 1 / -1; padding: 22px; text-align: center; color: var(--text-muted); background: rgba(16, 185, 129, 0.05); border: 1px dashed rgba(16, 185, 129, 0.3); border-radius: 8px;">
+                    <i class="fas fa-check-circle" style="color: #10b981; font-size: 20px; margin-bottom: 6px;"></i>
+                    <div style="font-weight: 700; color: var(--text-main);">Zero Failure in ${techData.tech} Network</div>
+                    <div style="font-size: 11px;">All cells achieved RHI targets in Week ${String(currentIndicatorData.yearweek).slice(4)}.</div>
+                </div>
+            `;
+            return;
+        }
+
+        indGrid.innerHTML = cards.map(c => {
+            const failCount = c.fail_count || 0;
+            const deltaFail = c.delta_fail;
+            let deltaHtml = '--';
+            let isWorsened = false;
+
+            if (deltaFail !== null && deltaFail !== undefined) {
+                if (deltaFail > 0) {
+                    isWorsened = true; // more fails is worse
+                    deltaHtml = `<span class="val-neg">▲ +${deltaFail.toLocaleString()} (${c.delta_pct || 0}%) WoW</span>`;
+                } else if (deltaFail < 0) {
+                    isWorsened = false; // less fails is improvement
+                    deltaHtml = `<span class="val-pos">▼ ${deltaFail.toLocaleString()} (${c.delta_pct || 0}%) WoW</span>`;
+                } else {
+                    deltaHtml = `<span style="color:var(--text-muted);">0 (0.0%) WoW</span>`;
+                }
+            }
+
+            const sparkSvg = generateSparklineSvg(c.fail_trend || [], isWorsened, 78, 26);
+            const weekListStr = (c.spark_weeks || []).join(', ');
+            const avgText = c.avg_score ? ` · Avg: <strong>${c.avg_score}%</strong>` : '';
+
+            return `
+                <div class="rhi-ind-card" style="border-top: 3px solid ${c.color};">
+                    <div class="rhi-ind-card-title">
+                        <span>${c.title}</span>
+                        <span class="tech-badge" style="color:${c.color};">${c.tech}</span>
+                    </div>
+                    <div class="rhi-ind-body">
+                        <div class="rhi-ind-left">
+                            <div class="rhi-ind-val">
+                                ${failCount.toLocaleString()}<span class="unit">cells</span>
+                            </div>
+                            <div class="rhi-ind-delta">
+                                ${deltaHtml}
+                            </div>
+                            <div class="rhi-ind-subtext">
+                                <strong>${c.share}%</strong> of ${c.tech} fails${avgText}
+                            </div>
+                        </div>
+                        <div class="rhi-ind-chart-wrap" title="Weekly fail cell trend (${weekListStr}): ${(c.fail_trend || []).map(v => v.toLocaleString()).join(' → ')} cells">
+                            ${sparkSvg}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
 
     // Mini SVG Sparkline generator (Matching Sample Picture: subtle gray trend line with colored terminal dot)

@@ -549,6 +549,65 @@
         margin-top: 2px;
     }
 
+    /* ── Mini Tabs for Tech Selection (4G, 2G, 5G) ── */
+    .rhi-mini-tabs {
+        display: inline-flex;
+        align-items: center;
+        background: rgba(15, 59, 102, 0.06);
+        padding: 2.5px;
+        border-radius: 20px;
+        gap: 3px;
+    }
+
+    [data-theme="dark"] .rhi-mini-tabs {
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .rhi-mini-tab-btn {
+        border: none;
+        background: transparent;
+        padding: 3px 10px;
+        border-radius: 16px;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-muted);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.15s ease;
+        line-height: 1.4;
+    }
+
+    .rhi-mini-tab-btn .tab-badge {
+        font-size: 9.5px;
+        font-weight: 800;
+        padding: 1px 6px;
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.08);
+        color: var(--text-main);
+    }
+
+    [data-theme="dark"] .rhi-mini-tab-btn .tab-badge {
+        background: rgba(255, 255, 255, 0.15);
+        color: #f1f5f9;
+    }
+
+    .rhi-mini-tab-btn:hover {
+        color: var(--text-main);
+    }
+
+    .rhi-mini-tab-btn.active {
+        background: #0F3B66;
+        color: #ffffff;
+        box-shadow: 0 2px 6px rgba(15, 59, 102, 0.25);
+    }
+
+    .rhi-mini-tab-btn.active .tab-badge {
+        background: rgba(255, 255, 255, 0.25);
+        color: #ffffff;
+    }
+
     /* ── Key Radio Indicators Grid & Category Mini Cards ── */
     .rhi-ind-grid {
         display: grid;
@@ -1459,14 +1518,28 @@
                     <!-- Injected dynamically via JS -->
                 </div>
 
-                <!-- 6 Key Radio Indicators Breakdown (Category Cards with Embedded Mini Charts) -->
+                <!-- Key Radio Indicators Breakdown with Tech Selection Mini Tabs (4G, 2G, 5G) -->
                 <div class="rhi-card" style="padding: 14px 16px; flex: 1; display: flex; flex-direction: column;">
-                    <div class="rhi-card-header" style="margin-bottom: 10px; padding-bottom: 8px;">
-                        <div class="rhi-card-title">
-                            <i class="fas fa-layer-group" style="color:var(--rhi-primary);"></i> Key Radio Indicators Breakdown
+                    <div class="rhi-card-header" style="margin-bottom: 10px; padding-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                            <div class="rhi-card-title">
+                                <i class="fas fa-layer-group" style="color:var(--rhi-primary);"></i> Key Radio Indicators Breakdown
+                            </div>
+                            <!-- Mini Tab for Tech Selection -->
+                            <div class="rhi-mini-tabs" id="indicatorTechTabs">
+                                <button type="button" class="rhi-mini-tab-btn active" data-tech="4g" onclick="switchIndicatorTech('4g')">
+                                    4G LTE <span class="tab-badge" id="pillBadge4G">--</span>
+                                </button>
+                                <button type="button" class="rhi-mini-tab-btn" data-tech="2g" onclick="switchIndicatorTech('2g')">
+                                    2G GSM <span class="tab-badge" id="pillBadge2G">--</span>
+                                </button>
+                                <button type="button" class="rhi-mini-tab-btn" data-tech="5g" onclick="switchIndicatorTech('5g')">
+                                    5G NR <span class="tab-badge" id="pillBadge5G">--</span>
+                                </button>
+                            </div>
                         </div>
                         <div style="display:flex; align-items:center; gap:8px;">
-                            <span style="font-size:11px; color:var(--text-muted);">Weekly failure trend & cell volume per category</span>
+                            <span style="font-size:11px; color:var(--text-muted);">Root cause failure breakdown from most_fail_kpi</span>
                             <button type="button" class="rhi-btn-icon" onclick="exportIndicatorsCardPNG()" title="Save PNG">
                                 <i class="fas fa-camera"></i>
                             </button>
