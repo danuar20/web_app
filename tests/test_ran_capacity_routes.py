@@ -46,10 +46,16 @@ def test_ran_capacity_page_authenticated(auth_client):
     assert "branchDistribWrap" in html
 
 
-def test_ran_capacity_page_viewer_blocked(viewer_client):
-    """Viewer role should be blocked from /sow/ran_capacity."""
-    res = viewer_client.get("/sow/ran_capacity", follow_redirects=False)
-    assert res.status_code in (302, 403)
+def test_ran_capacity_page_viewer_allowed(viewer_client):
+    """Viewer role should be allowed to view /sow/ran_capacity and /okr/ran_capacity."""
+    res = viewer_client.get("/sow/ran_capacity")
+    assert res.status_code == 200
+    res_okr = viewer_client.get("/okr/ran_capacity")
+    assert res_okr.status_code == 200
+
+    # But viewer is blocked from mutating import endpoint
+    res_import = viewer_client.post("/api/sow/ran_capacity/import", follow_redirects=False)
+    assert res_import.status_code in (302, 403)
 
 
 def test_api_ran_capacity_summary_w38(auth_client):

@@ -47,10 +47,16 @@ def test_redcov_page_authenticated(auth_client):
     assert "chartTopContributors" in html
 
 
-def test_redcov_page_viewer_blocked(viewer_client):
-    """Viewer role should be blocked from /sow/redcov."""
-    res = viewer_client.get("/sow/redcov", follow_redirects=False)
-    assert res.status_code in (302, 403)
+def test_redcov_page_viewer_allowed(viewer_client):
+    """Viewer role should be allowed to view /sow/redcov and /okr/redcov."""
+    res = viewer_client.get("/sow/redcov")
+    assert res.status_code == 200
+    res_okr = viewer_client.get("/okr/redcov")
+    assert res_okr.status_code == 200
+
+    # But viewer is blocked from mutating import endpoint
+    res_import = viewer_client.post("/api/sow/redcov/import", follow_redirects=False)
+    assert res_import.status_code in (302, 403)
 
 
 def test_api_redcov_summary(auth_client):

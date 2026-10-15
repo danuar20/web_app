@@ -298,7 +298,6 @@ def _get_sample_rows():
 @ran_capacity.route("/sow/ran_capacity")
 @ran_capacity.route("/okr/ran_capacity")
 @login_required
-@viewer_blocked
 def ran_capacity_page():
     regions = _get_regions()
     current_region = request.args.get("region", "PUMA")
@@ -1645,6 +1644,7 @@ def api_ran_capacity_sample_template():
 @ran_capacity.route("/api/sow/ran_capacity/import", methods=["POST"])
 @csrf.exempt
 @login_required
+@viewer_blocked
 def api_ran_capacity_import():
     if "file" not in request.files:
         return jsonify({"status": "error", "message": "No file uploaded"}), 400

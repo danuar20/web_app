@@ -274,7 +274,6 @@ def _get_redcov_sample_rows():
 @redcov.route("/sow/redcov")
 @redcov.route("/okr/redcov")
 @login_required
-@viewer_blocked
 def redcov_dashboard_page():
     regions = _get_regions()
     current_region = request.args.get("region", "MALUKU DAN PAPUA")
@@ -1203,6 +1202,7 @@ def api_redcov_sample_template():
 @redcov.route("/api/sow/redcov/import", methods=["POST"])
 @csrf.exempt
 @login_required
+@viewer_blocked
 def api_redcov_import():
     if "file" not in request.files:
         return jsonify({"status": "error", "message": "No file uploaded"}), 400
