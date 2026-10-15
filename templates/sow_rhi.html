@@ -549,61 +549,122 @@
         margin-top: 2px;
     }
 
-    /* ── Key Radio Indicators Grid ── */
+    /* ── Key Radio Indicators Grid & Category Mini Cards ── */
     .rhi-ind-grid {
         display: grid;
-        grid-template-columns: repeat(6, 1fr);
-        gap: 8px;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        flex: 1;
     }
 
-    @media (max-width: 1400px) {
-        .rhi-ind-grid {
-            grid-template-columns: repeat(3, 1fr);
-        }
-    }
-
-    @media (max-width: 768px) {
+    @media (max-width: 1200px) {
         .rhi-ind-grid {
             grid-template-columns: repeat(2, 1fr);
         }
     }
 
+    @media (max-width: 600px) {
+        .rhi-ind-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
     .rhi-ind-card {
         background: #ffffff;
-        border-radius: 8px;
+        border-radius: 10px;
         border: 1px solid var(--border);
-        padding: 10px 12px;
+        padding: 10px 14px;
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        justify-content: space-between;
+        gap: 6px;
         position: relative;
         overflow: hidden;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .rhi-ind-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    [data-theme="dark"] .rhi-ind-card {
+        background: #1e293b;
+        border-color: #334155;
     }
 
     .rhi-ind-card-title {
-        font-size: 10.5px;
+        font-size: 11.5px;
         font-weight: 700;
-        color: var(--text-muted);
-        text-transform: uppercase;
+        color: var(--text-main);
         display: flex;
         justify-content: space-between;
+        align-items: center;
     }
 
-    .rhi-ind-value {
-        font-size: 16px;
+    .rhi-ind-card-title .tech-badge {
+        font-size: 9.5px;
         font-weight: 800;
+        padding: 1.5px 5px;
+        border-radius: 4px;
+        background: rgba(15, 59, 102, 0.08);
+    }
+
+    .rhi-ind-body {
         display: flex;
-        align-items: baseline;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .rhi-ind-left {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .rhi-ind-val {
+        font-size: 23px;
+        font-weight: 800;
+        color: var(--text-main);
+        line-height: 1.1;
+        letter-spacing: -0.5px;
+    }
+
+    .rhi-ind-val .unit {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-left: 1px;
+    }
+
+    .rhi-ind-delta {
+        font-size: 11px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
         gap: 4px;
     }
 
-    .rhi-ind-fail-badge {
-        font-size: 10px;
-        font-weight: 600;
+    .rhi-ind-subtext {
+        font-size: 10.5px;
+        color: var(--text-muted);
+        font-weight: 500;
+        margin-top: 2px;
+    }
+
+    .rhi-ind-subtext strong {
         color: #ef4444;
+        font-weight: 700;
+    }
+
+    .rhi-ind-chart-wrap {
+        width: 80px;
+        height: 28px;
+        flex-shrink: 0;
         display: flex;
         align-items: center;
-        gap: 2px;
+        justify-content: flex-end;
     }
 
     /* ── Branch Performance Distribution Strip ── */
@@ -1284,6 +1345,11 @@
                         {% endfor %}
                     </select>
                 </div>
+                <div class="rhi-filter-group" style="display:flex; align-items:flex-end;">
+                    <button type="button" class="rhi-btn-secondary" onclick="window.location.href='/okr/rhi?refresh=1'" title="Refresh latest data from database" style="height:36px;">
+                        <i class="fas fa-sync-alt" style="color:#10b981;"></i> Refresh
+                    </button>
+                </div>
             </div>
             <div class="rhi-action-group">
                 <a href="/api/sow/rhi/sample?format=csv" class="rhi-btn-secondary" title="Download sample CSV template">
@@ -1393,34 +1459,28 @@
                     <!-- Injected dynamically via JS -->
                 </div>
 
-                <!-- 6 Key Radio Indicators Breakdown -->
-                <div class="rhi-card" style="padding: 12px 14px; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
-                    <div class="rhi-card-header" style="margin-bottom: 8px; padding-bottom: 6px;">
+                <!-- 6 Key Radio Indicators Breakdown (Category Cards with Embedded Mini Charts) -->
+                <div class="rhi-card" style="padding: 14px 16px; flex: 1; display: flex; flex-direction: column;">
+                    <div class="rhi-card-header" style="margin-bottom: 10px; padding-bottom: 8px;">
                         <div class="rhi-card-title">
                             <i class="fas fa-layer-group" style="color:var(--rhi-primary);"></i> Key Radio Indicators Breakdown
                         </div>
                         <div style="display:flex; align-items:center; gap:8px;">
-                            <span style="font-size:11px; color:var(--text-muted);">Average score & fail cell volume</span>
-                            <button type="button" class="rhi-btn-icon" onclick="exportChartDirectPNG('indicatorMini')" title="Save PNG">
+                            <span style="font-size:11px; color:var(--text-muted);">Weekly failure trend & cell volume per category</span>
+                            <button type="button" class="rhi-btn-icon" onclick="exportIndicatorsCardPNG()" title="Save PNG">
                                 <i class="fas fa-camera"></i>
-                            </button>
-                            <button type="button" class="rhi-btn-icon" onclick="openChartEnlargeModal('indicatorMini')" title="Maximize">
-                                <i class="fas fa-expand"></i>
                             </button>
                         </div>
                     </div>
 
-                    <!-- Mini Indicator Failure Impact Chart & Summary (Fills Empty Space from 2nd Picture) -->
-                    <div style="margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px;">
-                        <div id="indicatorImpactSummary" style="display:flex; justify-content:space-between; align-items:center; background:rgba(15,59,102,0.04); border:1px solid var(--rhi-border); border-radius:6px; padding:5px 10px; font-size:11px;">
-                            <span><i class="fas fa-info-circle" style="color:var(--rhi-primary);"></i> <strong>Failure Burden Distribution:</strong></span>
-                            <span id="indicatorImpactText" style="color:var(--text-muted);">Loading failure impact...</span>
-                        </div>
-                        <div id="indicatorMiniChart" style="width: 100%; height: 130px; min-height: 130px;"></div>
+                    <!-- Failure Burden Distribution Banner -->
+                    <div id="indicatorImpactSummary" style="display:flex; justify-content:space-between; align-items:center; background:rgba(15,59,102,0.04); border:1px solid var(--rhi-border); border-radius:8px; padding:7px 12px; font-size:11.5px; margin-bottom: 12px;">
+                        <span><i class="fas fa-info-circle" style="color:var(--rhi-primary);"></i> <strong>Failure Burden Distribution:</strong></span>
+                        <span id="indicatorImpactText" style="color:var(--text-muted);">Loading failure impact...</span>
                     </div>
 
                     <div class="rhi-ind-grid" id="indicatorCardsGrid">
-                        <!-- Injected dynamically via JS -->
+                        <!-- Injected dynamically via JS: each category has fail metrics & embedded sparkline mini chart -->
                     </div>
                 </div>
             </div>

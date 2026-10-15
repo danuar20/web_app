@@ -57,7 +57,7 @@ RHI_INDICATORS = [
         "title": "4G CSSR Data",
         "tech": "4g",
         "val_col": "cssr_data_service",
-        "remark_col": "cssr_data_service_remark",
+        "fail_col": "total_fail_cssr_data_service_remark",
         "color": "#2563eb",
         "unit": "%",
     },
@@ -66,7 +66,7 @@ RHI_INDICATORS = [
         "title": "4G CCSR Data",
         "tech": "4g",
         "val_col": "ccsr_data_service",
-        "remark_col": "ccsr_data_service_remark",
+        "fail_col": "total_fail_ccsr_data_service_remark",
         "color": "#4f46e5",
         "unit": "%",
     },
@@ -75,7 +75,7 @@ RHI_INDICATORS = [
         "title": "VoLTE Accessibility",
         "tech": "4g",
         "val_col": "volte_accessibility_sr",
-        "remark_col": "volte_accessibility_sr_remark",
+        "fail_col": "total_fail_volte_accessibility_sr_remark",
         "color": "#059669",
         "unit": "%",
     },
@@ -84,7 +84,7 @@ RHI_INDICATORS = [
         "title": "VoLTE Retainability",
         "tech": "4g",
         "val_col": "volte_retain_rate",
-        "remark_col": "volte_retain_rate_remark",
+        "fail_col": "total_fail_volte_retain_rate_remark",
         "color": "#d97706",
         "unit": "%",
     },
@@ -93,8 +93,8 @@ RHI_INDICATORS = [
         "title": "2G CCSR Voice",
         "tech": "2g",
         "val_col": "ccsr_tch",
-        "remark_col": "ccsr_tch_remark",
-        "color": "#db2777",
+        "fail_col": "total_fail_ccsr_tch_remark",
+        "color": "#0284c7",
         "unit": "%",
     },
     {
@@ -102,7 +102,7 @@ RHI_INDICATORS = [
         "title": "2G SDSR",
         "tech": "2g",
         "val_col": "sdsr",
-        "remark_col": "sdsr_remark",
+        "fail_col": "total_fail_sdsr_remark",
         "color": "#7c3aed",
         "unit": "%",
     },
@@ -239,35 +239,28 @@ def _get_branch_map():
 
 
 def _get_yearweeks():
-    """Get list of weeknums, with auto-invalidation if DB max week changed."""
+    """Get list of valid weeknums with actual RHI data, cached in memory."""
     now = time.time()
-    
-    # 1. Query current max week from DB (this is fast: uses index-only scan)
-    db_max = 0
-    try:
-        with db_query(get_postgres_connection) as (conn, cur):
-            cur.execute("SELECT MAX(weeknum) FROM sow.rhi_score")
-            row = cur.fetchone()
-            if row and row[0]:
-                db_max = int(row[0])
-    except Exception:
-        pass
-
-    # 2. Check cache and compare max week
     if "_yearweeks" in _RHI_CACHE:
         val, exp = _RHI_CACHE["_yearweeks"]
         if now < exp:
-            cached_max = val[0] if val else 0
-            # If DB max differs from cached max (either higher OR lower after manual delete), refresh
-            if db_max == cached_max and db_max > 0:
-                return val  # Cache is still valid
+            return val
 
-    # 3. Cache miss, expired, or mismatched - refresh from DB
     try:
         with db_query(get_postgres_connection) as (conn, cur):
-            cur.execute("SELECT DISTINCT weeknum FROM sow.rhi_score ORDER BY weeknum DESC")
+            cur.execute("""
+                SELECT weeknum
+                FROM sow.rhi_score
+                WHERE weeknum IS NOT NULL 
+                  AND weeknum >= 202001 
+                  AND weeknum <= 202952
+                GROUP BY weeknum
+                HAVING COUNT(*) >= 50
+                   AND COUNT(*) FILTER (WHERE UPPER(TRIM(remark_week)) IN ('GOOD', 'FAIL')) >= 50
+                ORDER BY weeknum DESC
+            """)
             yws = [int(r[0]) for r in cur.fetchall() if r[0] is not None]
-            _RHI_CACHE["_yearweeks"] = (yws, now + 1800)
+            _RHI_CACHE["_yearweeks"] = (yws, now + 60)
             return yws
     except Exception as e:
         logger.exception("Error loading RHI yearweeks: %s", e)
@@ -336,6 +329,8 @@ def _get_target_for_week(yearweek):
 @rhi.route("/okr/rhi")
 @login_required
 def rhi_dashboard_page():
+    if request.args.get("refresh") == "1":
+        clear_rhi_caches()
     yearweeks = _get_yearweeks()
     default_yw = yearweeks[0] if yearweeks else 202639
     default_start_yw = yearweeks[-1] if yearweeks else 202637
@@ -365,6 +360,8 @@ def rhi_dashboard_page():
 @rhi.route("/api/sow/rhi/summary", methods=["GET"])
 @login_required
 def api_rhi_summary():
+    if request.args.get("refresh") == "1":
+        clear_rhi_caches()
     yearweeks = _get_yearweeks()
     if not yearweeks:
         return jsonify({"status": "error", "message": "No data available in sow.rhi_score"}), 404
@@ -555,6 +552,9 @@ def api_rhi_summary():
 # Indicator Cards: Tech & Key KPI Health with WoW & Sparklines
 # ══════════════════════════════════════════════════════════════════════
 @rhi.route("/api/sow/rhi/indicator-cards", methods=["GET"])
+@rhi.route("/api/sow/rhi/indicator_cards", methods=["GET"])
+@rhi.route("/api/okr/rhi/indicator-cards", methods=["GET"])
+@rhi.route("/api/okr/rhi/indicator_cards", methods=["GET"])
 @login_required
 def api_rhi_indicator_cards():
     yearweeks = _get_yearweeks()
@@ -606,15 +606,16 @@ def api_rhi_indicator_cards():
                     f'ROUND(AVG("{ind["val_col"]}") FILTER (WHERE tech = \'{ind["tech"]}\')::numeric, 2) AS avg_{ind["id"]}'
                 )
                 ind_exprs.append(
-                    f'COUNT(*) FILTER (WHERE tech = \'{ind["tech"]}\' AND "{ind["remark_col"]}" > 0) AS fail_{ind["id"]}'
+                    f'COUNT(*) FILTER (WHERE tech = \'{ind["tech"]}\' AND "{ind["fail_col"]}" = 1) AS fail_{ind["id"]}'
                 )
             q_ind = f"""
                 SELECT weeknum, {", ".join(ind_exprs)}
                 FROM sow.rhi_score
                 WHERE weeknum = ANY(%s)
                 GROUP BY weeknum
+                ORDER BY weeknum ASC
             """
-            cur.execute(q_ind, (weeks_compare,))
+            cur.execute(q_ind, (spark_yws,))
             ind_by_week = {}
             for r in cur.fetchall():
                 yw = r[0]
@@ -692,6 +693,12 @@ def api_rhi_indicator_cards():
         # Format Indicator Cards
         curr_ind = ind_by_week.get(target_yw, {})
         prev_ind = ind_by_week.get(prev_yw, {}) if prev_yw else {}
+        
+        tech_fail_map = {c["tech"].lower(): c["fail"] for c in tech_cards}
+        total_fail_4g = tech_fail_map.get("4g", 0)
+        total_fail_2g = tech_fail_map.get("2g", 0)
+        total_fail_all = sum(c["fail"] for c in tech_cards)
+
         indicator_cards = []
         for ind in RHI_INDICATORS:
             val_c = curr_ind.get(f'avg_{ind["id"]}', 0.0)
@@ -700,6 +707,14 @@ def api_rhi_indicator_cards():
             fail_p = prev_ind.get(f'fail_{ind["id"]}', None) if prev_yw else None
             delta = round(val_c - val_p, 2) if val_p is not None else None
             delta_fail = (fail_c - fail_p) if fail_p is not None else None
+            
+            tech_key = ind["tech"].lower()
+            tech_fails = tech_fail_map.get(tech_key, 0)
+            fail_share = round((fail_c * 100.0 / tech_fails), 1) if tech_fails else 0.0
+
+            # 6-8 week trend of fail cells and scores
+            fail_trend = [ind_by_week.get(syw, {}).get(f'fail_{ind["id"]}', 0) for syw in spark_yws]
+            score_trend = [ind_by_week.get(syw, {}).get(f'avg_{ind["id"]}', 0.0) for syw in spark_yws]
 
             indicator_cards.append({
                 "id": ind["id"],
@@ -711,6 +726,11 @@ def api_rhi_indicator_cards():
                 "delta": delta,
                 "fail_count": fail_c,
                 "delta_fail": delta_fail,
+                "tech_fail_total": tech_fails,
+                "fail_share": fail_share,
+                "fail_trend": fail_trend,
+                "score_trend": score_trend,
+                "spark_weeks": [f"W{str(w)[4:]}" for w in spark_yws],
             })
 
         res_data = {
@@ -719,6 +739,9 @@ def api_rhi_indicator_cards():
             "prev_yearweek": prev_yw,
             "tech_cards": tech_cards,
             "indicator_cards": indicator_cards,
+            "total_fail_4g": total_fail_4g,
+            "total_fail_2g": total_fail_2g,
+            "total_fail_all": total_fail_all,
         }
         _RHI_CACHE[cache_key] = (res_data, now + _RHI_CACHE_TTL)
         return jsonify(res_data)
@@ -944,19 +967,16 @@ def api_rhi_geo_options():
     try:
         with db_query(get_postgres_connection) as (conn, cur):
             cur.execute("""
-                SELECT DISTINCT TRIM(kabupaten) FROM sow.rhi_score
-                WHERE kabupaten IS NOT NULL AND TRIM(kabupaten) <> ''
-                ORDER BY 1
-            """)
-            kabs = [r[0] for r in cur.fetchall()]
-            cur.execute("""
                 SELECT TRIM(kabupaten), TRIM(kecamatan) FROM sow.rhi_score
-                WHERE kabupaten IS NOT NULL AND kecamatan IS NOT NULL
+                WHERE weeknum = (SELECT MAX(weeknum) FROM sow.rhi_score)
+                  AND kabupaten IS NOT NULL AND kecamatan IS NOT NULL
                 GROUP BY TRIM(kabupaten), TRIM(kecamatan) ORDER BY 1, 2
             """)
             kec_map = {}
             for kab, kec in cur.fetchall():
-                kec_map.setdefault(kab, []).append(kec)
+                if kab:
+                    kec_map.setdefault(kab, []).append(kec)
+            kabs = sorted(list(kec_map.keys()))
         res_data = {"status": "success", "kabupaten": kabs, "kecamatan_map": kec_map}
         _RHI_CACHE[cache_key] = (res_data, now + 86400)
         return jsonify(res_data)
@@ -1470,6 +1490,45 @@ def api_sow_rhi_sample_template():
     return output
 
 
+class _RhiCountingReader:
+    def __init__(self, fh, total_bytes, job_id):
+        self._fh = fh
+        self._total = max(1, int(total_bytes or 0))
+        self._job_id = job_id
+
+    def read(self, size=-1):
+        chunk = self._fh.read(size)
+        self._update(len(chunk))
+        return chunk
+
+    def _update(self, n):
+        if n <= 0:
+            return
+        with _IMPORT_JOBS_LOCK:
+            job = _IMPORT_JOBS.get(self._job_id)
+            if not job:
+                return
+            job["_read"] = job.get("_read", 0) + n
+            read_bytes = job["_read"]
+        pct = 25 + int(70 * min(1.0, read_bytes / float(self._total)))
+        _rhi_set_job(self._job_id, status="processing", pct=pct,
+                     message=f"Uploading to database... {read_bytes/1048576:.1f}/{self._total/1048576:.1f} MB",
+                     stage="copy")
+
+    def readable(self):
+        return True
+
+    def writable(self):
+        return False
+
+
+def _rhi_set_job(job_id, **kw):
+    with _IMPORT_JOBS_LOCK:
+        job = _IMPORT_JOBS.get(job_id)
+        if job:
+            job.update(kw)
+
+
 @rhi.route("/api/sow/rhi/import", methods=["POST"])
 @csrf.exempt
 @login_required
@@ -1479,115 +1538,137 @@ def api_sow_rhi_import():
         return jsonify({"status": "error", "message": "No file uploaded"}), 400
 
     file = request.files["file"]
-    filename = file.filename
+    filename = (file.filename or "").lower()
+    if not filename.endswith((".csv", ".xlsx", ".xls")):
+        return jsonify({"status": "error", "message": "Only CSV and Excel (.xlsx, .xls) files are supported"}), 400
+
     job_id = str(uuid4())
-    
-    # Save to temp
     fd, path = tempfile.mkstemp(suffix=os.path.splitext(filename)[1])
     with os.fdopen(fd, 'wb') as f:
         file.save(f)
 
     with _IMPORT_JOBS_LOCK:
-        _IMPORT_JOBS[job_id] = {"status": "queued", "pct": 0, "message": "Queued..."}
+        _IMPORT_JOBS[job_id] = {"status": "queued", "pct": 0, "message": "Queued...", "_read": 0}
 
     threading.Thread(target=_bg_rhi_import, args=(job_id, path, filename), daemon=True).start()
     return jsonify({"status": "queued", "job_id": job_id})
+
 
 @rhi.route("/api/sow/rhi/import/progress/<job_id>")
 @login_required
 def api_sow_rhi_import_progress(job_id):
     with _IMPORT_JOBS_LOCK:
-        return jsonify(_IMPORT_JOBS.get(job_id, {"status": "error", "message": "Not found"}))
+        job = _IMPORT_JOBS.get(job_id)
+        if job is None:
+            return jsonify({"status": "error", "message": "Job not found"}), 404
+        snapshot = {k: v for k, v in job.items() if not k.startswith("_")}
+    return jsonify(snapshot)
+
 
 def _bg_rhi_import(job_id, file_path, filename):
     try:
-        file_size = os.path.getsize(file_path)
-        with _IMPORT_JOBS_LOCK:
-            _IMPORT_JOBS[job_id] = {"status": "processing", "pct": 10, "message": "Parsing file...", "stage": "parse"}
+        _rhi_set_job(job_id, status="processing", pct=5, message="Parsing file...", stage="parse")
+        raw_rows = []
+        is_csv = filename.lower().endswith(".csv")
 
-        # Native COPY fast-path (matches your psql \COPY pipeline)
-        import csv as _csv
-        from io import StringIO
-
-        if filename.lower().endswith(".csv"):
-            with open(file_path, 'r', encoding='utf-8-sig', errors='replace') as f:
-                conn = get_postgres_connection()
-                conn.autocommit = True
-                cur = conn.cursor()
+        if is_csv:
+            with open(file_path, "r", encoding="utf-8-sig", errors="replace", newline="") as fh:
+                reader = csv.reader(fh)
                 try:
-                    # Real byte-count progress: wrap the file to count bytes read
-                    class _CountingReader:
-                        _read = f.read
-                        def __init__(self, f, total, job_id):
-                            self._f = f
-                            self._total = total
-                            self._job_id = job_id
-                            self._n = 0
-                        def read(self, size=-1):
-                            chunk = self._f.read(size)
-                            self._n += len(chunk)
-                            pct = min(99, 10 + int(89 * self._n / max(self._total, 1)))
-                            with _IMPORT_JOBS_LOCK:
-                                _IMPORT_JOBS[self._job_id] = {
-                                    "status": "processing", "pct": pct,
-                                    "message": f"Uploading to database... {self._n/1048576:.1f}/{self._total/1048576:.1f} MB",
-                                    "stage": "copy",
-                                }
-                            return chunk
-
-                    cr = _CountingReader(f, file_size, job_id)
-                    cur.copy_expert(
-                        "COPY sow.rhi_score FROM STDIN WITH (FORMAT CSV, HEADER, NULL '')",
-                        cr,
-                    )
-                    conn.commit()
-                    clear_rhi_caches()
-                    status = "success"
-                    msg = f"Import complete."
-                finally:
-                    cur.close()
-                    conn.close()
+                    headers = next(reader)
+                except StopIteration:
+                    _rhi_set_job(job_id, status="error", message="Uploaded CSV file is empty")
+                    return
+                idx = {str(h).strip().lower(): i for i, h in enumerate(headers)}
+                for r in reader:
+                    if any(r):
+                        raw_rows.append([r[idx.get(c, -1)] if idx.get(c, -1) != -1 else "" for c in RHI_COLUMNS])
         else:
-            # .xlsx path
-            import openpyxl
-            wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
-            ws = wb.active
-            buf = StringIO()
-            w = _csv.writer(buf)
-            rows = ws.iter_rows(values_only=True)
-            header = next(rows)
-            w.writerow(header)
-            n = 0
-            for row in rows:
-                w.writerow(row)
-                n += 1
-                if n % 5000 == 0:
-                    with _IMPORT_JOBS_LOCK:
-                        _IMPORT_JOBS[job_id] = {"status": "processing", "pct": 50, "message": f"Parsing Excel rows... {n:,}", "stage": "parse"}
-            buf.seek(0)
-            wb.close()
-            conn = get_postgres_connection()
-            # conn.autocommit = True # REMOVED (let manual commit handle it)
-            cur = conn.cursor()
+            sheet_rows = None
             try:
-                cur.copy_expert(
-                    "COPY sow.rhi_score FROM STDIN WITH (FORMAT CSV, HEADER, NULL '')",
-                    buf,
+                from python_calamine import CalamineWorkbook
+                wb = CalamineWorkbook.from_path(file_path)
+                sheet_rows = list(wb.get_sheet_by_index(0).to_python())
+            except Exception:
+                import openpyxl
+                wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
+                ws = wb.active
+                sheet_rows = list(ws.iter_rows(values_only=True))
+                wb.close()
+
+            if not sheet_rows or len(sheet_rows) < 2:
+                _rhi_set_job(job_id, status="error", message="Uploaded Excel file is empty")
+                return
+
+            headers = sheet_rows[0]
+            idx = {str(h).strip().lower(): i for i, h in enumerate(headers)}
+            for r in sheet_rows[1:]:
+                if any(v is not None for v in r):
+                    raw_rows.append([r[idx.get(c, -1)] if idx.get(c, -1) != -1 else "" for c in RHI_COLUMNS])
+
+        if not raw_rows:
+            _rhi_set_job(job_id, status="error", message="No valid data rows found in uploaded file")
+            return
+
+        _rhi_set_job(job_id, status="processing", pct=15, message=f"Sanitizing {len(raw_rows):,} rows...", stage="validate")
+
+        converted = []
+        weeknums = set()
+        week_idx = RHI_COLUMNS.index("weeknum")
+
+        for r in raw_rows:
+            yw = _safe_int(r[week_idx], 0)
+            if yw <= 0:
+                continue
+            weeknums.add(yw)
+            out = []
+            for i, val in enumerate(r):
+                col_name = RHI_COLUMNS[i]
+                if i == week_idx:
+                    out.append(str(yw))
+                elif col_name in RHI_INT_COLS:
+                    out.append(str(_safe_int(val, 0)))
+                elif col_name in RHI_FLOAT_COLS:
+                    fv = _safe_float(val)
+                    out.append("" if fv is None else str(fv))
+                else:
+                    out.append(_safe_str(val, ""))
+            converted.append(out)
+
+        if not converted:
+            _rhi_set_job(job_id, status="error", message="No rows with valid weeknum found in file")
+            return
+
+        _rhi_set_job(job_id, status="processing", pct=25, message=f"Prepared {len(converted):,} rows. Uploading to database...", stage="copy")
+
+        buf = io.StringIO()
+        csv.writer(buf, lineterminator="\n").writerows(converted)
+        payload = buf.getvalue().encode("utf-8")
+
+        with get_postgres_connection() as conn:
+            cur = conn.cursor()
+            if weeknums:
+                cur.execute(
+                    "DELETE FROM sow.rhi_score WHERE weeknum IN (%s)" % ",".join(["%s"] * len(weeknums)),
+                    tuple(weeknums)
                 )
-                conn.commit()
-                clear_rhi_caches()
-                status = "success"
-                msg = f"Import complete."
-            finally:
-                cur.close()
-                conn.close()
+            col_names_sql = ",".join(['"%s"' % c for c in RHI_COLUMNS])
+            cr = _RhiCountingReader(io.BytesIO(payload), len(payload), job_id)
+            cur.copy_expert(
+                f"COPY sow.rhi_score ({col_names_sql}) FROM STDIN WITH (FORMAT CSV, NULL '')",
+                cr
+            )
+            conn.commit()
+            cur.close()
 
-        with _IMPORT_JOBS_LOCK:
-            _IMPORT_JOBS[job_id] = {"status": status, "pct": 100, "message": msg}
-
+        clear_rhi_caches()
+        _rhi_set_job(job_id, status="success", pct=100, message=f"Successfully imported {len(converted):,} rows across week(s): {', '.join(map(str, sorted(weeknums)))}.")
     except Exception as e:
-        logger.exception("Import failed: %s", e)
-        with _IMPORT_JOBS_LOCK:
-            _IMPORT_JOBS[job_id] = {"status": "error", "message": f"Import failed: {str(e)}"}
+        logger.exception("RHI bulk import failed: %s", e)
+        _rhi_set_job(job_id, status="error", pct=0, message=f"Import failed: {str(e)}")
     finally:
-        if os.path.exists(file_path): os.unlink(file_path)
+        if os.path.exists(file_path):
+            try:
+                os.unlink(file_path)
+            except Exception:
+                pass

@@ -13,7 +13,6 @@
     let pumaGaugeInstance = null;
     let achievementChartInstance = null;
     let failTechChartInstance = null;
-    let indicatorMiniChartInstance = null;
     let chartEnlargedInstance = null;
     let techTrendChartInstance = null;
     let failReasonChartInstance = null;
@@ -50,6 +49,9 @@
         initWeeksAndData();
     });
 
+    let tab2Loaded = false;
+    let tab3Loaded = false;
+
     // ── Tab Management ──
     window.switchRhiTab = function (tabId, btnElem) {
         activeTab = tabId;
@@ -64,6 +66,17 @@
             targetPane.classList.add('active');
         }
 
+        // Lazy-load tabs on demand
+        if (tabId === 'trend' && !tab2Loaded) {
+            tab2Loaded = true;
+            loadTrendCharts();
+            loadGeoOptions();
+        } else if (tabId === 'comparison' && !tab3Loaded) {
+            tab3Loaded = true;
+            loadComparison();
+            loadKabupatenComparison();
+        }
+
         setTimeout(resizeAllVisibleCharts, 50);
         setTimeout(resizeAllVisibleCharts, 250);
     };
@@ -74,7 +87,6 @@
             if (pumaGaugeInstance) pumaGaugeInstance.resize();
             if (achievementChartInstance) achievementChartInstance.resize();
             if (failTechChartInstance) failTechChartInstance.resize();
-            if (indicatorMiniChartInstance) indicatorMiniChartInstance.resize();
         } else if (activeTab === 'trend') {
             if (techTrendChartInstance) techTrendChartInstance.resize();
             if (failReasonChartInstance) failReasonChartInstance.resize();
@@ -106,18 +118,11 @@
 
     // ── Global Initialization ──
     async function initWeeksAndData() {
-        // Tab 1
+        // Tab 1 (Achievement) loads immediately on page display
         loadGaugeAndSummary();
         loadIndicatorCards();
         loadAchievementChart();
-
-        // Tab 2
-        loadTrendCharts();
-        loadGeoOptions();
-
-        // Tab 3
-        loadComparison();
-        loadKabupatenComparison();
+        // Tabs 2 & 3 load on demand when user switches tabs
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -498,139 +503,115 @@
                 }).join('');
             }
 
-            // 2. Render 6 Key Indicator Cards
+            // 2. Render 6 Key Indicator Cards (Matching Sample Picture Layout)
             const indGrid = document.getElementById('indicatorCardsGrid');
             if (indGrid && data.indicator_cards) {
+                const fail4g = data.total_fail_4g || 0;
+                const fail2g = data.total_fail_2g || 0;
+                const sorted = [...data.indicator_cards].sort((a, b) => (b.fail_count || 0) - (a.fail_count || 0));
+                const topC = sorted[0] || {};
+
+                const sumTextEl = document.getElementById('indicatorImpactText');
+                if (sumTextEl) {
+                    sumTextEl.innerHTML = `Total fails: <strong style="color:#ef4444;">${fail4g.toLocaleString()} (4G)</strong> & <strong style="color:#ef4444;">${fail2g.toLocaleString()} (2G)</strong> · Top contributor: <strong style="color:${topC.color};">${topC.title}</strong> (${(topC.fail_count || 0).toLocaleString()} cells • ${topC.fail_share || 0}% of ${topC.tech} fails)`;
+                }
+
                 indGrid.innerHTML = data.indicator_cards.map(ind => {
                     const isPos = ind.delta !== null && ind.delta >= 0;
                     const deltaIcon = isPos ? '▲' : '▼';
                     const deltaClass = isPos ? 'val-pos' : 'val-neg';
-                    const deltaText = ind.delta !== null ? `${deltaIcon} ${Math.abs(ind.delta)}%` : '--';
+                    const deltaSign = (ind.delta !== null && ind.delta > 0) ? '+' : '';
+                    const deltaText = ind.delta !== null ? `${deltaIcon} ${deltaSign}${ind.delta}% WoW` : '--';
+
+                    const failCount = ind.fail_count || 0;
+                    const techFails = ind.tech_fail_total || 0;
+                    const shareText = techFails ? `${ind.fail_share}% of ${ind.tech} fails` : '0% of fails';
+
+                    // Trend is worsening if score dropped
+                    const isWorsened = ind.delta !== null && ind.delta < 0;
+
+                    // Generate small mini trend chart like sample picture (gray line + terminal status dot)
+                    const sparkSvg = generateSparklineSvg(ind.score_trend || [], isWorsened, 78, 26);
+                    const weekListStr = (ind.spark_weeks || []).join(', ');
 
                     return `
-                        <div class="rhi-ind-card" style="border-left: 3px solid ${ind.color};">
+                        <div class="rhi-ind-card" style="border-top: 3px solid ${ind.color};">
                             <div class="rhi-ind-card-title">
                                 <span>${ind.title}</span>
-                                <span style="font-size:9.5px; padding:1px 4px; border-radius:3px; background:rgba(0,0,0,0.05);">${ind.tech}</span>
+                                <span class="tech-badge" style="color:${ind.color};">${ind.tech}</span>
                             </div>
-                            <div class="rhi-ind-value">
-                                <span style="color: ${ind.color};">${ind.value}${ind.unit}</span>
-                                <span class="${deltaClass}" style="font-size:10.5px;">${deltaText}</span>
-                            </div>
-                            <div class="rhi-ind-fail-badge">
-                                <i class="fas fa-exclamation-circle"></i>
-                                <span>${(ind.fail_count || 0).toLocaleString()} fail cells</span>
+                            <div class="rhi-ind-body">
+                                <div class="rhi-ind-left">
+                                    <div class="rhi-ind-val">
+                                        ${ind.value}<span class="unit">${ind.unit}</span>
+                                    </div>
+                                    <div class="rhi-ind-delta">
+                                        <span class="${deltaClass}">${deltaText}</span>
+                                    </div>
+                                    <div class="rhi-ind-subtext">
+                                        <strong>${failCount.toLocaleString()}</strong> fail cells <span style="opacity:0.85;">(${shareText})</span>
+                                    </div>
+                                </div>
+                                <div class="rhi-ind-chart-wrap" title="Weekly score trend (${weekListStr}): ${(ind.score_trend || []).join(' → ')}% · Fail cells: ${failCount.toLocaleString()}">
+                                    ${sparkSvg}
+                                </div>
                             </div>
                         </div>
                     `;
                 }).join('');
             }
-
-            // 3. Render Mini Indicator Failure Impact Chart (fills empty space from 2nd picture)
-            renderIndicatorMiniChart(data.indicator_cards);
         } catch (e) {
             console.error('Error loading indicator cards:', e);
         }
     }
 
-    // Mini Indicator Failure Impact Chart (Horizontal Bar Chart)
-    function buildIndicatorMiniOption(indicatorCards, isDark, isEnlarged = false) {
-        if (!indicatorCards || !indicatorCards.length) return null;
+    // Mini SVG Sparkline generator (Matching Sample Picture: subtle gray trend line with colored terminal dot)
+    function generateSparklineSvg(data, isWorsened, width = 78, height = 26) {
+        if (!data || data.length < 2) {
+            return `<div style="width:${width}px; height:${height}px;"></div>`;
+        }
+        const min = Math.min(...data);
+        const max = Math.max(...data);
+        const range = (max - min) || 0.01;
+        const padX = 4;
+        const padY = 4;
+        const effW = width - (padX * 2);
+        const effH = height - (padY * 2);
 
-        const totalFails = indicatorCards.reduce((acc, c) => acc + (c.fail_count || 0), 0);
-        const sorted = [...indicatorCards].sort((a, b) => (b.fail_count || 0) - (a.fail_count || 0));
-        const topC = sorted[0];
+        const pts = data.map((v, i) => {
+            const x = padX + (i / (data.length - 1)) * effW;
+            const y = height - padY - ((v - min) / range) * effH;
+            return [x.toFixed(1), y.toFixed(1)];
+        });
 
-        // Reversing array so highest failure count sits at top of horizontal bar chart
-        const displayCards = [...sorted].reverse();
-        const catNames = displayCards.map(c => c.title.replace('4G ', '').replace('2G ', ''));
-        const seriesData = displayCards.map(c => ({
-            value: c.fail_count || 0,
-            itemStyle: { color: c.color, borderRadius: [0, 4, 4, 0] },
-            rate: c.value,
-            unit: c.unit,
-            tech: c.tech,
-            title: c.title
-        }));
+        const pathD = pts.reduce((acc, p, i) => i === 0 ? `M ${p[0]} ${p[1]}` : `${acc} L ${p[0]} ${p[1]}`, '');
+        const lastPt = pts[pts.length - 1];
+        const dotColor = isWorsened ? '#ef4444' : '#10b981';
 
-        return {
-            tooltip: {
-                trigger: 'item',
-                confine: true,
-                formatter: function (p) {
-                    const share = totalFails ? ((p.value * 100) / totalFails).toFixed(1) : 0;
-                    return `<div style="font-weight:700; margin-bottom:2px;">${p.data.title} [${p.data.tech}]</div>
-                            <div>Fail Cells: <strong>${(p.value).toLocaleString()}</strong> (${share}% burden)</div>
-                            <div>Score Rate: <strong>${p.data.rate}${p.data.unit}</strong></div>`;
-                }
-            },
-            grid: {
-                left: '2%',
-                right: isEnlarged ? '8%' : '12%',
-                top: '4%',
-                bottom: '4%',
-                containLabel: true
-            },
-            xAxis: {
-                type: 'value',
-                splitLine: { lineStyle: { color: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9' } },
-                axisLabel: {
-                    color: isDark ? '#94a3b8' : '#64748b',
-                    fontSize: isEnlarged ? 12 : 9.5,
-                    formatter: v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v
-                }
-            },
-            yAxis: {
-                type: 'category',
-                data: catNames,
-                axisLabel: {
-                    color: isDark ? '#cbd5e1' : '#334155',
-                    fontSize: isEnlarged ? 13 : 10,
-                    fontWeight: 600
-                },
-                axisLine: { lineStyle: { color: isDark ? '#334155' : '#cbd5e1' } }
-            },
-            series: [
-                {
-                    type: 'bar',
-                    data: seriesData,
-                    barMaxWidth: isEnlarged ? 26 : 12,
-                    label: {
-                        show: true,
-                        position: 'right',
-                        fontSize: isEnlarged ? 12 : 9.5,
-                        fontWeight: 'bold',
-                        color: isDark ? '#cbd5e1' : '#334155',
-                        formatter: p => `${(p.value).toLocaleString()}`
-                    }
-                }
-            ]
-        };
+        return `
+            <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="overflow:visible; display:block;">
+                <path d="${pathD}" fill="none" stroke="#94a3b8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                <circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="3.2" fill="${dotColor}" stroke="#ffffff" stroke-width="1.5" />
+            </svg>
+        `;
     }
 
-    function renderIndicatorMiniChart(indicatorCards) {
-        const dom = document.getElementById('indicatorMiniChart');
-        if (!dom) return;
-        if (!indicatorMiniChartInstance) {
-            indicatorMiniChartInstance = echarts.init(dom);
-        }
-        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-        if (!indicatorCards || !indicatorCards.length) return;
-
-        const totalFails = indicatorCards.reduce((acc, c) => acc + (c.fail_count || 0), 0);
-        const sorted = [...indicatorCards].sort((a, b) => (b.fail_count || 0) - (a.fail_count || 0));
-        const topC = sorted[0];
-        const topPct = totalFails ? ((topC.fail_count * 100) / totalFails).toFixed(1) : '0';
-        const sumTextEl = document.getElementById('indicatorImpactText');
-        if (sumTextEl) {
-            sumTextEl.innerHTML = `Total: <strong style="color:#ef4444;">${totalFails.toLocaleString()} fails</strong> · Top burden: <strong style="color:${topC.color};">${topC.title}</strong> (${topC.fail_count.toLocaleString()} • ${topPct}%)`;
-        }
-
-        const option = buildIndicatorMiniOption(indicatorCards, isDark, false);
-        if (!option) return;
-        indicatorMiniChartInstance.setOption(option, true);
-        indicatorMiniChartInstance.resize();
-    }
+    // Direct export of indicators card as high-res PNG
+    window.exportIndicatorsCardPNG = function () {
+        const grid = document.getElementById('indicatorCardsGrid');
+        const card = grid ? grid.closest('.rhi-card') : null;
+        if (!card || typeof html2canvas === 'undefined') return;
+        html2canvas(card, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+            const a = document.createElement('a');
+            const ywElem = document.getElementById('gaugeWeek');
+            const yw = ywElem ? ywElem.value : 'export';
+            a.download = `RHI_Key_Radio_Indicators_W${String(yw).slice(4)}.png`;
+            a.href = canvas.toDataURL('image/png');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+    };
 
     // Dual-Axis RHI Trend Achievement Chart
     async function loadAchievementChart() {
@@ -1013,11 +994,6 @@
                 currentSummaryData.target !== null ? currentSummaryData.target : 93.55,
                 isDark, true
             );
-        } else if (chartType === 'indicatorMini') {
-            if (!currentIndicatorData || !currentIndicatorData.indicator_cards) return;
-            titleHtml = '<i class="fas fa-layer-group" style="color:#0F3B66;"></i> Key Radio Indicators Failure Burden';
-            subtitle = 'Fail Cell Volume per Key Radio Indicator';
-            opt = buildIndicatorMiniOption(currentIndicatorData.indicator_cards, isDark, true);
         } else if (chartType === 'techTrend') {
             if (!currentTrendData) return;
             titleHtml = '<i class="fas fa-chart-line" style="color:#0F3B66;"></i> Technology Trend (% Good Cell)';
@@ -1083,7 +1059,6 @@
             pumaGauge: pumaGaugeInstance,
             achievement: achievementChartInstance,
             failTech: failTechChartInstance,
-            indicatorMini: indicatorMiniChartInstance,
             techTrend: techTrendChartInstance,
             failReason: failReasonChartInstance,
             geoGoodPct: geoGoodPctChartInstance
