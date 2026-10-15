@@ -1938,51 +1938,76 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════════════ -->
-<!-- Import Modal (Solid, Non-Transparent)                         -->
+<!-- Import Modal (Multi-File Batch Queue Support)                  -->
 <!-- ══════════════════════════════════════════════════════════════ -->
 <div id="rhiImportModal" class="rhi-import-modal-overlay">
-    <div class="rhi-import-modal-box">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+    <div class="rhi-import-modal-box" style="max-width: 620px; width: 94%;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:10px;">
             <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:8px;">
-                <i class="fas fa-file-import" style="color:var(--rhi-primary);"></i> Import RHI Data
+                <i class="fas fa-file-import" style="color:var(--rhi-primary);"></i> Import RHI Data (Batch Queue)
             </h3>
             <span class="close" onclick="closeRhiImportModal()" style="cursor:pointer; font-size:1.5rem; color:var(--text-muted); line-height:1;" title="Close">&times;</span>
         </div>
         <div>
-            <div style="margin-bottom:14px;">
-                <label style="display:block; margin-bottom:6px; font-size:12px; font-weight:700; text-transform:uppercase; color:var(--text-muted);">Upload RHI File (.xlsx or .csv)</label>
+            <!-- Dropzone supports multiple files and drag & drop -->
+            <div style="margin-bottom:12px;">
                 <div class="rhi-import-drop-zone"
                      onclick="document.getElementById('rhiFileInput').click();"
                      id="rhiDropZone">
-                    <i class="fas fa-cloud-upload-alt" style="font-size:34px; color:var(--rhi-primary); margin-bottom:8px;"></i>
-                    <p style="margin:0; font-size:13px; font-weight:700; color:var(--text-main);">Click to browse or drag & drop file</p>
-                    <p style="margin:4px 0 0; font-size:11px; color:var(--text-muted);">Supports Excel (.xlsx, .xls) and CSV</p>
-                    <input type="file" id="rhiFileInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleRhiFileSelect(this)">
-                </div>
-                <div id="rhiFilePreview" style="margin-top:10px; display:none; padding:10px 14px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.25); border-radius:8px;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <i class="fas fa-file-alt" style="color:#10b981;"></i>
-                        <span id="rhiFileName" style="font-size:12px; font-weight:700; color:var(--text-main); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
-                    </div>
+                    <i class="fas fa-cloud-upload-alt" style="font-size:32px; color:var(--rhi-primary); margin-bottom:6px;"></i>
+                    <p style="margin:0; font-size:13px; font-weight:700; color:var(--text-main);">Click to browse or drag & drop files here</p>
+                    <p style="margin:3px 0 0; font-size:11px; color:var(--text-muted);">Supports selecting multiple Excel (.xlsx, .xls) and CSV files simultaneously</p>
+                    <input type="file" id="rhiFileInput" accept=".xlsx,.xls,.csv" multiple style="display:none;" onchange="handleRhiFileSelect(this)">
                 </div>
             </div>
-            <div id="rhiImportAlert" style="display:none; padding:10px 14px; border-radius:8px; font-size:12px; font-weight:600; margin-bottom:14px;"></div>
-            <div id="rhiImportProgressContainer" style="display:none; margin-bottom:14px;">
-                <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:4px;">
-                    <span id="rhiImportProgressStage">Uploading...</span>
-                    <span id="rhiImportProgressPct">0%</span>
+
+            <!-- Queue List & Controls (Visible when files are added) -->
+            <div id="rhiQueueSection" style="display:none; margin-bottom:14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:11.5px;">
+                    <span style="font-weight:700; color:var(--text-main);">
+                        <i class="fas fa-tasks" style="color:var(--rhi-primary);"></i> Selected Files: <span id="rhiQueueTotalCount">0</span> (<span id="rhiQueueTotalSize">0 MB</span>)
+                    </span>
+                    <button type="button" id="btnClearRhiQueue" onclick="clearRhiQueue()" style="font-size:11px; color:#ef4444; background:none; border:none; cursor:pointer; font-weight:600; padding:2px 6px;">
+                        <i class="fas fa-trash-alt"></i> Clear Queue
+                    </button>
+                </div>
+
+                <!-- Scrollable list of files with status badges -->
+                <div id="rhiQueueListContainer" style="max-height: 180px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,0.02); padding: 4px; display: flex; flex-direction: column; gap: 4px;">
+                    <!-- Injected dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- Overall Queue Progress -->
+            <div id="rhiQueueOverallProgress" style="display:none; margin-bottom:12px; padding:10px 12px; background:rgba(15,59,102,0.05); border:1px solid rgba(15,59,102,0.15); border-radius:8px;">
+                <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:var(--text-main); margin-bottom:4px;">
+                    <span id="rhiOverallStage">Overall Queue: 0 of 0</span>
+                    <span id="rhiOverallPct">0%</span>
                 </div>
                 <div style="width:100%; height:8px; background:var(--border); border-radius:4px; overflow:hidden;">
-                    <div id="rhiImportProgressBar" style="width:0%; height:100%; background:var(--rhi-primary); transition:width 0.2s ease;"></div>
+                    <div id="rhiOverallProgressBar" style="width:0%; height:100%; background:#10b981; transition:width 0.25s ease;"></div>
                 </div>
-                <div id="rhiImportProgressDetail" style="font-size:10px; color:var(--text-muted); margin-top:4px; text-align:right;">0 / 0 rows</div>
+                <!-- Current file detail progress -->
+                <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--text-muted); margin-top:5px;">
+                    <span id="rhiCurrentFileStage">Ready</span>
+                    <span id="rhiCurrentFilePct">--</span>
+                </div>
             </div>
+
+            <!-- Import Alert / Completion summary -->
+            <div id="rhiImportAlert" style="display:none; padding:10px 14px; border-radius:8px; font-size:12px; font-weight:600; margin-bottom:12px;"></div>
         </div>
-        <div style="display:flex; justify-content:flex-end; gap:8px; border-top:1px solid var(--border); padding-top:14px;">
-            <button type="button" class="rhi-btn-secondary" onclick="closeRhiImportModal()">Cancel</button>
-            <button type="button" class="rhi-btn-primary" id="btnSubmitRhiImport" onclick="submitRhiImport()" disabled>
-                <i class="fas fa-upload"></i> Upload & Import
-            </button>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px;">
+            <button type="button" class="rhi-btn-secondary" id="btnCancelRhiImport" onclick="closeRhiImportModal()">Cancel</button>
+            <div style="display:flex; gap:8px;">
+                <button type="button" class="rhi-btn-secondary" id="btnAddMoreFiles" onclick="document.getElementById('rhiFileInput').click();" style="display:none;">
+                    <i class="fas fa-plus"></i> Add More
+                </button>
+                <button type="button" class="rhi-btn-primary" id="btnSubmitRhiImport" onclick="startRhiQueueImport()" disabled>
+                    <i class="fas fa-upload"></i> Upload & Import (<span id="rhiQueueBtnCount">0</span>)
+                </button>
+            </div>
         </div>
     </div>
 </div>

@@ -1698,125 +1698,361 @@
         resetRhiImportState();
     };
 
+    // ══════════════════════════════════════════════════════════════════
+    // Multi-File Batch Queue Importer
+    // ══════════════════════════════════════════════════════════════════
+    let rhiFileQueue = [];
+    let isRhiQueueRunning = false;
+    let rhiQueueAborted = false;
+
+    window.openRhiImportModal = function () {
+        const modal = document.getElementById('rhiImportModal');
+        if (modal) modal.style.display = 'flex';
+        initDropZoneEvents();
+    };
+
+    window.closeRhiImportModal = function () {
+        if (isRhiQueueRunning) {
+            if (!confirm('An import queue is currently running. Are you sure you want to cancel and close?')) {
+                return;
+            }
+            rhiQueueAborted = true;
+        }
+        const modal = document.getElementById('rhiImportModal');
+        if (modal) modal.style.display = 'none';
+        resetRhiImportState();
+    };
+
     function resetRhiImportState() {
-        selectedRhiFile = null;
+        rhiFileQueue = [];
+        isRhiQueueRunning = false;
+        rhiQueueAborted = false;
         const fileInput = document.getElementById('rhiFileInput');
         if (fileInput) fileInput.value = '';
-        const preview = document.getElementById('rhiFilePreview');
-        if (preview) preview.style.display = 'none';
-        const btn = document.getElementById('btnSubmitRhiImport');
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-upload"></i> Upload & Import';
-        }
+        renderRhiQueueUI();
         const alertBox = document.getElementById('rhiImportAlert');
         if (alertBox) alertBox.style.display = 'none';
+        const prog = document.getElementById('rhiQueueOverallProgress');
+        if (prog) prog.style.display = 'none';
+    }
+
+    window.clearRhiQueue = function () {
+        if (isRhiQueueRunning) return;
+        resetRhiImportState();
+    };
+
+    function initDropZoneEvents() {
+        const dropZone = document.getElementById('rhiDropZone');
+        if (!dropZone || dropZone._hasEvents) return;
+        dropZone._hasEvents = true;
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.style.background = 'rgba(15, 59, 102, 0.12)';
+                dropZone.style.borderColor = '#0284c7';
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.style.background = '';
+                dropZone.style.borderColor = '';
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', e => {
+            const dt = e.dataTransfer;
+            if (dt && dt.files && dt.files.length) {
+                addFilesToRhiQueue(dt.files);
+            }
+        }, false);
     }
 
     window.handleRhiFileSelect = function (input) {
-        if (input.files && input.files[0]) {
-            selectedRhiFile = input.files[0];
-            const preview = document.getElementById('rhiFilePreview');
-            const nameEl = document.getElementById('rhiFileName');
-            const btn = document.getElementById('btnSubmitRhiImport');
-            if (nameEl) nameEl.textContent = selectedRhiFile.name;
-            if (preview) preview.style.display = 'block';
-            if (btn) btn.disabled = false;
+        if (input.files && input.files.length) {
+            addFilesToRhiQueue(input.files);
+            input.value = '';
         }
     };
 
-    window.submitRhiImport = async function () {
-        if (!selectedRhiFile) return;
-
-        const btn = document.getElementById('btnSubmitRhiImport');
-        const alertBox = document.getElementById('rhiImportAlert');
-        const progContainer = document.getElementById('rhiImportProgressContainer');
-        const progBar = document.getElementById('rhiImportProgressBar');
-        const progPct = document.getElementById('rhiImportProgressPct');
-        const progDetail = document.getElementById('rhiImportProgressDetail');
-        const progStage = document.getElementById('rhiImportProgressStage');
-
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
-        }
-        if (alertBox) alertBox.style.display = 'none';
-        if (progContainer) {
-            progContainer.style.display = 'block';
-            if (progBar) progBar.style.width = '0%';
-            if (progPct) progPct.textContent = '0%';
-            if (progStage) progStage.textContent = 'Uploading...';
-            if (progDetail) progDetail.textContent = '';
-        }
-
-        const formData = new FormData();
-        formData.append('file', selectedRhiFile);
-
-        try {
-            const res = await fetch('/api/sow/rhi/import', {
-                method: 'POST',
-                body: formData
-            });
-            const data = await res.json();
-
-            if (data.status === 'queued' && data.job_id) {
-                // Poll progress until done
-                const poll = setInterval(async () => {
-                    try {
-                        const pres = await fetch(`/api/sow/rhi/import/progress/${data.job_id}`);
-                        const pdata = await pres.json();
-
-                        if (progContainer && pdata.status !== 'queued') {
-                            progContainer.style.display = 'block';
-                            if (progBar) progBar.style.width = (pdata.pct || 0) + '%';
-                            if (progPct) progPct.textContent = (pdata.pct || 0) + '%';
-                            if (progStage) progStage.textContent = pdata.message || pdata.status;
-                            if (progDetail) progDetail.textContent = pdata.message || '';
-                        }
-
-                        if (pdata.status === 'success') {
-                            clearInterval(poll);
-                            if (alertBox) {
-                                alertBox.style.display = 'block';
-                                alertBox.style.background = 'rgba(16,185,129,0.15)';
-                                alertBox.style.color = '#10b981';
-                                alertBox.innerHTML = `<i class="fas fa-check-circle"></i> ${pdata.message || 'Import complete'}`;
-                            }
-                            setTimeout(() => {
-                                closeRhiImportModal();
-                                window.location.reload();
-                            }, 1500);
-                        } else if (pdata.status === 'error') {
-                            clearInterval(poll);
-                            showRhiImportError(pdata.message || 'Import failed', btn, alertBox, progContainer);
-                        }
-                    } catch (e) {
-                        // transient poll error — keep polling
-                    }
-                }, 500);
-                // Safety timeout: stop after 10 minutes
-                setTimeout(() => clearInterval(poll), 600000);
-            } else {
-                // Direct error from POST (validation etc.)
-                showRhiImportError(data.message || 'Import failed', btn, alertBox, progContainer);
+    function addFilesToRhiQueue(files) {
+        if (isRhiQueueRunning) return;
+        for (let i = 0; i < files.length; i++) {
+            const f = files[i];
+            const ext = f.name.toLowerCase().split('.').pop();
+            if (!['xlsx', 'xls', 'csv'].includes(ext)) {
+                continue;
             }
-        } catch (e) {
-            showRhiImportError('Error uploading file: ' + e.message, btn, alertBox, progContainer);
+            if (rhiFileQueue.some(item => item.name === f.name && item.size === f.size)) {
+                continue;
+            }
+            rhiFileQueue.push({
+                id: 'rhi_q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                file: f,
+                name: f.name,
+                size: f.size,
+                status: 'pending',
+                message: 'Queued',
+                pct: 0,
+                rows: 0,
+                weeks: []
+            });
         }
-    };
+        renderRhiQueueUI();
+    }
 
-    function showRhiImportError(message, btn, alertBox, progContainer) {
-        if (alertBox) {
-            alertBox.style.display = 'block';
-            alertBox.style.background = 'rgba(239,68,68,0.15)';
-            alertBox.style.color = '#ef4444';
-            alertBox.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+    function renderRhiQueueUI() {
+        const sec = document.getElementById('rhiQueueSection');
+        const list = document.getElementById('rhiQueueListContainer');
+        const countEl = document.getElementById('rhiQueueTotalCount');
+        const sizeEl = document.getElementById('rhiQueueTotalSize');
+        const btnCount = document.getElementById('rhiQueueBtnCount');
+        const submitBtn = document.getElementById('btnSubmitRhiImport');
+        const addMoreBtn = document.getElementById('btnAddMoreFiles');
+        const clearBtn = document.getElementById('btnClearRhiQueue');
+
+        if (!rhiFileQueue.length) {
+            if (sec) sec.style.display = 'none';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                if (btnCount) btnCount.textContent = '0';
+            }
+            if (addMoreBtn) addMoreBtn.style.display = 'none';
+            return;
         }
-        if (progContainer) progContainer.style.display = 'none';
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-upload"></i> Try Again';
+
+        if (sec) sec.style.display = 'block';
+        if (addMoreBtn) addMoreBtn.style.display = isRhiQueueRunning ? 'none' : 'inline-block';
+        if (clearBtn) clearBtn.style.display = isRhiQueueRunning ? 'none' : 'inline-block';
+
+        const totalBytes = rhiFileQueue.reduce((acc, f) => acc + f.size, 0);
+        const totalMb = (totalBytes / (1024 * 1024)).toFixed(1);
+
+        if (countEl) countEl.textContent = rhiFileQueue.length;
+        if (sizeEl) sizeEl.textContent = `${totalMb} MB`;
+        if (btnCount) btnCount.textContent = `${rhiFileQueue.length} files`;
+
+        if (submitBtn) {
+            submitBtn.disabled = isRhiQueueRunning || rhiFileQueue.every(f => f.status === 'done');
+        }
+
+        if (list) {
+            list.innerHTML = rhiFileQueue.map((item, idx) => {
+                let badgeHtml = '';
+                const sizeMb = (item.size / (1024 * 1024)).toFixed(1);
+
+                if (item.status === 'pending') {
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(0,0,0,0.06); color:var(--text-muted); font-weight:700;">Waiting</span>`;
+                } else if (item.status === 'uploading' || item.status === 'processing') {
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(37,99,235,0.12); color:#2563eb; font-weight:700;">
+                        <i class="fas fa-spinner fa-spin"></i> ${item.pct || 0}%
+                    </span>`;
+                } else if (item.status === 'done') {
+                    const wText = (item.weeks && item.weeks.length) ? item.weeks.map(w => 'W' + String(w).slice(4)).join(',') : 'Done';
+                    const rText = item.rows ? ` (${item.rows.toLocaleString()} rows)` : '';
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(16,185,129,0.15); color:#10b981; font-weight:700;">
+                        <i class="fas fa-check"></i> ${wText}${rText}
+                    </span>`;
+                } else if (item.status === 'error') {
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(239,68,68,0.15); color:#ef4444; font-weight:700;" title="${item.message}">
+                        <i class="fas fa-exclamation-triangle"></i> Error
+                    </span>`;
+                }
+
+                return `
+                    <div id="${item.id}" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:#ffffff; border:1px solid var(--border); border-radius:6px; font-size:11.5px;">
+                        <div style="display:flex; align-items:center; gap:8px; overflow:hidden; margin-right:8px;">
+                            <span style="font-weight:700; color:var(--text-muted); font-size:10px; width:16px;">#${idx + 1}</span>
+                            <i class="fas fa-file-excel" style="color:#10b981; flex-shrink:0;"></i>
+                            <span style="font-weight:700; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${item.name}">${item.name}</span>
+                            <span style="color:var(--text-muted); font-size:10.5px; flex-shrink:0;">(${sizeMb} MB)</span>
+                        </div>
+                        <div style="flex-shrink:0;">
+                            ${badgeHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
     }
+
+    window.startRhiQueueImport = async function () {
+        if (!rhiFileQueue.length || isRhiQueueRunning) return;
+
+        isRhiQueueRunning = true;
+        rhiQueueAborted = false;
+
+        const submitBtn = document.getElementById('btnSubmitRhiImport');
+        const addMoreBtn = document.getElementById('btnAddMoreFiles');
+        const clearBtn = document.getElementById('btnClearRhiQueue');
+        const alertBox = document.getElementById('rhiImportAlert');
+        const overallProg = document.getElementById('rhiQueueOverallProgress');
+        const overallBar = document.getElementById('rhiOverallProgressBar');
+        const overallStage = document.getElementById('rhiOverallStage');
+        const overallPct = document.getElementById('rhiOverallPct');
+        const curFileStage = document.getElementById('rhiCurrentFileStage');
+        const curFilePct = document.getElementById('rhiCurrentFilePct');
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing Queue...';
+        }
+        if (addMoreBtn) addMoreBtn.style.display = 'none';
+        if (clearBtn) clearBtn.style.display = 'none';
+        if (alertBox) alertBox.style.display = 'none';
+        if (overallProg) overallProg.style.display = 'block';
+
+        let successCount = 0;
+        let failCount = 0;
+        let totalRowsImported = 0;
+        let allWeeksImported = new Set();
+
+        const totalFiles = rhiFileQueue.length;
+
+        for (let i = 0; i < totalFiles; i++) {
+            if (rhiQueueAborted) break;
+
+            const item = rhiFileQueue[i];
+            if (item.status === 'done') {
+                successCount++;
+                continue;
+            }
+
+            const currentFileNum = i + 1;
+            const overallProgressValue = Math.round((i / totalFiles) * 100);
+
+            if (overallStage) overallStage.textContent = `Overall: File ${currentFileNum} of ${totalFiles} (${item.name})`;
+            if (overallPct) overallPct.textContent = `${overallProgressValue}%`;
+            if (overallBar) overallBar.style.width = `${overallProgressValue}%`;
+
+            item.status = 'uploading';
+            item.pct = 5;
+            item.message = 'Uploading file...';
+            renderRhiQueueUI();
+
+            try {
+                const formData = new FormData();
+                formData.append('file', item.file);
+
+                if (curFileStage) curFileStage.textContent = `Uploading ${item.name}...`;
+                if (curFilePct) curFilePct.textContent = '10%';
+
+                const res = await fetch('/api/sow/rhi/import', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (data.status === 'queued' && data.job_id) {
+                    item.status = 'processing';
+                    // Poll progress until done
+                    await new Promise((resolve) => {
+                        const poll = setInterval(async () => {
+                            if (rhiQueueAborted) {
+                                clearInterval(poll);
+                                resolve();
+                                return;
+                            }
+                            try {
+                                const pres = await fetch(`/api/sow/rhi/import/progress/${data.job_id}`);
+                                const pdata = await pres.json();
+
+                                if (pdata.status !== 'queued') {
+                                    item.pct = pdata.pct || 15;
+                                    item.message = pdata.message || pdata.status;
+                                    if (curFileStage) curFileStage.textContent = `${item.name}: ${pdata.message || pdata.status}`;
+                                    if (curFilePct) curFilePct.textContent = `${pdata.pct || 0}%`;
+                                    renderRhiQueueUI();
+                                }
+
+                                if (pdata.status === 'success') {
+                                    clearInterval(poll);
+                                    item.status = 'done';
+                                    item.pct = 100;
+                                    item.rows = pdata.total_rows || 0;
+                                    item.weeks = pdata.weeknums || [];
+                                    item.message = pdata.message;
+                                    successCount++;
+                                    totalRowsImported += (pdata.total_rows || 0);
+                                    (pdata.weeknums || []).forEach(w => allWeeksImported.add(w));
+                                    renderRhiQueueUI();
+                                    resolve();
+                                } else if (pdata.status === 'error') {
+                                    clearInterval(poll);
+                                    item.status = 'error';
+                                    item.message = pdata.message || 'Import error';
+                                    failCount++;
+                                    renderRhiQueueUI();
+                                    resolve();
+                                }
+                            } catch (e) {
+                                // transient poll error
+                            }
+                        }, 500);
+
+                        // 15 min per file timeout
+                        setTimeout(() => {
+                            clearInterval(poll);
+                            if (item.status !== 'done') {
+                                item.status = 'error';
+                                item.message = 'Timeout';
+                                failCount++;
+                                renderRhiQueueUI();
+                            }
+                            resolve();
+                        }, 900000);
+                    });
+                } else {
+                    item.status = 'error';
+                    item.message = data.message || 'Upload failed';
+                    failCount++;
+                    renderRhiQueueUI();
+                }
+            } catch (err) {
+                item.status = 'error';
+                item.message = err.message || 'Network error';
+                failCount++;
+                renderRhiQueueUI();
+            }
+        }
+
+        // Final overall progress
+        if (overallBar) overallBar.style.width = '100%';
+        if (overallPct) overallPct.textContent = '100%';
+        if (overallStage) overallStage.textContent = `Completed ${successCount} of ${totalFiles} files`;
+        if (curFileStage) curFileStage.textContent = 'All files processed.';
+        if (curFilePct) curFilePct.textContent = 'Done';
+
+        isRhiQueueRunning = false;
+        renderRhiQueueUI();
+
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Import Complete';
+            submitBtn.disabled = true;
+        }
+
+        if (alertBox) {
+            alertBox.style.display = 'block';
+            if (failCount === 0) {
+                alertBox.style.background = 'rgba(16,185,129,0.15)';
+                alertBox.style.color = '#10b981';
+                const weeksStr = Array.from(allWeeksImported).sort().map(w => 'W' + String(w).slice(4)).join(', ');
+                alertBox.innerHTML = `<i class="fas fa-check-circle"></i> <strong>Queue Completed!</strong> Successfully imported ${successCount} files (${totalRowsImported.toLocaleString()} rows) across week(s): ${weeksStr}.`;
+            } else {
+                alertBox.style.background = 'rgba(234,179,8,0.15)';
+                alertBox.style.color = '#ca8a04';
+                alertBox.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Processed ${totalFiles} files: <strong>${successCount} succeeded</strong>, <strong>${failCount} failed</strong>. Total rows: ${totalRowsImported.toLocaleString()}.`;
+            }
+        }
+
+        // Trigger cache refresh
+        setTimeout(() => {
+            fetch('/api/sow/rhi/summary?refresh=1').catch(() => {});
+        }, 1000);
+    };
 
 })();
