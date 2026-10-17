@@ -1320,11 +1320,10 @@ def _bg_redcov_import(job_id, file_path, filename):
             "grid_tot", "grid_tot_bad", "grid_optim_bad", "%_red_optim"
         }
         if not any(c in header_idx for c in redcov_kpi_cols):
-            header_sample = ", ".join([str(h) for h in headers[:8] if h])
             _redcov_set_job(
                 job_id,
                 status="error",
-                message=f"Invalid format for Redcov: None of the core Redcov metrics ('total_geohash7', 'grid_red_cov', 'RED OPTIM', etc.) were found in headers [{header_sample}]. This file cannot be evaluated as Redcov."
+                message="Invalid format for Redcov: Core metrics ('total_geohash7', 'grid_red_cov', etc.) not found in headers."
             )
             return
 

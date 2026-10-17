@@ -922,11 +922,10 @@ def _bg_cei_import(job_id, file_path, filename):
                     # Require at least one core CEI metric / identifier column
                     cei_kpi_cols = {"cei_score", "cqi_score", "packet_loss_score", "throughput_score", "remark_cell", "rule_1_hit_at_week", "sai_cgi_ecgi", "cell_name", "tot_vol_mb"}
                     if not any(c in idx for c in cei_kpi_cols):
-                        header_sample = ", ".join([str(h) for h in headers[:8] if h])
                         _cei_set_job(
                             job_id,
                             status="error",
-                            message=f"Invalid format for CEI: None of the core CEI columns ('cei_score', 'remark_cell', 'cqi_score', etc.) were found in headers [{header_sample}]. This file cannot be evaluated as CEI."
+                            message="Invalid format for CEI: Core CEI metrics ('cei_score', 'remark_cell', etc.) not found in headers."
                         )
                         return
 
@@ -1017,11 +1016,10 @@ def _bg_cei_import(job_id, file_path, filename):
 
                 cei_kpi_cols = {"cei_score", "cqi_score", "packet_loss_score", "throughput_score", "remark_cell", "rule_1_hit_at_week", "sai_cgi_ecgi", "cell_name", "tot_vol_mb"}
                 if not any(c in idx for c in cei_kpi_cols):
-                    header_sample = ", ".join([str(h) for h in headers[:8] if h])
                     _cei_set_job(
                         job_id,
                         status="error",
-                        message=f"Invalid format for CEI: None of the core CEI columns ('cei_score', 'remark_cell', 'cqi_score', etc.) were found in headers [{header_sample}]. This file cannot be evaluated as CEI."
+                        message="Invalid format for CEI: Core CEI metrics ('cei_score', 'remark_cell', etc.) not found in headers."
                     )
                     return
 

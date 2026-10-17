@@ -1665,11 +1665,10 @@ def _bg_rhi_import(job_id, file_path, filename):
                     # Require at least one core RHI evaluation KPI column
                     rhi_kpi_cols = {"remark_week", "cssr_data_service", "ccsr_data_service", "ccsr_tch", "sdsr", "cssr_tch", "volte_accessibility_sr", "volte_retain_rate", "total_fail_daily"}
                     if not any(c in idx for c in rhi_kpi_cols):
-                        header_sample = ", ".join([str(h) for h in headers[:8] if h])
                         _rhi_set_job(
                             job_id,
                             status="error",
-                            message=f"Invalid format for RHI: None of the core RHI evaluation KPI columns ('remark_week', 'cssr_data_service', 'ccsr_data_service', etc.) were found in headers [{header_sample}]. This file cannot be evaluated as RHI."
+                            message="Invalid format for RHI: Core evaluation KPI columns ('remark_week', 'cssr_data_service', etc.) not found in headers."
                         )
                         return
 
@@ -1771,11 +1770,10 @@ def _bg_rhi_import(job_id, file_path, filename):
                 # Require at least one core RHI evaluation KPI column
                 rhi_kpi_cols = {"remark_week", "cssr_data_service", "ccsr_data_service", "ccsr_tch", "sdsr", "cssr_tch", "volte_accessibility_sr", "volte_retain_rate", "total_fail_daily"}
                 if not any(c in idx for c in rhi_kpi_cols):
-                    header_sample = ", ".join([str(h) for h in headers[:8] if h])
                     _rhi_set_job(
                         job_id,
                         status="error",
-                        message=f"Invalid format for RHI: None of the core RHI evaluation KPI columns ('remark_week', 'cssr_data_service', 'ccsr_data_service', etc.) were found in headers [{header_sample}]. This file cannot be evaluated as RHI."
+                        message="Invalid format for RHI: Core evaluation KPI columns ('remark_week', 'cssr_data_service', etc.) not found in headers."
                     )
                     return
 

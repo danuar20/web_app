@@ -1209,6 +1209,10 @@ def api_sow_targets():
 @login_required
 def crowdsource_page():
     """Render the Crowdsource OKR page with multiple tabs."""
+    cache_ctrl = request.headers.get("Cache-Control", "")
+    pragma = request.headers.get("Pragma", "")
+    if "no-cache" in cache_ctrl or "max-age=0" in cache_ctrl or "no-cache" in pragma or request.args.get("refresh") == "1":
+        clear_sow_caches()
     yearweeks = get_cached_yearweeks()
     levels = ["Nation", "Area", "Region", "Kabupaten"]
     providers = ["Telkomsel", "Indosat", "XL", "Smartfren", "3"]
@@ -1999,6 +2003,7 @@ def api_sow_fb_import_progress(job_id):
 
 
 def _bg_onx_import(job_id, tmp_path, filename):
+    start_time = time.time()
     try:
         with _ONX_IMPORT_JOBS_LOCK:
             _ONX_IMPORT_JOBS[job_id] = {"status": "processing", "pct": 15, "message": "Parsing file...", "stage": "parse"}
@@ -2143,11 +2148,14 @@ def _bg_onx_import(job_id, tmp_path, filename):
                     }
 
         clear_sow_caches()
+        duration_s = round(time.time() - start_time, 1)
+        dur_str = f"{int(duration_s)}s" if duration_s < 60 else f"{int(duration_s//60)}m {int(duration_s%60)}s"
         with _ONX_IMPORT_JOBS_LOCK:
             _ONX_IMPORT_JOBS[job_id] = {
                 "status": "success", "pct": 100,
-                "message": f"Successfully imported and updated {len(records):,} benchmark records.",
-                "rows_processed": len(records), "total_rows": len(records)
+                "message": f"Successfully imported {len(records):,} ONX records in {dur_str}.",
+                "rows_processed": len(records), "total_rows": len(records),
+                "duration_s": duration_s, "duration_str": dur_str
             }
     except Exception as e:
         logger.exception("Background ONX import failed: %s", e)
@@ -2162,6 +2170,7 @@ def _bg_onx_import(job_id, tmp_path, filename):
 
 
 def _bg_fb_import(job_id, tmp_path, filename):
+    start_time = time.time()
     try:
         with _FB_IMPORT_JOBS_LOCK:
             _FB_IMPORT_JOBS[job_id] = {"status": "processing", "pct": 15, "message": "Parsing file...", "stage": "parse"}
@@ -2279,11 +2288,14 @@ def _bg_fb_import(job_id, tmp_path, filename):
                     }
 
         clear_sow_caches()
+        duration_s = round(time.time() - start_time, 1)
+        dur_str = f"{int(duration_s)}s" if duration_s < 60 else f"{int(duration_s//60)}m {int(duration_s%60)}s"
         with _FB_IMPORT_JOBS_LOCK:
             _FB_IMPORT_JOBS[job_id] = {
                 "status": "success", "pct": 100,
-                "message": f"Successfully imported and updated {len(records):,} FB Share records.",
-                "rows_processed": len(records), "total_rows": len(records)
+                "message": f"Successfully imported {len(records):,} FB Share records in {dur_str}.",
+                "rows_processed": len(records), "total_rows": len(records),
+                "duration_s": duration_s, "duration_str": dur_str
             }
     except Exception as e:
         logger.exception("Background FB import failed: %s", e)
