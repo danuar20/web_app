@@ -30,7 +30,11 @@ Provides 3 Scenes/Tabs:
 import csv
 import io
 import logging
+import os
+import tempfile
+import threading
 import time
+from uuid import uuid4
 from collections import defaultdict
 import psycopg2.extras
 from flask import Blueprint, render_template, request, session, jsonify, make_response, send_file
@@ -44,6 +48,9 @@ redcov = Blueprint("redcov", __name__)
 
 _REDCOV_CACHE = {}
 _REDCOV_CACHE_TTL = 900  # 15 minutes
+
+_REDCOV_IMPORT_JOBS = {}
+_REDCOV_IMPORT_LOCK = threading.Lock()
 
 REDCOV_COLUMNS = [
     "yearweek", "region", "kabupaten", "total_geohash7", "total_call_count",
@@ -1197,8 +1204,15 @@ def api_redcov_sample_template():
 
 
 # ══════════════════════════════════════════════════════════════════════
-# API 6: IMPORT DATA
+# API 6: ASYNC BATCH IMPORT & PROGRESS
 # ══════════════════════════════════════════════════════════════════════
+def _redcov_set_job(job_id, **kw):
+    with _REDCOV_IMPORT_LOCK:
+        job = _REDCOV_IMPORT_JOBS.get(job_id)
+        if job:
+            job.update(kw)
+
+
 @redcov.route("/api/sow/redcov/import", methods=["POST"])
 @csrf.exempt
 @login_required
@@ -1213,104 +1227,152 @@ def api_redcov_import():
     if not filename.endswith((".csv", ".xlsx", ".xls")):
         return jsonify({"status": "error", "message": "Only CSV and Excel (.xlsx, .xls) files are supported"}), 400
 
-    raw_dicts = []
+    job_id = str(uuid4())
+    fd, path = tempfile.mkstemp(suffix=os.path.splitext(filename)[1])
+    with os.fdopen(fd, "wb") as f:
+        uploaded_file.save(f)
+
+    with _REDCOV_IMPORT_LOCK:
+        _REDCOV_IMPORT_JOBS[job_id] = {"status": "queued", "pct": 0, "message": "Queued..."}
+
+    threading.Thread(target=_bg_redcov_import, args=(job_id, path, filename), daemon=True).start()
+    return jsonify({"status": "queued", "job_id": job_id})
+
+
+@redcov.route("/api/sow/redcov/import/progress/<job_id>", methods=["GET"])
+@login_required
+def api_redcov_import_progress(job_id):
+    with _REDCOV_IMPORT_LOCK:
+        job = _REDCOV_IMPORT_JOBS.get(job_id)
+        if job is None:
+            return jsonify({"status": "error", "message": "Job not found"}), 404
+        snapshot = dict(job)
+    return jsonify(snapshot)
+
+
+def _bg_redcov_import(job_id, file_path, filename):
     try:
-        if filename.endswith(".csv"):
-            file_bytes = uploaded_file.read()
-            text = file_bytes.decode("utf-8-sig", errors="replace")
-            stream = io.StringIO(text)
-            reader = csv.DictReader(stream)
-            raw_dicts = list(reader)
-        elif filename.endswith((".xlsx", ".xls")):
-            import openpyxl
-            wb = openpyxl.load_workbook(uploaded_file.stream, data_only=True)
-            ws = wb.active
-            rows = list(ws.iter_rows(values_only=True))
-            if not rows or len(rows) < 2:
-                return jsonify({"status": "error", "message": "Uploaded Excel sheet is empty"}), 400
-            headers = [str(c).strip() if c is not None else "" for c in rows[0]]
-            for r in rows[1:]:
-                if any(v is not None for v in r):
-                    row_dict = {headers[i]: r[i] for i in range(min(len(headers), len(r)))}
-                    raw_dicts.append(row_dict)
-    except Exception as e:
-        logger.exception("Failed to parse uploaded file: %s", e)
-        return jsonify({"status": "error", "message": f"File parsing failed: {str(e)}"}), 400
+        _redcov_set_job(job_id, status="processing", pct=10, message="Parsing file...", stage="parse")
+        is_csv = filename.lower().endswith(".csv")
+        headers = []
+        rows_iter = []
 
-    if not raw_dicts:
-        return jsonify({"status": "error", "message": "No data rows found in uploaded file"}), 400
+        if is_csv:
+            with open(file_path, "r", encoding="utf-8-sig", errors="replace", newline="") as fh:
+                reader = csv.reader(fh)
+                try:
+                    headers = next(reader)
+                except StopIteration:
+                    _redcov_set_job(job_id, status="error", message="Uploaded CSV file is empty")
+                    return
+                rows_iter = list(reader)
+        else:
+            try:
+                from python_calamine import CalamineWorkbook
+                wb = CalamineWorkbook.from_path(file_path)
+                sheet_data = wb.get_sheet_by_index(0).to_python()
+                if sheet_data:
+                    headers = sheet_data[0]
+                    rows_iter = sheet_data[1:]
+            except Exception:
+                import openpyxl
+                wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
+                ws = wb.active
+                sheet_rows = list(ws.iter_rows(values_only=True))
+                wb.close()
+                if sheet_rows:
+                    headers = sheet_rows[0]
+                    rows_iter = sheet_rows[1:]
 
-    first_row = raw_dicts[0]
-    header_lookup = {str(k).strip().lower(): str(k) for k in first_row.keys() if k is not None}
+        if not headers or not rows_iter:
+            _redcov_set_job(job_id, status="error", message="Uploaded file contains no data rows")
+            return
 
-    if "yearweek" not in header_lookup or "region" not in header_lookup or "kabupaten" not in header_lookup:
-        return jsonify({
-            "status": "error",
-            "message": "Missing required primary key columns ('yearweek', 'region', 'kabupaten') in uploaded file"
-        }), 400
+        header_idx = {str(h).strip().lower(): i for i, h in enumerate(headers) if h is not None}
+        if "yearweek" not in header_idx or "region" not in header_idx or "kabupaten" not in header_idx:
+            _redcov_set_job(job_id, status="error", message="Missing required columns ('yearweek', 'region', 'kabupaten')")
+            return
 
-    insert_records = []
-    for r in raw_dicts:
-        row_map = {str(k).strip().lower(): v for k, v in r.items() if k is not None}
+        _redcov_set_job(job_id, status="processing", pct=35, message=f"Validating {len(rows_iter):,} rows...", stage="validate")
 
-        raw_yw = row_map.get("yearweek")
-        try:
-            yw = int(float(str(raw_yw).strip()))
-        except (ValueError, TypeError):
-            continue
+        insert_records = []
+        weeknums = set()
+        yw_i = header_idx["yearweek"]
+        reg_i = header_idx["region"]
+        kab_i = header_idx["kabupaten"]
 
-        region = _safe_str(row_map.get("region"))
-        kabupaten = _safe_str(row_map.get("kabupaten"))
-        if not region or not kabupaten:
-            continue
+        for r in rows_iter:
+            if not any(v is not None and str(v).strip() != "" for v in r):
+                continue
+            raw_yw = r[yw_i] if yw_i < len(r) else None
+            try:
+                yw = int(float(str(raw_yw).strip()))
+            except (ValueError, TypeError):
+                continue
+            region = _safe_str(r[reg_i] if reg_i < len(r) else None)
+            kabupaten = _safe_str(r[kab_i] if kab_i < len(r) else None)
+            if not region or not kabupaten:
+                continue
 
-        record = []
-        for col in REDCOV_COLUMNS:
-            col_l = col.lower()
-            val = row_map.get(col_l)
-            if col == "yearweek":
-                record.append(yw)
-            elif col == "region":
-                record.append(region)
-            elif col == "kabupaten":
-                record.append(kabupaten)
-            elif col in REDCOV_INT_COLS:
-                record.append(_safe_int(val, default=0))
-            elif col in REDCOV_FLOAT_COLS:
-                record.append(_safe_float(val, default=0.0))
-            else:
-                record.append(_safe_str(val, default=""))
-        insert_records.append(tuple(record))
+            weeknums.add(yw)
+            record = []
+            for col in REDCOV_COLUMNS:
+                col_l = col.lower()
+                c_idx = header_idx.get(col_l, -1)
+                val = r[c_idx] if (c_idx != -1 and c_idx < len(r)) else None
 
-    if not insert_records:
-        return jsonify({"status": "error", "message": "No valid data rows found"}), 400
+                if col == "yearweek":
+                    record.append(yw)
+                elif col == "region":
+                    record.append(region)
+                elif col == "kabupaten":
+                    record.append(kabupaten)
+                elif col in REDCOV_INT_COLS:
+                    record.append(_safe_int(val, default=0))
+                elif col in REDCOV_FLOAT_COLS:
+                    record.append(_safe_float(val, default=0.0))
+                else:
+                    record.append(_safe_str(val, default=""))
+            insert_records.append(tuple(record))
 
-    col_names = ", ".join([f'"{c}"' for c in REDCOV_COLUMNS])
-    val_placeholders = ", ".join(["%s"] * len(REDCOV_COLUMNS))
+        if not insert_records:
+            _redcov_set_job(job_id, status="error", message="No valid records found to import")
+            return
 
-    # Update columns on conflict
-    update_cols = [c for c in REDCOV_COLUMNS if c not in ("yearweek", "region", "kabupaten")]
-    update_clause = ", ".join([f'"{c}" = EXCLUDED."{c}"' for c in update_cols])
+        _redcov_set_job(job_id, status="processing", pct=65, message=f"Prepared {len(insert_records):,} rows. Upserting into database...", stage="copy")
 
-    insert_query = f"""
-        INSERT INTO sow.red_cov ({col_names})
-        VALUES ({val_placeholders})
-        ON CONFLICT (yearweek, region, kabupaten)
-        DO UPDATE SET {update_clause}
-    """
+        col_names = ", ".join([f'"{c}"' for c in REDCOV_COLUMNS])
+        val_placeholders = ", ".join(["%s"] * len(REDCOV_COLUMNS))
+        update_cols = [c for c in REDCOV_COLUMNS if c not in ("yearweek", "region", "kabupaten")]
+        update_clause = ", ".join([f'"{c}" = EXCLUDED."{c}"' for c in update_cols])
 
-    try:
+        insert_query = f"""
+            INSERT INTO sow.red_cov ({col_names})
+            VALUES ({val_placeholders})
+            ON CONFLICT (yearweek, region, kabupaten)
+            DO UPDATE SET {update_clause}
+        """
+
         with db_query(get_postgres_connection) as (conn, cur):
             psycopg2.extras.execute_batch(cur, insert_query, insert_records, page_size=500)
             conn.commit()
 
         clear_redcov_caches()
-
-        return jsonify({
-            "status": "success",
-            "rows_processed": len(insert_records),
-            "message": f"Successfully imported {len(insert_records):,} records into sow.red_cov"
-        })
+        weeks_str = ", ".join(f"W{str(w)[4:]}" for w in sorted(weeknums))
+        _redcov_set_job(
+            job_id,
+            status="success",
+            pct=100,
+            message=f"Successfully imported {len(insert_records):,} rows across week(s): {weeks_str}.",
+            weeknums=list(sorted(weeknums)),
+            total_rows=len(insert_records)
+        )
     except Exception as e:
-        logger.exception("Database error while importing Redcov records: %s", e)
-        return jsonify({"status": "error", "message": f"Database error during import: {str(e)}"}), 500
+        logger.exception("Redcov async import failed: %s", e)
+        _redcov_set_job(job_id, status="error", message=f"Import failed: {str(e)}")
+    finally:
+        if os.path.exists(file_path):
+            try:
+                os.unlink(file_path)
+            except Exception:
+                pass

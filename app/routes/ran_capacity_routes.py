@@ -15,7 +15,11 @@ Performance optimizations:
 import csv
 import io
 import logging
+import os
+import tempfile
+import threading
 import time
+from uuid import uuid4
 from collections import defaultdict
 import psycopg2.extras
 from flask import Blueprint, render_template, request, session, jsonify, make_response, send_file
@@ -29,6 +33,9 @@ ran_capacity = Blueprint("ran_capacity", __name__)
 
 _RAN_CACHE = {}
 _RAN_CACHE_TTL = 900  # 15 minutes
+
+_RAN_IMPORT_JOBS = {}
+_RAN_IMPORT_LOCK = threading.Lock()
 
 RCI_REDSECTOR_COLUMNS = [
     "week", "region", "site_id", "type", "sector_id_new", "number_band",
@@ -1639,8 +1646,15 @@ def api_ran_capacity_sample_template():
 
 
 # ══════════════════════════════════════════════════════════════════════
-# API 6: DATA IMPORT
+# API 6: ASYNC BATCH IMPORT & PROGRESS
 # ══════════════════════════════════════════════════════════════════════
+def _ran_set_job(job_id, **kw):
+    with _RAN_IMPORT_LOCK:
+        job = _RAN_IMPORT_JOBS.get(job_id)
+        if job:
+            job.update(kw)
+
+
 @ran_capacity.route("/api/sow/ran_capacity/import", methods=["POST"])
 @csrf.exempt
 @login_required
@@ -1654,111 +1668,170 @@ def api_ran_capacity_import():
         return jsonify({"status": "error", "message": "Empty file uploaded"}), 400
 
     filename = file.filename.lower()
-    raw_dicts = []
+    if not filename.endswith((".csv", ".xlsx", ".xls")):
+        return jsonify({"status": "error", "message": "Unsupported file format. Please upload .xlsx or .csv"}), 400
 
+    job_id = str(uuid4())
+    fd, path = tempfile.mkstemp(suffix=os.path.splitext(filename)[1])
+    with os.fdopen(fd, "wb") as f:
+        file.save(f)
+
+    with _RAN_IMPORT_LOCK:
+        _RAN_IMPORT_JOBS[job_id] = {"status": "queued", "pct": 0, "message": "Queued..."}
+
+    threading.Thread(target=_bg_ran_capacity_import, args=(job_id, path, filename), daemon=True).start()
+    return jsonify({"status": "queued", "job_id": job_id})
+
+
+@ran_capacity.route("/api/sow/ran_capacity/import/progress/<job_id>", methods=["GET"])
+@login_required
+def api_ran_capacity_import_progress(job_id):
+    with _RAN_IMPORT_LOCK:
+        job = _RAN_IMPORT_JOBS.get(job_id)
+        if job is None:
+            return jsonify({"status": "error", "message": "Job not found"}), 404
+        snapshot = dict(job)
+    return jsonify(snapshot)
+
+
+def _bg_ran_capacity_import(job_id, file_path, filename):
     try:
-        if filename.endswith(".csv"):
-            content = file.stream.read().decode("utf-8-sig", errors="replace")
-            reader = csv.DictReader(io.StringIO(content))
-            raw_dicts = list(reader)
-        elif filename.endswith((".xlsx", ".xls")):
-            import openpyxl
-            wb = openpyxl.load_workbook(file.stream, data_only=True)
-            ws = wb.active
-            rows_iter = ws.iter_rows(values_only=True)
-            headers = [str(h).strip() if h is not None else "" for h in next(rows_iter, [])]
-            for row in rows_iter:
-                if any(v is not None and str(v).strip() != "" for v in row):
-                    raw_dicts.append(dict(zip(headers, row)))
+        _ran_set_job(job_id, status="processing", pct=10, message="Parsing file...", stage="parse")
+        is_csv = filename.lower().endswith(".csv")
+        headers = []
+        rows_iter = []
+
+        if is_csv:
+            with open(file_path, "r", encoding="utf-8-sig", errors="replace", newline="") as fh:
+                reader = csv.reader(fh)
+                try:
+                    headers = next(reader)
+                except StopIteration:
+                    _ran_set_job(job_id, status="error", message="Uploaded CSV file is empty")
+                    return
+                rows_iter = list(reader)
         else:
-            return jsonify({"status": "error", "message": "Unsupported file format. Please upload .xlsx or .csv"}), 400
-    except Exception as e:
-        logger.exception("Error parsing import file: %s", e)
-        return jsonify({"status": "error", "message": f"Failed to parse file: {str(e)}"}), 400
+            try:
+                from python_calamine import CalamineWorkbook
+                wb = CalamineWorkbook.from_path(file_path)
+                sheet_data = wb.get_sheet_by_index(0).to_python()
+                if sheet_data:
+                    headers = sheet_data[0]
+                    rows_iter = sheet_data[1:]
+            except Exception:
+                import openpyxl
+                wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
+                ws = wb.active
+                sheet_rows = list(ws.iter_rows(values_only=True))
+                wb.close()
+                if sheet_rows:
+                    headers = sheet_rows[0]
+                    rows_iter = sheet_rows[1:]
 
-    if not raw_dicts:
-        return jsonify({"status": "error", "message": "No data rows found in uploaded file"}), 400
+        if not headers or not rows_iter:
+            _ran_set_job(job_id, status="error", message="Uploaded file contains no data rows")
+            return
 
-    first_row = raw_dicts[0]
-    header_lookup = {str(k).strip().lower(): str(k) for k in first_row.keys() if k is not None}
+        header_idx = {str(h).strip().lower(): i for i, h in enumerate(headers) if h is not None}
+        required_pks = ["week", "region", "site_id", "sector_id_new", "kabupaten", "type"]
+        missing_pks = [pk for pk in required_pks if pk not in header_idx]
+        if missing_pks:
+            _ran_set_job(job_id, status="error", message=f"Missing required primary key columns: {', '.join(missing_pks)}")
+            return
 
-    required_pks = ["week", "region", "site_id", "sector_id_new", "kabupaten", "type"]
-    missing_pks = [pk for pk in required_pks if pk not in header_lookup]
-    if missing_pks:
-        return jsonify({
-            "status": "error",
-            "message": f"Missing required primary key columns: {', '.join(missing_pks)}"
-        }), 400
+        _ran_set_job(job_id, status="processing", pct=35, message=f"Validating {len(rows_iter):,} rows...", stage="validate")
 
-    insert_records = []
-    for r in raw_dicts:
-        row_map = {str(k).strip().lower(): v for k, v in r.items() if k is not None}
+        insert_records = []
+        weeks = set()
+        w_i = header_idx["week"]
+        r_i = header_idx["region"]
+        s_i = header_idx["site_id"]
+        sec_i = header_idx["sector_id_new"]
+        k_i = header_idx["kabupaten"]
+        t_i = header_idx["type"]
 
-        raw_week = row_map.get("week")
-        try:
-            week_val = int(float(str(raw_week).strip()))
-        except (ValueError, TypeError):
-            continue
+        for r in rows_iter:
+            if not any(v is not None and str(v).strip() != "" for v in r):
+                continue
+            raw_w = r[w_i] if w_i < len(r) else None
+            try:
+                w_val = int(float(str(raw_w).strip()))
+            except (ValueError, TypeError):
+                continue
+            reg = _safe_str(r[r_i] if r_i < len(r) else None)
+            sid = _safe_str(r[s_i] if s_i < len(r) else None)
+            sec = _safe_int(r[sec_i] if sec_i < len(r) else None, default=1)
+            kab = _safe_str(r[k_i] if k_i < len(r) else None)
+            typ = _safe_str(r[t_i] if t_i < len(r) else None, default="MAC")
 
-        region = _safe_str(row_map.get("region"))
-        site_id = _safe_str(row_map.get("site_id"))
-        sec_id = _safe_int(row_map.get("sector_id_new"), default=1)
-        kabupaten = _safe_str(row_map.get("kabupaten"))
-        type_val = _safe_str(row_map.get("type"), default="MAC")
+            if not reg or not sid or not kab:
+                continue
 
-        if not region or not site_id or not kabupaten:
-            continue
+            weeks.add(w_val)
+            record = []
+            for col in RCI_REDSECTOR_COLUMNS:
+                col_l = col.lower()
+                c_idx = header_idx.get(col_l, -1)
+                val = r[c_idx] if (c_idx != -1 and c_idx < len(r)) else None
 
-        record = []
-        for col in RCI_REDSECTOR_COLUMNS:
-            col_l = col.lower()
-            val = row_map.get(col_l)
-            if col == "week":
-                record.append(week_val)
-            elif col == "region":
-                record.append(region)
-            elif col == "site_id":
-                record.append(site_id)
-            elif col == "sector_id_new":
-                record.append(sec_id)
-            elif col == "kabupaten":
-                record.append(kabupaten)
-            elif col == "type":
-                record.append(type_val)
-            elif col in RCI_REDSECTOR_INT_COLS:
-                record.append(_safe_int(val, default=0) if val is not None and str(val).strip() != "" else None)
-            elif col in RCI_REDSECTOR_FLOAT_COLS:
-                record.append(_safe_float(val, default=0.0) if val is not None and str(val).strip() != "" else None)
-            else:
-                record.append(_safe_str(val, default="") if val is not None else None)
-        insert_records.append(tuple(record))
+                if col == "week":
+                    record.append(w_val)
+                elif col == "region":
+                    record.append(reg)
+                elif col == "site_id":
+                    record.append(sid)
+                elif col == "sector_id_new":
+                    record.append(sec)
+                elif col == "kabupaten":
+                    record.append(kab)
+                elif col == "type":
+                    record.append(typ)
+                elif col in RCI_REDSECTOR_INT_COLS:
+                    record.append(_safe_int(val, default=0) if val is not None and str(val).strip() != "" else None)
+                elif col in RCI_REDSECTOR_FLOAT_COLS:
+                    record.append(_safe_float(val, default=0.0) if val is not None and str(val).strip() != "" else None)
+                else:
+                    record.append(_safe_str(val, default="") if val is not None else None)
+            insert_records.append(tuple(record))
 
-    if not insert_records:
-        return jsonify({"status": "error", "message": "No valid data rows found to insert"}), 400
+        if not insert_records:
+            _ran_set_job(job_id, status="error", message="No valid data rows found to insert")
+            return
 
-    col_names = ", ".join([f'"{c}"' for c in RCI_REDSECTOR_COLUMNS])
-    val_placeholders = ", ".join(["%s"] * len(RCI_REDSECTOR_COLUMNS))
+        _ran_set_job(job_id, status="processing", pct=65, message=f"Prepared {len(insert_records):,} rows. Upserting into database...", stage="copy")
 
-    update_cols = [c for c in RCI_REDSECTOR_COLUMNS if c not in ("week", "region", "site_id", "sector_id_new", "kabupaten", "type")]
-    update_clause = ", ".join([f'"{c}" = EXCLUDED."{c}"' for c in update_cols])
+        col_names = ", ".join([f'"{c}"' for c in RCI_REDSECTOR_COLUMNS])
+        val_placeholders = ", ".join(["%s"] * len(RCI_REDSECTOR_COLUMNS))
+        update_cols = [c for c in RCI_REDSECTOR_COLUMNS if c not in ("week", "region", "site_id", "sector_id_new", "kabupaten", "type")]
+        update_clause = ", ".join([f'"{c}" = EXCLUDED."{c}"' for c in update_cols])
 
-    insert_query = f"""
-        INSERT INTO sow.rci_redsector ({col_names})
-        VALUES ({val_placeholders})
-        ON CONFLICT (week, region, site_id, sector_id_new, kabupaten, type)
-        DO UPDATE SET {update_clause}
-    """
+        insert_query = f"""
+            INSERT INTO sow.rci_redsector ({col_names})
+            VALUES ({val_placeholders})
+            ON CONFLICT (week, region, site_id, sector_id_new, kabupaten, type)
+            DO UPDATE SET {update_clause}
+        """
 
-    try:
         with db_query(get_postgres_connection) as (conn, cur):
             psycopg2.extras.execute_batch(cur, insert_query, insert_records, page_size=500)
             conn.commit()
 
         clear_ran_capacity_caches()
-        return jsonify({
-            "status": "success",
-            "message": f"Successfully imported/updated {len(insert_records)} records into sow.rci_redsector"
-        })
+        weeks_str = ", ".join(f"W{str(w)[4:]}" for w in sorted(weeks))
+        _ran_set_job(
+            job_id,
+            status="success",
+            pct=100,
+            message=f"Successfully imported {len(insert_records):,} records across week(s): {weeks_str}.",
+            weeknums=list(sorted(weeks)),
+            total_rows=len(insert_records)
+        )
     except Exception as e:
-        logger.exception("Error executing batch insert: %s", e)
-        return jsonify({"status": "error", "message": f"Database import error: {str(e)}"}), 500
+        logger.exception("RAN capacity async import failed: %s", e)
+        _ran_set_job(job_id, status="error", message=f"Import failed: {str(e)}")
+    finally:
+        if os.path.exists(file_path):
+            try:
+                os.unlink(file_path)
+            except Exception:
+                pass

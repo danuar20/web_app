@@ -1758,81 +1758,356 @@
     // ══════════════════════════════════════════════════════════════════
     // Import Modal Handlers (same flow as Redcoverage import)
     // ══════════════════════════════════════════════════════════════════
+    // Multi-File Batch Queue Importer for CEI
+    // ══════════════════════════════════════════════════════════════════
+    let ceiFileQueue = [];
+    let isCeiQueueRunning = false;
+    let ceiQueueAborted = false;
+
     window.openCeiImportModal = function () {
         const m = document.getElementById('ceiImportModal');
         if (m) m.style.display = 'flex';
+        initCeiDropZoneEvents();
     };
 
     window.closeCeiImportModal = function () {
+        if (isCeiQueueRunning) {
+            if (!confirm('An import queue is currently running. Are you sure you want to cancel and close?')) {
+                return;
+            }
+            ceiQueueAborted = true;
+        }
         const m = document.getElementById('ceiImportModal');
         if (m) m.style.display = 'none';
-        removeCeiFile();
+        resetCeiImportState();
     };
 
-    window.handleCeiFileSelect = function (input) {
-        if (input.files && input.files[0]) {
-            selectedCeiFile = input.files[0];
-            document.getElementById('ceiFileName').textContent = selectedCeiFile.name;
-            document.getElementById('ceiFilePreview').style.display = 'block';
-            document.getElementById('ceiImportBtn').disabled = false;
-        }
-    };
-
-    window.removeCeiFile = function () {
-        selectedCeiFile = null;
+    function resetCeiImportState() {
+        ceiFileQueue = [];
+        isCeiQueueRunning = false;
+        ceiQueueAborted = false;
         const fileInput = document.getElementById('ceiFileInput');
         if (fileInput) fileInput.value = '';
-        const preview = document.getElementById('ceiFilePreview');
-        if (preview) preview.style.display = 'none';
-        const importBtn = document.getElementById('ceiImportBtn');
-        if (importBtn) {
-            importBtn.disabled = true;
-            importBtn.innerHTML = '<i class="fas fa-upload"></i> Upload &amp; Import';
-        }
-        const status = document.getElementById('ceiImportStatus');
-        if (status) {
-            status.style.display = 'none';
-            status.innerHTML = '';
+        renderCeiQueueUI();
+        const alertBox = document.getElementById('ceiImportAlert');
+        if (alertBox) alertBox.style.display = 'none';
+        const prog = document.getElementById('ceiQueueOverallProgress');
+        if (prog) prog.style.display = 'none';
+    }
+
+    window.clearCeiQueue = function () {
+        if (isCeiQueueRunning) return;
+        resetCeiImportState();
+    };
+
+    function initCeiDropZoneEvents() {
+        const dropZone = document.getElementById('ceiDropZone');
+        if (!dropZone || dropZone._hasEvents) return;
+        dropZone._hasEvents = true;
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.style.background = 'rgba(15, 59, 102, 0.08)';
+                dropZone.style.borderColor = '#0F3B66';
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.style.background = '';
+                dropZone.style.borderColor = '';
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', e => {
+            const dt = e.dataTransfer;
+            if (dt && dt.files && dt.files.length) {
+                addFilesToCeiQueue(dt.files);
+            }
+        }, false);
+    }
+
+    window.handleCeiFileSelect = function (input) {
+        if (input.files && input.files.length) {
+            addFilesToCeiQueue(input.files);
+            input.value = '';
         }
     };
 
-    window.submitCeiImport = async function () {
-        if (!selectedCeiFile) return;
-        const btn = document.getElementById('ceiImportBtn');
-        const status = document.getElementById('ceiImportStatus');
-        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Queuing...'; }
-        const formData = new FormData(); formData.append('file', selectedCeiFile);
-        try {
-            const res = await fetch('/api/sow/cei/import', { method: 'POST', body: formData });
-            const data = await res.json();
-            if (data.status === 'queued') {
-                const poll = setInterval(async () => {
-                    const pRes = await fetch('/api/sow/cei/import/progress/' + data.job_id);
-                    const pData = await pRes.json();
-                    if (pData.status === 'processing') {
-                        status.style.display = 'block';
-                        status.style.color = '#0F3B66';
-                        status.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${pData.pct}%: ${pData.message}`;
-                    } else if (pData.status === 'success') {
-                        clearInterval(poll);
-                        status.style.color = '#10b981';
-                        status.innerHTML = `<i class="fas fa-check-circle"></i> Import success!`;
-                        setTimeout(() => { closeCeiImportModal(); window.location.reload(); }, 1000);
-                    } else {
-                        clearInterval(poll);
-                        status.style.color = '#ef4444';
-                        status.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${pData.message}`;
-                        btn.disabled = false; btn.innerHTML = '<i class="fas fa-upload"></i> Retry Import';
-                    }
-                }, 800);
-            } else {
-                status.style.display = 'block'; status.style.color = '#ef4444';
-                status.innerHTML = data.message; btn.disabled = false; btn.innerHTML = '<i class="fas fa-upload"></i> Retry Import';
+    function addFilesToCeiQueue(files) {
+        if (isCeiQueueRunning) return;
+        for (let i = 0; i < files.length; i++) {
+            const f = files[i];
+            const ext = f.name.toLowerCase().split('.').pop();
+            if (!['xlsx', 'xls', 'csv'].includes(ext)) {
+                continue;
             }
-        } catch (e) {
-            status.style.display = 'block'; status.style.color = '#ef4444';
-            status.innerHTML = 'Network error: ' + e.message; btn.disabled = false; btn.innerHTML = '<i class="fas fa-upload"></i> Retry Import';
+            if (ceiFileQueue.some(item => item.name === f.name && item.size === f.size)) {
+                continue;
+            }
+            ceiFileQueue.push({
+                id: 'cei_q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                file: f,
+                name: f.name,
+                size: f.size,
+                status: 'pending',
+                message: 'Queued',
+                pct: 0,
+                rows: 0,
+                weeks: []
+            });
         }
+        renderCeiQueueUI();
+    }
+
+    function renderCeiQueueUI() {
+        const sec = document.getElementById('ceiQueueSection');
+        const list = document.getElementById('ceiQueueListContainer');
+        const countEl = document.getElementById('ceiQueueTotalCount');
+        const sizeEl = document.getElementById('ceiQueueTotalSize');
+        const btnCount = document.getElementById('ceiQueueBtnCount');
+        const submitBtn = document.getElementById('ceiImportBtn');
+        const addMoreBtn = document.getElementById('btnAddMoreCeiFiles');
+        const clearBtn = document.getElementById('btnClearCeiQueue');
+
+        if (!ceiFileQueue.length) {
+            if (sec) sec.style.display = 'none';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                if (btnCount) btnCount.textContent = '0';
+            }
+            if (addMoreBtn) addMoreBtn.style.display = 'none';
+            return;
+        }
+
+        if (sec) sec.style.display = 'block';
+        if (addMoreBtn) addMoreBtn.style.display = isCeiQueueRunning ? 'none' : 'inline-block';
+        if (clearBtn) clearBtn.style.display = isCeiQueueRunning ? 'none' : 'inline-block';
+
+        const totalBytes = ceiFileQueue.reduce((acc, f) => acc + f.size, 0);
+        const totalMb = (totalBytes / (1024 * 1024)).toFixed(1);
+
+        if (countEl) countEl.textContent = ceiFileQueue.length;
+        if (sizeEl) sizeEl.textContent = `${totalMb} MB`;
+        if (btnCount) btnCount.textContent = `${ceiFileQueue.length} files`;
+
+        if (submitBtn) {
+            submitBtn.disabled = isCeiQueueRunning || ceiFileQueue.every(f => f.status === 'done');
+        }
+
+        if (list) {
+            list.innerHTML = ceiFileQueue.map((item, idx) => {
+                let badgeHtml = '';
+                const sizeMb = (item.size / (1024 * 1024)).toFixed(1);
+
+                if (item.status === 'pending') {
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(0,0,0,0.06); color:var(--text-muted); font-weight:700;">Waiting</span>`;
+                } else if (item.status === 'uploading' || item.status === 'processing') {
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(15,59,102,0.12); color:#0F3B66; font-weight:700;">
+                        <i class="fas fa-spinner fa-spin"></i> ${item.pct || 0}%
+                    </span>`;
+                } else if (item.status === 'done') {
+                    const wText = (item.weeks && item.weeks.length) ? item.weeks.map(w => 'W' + String(w).slice(4)).join(',') : 'Done';
+                    const rText = item.rows ? ` (${item.rows.toLocaleString()} rows)` : '';
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(16,185,129,0.15); color:#10b981; font-weight:700;">
+                        <i class="fas fa-check"></i> ${wText}${rText}
+                    </span>`;
+                } else if (item.status === 'error') {
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(239,68,68,0.15); color:#ef4444; font-weight:700;" title="${item.message}">
+                        <i class="fas fa-exclamation-triangle"></i> Error
+                    </span>`;
+                }
+
+                return `
+                    <div id="${item.id}" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:#ffffff; border:1px solid var(--border); border-radius:6px; font-size:11.5px;">
+                        <div style="display:flex; align-items:center; gap:8px; overflow:hidden; margin-right:8px;">
+                            <span style="font-weight:700; color:var(--text-muted); font-size:10px; width:16px;">#${idx + 1}</span>
+                            <i class="fas fa-file-excel" style="color:#0F3B66; flex-shrink:0;"></i>
+                            <span style="font-weight:700; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${item.name}">${item.name}</span>
+                            <span style="color:var(--text-muted); font-size:10.5px; flex-shrink:0;">(${sizeMb} MB)</span>
+                        </div>
+                        <div style="flex-shrink:0;">
+                            ${badgeHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    window.startCeiQueueImport = async function () {
+        if (!ceiFileQueue.length || isCeiQueueRunning) return;
+
+        isCeiQueueRunning = true;
+        ceiQueueAborted = false;
+
+        const submitBtn = document.getElementById('ceiImportBtn');
+        const addMoreBtn = document.getElementById('btnAddMoreCeiFiles');
+        const clearBtn = document.getElementById('btnClearCeiQueue');
+        const alertBox = document.getElementById('ceiImportAlert');
+        const overallProg = document.getElementById('ceiQueueOverallProgress');
+        const overallBar = document.getElementById('ceiOverallProgressBar');
+        const overallStage = document.getElementById('ceiOverallStage');
+        const overallPct = document.getElementById('ceiOverallPct');
+        const curFileStage = document.getElementById('ceiCurrentFileStage');
+        const curFilePct = document.getElementById('ceiCurrentFilePct');
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing Queue...';
+        }
+        if (addMoreBtn) addMoreBtn.style.display = 'none';
+        if (clearBtn) clearBtn.style.display = 'none';
+        if (alertBox) alertBox.style.display = 'none';
+        if (overallProg) overallProg.style.display = 'block';
+
+        let successCount = 0;
+        let failCount = 0;
+        let totalRowsImported = 0;
+        let allWeeksImported = new Set();
+
+        const totalFiles = ceiFileQueue.length;
+
+        for (let i = 0; i < totalFiles; i++) {
+            if (ceiQueueAborted) break;
+
+            const item = ceiFileQueue[i];
+            if (item.status === 'done') {
+                successCount++;
+                continue;
+            }
+
+            const currentFileNum = i + 1;
+            const overallProgressValue = Math.round((i / totalFiles) * 100);
+
+            if (overallStage) overallStage.textContent = `Overall: File ${currentFileNum} of ${totalFiles} (${item.name})`;
+            if (overallPct) overallPct.textContent = `${overallProgressValue}%`;
+            if (overallBar) overallBar.style.width = `${overallProgressValue}%`;
+
+            item.status = 'uploading';
+            item.pct = 10;
+            item.message = 'Uploading file...';
+            renderCeiQueueUI();
+
+            try {
+                const formData = new FormData();
+                formData.append('file', item.file);
+
+                if (curFileStage) curFileStage.textContent = `Uploading ${item.name}...`;
+                if (curFilePct) curFilePct.textContent = '10%';
+
+                const res = await fetch('/api/sow/cei/import', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (data.status === 'queued' && data.job_id) {
+                    item.status = 'processing';
+                    await new Promise((resolve) => {
+                        const poll = setInterval(async () => {
+                            if (ceiQueueAborted) {
+                                clearInterval(poll);
+                                resolve();
+                                return;
+                            }
+                            try {
+                                const pres = await fetch('/api/sow/cei/import/progress/' + data.job_id);
+                                const pdata = await pres.json();
+
+                                if (pdata.status !== 'queued') {
+                                    item.pct = pdata.pct || 15;
+                                    item.message = pdata.message || pdata.status;
+                                    if (curFileStage) curFileStage.textContent = `${item.name}: ${pdata.message || pdata.status}`;
+                                    if (curFilePct) curFilePct.textContent = `${pdata.pct || 0}%`;
+                                    renderCeiQueueUI();
+                                }
+
+                                if (pdata.status === 'success') {
+                                    clearInterval(poll);
+                                    item.status = 'done';
+                                    item.pct = 100;
+                                    item.rows = pdata.rows_imported || 0;
+                                    item.weeks = pdata.weeks || [];
+                                    item.message = pdata.message;
+                                    successCount++;
+                                    totalRowsImported += (pdata.rows_imported || 0);
+                                    (pdata.weeks || []).forEach(w => allWeeksImported.add(w));
+                                    renderCeiQueueUI();
+                                    resolve();
+                                } else if (pdata.status === 'error') {
+                                    clearInterval(poll);
+                                    item.status = 'error';
+                                    item.message = pdata.message || 'Import error';
+                                    failCount++;
+                                    renderCeiQueueUI();
+                                    resolve();
+                                }
+                            } catch (e) {
+                                // transient poll error
+                            }
+                        }, 500);
+
+                        setTimeout(() => {
+                            clearInterval(poll);
+                            if (item.status !== 'done') {
+                                item.status = 'error';
+                                item.message = 'Timeout';
+                                failCount++;
+                                renderCeiQueueUI();
+                            }
+                            resolve();
+                        }, 600000);
+                    });
+                } else {
+                    item.status = 'error';
+                    item.message = data.message || 'Upload failed';
+                    failCount++;
+                    renderCeiQueueUI();
+                }
+            } catch (err) {
+                item.status = 'error';
+                item.message = err.message || 'Network error';
+                failCount++;
+                renderCeiQueueUI();
+            }
+        }
+
+        if (overallBar) overallBar.style.width = '100%';
+        if (overallPct) overallPct.textContent = '100%';
+        if (overallStage) overallStage.textContent = `Completed ${successCount} of ${totalFiles} files`;
+        if (curFileStage) curFileStage.textContent = 'All files processed.';
+        if (curFilePct) curFilePct.textContent = 'Done';
+
+        isCeiQueueRunning = false;
+        renderCeiQueueUI();
+
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Import Complete';
+            submitBtn.disabled = true;
+        }
+
+        if (alertBox) {
+            alertBox.style.display = 'block';
+            if (failCount === 0) {
+                alertBox.style.background = 'rgba(16,185,129,0.15)';
+                alertBox.style.color = '#10b981';
+                const weeksStr = Array.from(allWeeksImported).sort().map(w => 'W' + String(w).slice(4)).join(', ');
+                alertBox.innerHTML = `<i class="fas fa-check-circle"></i> <strong>Queue Completed!</strong> Successfully imported ${successCount} files (${totalRowsImported.toLocaleString()} rows) across week(s): ${weeksStr}.`;
+            } else {
+                alertBox.style.background = 'rgba(234,179,8,0.15)';
+                alertBox.style.color = '#ca8a04';
+                alertBox.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Processed ${totalFiles} files: <strong>${successCount} succeeded</strong>, <strong>${failCount} failed</strong>. Total rows: ${totalRowsImported.toLocaleString()}.`;
+            }
+        }
+
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
     };
 
     // Drag & drop support on the drop zone

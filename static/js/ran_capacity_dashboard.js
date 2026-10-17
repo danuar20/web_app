@@ -2065,122 +2065,357 @@
         a.click();
     };
 
-    // ── Import Modal ────────────────────────────────────────────────────────
-    let selectedFile = null;
+    // ══════════════════════════════════════════════════════════════════
+    // Multi-File Batch Queue Importer for RAN Capacity
+    // ══════════════════════════════════════════════════════════════════
+    let ranFileQueue = [];
+    let isRanQueueRunning = false;
+    let ranQueueAborted = false;
 
     window.openImportModal = function () {
         const modal = document.getElementById('ranImportModalOverlay');
-        const status = document.getElementById('ranImportStatus');
-        const dropLabel = document.getElementById('ranDropZoneLabel');
         if (modal) modal.style.display = 'flex';
-        if (status) status.style.display = 'none';
-        if (dropLabel) dropLabel.textContent = 'Click or drag file here to upload';
-        selectedFile = null;
+        initRanDropZoneEvents();
     };
 
     window.closeImportModal = function () {
+        if (isRanQueueRunning) {
+            if (!confirm('An import queue is currently running. Are you sure you want to cancel and close?')) {
+                return;
+            }
+            ranQueueAborted = true;
+        }
         const modal = document.getElementById('ranImportModalOverlay');
         if (modal) modal.style.display = 'none';
-        selectedFile = null;
+        resetRanImportState();
     };
 
-    window.onFileSelected = function (input) {
-        if (input.files && input.files[0]) {
-            selectedFile = input.files[0];
-            const dropLabel = document.getElementById('ranDropZoneLabel');
-            if (dropLabel) dropLabel.textContent = `Selected: ${selectedFile.name}`;
+    function resetRanImportState() {
+        ranFileQueue = [];
+        isRanQueueRunning = false;
+        ranQueueAborted = false;
+        const fileInput = document.getElementById('ranImportFileInput');
+        if (fileInput) fileInput.value = '';
+        renderRanQueueUI();
+        const alertBox = document.getElementById('ranImportAlert');
+        if (alertBox) alertBox.style.display = 'none';
+        const prog = document.getElementById('ranQueueOverallProgress');
+        if (prog) prog.style.display = 'none';
+    }
+
+    window.clearRanQueue = function () {
+        if (isRanQueueRunning) return;
+        resetRanImportState();
+    };
+
+    function initRanDropZoneEvents() {
+        const dropZone = document.getElementById('ranDropZone');
+        if (!dropZone || dropZone._hasEvents) return;
+        dropZone._hasEvents = true;
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.style.background = 'rgba(20, 93, 160, 0.08)';
+                dropZone.style.borderColor = '#145DA0';
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.style.background = '';
+                dropZone.style.borderColor = '';
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', e => {
+            const dt = e.dataTransfer;
+            if (dt && dt.files && dt.files.length) {
+                addFilesToRanQueue(dt.files);
+            }
+        }, false);
+    }
+
+    window.onRanFileSelected = function (input) {
+        if (input.files && input.files.length) {
+            addFilesToRanQueue(input.files);
+            input.value = '';
         }
     };
 
-    window.submitImport = function () {
-        if (!selectedFile) {
-            alert('Please select a file to import');
+    function addFilesToRanQueue(files) {
+        if (isRanQueueRunning) return;
+        for (let i = 0; i < files.length; i++) {
+            const f = files[i];
+            const ext = f.name.toLowerCase().split('.').pop();
+            if (!['xlsx', 'xls', 'csv'].includes(ext)) {
+                continue;
+            }
+            if (ranFileQueue.some(item => item.name === f.name && item.size === f.size)) {
+                continue;
+            }
+            ranFileQueue.push({
+                id: 'ran_q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                file: f,
+                name: f.name,
+                size: f.size,
+                status: 'pending',
+                message: 'Queued',
+                pct: 0,
+                rows: 0,
+                weeks: []
+            });
+        }
+        renderRanQueueUI();
+    }
+
+    function renderRanQueueUI() {
+        const sec = document.getElementById('ranQueueSection');
+        const list = document.getElementById('ranQueueListContainer');
+        const countEl = document.getElementById('ranQueueTotalCount');
+        const sizeEl = document.getElementById('ranQueueTotalSize');
+        const btnCount = document.getElementById('ranQueueBtnCount');
+        const submitBtn = document.getElementById('btnSubmitImport');
+        const addMoreBtn = document.getElementById('btnAddMoreRanFiles');
+        const clearBtn = document.getElementById('btnClearRanQueue');
+
+        if (!ranFileQueue.length) {
+            if (sec) sec.style.display = 'none';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                if (btnCount) btnCount.textContent = '0';
+            }
+            if (addMoreBtn) addMoreBtn.style.display = 'none';
             return;
         }
 
-        const formData = new FormData();
-        formData.append('file', selectedFile);
+        if (sec) sec.style.display = 'block';
+        if (addMoreBtn) addMoreBtn.style.display = isRanQueueRunning ? 'none' : 'inline-block';
+        if (clearBtn) clearBtn.style.display = isRanQueueRunning ? 'none' : 'inline-block';
 
-        const statusEl = document.getElementById('ranImportStatus');
-        const barWrap = document.getElementById('ranImportProgressWrap');
-        const bar = document.getElementById('ranImportProgressBar');
-        const btn = document.getElementById('btnSubmitImport');
-        if (statusEl) {
-            statusEl.style.display = 'block';
-            statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
-            statusEl.style.color = 'var(--ran-blue)';
+        const totalBytes = ranFileQueue.reduce((acc, f) => acc + f.size, 0);
+        const totalMb = (totalBytes / (1024 * 1024)).toFixed(1);
+
+        if (countEl) countEl.textContent = ranFileQueue.length;
+        if (sizeEl) sizeEl.textContent = `${totalMb} MB`;
+        if (btnCount) btnCount.textContent = `${ranFileQueue.length} files`;
+
+        if (submitBtn) {
+            submitBtn.disabled = isRanQueueRunning || ranFileQueue.every(f => f.status === 'done');
         }
-        if (barWrap) barWrap.style.display = 'block';
-        if (bar) bar.style.width = '2%';
-        if (btn) btn.disabled = true;
 
-        fetch('/api/sow/ran_capacity/import', {
-            method: 'POST',
-            body: formData
-        })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'queued') {
-                    pollRanImport(data.job_id);
-                } else {
-                    if (btn) btn.disabled = false;
-                    if (statusEl) {
-                        statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Error: ${data.message}`;
-                        statusEl.style.color = 'var(--ran-red)';
-                    }
-                    if (barWrap) barWrap.style.display = 'none';
-                }
-            })
-            .catch(err => {
-                if (btn) btn.disabled = false;
-                if (statusEl) {
-                    statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Request failed: ${err}`;
-                    statusEl.style.color = 'var(--ran-red)';
-                }
-                if (barWrap) barWrap.style.display = 'none';
-            });
-    };
+        if (list) {
+            list.innerHTML = ranFileQueue.map((item, idx) => {
+                let badgeHtml = '';
+                const sizeMb = (item.size / (1024 * 1024)).toFixed(1);
 
-    function pollRanImport(jobId) {
-        const statusEl = document.getElementById('ranImportStatus');
-        const barWrap = document.getElementById('ranImportProgressWrap');
-        const bar = document.getElementById('ranImportProgressBar');
-        const btn = document.getElementById('btnSubmitImport');
-        const timer = setInterval(() => {
-            fetch('/api/sow/ran_capacity/import/progress/' + jobId)
-                .then(r => r.json())
-                .then(job => {
-                    const pct = job.pct || 0;
-                    if (bar) bar.style.width = Math.max(2, pct) + '%';
-                    if (statusEl) {
-                        statusEl.style.display = 'block';
-                        statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (job.message || 'Processing...') + ' (' + pct + '%)';
-                        statusEl.style.color = 'var(--ran-blue)';
-                    }
-                    if (job.status === 'success') {
-                        clearInterval(timer);
-                        if (btn) btn.disabled = false;
-                        if (bar) bar.style.width = '100%';
-                        if (statusEl) {
-                            statusEl.innerHTML = '<i class="fas fa-check-circle"></i> ' + (job.message || 'Import complete.');
-                            statusEl.style.color = 'var(--ran-green)';
-                        }
+                if (item.status === 'pending') {
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(0,0,0,0.06); color:var(--ran-text-muted); font-weight:700;">Waiting</span>`;
+                } else if (item.status === 'uploading' || item.status === 'processing') {
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(20,93,160,0.12); color:var(--ran-blue); font-weight:700;">
+                        <i class="fas fa-spinner fa-spin"></i> ${item.pct || 0}%
+                    </span>`;
+                } else if (item.status === 'done') {
+                    const wText = (item.weeks && item.weeks.length) ? item.weeks.map(w => 'W' + String(w).slice(4)).join(',') : 'Done';
+                    const rText = item.rows ? ` (${item.rows.toLocaleString()} rows)` : '';
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(16,185,129,0.15); color:#10b981; font-weight:700;">
+                        <i class="fas fa-check"></i> ${wText}${rText}
+                    </span>`;
+                } else if (item.status === 'error') {
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(239,68,68,0.15); color:#ef4444; font-weight:700;" title="${item.message}">
+                        <i class="fas fa-exclamation-triangle"></i> Error
+                    </span>`;
+                }
+
+                return `
+                    <div id="${item.id}" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:#ffffff; border:1px solid var(--border); border-radius:6px; font-size:11.5px;">
+                        <div style="display:flex; align-items:center; gap:8px; overflow:hidden; margin-right:8px;">
+                            <span style="font-weight:700; color:var(--ran-text-muted); font-size:10px; width:16px;">#${idx + 1}</span>
+                            <i class="fas fa-file-excel" style="color:var(--ran-blue, #145DA0); flex-shrink:0;"></i>
+                            <span style="font-weight:700; color:var(--ran-text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${item.name}">${item.name}</span>
+                            <span style="color:var(--ran-text-muted); font-size:10.5px; flex-shrink:0;">(${sizeMb} MB)</span>
+                        </div>
+                        <div style="flex-shrink:0;">
+                            ${badgeHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    window.startRanQueueImport = async function () {
+        if (!ranFileQueue.length || isRanQueueRunning) return;
+
+        isRanQueueRunning = true;
+        ranQueueAborted = false;
+
+        const submitBtn = document.getElementById('btnSubmitImport');
+        const addMoreBtn = document.getElementById('btnAddMoreRanFiles');
+        const clearBtn = document.getElementById('btnClearRanQueue');
+        const alertBox = document.getElementById('ranImportAlert');
+        const overallProg = document.getElementById('ranQueueOverallProgress');
+        const overallBar = document.getElementById('ranOverallProgressBar');
+        const overallStage = document.getElementById('ranOverallStage');
+        const overallPct = document.getElementById('ranOverallPct');
+        const curFileStage = document.getElementById('ranCurrentFileStage');
+        const curFilePct = document.getElementById('ranCurrentFilePct');
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing Queue...';
+        }
+        if (addMoreBtn) addMoreBtn.style.display = 'none';
+        if (clearBtn) clearBtn.style.display = 'none';
+        if (alertBox) alertBox.style.display = 'none';
+        if (overallProg) overallProg.style.display = 'block';
+
+        let successCount = 0;
+        let failCount = 0;
+        let totalRowsImported = 0;
+        let allWeeksImported = new Set();
+
+        const totalFiles = ranFileQueue.length;
+
+        for (let i = 0; i < totalFiles; i++) {
+            if (ranQueueAborted) break;
+
+            const item = ranFileQueue[i];
+            if (item.status === 'done') {
+                successCount++;
+                continue;
+            }
+
+            const currentFileNum = i + 1;
+            const overallProgressValue = Math.round((i / totalFiles) * 100);
+
+            if (overallStage) overallStage.textContent = `Overall: File ${currentFileNum} of ${totalFiles} (${item.name})`;
+            if (overallPct) overallPct.textContent = `${overallProgressValue}%`;
+            if (overallBar) overallBar.style.width = `${overallProgressValue}%`;
+
+            item.status = 'uploading';
+            item.pct = 10;
+            item.message = 'Uploading file...';
+            renderRanQueueUI();
+
+            try {
+                const formData = new FormData();
+                formData.append('file', item.file);
+
+                if (curFileStage) curFileStage.textContent = `Uploading ${item.name}...`;
+                if (curFilePct) curFilePct.textContent = '10%';
+
+                const res = await fetch('/api/sow/ran_capacity/import', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (data.status === 'queued' && data.job_id) {
+                    item.status = 'processing';
+                    await new Promise((resolve) => {
+                        const poll = setInterval(async () => {
+                            if (ranQueueAborted) {
+                                clearInterval(poll);
+                                resolve();
+                                return;
+                            }
+                            try {
+                                const pres = await fetch('/api/sow/ran_capacity/import/progress/' + data.job_id);
+                                const pdata = await pres.json();
+
+                                if (pdata.status !== 'queued') {
+                                    item.pct = pdata.pct || 15;
+                                    item.message = pdata.message || pdata.status;
+                                    if (curFileStage) curFileStage.textContent = `${item.name}: ${pdata.message || pdata.status}`;
+                                    if (curFilePct) curFilePct.textContent = `${pdata.pct || 0}%`;
+                                    renderRanQueueUI();
+                                }
+
+                                if (pdata.status === 'success') {
+                                    clearInterval(poll);
+                                    item.status = 'done';
+                                    item.pct = 100;
+                                    item.rows = pdata.total_rows || 0;
+                                    item.weeks = pdata.weeknums || [];
+                                    item.message = pdata.message;
+                                    successCount++;
+                                    totalRowsImported += (pdata.total_rows || 0);
+                                    (pdata.weeknums || []).forEach(w => allWeeksImported.add(w));
+                                    renderRanQueueUI();
+                                    resolve();
+                                } else if (pdata.status === 'error') {
+                                    clearInterval(poll);
+                                    item.status = 'error';
+                                    item.message = pdata.message || 'Import error';
+                                    failCount++;
+                                    renderRanQueueUI();
+                                    resolve();
+                                }
+                            } catch (e) {
+                                // transient poll error
+                            }
+                        }, 500);
+
                         setTimeout(() => {
-                            closeImportModal();
-                            fetchSummaryData();
-                            fetchTrendData();
-                        }, 1200);
-                    } else if (job.status === 'error') {
-                        clearInterval(timer);
-                        if (btn) btn.disabled = false;
-                        if (statusEl) {
-                            statusEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error: ' + (job.message || 'Import failed');
-                            statusEl.style.color = 'var(--ran-red)';
-                        }
-                    }
-                })
-                .catch(() => { });
-        }, 800);
+                            clearInterval(poll);
+                            if (item.status !== 'done') {
+                                item.status = 'error';
+                                item.message = 'Timeout';
+                                failCount++;
+                                renderRanQueueUI();
+                            }
+                            resolve();
+                        }, 600000);
+                    });
+                } else {
+                    item.status = 'error';
+                    item.message = data.message || 'Upload failed';
+                    failCount++;
+                    renderRanQueueUI();
+                }
+            } catch (err) {
+                item.status = 'error';
+                item.message = err.message || 'Network error';
+                failCount++;
+                renderRanQueueUI();
+            }
+        }
+
+        if (overallBar) overallBar.style.width = '100%';
+        if (overallPct) overallPct.textContent = '100%';
+        if (overallStage) overallStage.textContent = `Completed ${successCount} of ${totalFiles} files`;
+        if (curFileStage) curFileStage.textContent = 'All files processed.';
+        if (curFilePct) curFilePct.textContent = 'Done';
+
+        isRanQueueRunning = false;
+        renderRanQueueUI();
+
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Import Complete';
+            submitBtn.disabled = true;
+        }
+
+        if (alertBox) {
+            alertBox.style.display = 'block';
+            if (failCount === 0) {
+                alertBox.style.background = 'rgba(16,185,129,0.15)';
+                alertBox.style.color = '#10b981';
+                const weeksStr = Array.from(allWeeksImported).sort().map(w => 'W' + String(w).slice(4)).join(', ');
+                alertBox.innerHTML = `<i class="fas fa-check-circle"></i> <strong>Queue Completed!</strong> Successfully imported ${successCount} files (${totalRowsImported.toLocaleString()} rows) across week(s): ${weeksStr}.`;
+            } else {
+                alertBox.style.background = 'rgba(234,179,8,0.15)';
+                alertBox.style.color = '#ca8a04';
+                alertBox.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Processed ${totalFiles} files: <strong>${successCount} succeeded</strong>, <strong>${failCount} failed</strong>. Total rows: ${totalRowsImported.toLocaleString()}.`;
+            }
+        }
+
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
     };
 
     // ── Resize All Charts Helper ────────────────────────────────────────────

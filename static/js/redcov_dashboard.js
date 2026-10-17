@@ -1755,143 +1755,357 @@
         }
     }
 
-    // ── Modal & File Import Handlers ──
+    // ══════════════════════════════════════════════════════════════════
+    // Multi-File Batch Queue Importer for Redcov
+    // ══════════════════════════════════════════════════════════════════
+    let redcovFileQueue = [];
+    let isRedcovQueueRunning = false;
+    let redcovQueueAborted = false;
+
     window.openRedcovImportModal = function () {
         const modal = document.getElementById('redcovImportModal');
         if (modal) modal.style.display = 'flex';
+        initRedcovDropZoneEvents();
     };
 
     window.closeRedcovImportModal = function () {
+        if (isRedcovQueueRunning) {
+            if (!confirm('An import queue is currently running. Are you sure you want to cancel and close?')) {
+                return;
+            }
+            redcovQueueAborted = true;
+        }
         const modal = document.getElementById('redcovImportModal');
         if (modal) modal.style.display = 'none';
-        removeRedcovFile();
+        resetRedcovImportState();
     };
+
+    function resetRedcovImportState() {
+        redcovFileQueue = [];
+        isRedcovQueueRunning = false;
+        redcovQueueAborted = false;
+        const fileInput = document.getElementById('redcovFileInput');
+        if (fileInput) fileInput.value = '';
+        renderRedcovQueueUI();
+        const alertBox = document.getElementById('redcovImportAlert');
+        if (alertBox) alertBox.style.display = 'none';
+        const prog = document.getElementById('redcovQueueOverallProgress');
+        if (prog) prog.style.display = 'none';
+    }
+
+    window.clearRedcovQueue = function () {
+        if (isRedcovQueueRunning) return;
+        resetRedcovImportState();
+    };
+
+    function initRedcovDropZoneEvents() {
+        const dropZone = document.getElementById('redcovDropZone');
+        if (!dropZone || dropZone._hasEvents) return;
+        dropZone._hasEvents = true;
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.style.background = 'rgba(139, 0, 0, 0.08)';
+                dropZone.style.borderColor = '#8B0000';
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.style.background = '';
+                dropZone.style.borderColor = '';
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', e => {
+            const dt = e.dataTransfer;
+            if (dt && dt.files && dt.files.length) {
+                addFilesToRedcovQueue(dt.files);
+            }
+        }, false);
+    }
 
     window.handleRedcovFileSelect = function (input) {
-        if (input.files && input.files[0]) {
-            selectedFile = input.files[0];
-            const nameEl = document.getElementById('redcovFileName');
-            if (nameEl) nameEl.textContent = selectedFile.name;
-            const preview = document.getElementById('redcovFilePreview');
-            if (preview) preview.style.display = 'block';
-            const btn = document.getElementById('redcovImportBtn');
-            if (btn) btn.disabled = false;
+        if (input.files && input.files.length) {
+            addFilesToRedcovQueue(input.files);
+            input.value = '';
         }
     };
 
-    window.removeRedcovFile = function () {
-        selectedFile = null;
-        const input = document.getElementById('redcovFileInput');
-        if (input) input.value = '';
-        const preview = document.getElementById('redcovFilePreview');
-        if (preview) preview.style.display = 'none';
-        const btn = document.getElementById('redcovImportBtn');
-        if (btn) btn.disabled = true;
-        const status = document.getElementById('redcovImportStatus');
-        if (status) status.style.display = 'none';
-        const progContainer = document.getElementById('redcovImportProgressContainer');
-        if (progContainer) progContainer.style.display = 'none';
-        const progBar = document.getElementById('redcovImportProgressBar');
-        if (progBar) progBar.style.width = '0%';
-    };
-
-    window.submitRedcovImport = async function () {
-        if (!selectedFile) return;
-
-        const btn = document.getElementById('redcovImportBtn');
-        const status = document.getElementById('redcovImportStatus');
-        const progContainer = document.getElementById('redcovImportProgressContainer');
-        const progBar = document.getElementById('redcovImportProgressBar');
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Queuing...';
-        }
-        if (status) {
-            status.style.display = 'none';
-            status.innerHTML = '';
-        }
-        if (progContainer) {
-            progContainer.style.display = 'block';
-            if (progBar) progBar.style.width = '0%';
-        }
-
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-
-        try {
-            const res = await fetch('/api/sow/redcov/import', {
-                method: 'POST',
-                body: formData
+    function addFilesToRedcovQueue(files) {
+        if (isRedcovQueueRunning) return;
+        for (let i = 0; i < files.length; i++) {
+            const f = files[i];
+            const ext = f.name.toLowerCase().split('.').pop();
+            if (!['xlsx', 'xls', 'csv'].includes(ext)) {
+                continue;
+            }
+            if (redcovFileQueue.some(item => item.name === f.name && item.size === f.size)) {
+                continue;
+            }
+            redcovFileQueue.push({
+                id: 'redcov_q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                file: f,
+                name: f.name,
+                size: f.size,
+                status: 'pending',
+                message: 'Queued',
+                pct: 0,
+                rows: 0,
+                weeks: []
             });
-            const data = await res.json();
+        }
+        renderRedcovQueueUI();
+    }
 
-            if (data.status === 'queued' && data.job_id) {
-                const poll = setInterval(async () => {
-                    try {
-                        const pRes = await fetch('/api/sow/redcov/import/progress/' + data.job_id);
-                        const pData = await pRes.json();
+    function renderRedcovQueueUI() {
+        const sec = document.getElementById('redcovQueueSection');
+        const list = document.getElementById('redcovQueueListContainer');
+        const countEl = document.getElementById('redcovQueueTotalCount');
+        const sizeEl = document.getElementById('redcovQueueTotalSize');
+        const btnCount = document.getElementById('redcovQueueBtnCount');
+        const submitBtn = document.getElementById('redcovImportBtn');
+        const addMoreBtn = document.getElementById('btnAddMoreRedcovFiles');
+        const clearBtn = document.getElementById('btnClearRedcovQueue');
 
-                        if (progContainer && pData.status !== 'queued') {
-                            progContainer.style.display = 'block';
-                            if (progBar) progBar.style.width = (pData.pct || 0) + '%';
-                        }
-
-                        if (pData.status === 'processing') {
-                            if (status) {
-                                status.style.display = 'block';
-                                status.style.color = '#8B0000';
-                                status.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${pData.pct}%: ${pData.message}`;
-                            }
-                        } else if (pData.status === 'success') {
-                            clearInterval(poll);
-                            if (progBar) progBar.style.width = '100%';
-                            status.style.color = '#10b981';
-                            status.innerHTML = `<i class="fas fa-check-circle"></i> ${pData.message || 'Import complete'}`;
-                            setTimeout(() => {
-                                closeRedcovImportModal();
-                                window.location.reload();
-                            }, 1500);
-                        } else if (pData.status === 'error') {
-                            clearInterval(poll);
-                            if (progContainer) progContainer.style.display = 'none';
-                            if (status) {
-                                status.style.color = '#ef4444';
-                                status.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${pData.message}`;
-                            }
-                            if (btn) {
-                                btn.disabled = false;
-                                btn.innerHTML = '<i class="fas fa-upload"></i> Retry Import';
-                            }
-                        }
-                    } catch (e) {
-                        // transient poll error — keep polling
-                    }
-                }, 800);
-                // Safety timeout: stop after 10 minutes
-                setTimeout(() => clearInterval(poll), 600000);
-            } else {
-                // Direct error from POST (validation etc.)
-                if (status) {
-                    status.style.display = 'block';
-                    status.style.color = '#ef4444';
-                    status.innerHTML = data.message;
-                }
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-upload"></i> Retry Import';
-                }
+        if (!redcovFileQueue.length) {
+            if (sec) sec.style.display = 'none';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                if (btnCount) btnCount.textContent = '0';
             }
-        } catch (e) {
-            if (status) {
-                status.style.display = 'block';
-                status.style.color = '#ef4444';
-                status.innerHTML = '<i class="fas fa-times-circle"></i> Network error: ' + e.message;
+            if (addMoreBtn) addMoreBtn.style.display = 'none';
+            return;
+        }
+
+        if (sec) sec.style.display = 'block';
+        if (addMoreBtn) addMoreBtn.style.display = isRedcovQueueRunning ? 'none' : 'inline-block';
+        if (clearBtn) clearBtn.style.display = isRedcovQueueRunning ? 'none' : 'inline-block';
+
+        const totalBytes = redcovFileQueue.reduce((acc, f) => acc + f.size, 0);
+        const totalMb = (totalBytes / (1024 * 1024)).toFixed(1);
+
+        if (countEl) countEl.textContent = redcovFileQueue.length;
+        if (sizeEl) sizeEl.textContent = `${totalMb} MB`;
+        if (btnCount) btnCount.textContent = `${redcovFileQueue.length} files`;
+
+        if (submitBtn) {
+            submitBtn.disabled = isRedcovQueueRunning || redcovFileQueue.every(f => f.status === 'done');
+        }
+
+        if (list) {
+            list.innerHTML = redcovFileQueue.map((item, idx) => {
+                let badgeHtml = '';
+                const sizeMb = (item.size / (1024 * 1024)).toFixed(1);
+
+                if (item.status === 'pending') {
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(0,0,0,0.06); color:var(--text-muted); font-weight:700;">Waiting</span>`;
+                } else if (item.status === 'uploading' || item.status === 'processing') {
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(139,0,0,0.12); color:#8B0000; font-weight:700;">
+                        <i class="fas fa-spinner fa-spin"></i> ${item.pct || 0}%
+                    </span>`;
+                } else if (item.status === 'done') {
+                    const wText = (item.weeks && item.weeks.length) ? item.weeks.map(w => 'W' + String(w).slice(4)).join(',') : 'Done';
+                    const rText = item.rows ? ` (${item.rows.toLocaleString()} rows)` : '';
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(16,185,129,0.15); color:#10b981; font-weight:700;">
+                        <i class="fas fa-check"></i> ${wText}${rText}
+                    </span>`;
+                } else if (item.status === 'error') {
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(239,68,68,0.15); color:#ef4444; font-weight:700;" title="${item.message}">
+                        <i class="fas fa-exclamation-triangle"></i> Error
+                    </span>`;
+                }
+
+                return `
+                    <div id="${item.id}" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:#ffffff; border:1px solid var(--border); border-radius:6px; font-size:11.5px;">
+                        <div style="display:flex; align-items:center; gap:8px; overflow:hidden; margin-right:8px;">
+                            <span style="font-weight:700; color:var(--text-muted); font-size:10px; width:16px;">#${idx + 1}</span>
+                            <i class="fas fa-file-excel" style="color:#8B0000; flex-shrink:0;"></i>
+                            <span style="font-weight:700; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${item.name}">${item.name}</span>
+                            <span style="color:var(--text-muted); font-size:10.5px; flex-shrink:0;">(${sizeMb} MB)</span>
+                        </div>
+                        <div style="flex-shrink:0;">
+                            ${badgeHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    window.startRedcovQueueImport = async function () {
+        if (!redcovFileQueue.length || isRedcovQueueRunning) return;
+
+        isRedcovQueueRunning = true;
+        redcovQueueAborted = false;
+
+        const submitBtn = document.getElementById('redcovImportBtn');
+        const addMoreBtn = document.getElementById('btnAddMoreRedcovFiles');
+        const clearBtn = document.getElementById('btnClearRedcovQueue');
+        const alertBox = document.getElementById('redcovImportAlert');
+        const overallProg = document.getElementById('redcovQueueOverallProgress');
+        const overallBar = document.getElementById('redcovOverallProgressBar');
+        const overallStage = document.getElementById('redcovOverallStage');
+        const overallPct = document.getElementById('redcovOverallPct');
+        const curFileStage = document.getElementById('redcovCurrentFileStage');
+        const curFilePct = document.getElementById('redcovCurrentFilePct');
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing Queue...';
+        }
+        if (addMoreBtn) addMoreBtn.style.display = 'none';
+        if (clearBtn) clearBtn.style.display = 'none';
+        if (alertBox) alertBox.style.display = 'none';
+        if (overallProg) overallProg.style.display = 'block';
+
+        let successCount = 0;
+        let failCount = 0;
+        let totalRowsImported = 0;
+        let allWeeksImported = new Set();
+
+        const totalFiles = redcovFileQueue.length;
+
+        for (let i = 0; i < totalFiles; i++) {
+            if (redcovQueueAborted) break;
+
+            const item = redcovFileQueue[i];
+            if (item.status === 'done') {
+                successCount++;
+                continue;
             }
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-upload"></i> Retry Import';
+
+            const currentFileNum = i + 1;
+            const overallProgressValue = Math.round((i / totalFiles) * 100);
+
+            if (overallStage) overallStage.textContent = `Overall: File ${currentFileNum} of ${totalFiles} (${item.name})`;
+            if (overallPct) overallPct.textContent = `${overallProgressValue}%`;
+            if (overallBar) overallBar.style.width = `${overallProgressValue}%`;
+
+            item.status = 'uploading';
+            item.pct = 10;
+            item.message = 'Uploading file...';
+            renderRedcovQueueUI();
+
+            try {
+                const formData = new FormData();
+                formData.append('file', item.file);
+
+                if (curFileStage) curFileStage.textContent = `Uploading ${item.name}...`;
+                if (curFilePct) curFilePct.textContent = '10%';
+
+                const res = await fetch('/api/sow/redcov/import', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (data.status === 'queued' && data.job_id) {
+                    item.status = 'processing';
+                    await new Promise((resolve) => {
+                        const poll = setInterval(async () => {
+                            if (redcovQueueAborted) {
+                                clearInterval(poll);
+                                resolve();
+                                return;
+                            }
+                            try {
+                                const pres = await fetch('/api/sow/redcov/import/progress/' + data.job_id);
+                                const pdata = await pres.json();
+
+                                if (pdata.status !== 'queued') {
+                                    item.pct = pdata.pct || 15;
+                                    item.message = pdata.message || pdata.status;
+                                    if (curFileStage) curFileStage.textContent = `${item.name}: ${pdata.message || pdata.status}`;
+                                    if (curFilePct) curFilePct.textContent = `${pdata.pct || 0}%`;
+                                    renderRedcovQueueUI();
+                                }
+
+                                if (pdata.status === 'success') {
+                                    clearInterval(poll);
+                                    item.status = 'done';
+                                    item.pct = 100;
+                                    item.rows = pdata.total_rows || 0;
+                                    item.weeks = pdata.weeknums || [];
+                                    item.message = pdata.message;
+                                    successCount++;
+                                    totalRowsImported += (pdata.total_rows || 0);
+                                    (pdata.weeknums || []).forEach(w => allWeeksImported.add(w));
+                                    renderRedcovQueueUI();
+                                    resolve();
+                                } else if (pdata.status === 'error') {
+                                    clearInterval(poll);
+                                    item.status = 'error';
+                                    item.message = pdata.message || 'Import error';
+                                    failCount++;
+                                    renderRedcovQueueUI();
+                                    resolve();
+                                }
+                            } catch (e) {
+                                // transient poll error
+                            }
+                        }, 500);
+
+                        setTimeout(() => {
+                            clearInterval(poll);
+                            if (item.status !== 'done') {
+                                item.status = 'error';
+                                item.message = 'Timeout';
+                                failCount++;
+                                renderRedcovQueueUI();
+                            }
+                            resolve();
+                        }, 600000);
+                    });
+                } else {
+                    item.status = 'error';
+                    item.message = data.message || 'Upload failed';
+                    failCount++;
+                    renderRedcovQueueUI();
+                }
+            } catch (err) {
+                item.status = 'error';
+                item.message = err.message || 'Network error';
+                failCount++;
+                renderRedcovQueueUI();
             }
         }
+
+        if (overallBar) overallBar.style.width = '100%';
+        if (overallPct) overallPct.textContent = '100%';
+        if (overallStage) overallStage.textContent = `Completed ${successCount} of ${totalFiles} files`;
+        if (curFileStage) curFileStage.textContent = 'All files processed.';
+        if (curFilePct) curFilePct.textContent = 'Done';
+
+        isRedcovQueueRunning = false;
+        renderRedcovQueueUI();
+
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Import Complete';
+            submitBtn.disabled = true;
+        }
+
+        if (alertBox) {
+            alertBox.style.display = 'block';
+            if (failCount === 0) {
+                alertBox.style.background = 'rgba(16,185,129,0.15)';
+                alertBox.style.color = '#10b981';
+                const weeksStr = Array.from(allWeeksImported).sort().map(w => 'W' + String(w).slice(4)).join(', ');
+                alertBox.innerHTML = `<i class="fas fa-check-circle"></i> <strong>Queue Completed!</strong> Successfully imported ${successCount} files (${totalRowsImported.toLocaleString()} rows) across week(s): ${weeksStr}.`;
+            } else {
+                alertBox.style.background = 'rgba(234,179,8,0.15)';
+                alertBox.style.color = '#ca8a04';
+                alertBox.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Processed ${totalFiles} files: <strong>${successCount} succeeded</strong>, <strong>${failCount} failed</strong>. Total rows: ${totalRowsImported.toLocaleString()}.`;
+            }
+        }
+
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
     };
 
     // ── Chart Enlarge Modal Handlers ──

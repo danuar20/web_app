@@ -152,9 +152,10 @@ def test_api_redcov_sample_template(auth_client):
 
 
 def test_api_redcov_import_csv(auth_client):
-    """Test importing and upserting Redcov records via CSV."""
+    """Test importing and upserting Redcov records via async queue API."""
     import io
     import os
+    import time
     import psycopg2
     from dotenv import load_dotenv
 
@@ -167,8 +168,24 @@ def test_api_redcov_import_csv(auth_client):
     res = auth_client.post("/api/sow/redcov/import", data=data, content_type="multipart/form-data")
     assert res.status_code == 200
     res_data = res.get_json()
-    assert res_data["status"] == "success"
-    assert res_data["rows_processed"] == 1
+    assert res_data["status"] == "queued"
+    assert "job_id" in res_data
+    job_id = res_data["job_id"]
+
+    # Poll until job completes
+    final_status = None
+    for _ in range(30):
+        time.sleep(0.2)
+        pres = auth_client.get(f"/api/sow/redcov/import/progress/{job_id}")
+        assert pres.status_code == 200
+        pdata = pres.get_json()
+        if pdata.get("status") in ("success", "error"):
+            final_status = pdata
+            break
+
+    assert final_status is not None
+    assert final_status["status"] == "success"
+    assert final_status["total_rows"] == 1
 
     # Cleanup test row
     load_dotenv(".env")

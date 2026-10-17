@@ -2326,112 +2326,138 @@
     </div>
 </div>
 
-<!-- ── Import ONX Benchmark Data Modal ── -->
+<!-- ── Import ONX Benchmark Data Modal (Multi-File Batch Queue) ── -->
 <div class="import-modal-overlay" id="importModalOverlay" onclick="if(event.target === this) closeImportModal()">
-    <div class="import-modal-card">
+    <div class="import-modal-card" style="max-width: 620px; width: 94%;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--sow-border); padding-bottom: 12px;">
             <div style="font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px; color: var(--text-main);">
-                <i class="fas fa-file-import" style="color: #4facfe;"></i> Import ONX Benchmark Data
+                <i class="fas fa-file-import" style="color: #4facfe;"></i> Import ONX Benchmark Data (Batch Queue)
             </div>
             <button type="button" onclick="closeImportModal()" style="background: transparent; border: none; font-size: 18px; cursor: pointer; color: var(--sow-text-sub);" title="Close">
                 <i class="fas fa-times"></i>
             </button>
         </div>
 
-        <div style="font-size: 12.5px; color: var(--sow-text-sub); line-height: 1.45;">
-            Upload an Excel (.xlsx, .xls) or CSV file with benchmark records into <code>sow.onx_rank_score</code>. Existing records matching (yearweek, metric, level, location, provider) will be automatically updated.
-        </div>
-
         <div class="import-drop-zone" id="onxDropZone" onclick="document.getElementById('importFileInput').click()">
-            <i class="fas fa-cloud-upload-alt" style="font-size: 36px; color: #4facfe; margin-bottom: 8px;"></i>
-            <div style="font-weight: 600; font-size: 13px; color: var(--text-main);" id="importDropText">Click to select or drag & drop file</div>
-            <div style="font-size: 11px; color: var(--sow-text-sub); margin-top: 4px;">Supports .xlsx, .xls, .csv</div>
-            <input type="file" id="importFileInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="onFileSelected(this)">
+            <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: #4facfe; margin-bottom: 6px;"></i>
+            <div style="font-weight: 600; font-size: 13px; color: var(--text-main);" id="importDropText">Click to select or drag & drop files here</div>
+            <div style="font-size: 11px; color: var(--sow-text-sub); margin-top: 3px;">Supports selecting multiple Excel (.xlsx, .xls) and CSV files</div>
+            <input type="file" id="importFileInput" accept=".xlsx, .xls, .csv" multiple style="display: none;" onchange="onFileSelected(this)">
         </div>
 
-        <!-- File Selected Preview -->
-        <div id="onxFilePreview" style="display:none; padding:10px 14px; background:rgba(79, 172, 254, 0.08); border:1px solid rgba(79, 172, 254, 0.25); border-radius:8px;">
-            <div style="display:flex; align-items:center; gap:8px;">
-                <i class="fas fa-file-alt" style="color:#4facfe;"></i>
-                <span id="onxFileName" style="font-size:12px; font-weight:700; color:var(--text-main); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+        <!-- Queue List & Controls (Visible when files are added) -->
+        <div id="onxQueueSection" style="display:none; margin-top:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:11.5px;">
+                <span style="font-weight:700; color:var(--text-main);">
+                    <i class="fas fa-tasks" style="color:#4facfe;"></i> Selected Files: <span id="onxQueueTotalCount">0</span> (<span id="onxQueueTotalSize">0 MB</span>)
+                </span>
+                <button type="button" id="btnClearOnxQueue" onclick="clearOnxQueue()" style="font-size:11px; color:#ef4444; background:none; border:none; cursor:pointer; font-weight:600; padding:2px 6px;">
+                    <i class="fas fa-trash-alt"></i> Clear Queue
+                </button>
+            </div>
+
+            <!-- Scrollable list of files with status badges -->
+            <div id="onxQueueListContainer" style="max-height: 160px; overflow-y: auto; border: 1px solid var(--sow-border); border-radius: 8px; background: rgba(0,0,0,0.02); padding: 4px; display: flex; flex-direction: column; gap: 4px;">
+                <!-- Injected dynamically via JS -->
             </div>
         </div>
 
-        <!-- Progress Bar Container (RHI Style) -->
-        <div id="importProgressContainer" style="display:none; margin-top:4px;">
-            <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:var(--sow-text-sub); margin-bottom:4px;">
-                <span id="importProgressStage">Uploading...</span>
-                <span id="importProgressPct">0%</span>
+        <!-- Overall Queue Progress -->
+        <div id="onxQueueOverallProgress" style="display:none; margin-top:10px; padding:10px 12px; background:rgba(79, 172, 254, 0.05); border:1px solid rgba(79, 172, 254, 0.2); border-radius:8px;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:var(--text-main); margin-bottom:4px;">
+                <span id="onxOverallStage">Overall Queue: 0 of 0</span>
+                <span id="onxOverallPct">0%</span>
             </div>
             <div style="width:100%; height:8px; background:var(--sow-border); border-radius:4px; overflow:hidden;">
-                <div id="importProgressBar" style="width:0%; height:100%; background:linear-gradient(90deg, #4facfe, #00f2fe); transition:width 0.25s ease;"></div>
+                <div id="onxOverallProgressBar" style="width:0%; height:100%; background:linear-gradient(90deg, #4facfe, #00f2fe); transition:width 0.25s ease;"></div>
             </div>
-            <div id="importProgressDetail" style="font-size:10px; color:var(--sow-text-sub); margin-top:4px; text-align:right;">0 / 0 rows</div>
+            <!-- Current file detail progress -->
+            <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--sow-text-sub); margin-top:5px;">
+                <span id="onxCurrentFileStage">Ready</span>
+                <span id="onxCurrentFilePct">--</span>
+            </div>
         </div>
 
-        <div id="importStatus" style="font-size: 12.5px; display: none; padding: 10px 14px; border-radius: 8px; font-weight:600;"></div>
+        <div id="importStatus" style="font-size: 12.5px; display: none; padding: 10px 14px; border-radius: 8px; font-weight:600; margin-top:8px;"></div>
 
-        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; border-top: 1px solid var(--sow-border); padding-top: 12px;">
-            <button type="button" class="btn-secondary" onclick="closeImportModal()">Cancel</button>
-            <button type="button" class="btn-apply" id="btnSubmitImport" onclick="submitImport()" disabled>
-                <i class="fas fa-upload"></i> Upload & Import
-            </button>
+        <div style="display: flex; justify-content: space-between; align-items:center; gap: 8px; margin-top: 10px; border-top: 1px solid var(--sow-border); padding-top: 12px;">
+            <button type="button" class="btn-secondary" id="btnCancelOnxImport" onclick="closeImportModal()">Cancel</button>
+            <div style="display:flex; gap:8px;">
+                <button type="button" class="btn-secondary" id="btnAddMoreOnxFiles" onclick="document.getElementById('importFileInput').click();" style="display:none;">
+                    <i class="fas fa-plus"></i> Add More
+                </button>
+                <button type="button" class="btn-apply" id="btnSubmitImport" onclick="startOnxQueueImport()" disabled>
+                    <i class="fas fa-upload"></i> Upload & Import (<span id="onxQueueBtnCount">0</span>)
+                </button>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- ── Import FB Share Data Modal ── -->
+<!-- ── Import FB Share Data Modal (Multi-File Batch Queue) ── -->
 <div class="import-modal-overlay" id="fbImportModalOverlay" onclick="if(event.target === this) closeFbImportModal()">
-    <div class="import-modal-card">
+    <div class="import-modal-card" style="max-width: 620px; width: 94%;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--sow-border); padding-bottom: 12px;">
             <div style="font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px; color: var(--text-main);">
-                <i class="fab fa-facebook" style="color: #1877f2;"></i> Import FB Share Data
+                <i class="fab fa-facebook" style="color: #1877f2;"></i> Import FB Share Data (Batch Queue)
             </div>
             <button type="button" onclick="closeFbImportModal()" style="background: transparent; border: none; font-size: 18px; cursor: pointer; color: var(--sow-text-sub);" title="Close">
                 <i class="fas fa-times"></i>
             </button>
         </div>
 
-        <div style="font-size: 12.5px; color: var(--sow-text-sub); line-height: 1.45;">
-            Upload an Excel (.xlsx, .xls) or CSV file into <code>sow.fb_share</code>.
-            Columns: <code>yearweek, region, branch, kabupaten, archetype, telkomsel, isat3, xl, smartfren, gap, wow, mom, wow_cc, mom_cc, win_lose</code>.
-            Required: <code>yearweek, branch, kabupaten</code>.
-        </div>
-
         <div class="import-drop-zone" id="fbDropZone" onclick="document.getElementById('fbImportFileInput').click()">
-            <i class="fas fa-cloud-upload-alt" style="font-size: 36px; color: #1877f2; margin-bottom: 8px;"></i>
-            <div style="font-weight: 600; font-size: 13px; color: var(--text-main);" id="fbImportDropText">Click to select or drag & drop file</div>
-            <div style="font-size: 11px; color: var(--sow-text-sub); margin-top: 4px;">Supports .xlsx, .xls, .csv</div>
-            <input type="file" id="fbImportFileInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="onFbFileSelected(this)">
+            <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: #1877f2; margin-bottom: 6px;"></i>
+            <div style="font-weight: 600; font-size: 13px; color: var(--text-main);" id="fbImportDropText">Click to select or drag & drop files here</div>
+            <div style="font-size: 11px; color: var(--sow-text-sub); margin-top: 3px;">Supports selecting multiple Excel (.xlsx, .xls) and CSV files</div>
+            <input type="file" id="fbImportFileInput" accept=".xlsx, .xls, .csv" multiple style="display: none;" onchange="onFbFileSelected(this)">
         </div>
 
-        <!-- File Selected Preview -->
-        <div id="fbFilePreview" style="display:none; padding:10px 14px; background:rgba(24, 119, 242, 0.08); border:1px solid rgba(24, 119, 242, 0.25); border-radius:8px;">
-            <div style="display:flex; align-items:center; gap:8px;">
-                <i class="fas fa-file-alt" style="color:#1877f2;"></i>
-                <span id="fbFileName" style="font-size:12px; font-weight:700; color:var(--text-main); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+        <!-- Queue List & Controls (Visible when files are added) -->
+        <div id="fbQueueSection" style="display:none; margin-top:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:11.5px;">
+                <span style="font-weight:700; color:var(--text-main);">
+                    <i class="fas fa-tasks" style="color:#1877f2;"></i> Selected Files: <span id="fbQueueTotalCount">0</span> (<span id="fbQueueTotalSize">0 MB</span>)
+                </span>
+                <button type="button" id="btnClearFbQueue" onclick="clearFbQueue()" style="font-size:11px; color:#ef4444; background:none; border:none; cursor:pointer; font-weight:600; padding:2px 6px;">
+                    <i class="fas fa-trash-alt"></i> Clear Queue
+                </button>
+            </div>
+
+            <!-- Scrollable list of files with status badges -->
+            <div id="fbQueueListContainer" style="max-height: 160px; overflow-y: auto; border: 1px solid var(--sow-border); border-radius: 8px; background: rgba(0,0,0,0.02); padding: 4px; display: flex; flex-direction: column; gap: 4px;">
+                <!-- Injected dynamically via JS -->
             </div>
         </div>
 
-        <!-- Progress Bar Container (RHI Style) -->
-        <div id="fbImportProgressContainer" style="display:none; margin-top:4px;">
-            <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:var(--sow-text-sub); margin-bottom:4px;">
-                <span id="fbImportProgressStage">Uploading...</span>
-                <span id="fbImportProgressPct">0%</span>
+        <!-- Overall Queue Progress -->
+        <div id="fbQueueOverallProgress" style="display:none; margin-top:10px; padding:10px 12px; background:rgba(24, 119, 242, 0.05); border:1px solid rgba(24, 119, 242, 0.2); border-radius:8px;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:var(--text-main); margin-bottom:4px;">
+                <span id="fbOverallStage">Overall Queue: 0 of 0</span>
+                <span id="fbOverallPct">0%</span>
             </div>
             <div style="width:100%; height:8px; background:var(--sow-border); border-radius:4px; overflow:hidden;">
-                <div id="fbImportProgressBar" style="width:0%; height:100%; background:linear-gradient(90deg, #1877f2, #38bdf8); transition:width 0.25s ease;"></div>
+                <div id="fbOverallProgressBar" style="width:0%; height:100%; background:linear-gradient(90deg, #1877f2, #38bdf8); transition:width 0.25s ease;"></div>
             </div>
-            <div id="fbImportProgressDetail" style="font-size:10px; color:var(--sow-text-sub); margin-top:4px; text-align:right;">0 / 0 rows</div>
+            <!-- Current file detail progress -->
+            <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--sow-text-sub); margin-top:5px;">
+                <span id="fbCurrentFileStage">Ready</span>
+                <span id="fbCurrentFilePct">--</span>
+            </div>
         </div>
 
-        <div id="fbImportStatus" style="font-size: 12.5px; display: none; padding: 10px 14px; border-radius: 8px; font-weight:600;"></div>
+        <div id="fbImportStatus" style="font-size: 12.5px; display: none; padding: 10px 14px; border-radius: 8px; font-weight:600; margin-top:8px;"></div>
 
-        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; border-top: 1px solid var(--sow-border); padding-top: 12px;">
-            <button type="button" class="btn-secondary" onclick="closeFbImportModal()">Cancel</button>
-            <button type="button" class="btn-apply" id="btnSubmitFbImport" onclick="submitFbImport()" disabled>
-                <i class="fas fa-upload"></i> Upload & Import
-            </button>
+        <div style="display: flex; justify-content: space-between; align-items:center; gap: 8px; margin-top: 10px; border-top: 1px solid var(--sow-border); padding-top: 12px;">
+            <button type="button" class="btn-secondary" id="btnCancelFbImport" onclick="closeFbImportModal()">Cancel</button>
+            <div style="display:flex; gap:8px;">
+                <button type="button" class="btn-secondary" id="btnAddMoreFbFiles" onclick="document.getElementById('fbImportFileInput').click();" style="display:none;">
+                    <i class="fas fa-plus"></i> Add More
+                </button>
+                <button type="button" class="btn-apply btn-fb" id="btnSubmitFbImport" onclick="startFbQueueImport()" disabled>
+                    <i class="fas fa-upload"></i> Upload & Import (<span id="fbQueueBtnCount">0</span>)
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -4039,312 +4065,692 @@
         }
     }
 
-    // ── FB Share Import Modal ──
-    let fbImportPollInterval = null;
+    // ── FB Share Import Modal (Multi-File Batch Queue) ──
+    let fbFileQueue = [];
+    let isFbQueueRunning = false;
+    let fbQueueAborted = false;
 
     function openFbImportModal() {
         document.getElementById("fbImportModalOverlay").classList.add("open");
-        document.getElementById("fbImportStatus").style.display = "none";
-        document.getElementById("fbImportProgressContainer").style.display = "none";
-        document.getElementById("fbFilePreview").style.display = "none";
-        document.getElementById("fbImportFileInput").value = "";
-        document.getElementById("fbImportDropText").textContent = "Click to select or drag & drop file";
-        const btn = document.getElementById("btnSubmitFbImport");
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-upload"></i> Upload & Import';
-        if (fbImportPollInterval) {
-            clearInterval(fbImportPollInterval);
-            fbImportPollInterval = null;
-        }
+        initFbDropZoneEvents();
     }
 
     function closeFbImportModal() {
-        document.getElementById("fbImportModalOverlay").classList.remove("open");
-        if (fbImportPollInterval) {
-            clearInterval(fbImportPollInterval);
-            fbImportPollInterval = null;
+        if (isFbQueueRunning) {
+            if (!confirm('An import queue is currently running. Are you sure you want to cancel and close?')) {
+                return;
+            }
+            fbQueueAborted = true;
         }
+        document.getElementById("fbImportModalOverlay").classList.remove("open");
+        resetFbImportState();
+    }
+
+    function resetFbImportState() {
+        fbFileQueue = [];
+        isFbQueueRunning = false;
+        fbQueueAborted = false;
+        const fileInput = document.getElementById("fbImportFileInput");
+        if (fileInput) fileInput.value = "";
+        renderFbQueueUI();
+        const alertBox = document.getElementById("fbImportStatus");
+        if (alertBox) alertBox.style.display = "none";
+        const prog = document.getElementById("fbQueueOverallProgress");
+        if (prog) prog.style.display = "none";
+    }
+
+    function clearFbQueue() {
+        if (isFbQueueRunning) return;
+        resetFbImportState();
+    }
+
+    function initFbDropZoneEvents() {
+        const dropZone = document.getElementById("fbDropZone");
+        if (!dropZone || dropZone._hasEvents) return;
+        dropZone._hasEvents = true;
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.style.background = 'rgba(24, 119, 242, 0.08)';
+                dropZone.style.borderColor = '#1877f2';
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.style.background = '';
+                dropZone.style.borderColor = '';
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', e => {
+            const dt = e.dataTransfer;
+            if (dt && dt.files && dt.files.length) {
+                addFilesToFbQueue(dt.files);
+            }
+        }, false);
     }
 
     function onFbFileSelected(input) {
-        const btn = document.getElementById("btnSubmitFbImport");
-        const preview = document.getElementById("fbFilePreview");
-        const nameEl = document.getElementById("fbFileName");
-        if (input.files && input.files[0]) {
-            const f = input.files[0];
-            nameEl.textContent = `${f.name} (${(f.size / 1024).toFixed(1)} KB)`;
-            preview.style.display = "block";
-            btn.disabled = false;
-        } else {
-            preview.style.display = "none";
-            btn.disabled = true;
+        if (input.files && input.files.length) {
+            addFilesToFbQueue(input.files);
+            input.value = "";
         }
     }
 
-    async function submitFbImport() {
-        const fileInput = document.getElementById("fbImportFileInput");
-        if (!fileInput.files || !fileInput.files[0]) {
-            alert("Please select a file to import.");
+    function addFilesToFbQueue(files) {
+        if (isFbQueueRunning) return;
+        for (let i = 0; i < files.length; i++) {
+            const f = files[i];
+            const ext = f.name.toLowerCase().split('.').pop();
+            if (!['xlsx', 'xls', 'csv'].includes(ext)) continue;
+            if (fbFileQueue.some(item => item.name === f.name && item.size === f.size)) continue;
+            fbFileQueue.push({
+                id: 'fb_q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                file: f,
+                name: f.name,
+                size: f.size,
+                status: 'pending',
+                message: 'Queued',
+                pct: 0,
+                rows: 0
+            });
+        }
+        renderFbQueueUI();
+    }
+
+    function renderFbQueueUI() {
+        const sec = document.getElementById('fbQueueSection');
+        const list = document.getElementById('fbQueueListContainer');
+        const countEl = document.getElementById('fbQueueTotalCount');
+        const sizeEl = document.getElementById('fbQueueTotalSize');
+        const btnCount = document.getElementById('fbQueueBtnCount');
+        const submitBtn = document.getElementById('btnSubmitFbImport');
+        const addMoreBtn = document.getElementById('btnAddMoreFbFiles');
+        const clearBtn = document.getElementById('btnClearFbQueue');
+
+        if (!fbFileQueue.length) {
+            if (sec) sec.style.display = 'none';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                if (btnCount) btnCount.textContent = '0';
+            }
+            if (addMoreBtn) addMoreBtn.style.display = 'none';
             return;
         }
 
-        const btn = document.getElementById("btnSubmitFbImport");
-        const statusEl = document.getElementById("fbImportStatus");
-        const progContainer = document.getElementById("fbImportProgressContainer");
-        const progBar = document.getElementById("fbImportProgressBar");
-        const progPct = document.getElementById("fbImportProgressPct");
-        const progStage = document.getElementById("fbImportProgressStage");
-        const progDetail = document.getElementById("fbImportProgressDetail");
+        if (sec) sec.style.display = 'block';
+        if (addMoreBtn) addMoreBtn.style.display = isFbQueueRunning ? 'none' : 'inline-block';
+        if (clearBtn) clearBtn.style.display = isFbQueueRunning ? 'none' : 'inline-block';
 
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
-        statusEl.style.display = "none";
+        const totalBytes = fbFileQueue.reduce((acc, f) => acc + f.size, 0);
+        const totalMb = (totalBytes / (1024 * 1024)).toFixed(1);
 
-        progContainer.style.display = "block";
-        progBar.style.width = "10%";
-        progPct.textContent = "10%";
-        progStage.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading file...';
-        progDetail.textContent = "Connecting to server...";
+        if (countEl) countEl.textContent = fbFileQueue.length;
+        if (sizeEl) sizeEl.textContent = `${totalMb} MB`;
+        if (btnCount) btnCount.textContent = `${fbFileQueue.length} files`;
 
-        const formData = new FormData();
-        formData.append("file", fileInput.files[0]);
+        if (submitBtn) {
+            submitBtn.disabled = isFbQueueRunning || fbFileQueue.every(f => f.status === 'done');
+        }
 
-        try {
-            const resp = await fetch("/api/sow/fb-import?async=1", {
-                method: "POST",
-                body: formData
-            });
-            const data = await resp.json();
+        if (list) {
+            list.innerHTML = fbFileQueue.map((item, idx) => {
+                let badgeHtml = '';
+                const sizeMb = (item.size / (1024 * 1024)).toFixed(1);
 
-            if (data.status === "queued" && data.job_id) {
-                fbImportPollInterval = setInterval(async () => {
-                    try {
-                        const pres = await fetch(`/api/sow/fb-import/progress/${data.job_id}`);
-                        const pdata = await pres.json();
+                if (item.status === 'pending') {
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(0,0,0,0.06); color:var(--sow-text-sub); font-weight:700;">Waiting</span>`;
+                } else if (item.status === 'uploading' || item.status === 'processing') {
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(24,119,242,0.12); color:#1877f2; font-weight:700;">
+                        <i class="fas fa-spinner fa-spin"></i> ${item.pct || 0}%
+                    </span>`;
+                } else if (item.status === 'done') {
+                    const rText = item.rows ? ` (${item.rows.toLocaleString()} rows)` : '';
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(16,185,129,0.15); color:#10b981; font-weight:700;">
+                        <i class="fas fa-check"></i> Done${rText}
+                    </span>`;
+                } else if (item.status === 'error') {
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(239,68,68,0.15); color:#ef4444; font-weight:700;" title="${item.message}">
+                        <i class="fas fa-exclamation-triangle"></i> Error
+                    </span>`;
+                }
 
-                        if (pdata.pct !== undefined) {
-                            progBar.style.width = pdata.pct + "%";
-                            progPct.textContent = pdata.pct + "%";
-                        }
-                        if (pdata.message) {
-                            progStage.textContent = pdata.message;
-                        }
-                        if (pdata.processed !== undefined && pdata.total_rows !== undefined) {
-                            progDetail.textContent = `${pdata.processed.toLocaleString()} / ${pdata.total_rows.toLocaleString()} rows`;
-                        }
-
-                        if (pdata.status === "success") {
-                            clearInterval(fbImportPollInterval);
-                            fbImportPollInterval = null;
-                            progBar.style.width = "100%";
-                            progPct.textContent = "100%";
-                            statusEl.style.display = "block";
-                            statusEl.style.background = "rgba(16, 185, 129, 0.15)";
-                            statusEl.style.color = "#10b981";
-                            statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ${pdata.message || "Import completed successfully."}`;
-                            setTimeout(() => {
-                                closeFbImportModal();
-                                fbApplyAll();
-                            }, 1500);
-                        } else if (pdata.status === "error") {
-                            clearInterval(fbImportPollInterval);
-                            fbImportPollInterval = null;
-                            progContainer.style.display = "none";
-                            statusEl.style.display = "block";
-                            statusEl.style.background = "rgba(239, 68, 68, 0.15)";
-                            statusEl.style.color = "#ef4444";
-                            statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${pdata.message || "Import failed"}`;
-                            btn.disabled = false;
-                            btn.innerHTML = '<i class="fas fa-upload"></i> Try Again';
-                        }
-                    } catch (e) {
-                        // transient network error during polling
-                    }
-                }, 500);
-            } else if (data.status === "success") {
-                progBar.style.width = "100%";
-                progPct.textContent = "100%";
-                statusEl.style.display = "block";
-                statusEl.style.background = "rgba(16, 185, 129, 0.15)";
-                statusEl.style.color = "#10b981";
-                statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ${data.message}`;
-                setTimeout(() => {
-                    closeFbImportModal();
-                    fbApplyAll();
-                }, 1500);
-            } else {
-                progContainer.style.display = "none";
-                statusEl.style.display = "block";
-                statusEl.style.background = "rgba(239, 68, 68, 0.15)";
-                statusEl.style.color = "#ef4444";
-                statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${data.message || "Import failed"}`;
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-upload"></i> Try Again';
-            }
-        } catch (err) {
-            console.error("FB Import error:", err);
-            progContainer.style.display = "none";
-            statusEl.style.display = "block";
-            statusEl.style.background = "rgba(239, 68, 68, 0.15)";
-            statusEl.style.color = "#ef4444";
-            statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Network error: ${err.message}`;
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-upload"></i> Try Again';
+                return `
+                    <div id="${item.id}" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:#ffffff; border:1px solid var(--sow-border); border-radius:6px; font-size:11.5px;">
+                        <div style="display:flex; align-items:center; gap:8px; overflow:hidden; margin-right:8px;">
+                            <span style="font-weight:700; color:var(--sow-text-sub); font-size:10px; width:16px;">#${idx + 1}</span>
+                            <i class="fab fa-facebook" style="color:#1877f2; flex-shrink:0;"></i>
+                            <span style="font-weight:700; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${item.name}">${item.name}</span>
+                            <span style="color:var(--sow-text-sub); font-size:10.5px; flex-shrink:0;">(${sizeMb} MB)</span>
+                        </div>
+                        <div style="flex-shrink:0;">
+                            ${badgeHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
     }
 
-    // ── ONX Import Modal Functions ──
-    let onxImportPollInterval = null;
+    async function startFbQueueImport() {
+        if (!fbFileQueue.length || isFbQueueRunning) return;
+
+        isFbQueueRunning = true;
+        fbQueueAborted = false;
+
+        const submitBtn = document.getElementById("btnSubmitFbImport");
+        const addMoreBtn = document.getElementById("btnAddMoreFbFiles");
+        const clearBtn = document.getElementById("btnClearFbQueue");
+        const alertBox = document.getElementById("fbImportStatus");
+        const overallProg = document.getElementById("fbQueueOverallProgress");
+        const overallBar = document.getElementById("fbOverallProgressBar");
+        const overallStage = document.getElementById("fbOverallStage");
+        const overallPct = document.getElementById("fbOverallPct");
+        const curFileStage = document.getElementById("fbCurrentFileStage");
+        const curFilePct = document.getElementById("fbCurrentFilePct");
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing Queue...';
+        }
+        if (addMoreBtn) addMoreBtn.style.display = 'none';
+        if (clearBtn) clearBtn.style.display = 'none';
+        if (alertBox) alertBox.style.display = 'none';
+        if (overallProg) overallProg.style.display = 'block';
+
+        let successCount = 0;
+        let failCount = 0;
+        let totalRowsImported = 0;
+        const totalFiles = fbFileQueue.length;
+
+        for (let i = 0; i < totalFiles; i++) {
+            if (fbQueueAborted) break;
+
+            const item = fbFileQueue[i];
+            if (item.status === 'done') {
+                successCount++;
+                continue;
+            }
+
+            const currentFileNum = i + 1;
+            const overallProgressValue = Math.round((i / totalFiles) * 100);
+
+            if (overallStage) overallStage.textContent = `Overall: File ${currentFileNum} of ${totalFiles} (${item.name})`;
+            if (overallPct) overallPct.textContent = `${overallProgressValue}%`;
+            if (overallBar) overallBar.style.width = `${overallProgressValue}%`;
+
+            item.status = 'uploading';
+            item.pct = 10;
+            item.message = 'Uploading file...';
+            renderFbQueueUI();
+
+            try {
+                const formData = new FormData();
+                formData.append("file", item.file);
+
+                if (curFileStage) curFileStage.textContent = `Uploading ${item.name}...`;
+                if (curFilePct) curFilePct.textContent = '10%';
+
+                const resp = await fetch("/api/sow/fb-import?async=1", {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await resp.json();
+
+                if (data.status === "queued" && data.job_id) {
+                    item.status = 'processing';
+                    await new Promise((resolve) => {
+                        const poll = setInterval(async () => {
+                            if (fbQueueAborted) {
+                                clearInterval(poll);
+                                resolve();
+                                return;
+                            }
+                            try {
+                                const pres = await fetch(`/api/sow/fb-import/progress/${data.job_id}`);
+                                const pdata = await pres.json();
+
+                                if (pdata.pct !== undefined) {
+                                    item.pct = pdata.pct;
+                                    item.message = pdata.message || pdata.status;
+                                    if (curFileStage) curFileStage.textContent = `${item.name}: ${pdata.message || pdata.status}`;
+                                    if (curFilePct) curFilePct.textContent = `${pdata.pct || 0}%`;
+                                    renderFbQueueUI();
+                                }
+
+                                if (pdata.status === "success") {
+                                    clearInterval(poll);
+                                    item.status = 'done';
+                                    item.pct = 100;
+                                    item.rows = pdata.total_rows || 0;
+                                    item.message = pdata.message;
+                                    successCount++;
+                                    totalRowsImported += (pdata.total_rows || 0);
+                                    renderFbQueueUI();
+                                    resolve();
+                                } else if (pdata.status === "error") {
+                                    clearInterval(poll);
+                                    item.status = 'error';
+                                    item.message = pdata.message || 'Import error';
+                                    failCount++;
+                                    renderFbQueueUI();
+                                    resolve();
+                                }
+                            } catch (e) {
+                                // transient poll error
+                            }
+                        }, 500);
+
+                        setTimeout(() => {
+                            clearInterval(poll);
+                            if (item.status !== 'done') {
+                                item.status = 'error';
+                                item.message = 'Timeout';
+                                failCount++;
+                                renderFbQueueUI();
+                            }
+                            resolve();
+                        }, 600000);
+                    });
+                } else if (data.status === "success") {
+                    item.status = 'done';
+                    item.pct = 100;
+                    successCount++;
+                    renderFbQueueUI();
+                } else {
+                    item.status = 'error';
+                    item.message = data.message || 'Upload failed';
+                    failCount++;
+                    renderFbQueueUI();
+                }
+            } catch (err) {
+                item.status = 'error';
+                item.message = err.message || 'Network error';
+                failCount++;
+                renderFbQueueUI();
+            }
+        }
+
+        if (overallBar) overallBar.style.width = '100%';
+        if (overallPct) overallPct.textContent = '100%';
+        if (overallStage) overallStage.textContent = `Completed ${successCount} of ${totalFiles} files`;
+        if (curFileStage) curFileStage.textContent = 'All files processed.';
+        if (curFilePct) curFilePct.textContent = 'Done';
+
+        isFbQueueRunning = false;
+        renderFbQueueUI();
+
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Import Complete';
+            submitBtn.disabled = true;
+        }
+
+        if (alertBox) {
+            alertBox.style.display = 'block';
+            if (failCount === 0) {
+                alertBox.style.background = 'rgba(16,185,129,0.15)';
+                alertBox.style.color = '#10b981';
+                alertBox.innerHTML = `<i class="fas fa-check-circle"></i> <strong>Queue Completed!</strong> Successfully imported ${successCount} files (${totalRowsImported.toLocaleString()} rows).`;
+            } else {
+                alertBox.style.background = 'rgba(234,179,8,0.15)';
+                alertBox.style.color = '#ca8a04';
+                alertBox.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Processed ${totalFiles} files: <strong>${successCount} succeeded</strong>, <strong>${failCount} failed</strong>. Total rows: ${totalRowsImported.toLocaleString()}.`;
+            }
+        }
+
+        setTimeout(() => {
+            closeFbImportModal();
+            fbApplyAll();
+        }, 1500);
+    }
+
+    // ── ONX Import Modal Functions (Multi-File Batch Queue) ──
+    let onxFileQueue = [];
+    let isOnxQueueRunning = false;
+    let onxQueueAborted = false;
 
     function openImportModal() {
         document.getElementById("importModalOverlay").classList.add("open");
-        document.getElementById("importStatus").style.display = "none";
-        document.getElementById("importProgressContainer").style.display = "none";
-        document.getElementById("onxFilePreview").style.display = "none";
-        document.getElementById("importFileInput").value = "";
-        document.getElementById("importDropText").textContent = "Click to select or drag & drop file";
-        const btn = document.getElementById("btnSubmitImport");
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-upload"></i> Upload & Import';
-        if (onxImportPollInterval) {
-            clearInterval(onxImportPollInterval);
-            onxImportPollInterval = null;
-        }
+        initOnxDropZoneEvents();
     }
 
     function closeImportModal() {
-        document.getElementById("importModalOverlay").classList.remove("open");
-        if (onxImportPollInterval) {
-            clearInterval(onxImportPollInterval);
-            onxImportPollInterval = null;
+        if (isOnxQueueRunning) {
+            if (!confirm('An import queue is currently running. Are you sure you want to cancel and close?')) {
+                return;
+            }
+            onxQueueAborted = true;
         }
+        document.getElementById("importModalOverlay").classList.remove("open");
+        resetOnxImportState();
+    }
+
+    function resetOnxImportState() {
+        onxFileQueue = [];
+        isOnxQueueRunning = false;
+        onxQueueAborted = false;
+        const fileInput = document.getElementById("importFileInput");
+        if (fileInput) fileInput.value = "";
+        renderOnxQueueUI();
+        const alertBox = document.getElementById("importStatus");
+        if (alertBox) alertBox.style.display = "none";
+        const prog = document.getElementById("onxQueueOverallProgress");
+        if (prog) prog.style.display = "none";
+    }
+
+    function clearOnxQueue() {
+        if (isOnxQueueRunning) return;
+        resetOnxImportState();
+    }
+
+    function initOnxDropZoneEvents() {
+        const dropZone = document.getElementById("onxDropZone");
+        if (!dropZone || dropZone._hasEvents) return;
+        dropZone._hasEvents = true;
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.style.background = 'rgba(79, 172, 254, 0.08)';
+                dropZone.style.borderColor = '#4facfe';
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.style.background = '';
+                dropZone.style.borderColor = '';
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', e => {
+            const dt = e.dataTransfer;
+            if (dt && dt.files && dt.files.length) {
+                addFilesToOnxQueue(dt.files);
+            }
+        }, false);
     }
 
     function onFileSelected(input) {
-        const btn = document.getElementById("btnSubmitImport");
-        const preview = document.getElementById("onxFilePreview");
-        const nameEl = document.getElementById("onxFileName");
-        if (input.files && input.files[0]) {
-            const f = input.files[0];
-            nameEl.textContent = `${f.name} (${(f.size / 1024).toFixed(1)} KB)`;
-            preview.style.display = "block";
-            btn.disabled = false;
-        } else {
-            preview.style.display = "none";
-            btn.disabled = true;
+        if (input.files && input.files.length) {
+            addFilesToOnxQueue(input.files);
+            input.value = "";
         }
     }
 
-    async function submitImport() {
-        const fileInput = document.getElementById("importFileInput");
-        if (!fileInput.files || !fileInput.files[0]) {
-            alert("Please select a file to import.");
+    function addFilesToOnxQueue(files) {
+        if (isOnxQueueRunning) return;
+        for (let i = 0; i < files.length; i++) {
+            const f = files[i];
+            const ext = f.name.toLowerCase().split('.').pop();
+            if (!['xlsx', 'xls', 'csv'].includes(ext)) continue;
+            if (onxFileQueue.some(item => item.name === f.name && item.size === f.size)) continue;
+            onxFileQueue.push({
+                id: 'onx_q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                file: f,
+                name: f.name,
+                size: f.size,
+                status: 'pending',
+                message: 'Queued',
+                pct: 0,
+                rows: 0
+            });
+        }
+        renderOnxQueueUI();
+    }
+
+    function renderOnxQueueUI() {
+        const sec = document.getElementById('onxQueueSection');
+        const list = document.getElementById('onxQueueListContainer');
+        const countEl = document.getElementById('onxQueueTotalCount');
+        const sizeEl = document.getElementById('onxQueueTotalSize');
+        const btnCount = document.getElementById('onxQueueBtnCount');
+        const submitBtn = document.getElementById('btnSubmitImport');
+        const addMoreBtn = document.getElementById('btnAddMoreOnxFiles');
+        const clearBtn = document.getElementById('btnClearOnxQueue');
+
+        if (!onxFileQueue.length) {
+            if (sec) sec.style.display = 'none';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                if (btnCount) btnCount.textContent = '0';
+            }
+            if (addMoreBtn) addMoreBtn.style.display = 'none';
             return;
         }
 
-        const btn = document.getElementById("btnSubmitImport");
-        const statusEl = document.getElementById("importStatus");
-        const progContainer = document.getElementById("importProgressContainer");
-        const progBar = document.getElementById("importProgressBar");
-        const progPct = document.getElementById("importProgressPct");
-        const progStage = document.getElementById("importProgressStage");
-        const progDetail = document.getElementById("importProgressDetail");
+        if (sec) sec.style.display = 'block';
+        if (addMoreBtn) addMoreBtn.style.display = isOnxQueueRunning ? 'none' : 'inline-block';
+        if (clearBtn) clearBtn.style.display = isOnxQueueRunning ? 'none' : 'inline-block';
 
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
-        statusEl.style.display = "none";
+        const totalBytes = onxFileQueue.reduce((acc, f) => acc + f.size, 0);
+        const totalMb = (totalBytes / (1024 * 1024)).toFixed(1);
 
-        progContainer.style.display = "block";
-        progBar.style.width = "10%";
-        progPct.textContent = "10%";
-        progStage.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading file...';
-        progDetail.textContent = "Connecting to server...";
+        if (countEl) countEl.textContent = onxFileQueue.length;
+        if (sizeEl) sizeEl.textContent = `${totalMb} MB`;
+        if (btnCount) btnCount.textContent = `${onxFileQueue.length} files`;
 
-        const formData = new FormData();
-        formData.append("file", fileInput.files[0]);
-
-        try {
-            const resp = await fetch("/api/sow/import?async=1", {
-                method: "POST",
-                body: formData
-            });
-            const data = await resp.json();
-
-            if (data.status === "queued" && data.job_id) {
-                onxImportPollInterval = setInterval(async () => {
-                    try {
-                        const pres = await fetch(`/api/sow/import/progress/${data.job_id}`);
-                        const pdata = await pres.json();
-
-                        if (pdata.pct !== undefined) {
-                            progBar.style.width = pdata.pct + "%";
-                            progPct.textContent = pdata.pct + "%";
-                        }
-                        if (pdata.message) {
-                            progStage.textContent = pdata.message;
-                        }
-                        if (pdata.processed !== undefined && pdata.total_rows !== undefined) {
-                            progDetail.textContent = `${pdata.processed.toLocaleString()} / ${pdata.total_rows.toLocaleString()} rows`;
-                        }
-
-                        if (pdata.status === "success") {
-                            clearInterval(onxImportPollInterval);
-                            onxImportPollInterval = null;
-                            progBar.style.width = "100%";
-                            progPct.textContent = "100%";
-                            statusEl.style.display = "block";
-                            statusEl.style.background = "rgba(16, 185, 129, 0.15)";
-                            statusEl.style.color = "#10b981";
-                            statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ${pdata.message || "Import completed successfully."}`;
-                            setTimeout(() => {
-                                closeImportModal();
-                                applyAchievementFilters();
-                            }, 1500);
-                        } else if (pdata.status === "error") {
-                            clearInterval(onxImportPollInterval);
-                            onxImportPollInterval = null;
-                            progContainer.style.display = "none";
-                            statusEl.style.display = "block";
-                            statusEl.style.background = "rgba(239, 68, 68, 0.15)";
-                            statusEl.style.color = "#ef4444";
-                            statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${pdata.message || "Import failed"}`;
-                            btn.disabled = false;
-                            btn.innerHTML = '<i class="fas fa-upload"></i> Try Again';
-                        }
-                    } catch (e) {
-                        // transient network error during polling
-                    }
-                }, 500);
-            } else if (data.status === "success") {
-                progBar.style.width = "100%";
-                progPct.textContent = "100%";
-                statusEl.style.display = "block";
-                statusEl.style.background = "rgba(16, 185, 129, 0.15)";
-                statusEl.style.color = "#10b981";
-                statusEl.innerHTML = `<i class="fas fa-check-circle"></i> ${data.message}`;
-                setTimeout(() => {
-                    closeImportModal();
-                    applyAchievementFilters();
-                }, 1500);
-            } else {
-                progContainer.style.display = "none";
-                statusEl.style.display = "block";
-                statusEl.style.background = "rgba(239, 68, 68, 0.15)";
-                statusEl.style.color = "#ef4444";
-                statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${data.message || "Import failed"}`;
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-upload"></i> Try Again';
-            }
-        } catch (err) {
-            console.error("Import error:", err);
-            progContainer.style.display = "none";
-            statusEl.style.display = "block";
-            statusEl.style.background = "rgba(239, 68, 68, 0.15)";
-            statusEl.style.color = "#ef4444";
-            statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Network error: ${err.message}`;
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-upload"></i> Try Again';
+        if (submitBtn) {
+            submitBtn.disabled = isOnxQueueRunning || onxFileQueue.every(f => f.status === 'done');
         }
+
+        if (list) {
+            list.innerHTML = onxFileQueue.map((item, idx) => {
+                let badgeHtml = '';
+                const sizeMb = (item.size / (1024 * 1024)).toFixed(1);
+
+                if (item.status === 'pending') {
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(0,0,0,0.06); color:var(--sow-text-sub); font-weight:700;">Waiting</span>`;
+                } else if (item.status === 'uploading' || item.status === 'processing') {
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(79,172,254,0.12); color:#4facfe; font-weight:700;">
+                        <i class="fas fa-spinner fa-spin"></i> ${item.pct || 0}%
+                    </span>`;
+                } else if (item.status === 'done') {
+                    const rText = item.rows ? ` (${item.rows.toLocaleString()} rows)` : '';
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(16,185,129,0.15); color:#10b981; font-weight:700;">
+                        <i class="fas fa-check"></i> Done${rText}
+                    </span>`;
+                } else if (item.status === 'error') {
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(239,68,68,0.15); color:#ef4444; font-weight:700;" title="${item.message}">
+                        <i class="fas fa-exclamation-triangle"></i> Error
+                    </span>`;
+                }
+
+                return `
+                    <div id="${item.id}" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:#ffffff; border:1px solid var(--sow-border); border-radius:6px; font-size:11.5px;">
+                        <div style="display:flex; align-items:center; gap:8px; overflow:hidden; margin-right:8px;">
+                            <span style="font-weight:700; color:var(--sow-text-sub); font-size:10px; width:16px;">#${idx + 1}</span>
+                            <i class="fas fa-file-excel" style="color:#4facfe; flex-shrink:0;"></i>
+                            <span style="font-weight:700; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${item.name}">${item.name}</span>
+                            <span style="color:var(--sow-text-sub); font-size:10.5px; flex-shrink:0;">(${sizeMb} MB)</span>
+                        </div>
+                        <div style="flex-shrink:0;">
+                            ${badgeHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    async function startOnxQueueImport() {
+        if (!onxFileQueue.length || isOnxQueueRunning) return;
+
+        isOnxQueueRunning = true;
+        onxQueueAborted = false;
+
+        const submitBtn = document.getElementById("btnSubmitImport");
+        const addMoreBtn = document.getElementById("btnAddMoreOnxFiles");
+        const clearBtn = document.getElementById("btnClearOnxQueue");
+        const alertBox = document.getElementById("importStatus");
+        const overallProg = document.getElementById("onxQueueOverallProgress");
+        const overallBar = document.getElementById("onxOverallProgressBar");
+        const overallStage = document.getElementById("onxOverallStage");
+        const overallPct = document.getElementById("onxOverallPct");
+        const curFileStage = document.getElementById("onxCurrentFileStage");
+        const curFilePct = document.getElementById("onxCurrentFilePct");
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing Queue...';
+        }
+        if (addMoreBtn) addMoreBtn.style.display = 'none';
+        if (clearBtn) clearBtn.style.display = 'none';
+        if (alertBox) alertBox.style.display = 'none';
+        if (overallProg) overallProg.style.display = 'block';
+
+        let successCount = 0;
+        let failCount = 0;
+        let totalRowsImported = 0;
+        const totalFiles = onxFileQueue.length;
+
+        for (let i = 0; i < totalFiles; i++) {
+            if (onxQueueAborted) break;
+
+            const item = onxFileQueue[i];
+            if (item.status === 'done') {
+                successCount++;
+                continue;
+            }
+
+            const currentFileNum = i + 1;
+            const overallProgressValue = Math.round((i / totalFiles) * 100);
+
+            if (overallStage) overallStage.textContent = `Overall: File ${currentFileNum} of ${totalFiles} (${item.name})`;
+            if (overallPct) overallPct.textContent = `${overallProgressValue}%`;
+            if (overallBar) overallBar.style.width = `${overallProgressValue}%`;
+
+            item.status = 'uploading';
+            item.pct = 10;
+            item.message = 'Uploading file...';
+            renderOnxQueueUI();
+
+            try {
+                const formData = new FormData();
+                formData.append("file", item.file);
+
+                if (curFileStage) curFileStage.textContent = `Uploading ${item.name}...`;
+                if (curFilePct) curFilePct.textContent = '10%';
+
+                const resp = await fetch("/api/sow/import?async=1", {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await resp.json();
+
+                if (data.status === "queued" && data.job_id) {
+                    item.status = 'processing';
+                    await new Promise((resolve) => {
+                        const poll = setInterval(async () => {
+                            if (onxQueueAborted) {
+                                clearInterval(poll);
+                                resolve();
+                                return;
+                            }
+                            try {
+                                const pres = await fetch(`/api/sow/import/progress/${data.job_id}`);
+                                const pdata = await pres.json();
+
+                                if (pdata.pct !== undefined) {
+                                    item.pct = pdata.pct;
+                                    item.message = pdata.message || pdata.status;
+                                    if (curFileStage) curFileStage.textContent = `${item.name}: ${pdata.message || pdata.status}`;
+                                    if (curFilePct) curFilePct.textContent = `${pdata.pct || 0}%`;
+                                    renderOnxQueueUI();
+                                }
+
+                                if (pdata.status === "success") {
+                                    clearInterval(poll);
+                                    item.status = 'done';
+                                    item.pct = 100;
+                                    item.rows = pdata.total_rows || 0;
+                                    item.message = pdata.message;
+                                    successCount++;
+                                    totalRowsImported += (pdata.total_rows || 0);
+                                    renderOnxQueueUI();
+                                    resolve();
+                                } else if (pdata.status === "error") {
+                                    clearInterval(poll);
+                                    item.status = 'error';
+                                    item.message = pdata.message || 'Import error';
+                                    failCount++;
+                                    renderOnxQueueUI();
+                                    resolve();
+                                }
+                            } catch (e) {
+                                // transient poll error
+                            }
+                        }, 500);
+
+                        setTimeout(() => {
+                            clearInterval(poll);
+                            if (item.status !== 'done') {
+                                item.status = 'error';
+                                item.message = 'Timeout';
+                                failCount++;
+                                renderOnxQueueUI();
+                            }
+                            resolve();
+                        }, 600000);
+                    });
+                } else if (data.status === "success") {
+                    item.status = 'done';
+                    item.pct = 100;
+                    successCount++;
+                    renderOnxQueueUI();
+                } else {
+                    item.status = 'error';
+                    item.message = data.message || 'Upload failed';
+                    failCount++;
+                    renderOnxQueueUI();
+                }
+            } catch (err) {
+                item.status = 'error';
+                item.message = err.message || 'Network error';
+                failCount++;
+                renderOnxQueueUI();
+            }
+        }
+
+        if (overallBar) overallBar.style.width = '100%';
+        if (overallPct) overallPct.textContent = '100%';
+        if (overallStage) overallStage.textContent = `Completed ${successCount} of ${totalFiles} files`;
+        if (curFileStage) curFileStage.textContent = 'All files processed.';
+        if (curFilePct) curFilePct.textContent = 'Done';
+
+        isOnxQueueRunning = false;
+        renderOnxQueueUI();
+
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Import Complete';
+            submitBtn.disabled = true;
+        }
+
+        if (alertBox) {
+            alertBox.style.display = 'block';
+            if (failCount === 0) {
+                alertBox.style.background = 'rgba(16,185,129,0.15)';
+                alertBox.style.color = '#10b981';
+                alertBox.innerHTML = `<i class="fas fa-check-circle"></i> <strong>Queue Completed!</strong> Successfully imported ${successCount} files (${totalRowsImported.toLocaleString()} rows).`;
+            } else {
+                alertBox.style.background = 'rgba(234,179,8,0.15)';
+                alertBox.style.color = '#ca8a04';
+                alertBox.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Processed ${totalFiles} files: <strong>${successCount} succeeded</strong>, <strong>${failCount} failed</strong>. Total rows: ${totalRowsImported.toLocaleString()}.`;
+            }
+        }
+
+        setTimeout(() => {
+            closeImportModal();
+            applyAchievementFilters();
+        }, 1500);
     }
 
     // ══════════════════════════════════════════════════════
