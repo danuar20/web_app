@@ -1336,57 +1336,59 @@
 <!-- MODAL: DATA IMPORT (Multi-File Batch Queue Support)             -->
 <!-- ══════════════════════════════════════════════════════════════ -->
 <div id="ranImportModalOverlay" class="ran-modal-overlay">
-    <div class="ran-modal-box" style="max-width: 620px; width: 94%;">
-        <div class="ran-modal-header">
+    <div class="ran-modal-box" style="max-width: 620px; width: 94%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
+        <div class="ran-modal-header" style="flex-shrink: 0;">
             <span class="ran-modal-title"><i class="fas fa-file-upload"></i> Import RCI Redsector Data (Batch Queue)</span>
             <button class="ran-btn-secondary" onclick="closeImportModal()" style="padding: 2px 7px;">&times;</button>
         </div>
-        <div style="margin-bottom: 12px;">
-            <div class="ran-drop-zone" onclick="document.getElementById('ranImportFileInput').click()" id="ranDropZone">
-                <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: var(--ran-crimson); margin-bottom: 6px;"></i>
-                <div id="ranDropZoneLabel" style="font-size: 13px; font-weight: 700; color: var(--ran-text-main);">Click or drag files here to upload</div>
-                <div style="font-size: 11px; color: var(--ran-text-muted); margin-top: 3px;">Supports selecting multiple Excel (.xlsx, .xls) and CSV files</div>
-                <input type="file" id="ranImportFileInput" style="display: none;" accept=".csv,.xlsx,.xls" multiple onchange="onRanFileSelected(this)">
+        <div style="overflow-y: auto; flex: 1; padding: 2px 4px 8px 0;">
+            <div style="margin-bottom: 12px;">
+                <div class="ran-drop-zone" onclick="document.getElementById('ranImportFileInput').click()" id="ranDropZone">
+                    <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: var(--ran-crimson); margin-bottom: 6px;"></i>
+                    <div id="ranDropZoneLabel" style="font-size: 13px; font-weight: 700; color: var(--ran-text-main);">Click or drag files here to upload</div>
+                    <div style="font-size: 11px; color: var(--ran-text-muted); margin-top: 3px;">Supports selecting multiple Excel (.xlsx, .xls) and CSV files</div>
+                    <input type="file" id="ranImportFileInput" style="display: none;" accept=".csv,.xlsx,.xls" multiple onchange="onRanFileSelected(this)">
+                </div>
             </div>
+
+            <!-- Queue List & Controls (Visible when files are added) -->
+            <div id="ranQueueSection" style="display:none; margin-bottom:14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:11.5px;">
+                    <span style="font-weight:700; color:var(--ran-text-main);">
+                        <i class="fas fa-tasks" style="color:var(--ran-blue, #145DA0);"></i> Selected Files: <span id="ranQueueTotalCount">0</span> (<span id="ranQueueTotalSize">0 MB</span>)
+                    </span>
+                    <button type="button" id="btnClearRanQueue" onclick="clearRanQueue()" style="font-size:11px; color:#ef4444; background:none; border:none; cursor:pointer; font-weight:600; padding:2px 6px;">
+                        <i class="fas fa-trash-alt"></i> Clear Queue
+                    </button>
+                </div>
+
+                <!-- Scrollable list of files with status badges -->
+                <div id="ranQueueListContainer" style="max-height: 170px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,0.02); padding: 4px; display: flex; flex-direction: column; gap: 4px;">
+                    <!-- Injected dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- Overall Queue Progress -->
+            <div id="ranQueueOverallProgress" style="display:none; margin-bottom:12px; padding:10px 12px; background:rgba(20,93,160,0.05); border:1px solid rgba(20,93,160,0.15); border-radius:8px;">
+                <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:var(--ran-text-main); margin-bottom:4px;">
+                    <span id="ranOverallStage">Overall Queue: 0 of 0</span>
+                    <span id="ranOverallPct">0%</span>
+                </div>
+                <div style="width:100%; height:8px; background:var(--border); border-radius:4px; overflow:hidden;">
+                    <div id="ranOverallProgressBar" style="width:0%; height:100%; background:var(--ran-blue, #145DA0); transition:width 0.25s ease;"></div>
+                </div>
+                <!-- Current file detail progress -->
+                <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--ran-text-muted); margin-top:5px;">
+                    <span id="ranCurrentFileStage">Ready</span>
+                    <span id="ranCurrentFilePct">--</span>
+                </div>
+            </div>
+
+            <!-- Import Alert / Completion summary -->
+            <div id="ranImportAlert" style="display:none; padding:10px 14px; border-radius:8px; font-size:12px; font-weight:600; margin-bottom:12px;"></div>
         </div>
 
-        <!-- Queue List & Controls (Visible when files are added) -->
-        <div id="ranQueueSection" style="display:none; margin-bottom:14px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:11.5px;">
-                <span style="font-weight:700; color:var(--ran-text-main);">
-                    <i class="fas fa-tasks" style="color:var(--ran-blue, #145DA0);"></i> Selected Files: <span id="ranQueueTotalCount">0</span> (<span id="ranQueueTotalSize">0 MB</span>)
-                </span>
-                <button type="button" id="btnClearRanQueue" onclick="clearRanQueue()" style="font-size:11px; color:#ef4444; background:none; border:none; cursor:pointer; font-weight:600; padding:2px 6px;">
-                    <i class="fas fa-trash-alt"></i> Clear Queue
-                </button>
-            </div>
-
-            <!-- Scrollable list of files with status badges -->
-            <div id="ranQueueListContainer" style="max-height: 170px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: rgba(0,0,0,0.02); padding: 4px; display: flex; flex-direction: column; gap: 4px;">
-                <!-- Injected dynamically via JS -->
-            </div>
-        </div>
-
-        <!-- Overall Queue Progress -->
-        <div id="ranQueueOverallProgress" style="display:none; margin-bottom:12px; padding:10px 12px; background:rgba(20,93,160,0.05); border:1px solid rgba(20,93,160,0.15); border-radius:8px;">
-            <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:var(--ran-text-main); margin-bottom:4px;">
-                <span id="ranOverallStage">Overall Queue: 0 of 0</span>
-                <span id="ranOverallPct">0%</span>
-            </div>
-            <div style="width:100%; height:8px; background:var(--border); border-radius:4px; overflow:hidden;">
-                <div id="ranOverallProgressBar" style="width:0%; height:100%; background:var(--ran-blue, #145DA0); transition:width 0.25s ease;"></div>
-            </div>
-            <!-- Current file detail progress -->
-            <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--ran-text-muted); margin-top:5px;">
-                <span id="ranCurrentFileStage">Ready</span>
-                <span id="ranCurrentFilePct">--</span>
-            </div>
-        </div>
-
-        <!-- Import Alert / Completion summary -->
-        <div id="ranImportAlert" style="display:none; padding:10px 14px; border-radius:8px; font-size:12px; font-weight:600; margin-bottom:12px;"></div>
-
-        <div style="display: flex; justify-content: space-between; align-items:center; border-top: 1px solid var(--border); padding-top: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items:center; border-top: 1px solid var(--border); padding-top: 12px; flex-shrink: 0; margin-top: auto; background: inherit;">
             <button class="ran-btn-secondary" id="btnCancelRanImport" onclick="closeImportModal()">Cancel</button>
             <div style="display:flex; gap:8px;">
                 <button type="button" class="ran-btn-secondary" id="btnAddMoreRanFiles" onclick="document.getElementById('ranImportFileInput').click();" style="display:none;">

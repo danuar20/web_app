@@ -4177,7 +4177,7 @@
             if (sec) sec.style.display = 'none';
             if (submitBtn) {
                 submitBtn.disabled = true;
-                if (btnCount) btnCount.textContent = '0';
+                submitBtn.innerHTML = '<i class="fas fa-upload"></i> Upload & Import (0)';
             }
             if (addMoreBtn) addMoreBtn.style.display = 'none';
             return;
@@ -4192,10 +4192,17 @@
 
         if (countEl) countEl.textContent = fbFileQueue.length;
         if (sizeEl) sizeEl.textContent = `${totalMb} MB`;
-        if (btnCount) btnCount.textContent = `${fbFileQueue.length} files`;
 
-        if (submitBtn) {
-            submitBtn.disabled = isFbQueueRunning || fbFileQueue.every(f => f.status === 'done');
+        if (submitBtn && !isFbQueueRunning) {
+            const allDone = fbFileQueue.length > 0 && fbFileQueue.every(f => f.status === 'done');
+            if (allDone) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Import Complete';
+            } else {
+                const pendingCount = fbFileQueue.filter(f => f.status !== 'done').length;
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<i class="fas fa-upload"></i> Upload & Import (${pendingCount})`;
+            }
         }
 
         if (list) {
@@ -4521,7 +4528,7 @@
             if (sec) sec.style.display = 'none';
             if (submitBtn) {
                 submitBtn.disabled = true;
-                if (btnCount) btnCount.textContent = '0';
+                submitBtn.innerHTML = '<i class="fas fa-upload"></i> Upload & Import (0)';
             }
             if (addMoreBtn) addMoreBtn.style.display = 'none';
             return;
@@ -4536,10 +4543,17 @@
 
         if (countEl) countEl.textContent = onxFileQueue.length;
         if (sizeEl) sizeEl.textContent = `${totalMb} MB`;
-        if (btnCount) btnCount.textContent = `${onxFileQueue.length} files`;
 
-        if (submitBtn) {
-            submitBtn.disabled = isOnxQueueRunning || onxFileQueue.every(f => f.status === 'done');
+        if (submitBtn && !isOnxQueueRunning) {
+            const allDone = onxFileQueue.length > 0 && onxFileQueue.every(f => f.status === 'done');
+            if (allDone) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Import Complete';
+            } else {
+                const pendingCount = onxFileQueue.filter(f => f.status !== 'done').length;
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<i class="fas fa-upload"></i> Upload & Import (${pendingCount})`;
+            }
         }
 
         if (list) {

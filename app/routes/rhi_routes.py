@@ -350,7 +350,10 @@ def _get_target_for_week(yearweek):
 @rhi.route("/okr/rhi")
 @login_required
 def rhi_dashboard_page():
-    if request.args.get("refresh") == "1":
+    # Auto-refresh caches if request is a hard refresh (Ctrl+F5) or explicit reload
+    cache_ctrl = request.headers.get("Cache-Control", "")
+    pragma = request.headers.get("Pragma", "")
+    if "no-cache" in cache_ctrl or "max-age=0" in cache_ctrl or "no-cache" in pragma or request.args.get("refresh") == "1":
         clear_rhi_caches()
     yearweeks = _get_yearweeks()
     default_yw = yearweeks[0] if yearweeks else 202639
@@ -1541,25 +1544,26 @@ class _RhiCountingReader:
         self._fh = fh
         self._total = max(1, int(total_bytes or 0))
         self._job_id = job_id
+        self._read_bytes = 0
+        self._last_report = 0
 
     def read(self, size=-1):
         chunk = self._fh.read(size)
-        self._update(len(chunk))
+        n = len(chunk)
+        if n > 0:
+            self._read_bytes += n
+            # Throttle updates to every 1MB or completion to eliminate thread lock contention
+            if (self._read_bytes - self._last_report >= 1048576) or (self._read_bytes >= self._total):
+                self._last_report = self._read_bytes
+                pct = 25 + int(70 * min(1.0, self._read_bytes / float(self._total)))
+                _rhi_set_job(
+                    self._job_id,
+                    status="processing",
+                    pct=pct,
+                    message=f"Streaming to database... {self._read_bytes/1048576:.1f}/{self._total/1048576:.1f} MB",
+                    stage="copy"
+                )
         return chunk
-
-    def _update(self, n):
-        if n <= 0:
-            return
-        with _IMPORT_JOBS_LOCK:
-            job = _IMPORT_JOBS.get(self._job_id)
-            if not job:
-                return
-            job["_read"] = job.get("_read", 0) + n
-            read_bytes = job["_read"]
-        pct = 25 + int(70 * min(1.0, read_bytes / float(self._total)))
-        _rhi_set_job(self._job_id, status="processing", pct=pct,
-                     message=f"Uploading to database... {read_bytes/1048576:.1f}/{self._total/1048576:.1f} MB",
-                     stage="copy")
 
     def readable(self):
         return True
@@ -1613,6 +1617,7 @@ def api_sow_rhi_import_progress(job_id):
 
 def _bg_rhi_import(job_id, file_path, filename):
     temp_csv_path = None
+    start_time = time.time()
     try:
         _rhi_set_job(job_id, status="processing", pct=5, message="Opening file...", stage="parse")
         is_csv = filename.lower().endswith(".csv")
@@ -1624,7 +1629,7 @@ def _bg_rhi_import(job_id, file_path, filename):
         total_rows = 0
         week_idx = RHI_COLUMNS.index("weeknum")
 
-        with open(temp_csv_path, "w", encoding="utf-8", newline="") as out_fh:
+        with open(temp_csv_path, "w", encoding="utf-8", newline="", buffering=1048576) as out_fh:
             writer = csv.writer(out_fh, lineterminator="\n")
 
             if is_csv:
@@ -1635,84 +1640,198 @@ def _bg_rhi_import(job_id, file_path, filename):
                     except StopIteration:
                         _rhi_set_job(job_id, status="error", message="Uploaded CSV file is empty")
                         return
-                    idx = {str(h).strip().lower(): i for i, h in enumerate(headers)}
+                    idx = {str(h).strip().lower(): i for i, h in enumerate(headers) if h is not None}
+
+                    # Require week column
+                    src_week = idx.get("weeknum", -1)
+                    if src_week == -1:
+                        src_week = idx.get("yearweek", -1)
+                    if src_week == -1:
+                        src_week = idx.get("week", -1)
+                    if src_week == -1:
+                        header_sample = ", ".join([str(h) for h in headers[:8] if h])
+                        _rhi_set_job(job_id, status="error", message=f"Column 'weeknum' not found in file headers. Found headers: [{header_sample}].")
+                        return
+
+                    # Require 'tech' column
+                    if "tech" not in idx and "technology" not in idx:
+                        _rhi_set_job(
+                            job_id,
+                            status="error",
+                            message="Missing required 'tech' column. An RHI dataset must specify technology ('2g', '4g', '5g') per cell."
+                        )
+                        return
+
+                    # Require at least one core RHI evaluation KPI column
+                    rhi_kpi_cols = {"remark_week", "cssr_data_service", "ccsr_data_service", "ccsr_tch", "sdsr", "cssr_tch", "volte_accessibility_sr", "volte_retain_rate", "total_fail_daily"}
+                    if not any(c in idx for c in rhi_kpi_cols):
+                        header_sample = ", ".join([str(h) for h in headers[:8] if h])
+                        _rhi_set_job(
+                            job_id,
+                            status="error",
+                            message=f"Invalid format for RHI: None of the core RHI evaluation KPI columns ('remark_week', 'cssr_data_service', 'ccsr_data_service', etc.) were found in headers [{header_sample}]. This file cannot be evaluated as RHI."
+                        )
+                        return
+
+                    col_specs = []
+                    for i, c in enumerate(RHI_COLUMNS):
+                        src = idx.get(c, -1)
+                        if i == week_idx:
+                            t = 0
+                        elif c in RHI_INT_COLS:
+                            t = 1
+                        elif c in RHI_FLOAT_COLS:
+                            t = 2
+                        else:
+                            t = 3
+                        col_specs.append((src, t))
+
+                    chunk = []
                     for r in reader:
                         if not any(r):
                             continue
-                        mapped = [r[idx[c]] if idx.get(c, -1) != -1 and idx[c] < len(r) else "" for c in RHI_COLUMNS]
-                        yw = _safe_int(mapped[week_idx], 0)
+                        if src_week >= len(r):
+                            continue
+                        raw_yw = r[src_week]
+                        yw = int(raw_yw) if isinstance(raw_yw, (int, float)) else _safe_int(raw_yw, 0)
                         if yw <= 0:
                             continue
                         weeknums.add(yw)
 
+                        r_len = len(r)
                         out_row = []
-                        for i, val in enumerate(mapped):
-                            col_name = RHI_COLUMNS[i]
-                            if i == week_idx:
+                        for src, t in col_specs:
+                            if src == -1 or src >= r_len:
+                                out_row.append("0" if t == 1 else "")
+                                continue
+                            v = r[src]
+                            if v is None or v == "":
+                                out_row.append("0" if t == 1 else "")
+                            elif t == 0:
                                 out_row.append(str(yw))
-                            elif col_name in RHI_INT_COLS:
-                                out_row.append(str(_safe_int(val, 0)))
-                            elif col_name in RHI_FLOAT_COLS:
-                                fv = _safe_float(val)
-                                out_row.append("" if fv is None else str(fv))
+                            elif t == 1:
+                                out_row.append(str(int(v)) if isinstance(v, (int, float)) else str(_safe_int(v, 0)))
+                            elif t == 2:
+                                out_row.append(str(v) if isinstance(v, (int, float)) else str(_safe_float(v) or ""))
                             else:
-                                out_row.append(_safe_str(val, ""))
-                        writer.writerow(out_row)
+                                out_row.append(str(v).strip())
+
+                        chunk.append(out_row)
                         total_rows += 1
-                        if total_rows % 5000 == 0:
-                            _rhi_set_job(job_id, status="processing", pct=min(20, 5 + int(total_rows / 3000)),
+                        if len(chunk) >= 5000:
+                            writer.writerows(chunk)
+                            chunk.clear()
+                            _rhi_set_job(job_id, status="processing", pct=min(24, 5 + int(total_rows / 2500)),
                                          message=f"Reading CSV: {total_rows:,} rows...", stage="parse")
+                    if chunk:
+                        writer.writerows(chunk)
+                        chunk.clear()
             else:
-                sheet_rows = None
+                row_iterator = None
                 try:
                     from python_calamine import CalamineWorkbook
                     wb = CalamineWorkbook.from_path(file_path)
-                    sheet_rows = wb.get_sheet_by_index(0).to_python()
+                    sheet = wb.get_sheet_by_index(0)
+                    row_iterator = sheet.iter_rows()
                 except Exception as ex_cal:
                     logger.warning("Calamine reader failed, falling back to openpyxl: %s", ex_cal)
                     import openpyxl
                     wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
                     ws = wb.active
-                    sheet_rows = list(ws.iter_rows(values_only=True))
-                    wb.close()
+                    row_iterator = ws.iter_rows(values_only=True)
 
-                if not sheet_rows or len(sheet_rows) < 2:
+                try:
+                    headers = next(row_iterator)
+                except StopIteration:
                     _rhi_set_job(job_id, status="error", message="Uploaded Excel file is empty")
                     return
 
-                headers = sheet_rows[0]
-                idx = {str(h).strip().lower(): i for i, h in enumerate(headers)}
-                num_total = len(sheet_rows) - 1
+                idx = {str(h).strip().lower(): i for i, h in enumerate(headers) if h is not None}
 
-                for row_idx, r in enumerate(sheet_rows[1:], start=1):
+                # Require week column
+                src_week = idx.get("weeknum", -1)
+                if src_week == -1:
+                    src_week = idx.get("yearweek", -1)
+                if src_week == -1:
+                    src_week = idx.get("week", -1)
+                if src_week == -1:
+                    header_sample = ", ".join([str(h) for h in headers[:8] if h])
+                    _rhi_set_job(job_id, status="error", message=f"Column 'weeknum' not found in Excel file headers. Found headers: [{header_sample}].")
+                    return
+
+                # Require 'tech' column
+                if "tech" not in idx and "technology" not in idx:
+                    _rhi_set_job(
+                        job_id,
+                        status="error",
+                        message="Missing required 'tech' column. An RHI dataset must specify technology ('2g', '4g', '5g') per cell."
+                    )
+                    return
+
+                # Require at least one core RHI evaluation KPI column
+                rhi_kpi_cols = {"remark_week", "cssr_data_service", "ccsr_data_service", "ccsr_tch", "sdsr", "cssr_tch", "volte_accessibility_sr", "volte_retain_rate", "total_fail_daily"}
+                if not any(c in idx for c in rhi_kpi_cols):
+                    header_sample = ", ".join([str(h) for h in headers[:8] if h])
+                    _rhi_set_job(
+                        job_id,
+                        status="error",
+                        message=f"Invalid format for RHI: None of the core RHI evaluation KPI columns ('remark_week', 'cssr_data_service', 'ccsr_data_service', etc.) were found in headers [{header_sample}]. This file cannot be evaluated as RHI."
+                    )
+                    return
+
+                col_specs = []
+                for i, c in enumerate(RHI_COLUMNS):
+                    src = idx.get(c, -1)
+                    if i == week_idx:
+                        t = 0
+                    elif c in RHI_INT_COLS:
+                        t = 1
+                    elif c in RHI_FLOAT_COLS:
+                        t = 2
+                    else:
+                        t = 3
+                    col_specs.append((src, t))
+
+                chunk = []
+                for r in row_iterator:
                     if not any(v is not None for v in r):
                         continue
-                    mapped = [r[idx[c]] if idx.get(c, -1) != -1 and idx[c] < len(r) else "" for c in RHI_COLUMNS]
-                    yw = _safe_int(mapped[week_idx], 0)
+                    if src_week >= len(r):
+                        continue
+                    raw_yw = r[src_week]
+                    yw = int(raw_yw) if isinstance(raw_yw, (int, float)) else _safe_int(raw_yw, 0)
                     if yw <= 0:
                         continue
                     weeknums.add(yw)
 
+                    r_len = len(r)
                     out_row = []
-                    for i, val in enumerate(mapped):
-                        col_name = RHI_COLUMNS[i]
-                        if i == week_idx:
+                    for src, t in col_specs:
+                        if src == -1 or src >= r_len:
+                            out_row.append("0" if t == 1 else "")
+                            continue
+                        v = r[src]
+                        if v is None or v == "":
+                            out_row.append("0" if t == 1 else "")
+                        elif t == 0:
                             out_row.append(str(yw))
-                        elif col_name in RHI_INT_COLS:
-                            out_row.append(str(_safe_int(val, 0)))
-                        elif col_name in RHI_FLOAT_COLS:
-                            fv = _safe_float(val)
-                            out_row.append("" if fv is None else str(fv))
+                        elif t == 1:
+                            out_row.append(str(int(v)) if isinstance(v, (int, float)) else str(_safe_int(v, 0)))
+                        elif t == 2:
+                            out_row.append(str(v) if isinstance(v, (int, float)) else str(_safe_float(v) or ""))
                         else:
-                            out_row.append(_safe_str(val, ""))
-                    writer.writerow(out_row)
-                    total_rows += 1
-                    if total_rows % 5000 == 0:
-                        pct_parse = 5 + int(20 * (row_idx / max(num_total, 1)))
-                        _rhi_set_job(job_id, status="processing", pct=min(25, pct_parse),
-                                     message=f"Parsed {total_rows:,} of {num_total:,} rows...", stage="validate")
+                            out_row.append(str(v).strip())
 
-                del sheet_rows
+                    chunk.append(out_row)
+                    total_rows += 1
+                    if len(chunk) >= 5000:
+                        writer.writerows(chunk)
+                        chunk.clear()
+                        _rhi_set_job(job_id, status="processing", pct=min(24, 5 + int(total_rows / 2500)),
+                                     message=f"Parsed {total_rows:,} rows from Excel...", stage="validate")
+                if chunk:
+                    writer.writerows(chunk)
+                    chunk.clear()
 
         if total_rows == 0 or not weeknums:
             _rhi_set_job(job_id, status="error", message="No valid rows with weeknum found in file")
@@ -1730,7 +1849,7 @@ def _bg_rhi_import(job_id, file_path, filename):
                     tuple(weeknums)
                 )
             col_names_sql = ",".join(['"%s"' % c for c in RHI_COLUMNS])
-            with open(temp_csv_path, "rb") as stream_fh:
+            with open(temp_csv_path, "rb", buffering=1048576) as stream_fh:
                 cr = _RhiCountingReader(stream_fh, file_size, job_id)
                 cur.copy_expert(
                     f"COPY sow.rhi_score ({col_names_sql}) FROM STDIN WITH (FORMAT CSV, NULL '')",
@@ -1740,14 +1859,18 @@ def _bg_rhi_import(job_id, file_path, filename):
             cur.close()
 
         clear_rhi_caches()
+        duration_s = round(time.time() - start_time, 1)
+        dur_str = f"{int(duration_s)}s" if duration_s < 60 else f"{int(duration_s//60)}m {int(duration_s%60)}s"
         weeks_str = ", ".join(f"W{str(w)[4:]}" for w in sorted(weeknums))
         _rhi_set_job(
             job_id,
             status="success",
             pct=100,
-            message=f"Successfully imported {total_rows:,} rows across week(s): {weeks_str}.",
+            message=f"Successfully imported {total_rows:,} rows across week(s): {weeks_str} in {dur_str}.",
             weeknums=list(sorted(weeknums)),
-            total_rows=total_rows
+            total_rows=total_rows,
+            duration_s=duration_s,
+            duration_str=dur_str
         )
     except Exception as e:
         logger.exception("RHI bulk import failed: %s", e)

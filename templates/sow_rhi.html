@@ -1404,11 +1404,6 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="rhi-filter-group" style="display:flex; align-items:flex-end;">
-                    <button type="button" class="rhi-btn-secondary" onclick="window.location.href='/okr/rhi?refresh=1'" title="Refresh latest data from database" style="height:36px;">
-                        <i class="fas fa-sync-alt" style="color:#10b981;"></i> Refresh
-                    </button>
-                </div>
             </div>
             <div class="rhi-action-group">
                 <a href="/api/sow/rhi/sample?format=csv" class="rhi-btn-secondary" title="Download sample CSV template">
@@ -1941,14 +1936,14 @@
 <!-- Import Modal (Multi-File Batch Queue Support)                  -->
 <!-- ══════════════════════════════════════════════════════════════ -->
 <div id="rhiImportModal" class="rhi-import-modal-overlay">
-    <div class="rhi-import-modal-box" style="max-width: 620px; width: 94%;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+    <div class="rhi-import-modal-box" style="max-width: 620px; width: 94%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:10px; flex-shrink: 0;">
             <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:8px;">
                 <i class="fas fa-file-import" style="color:var(--rhi-primary);"></i> Import RHI Data (Batch Queue)
             </h3>
             <span class="close" onclick="closeRhiImportModal()" style="cursor:pointer; font-size:1.5rem; color:var(--text-muted); line-height:1;" title="Close">&times;</span>
         </div>
-        <div>
+        <div style="overflow-y: auto; flex: 1; padding: 2px 4px 8px 0;">
             <!-- Dropzone supports multiple files and drag & drop -->
             <div style="margin-bottom:12px;">
                 <div class="rhi-import-drop-zone"
@@ -1998,7 +1993,7 @@
             <div id="rhiImportAlert" style="display:none; padding:10px 14px; border-radius:8px; font-size:12px; font-weight:600; margin-bottom:12px;"></div>
         </div>
 
-        <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px; flex-shrink: 0; margin-top: auto; background: inherit;">
             <button type="button" class="rhi-btn-secondary" id="btnCancelRhiImport" onclick="closeRhiImportModal()">Cancel</button>
             <div style="display:flex; gap:8px;">
                 <button type="button" class="rhi-btn-secondary" id="btnAddMoreFiles" onclick="document.getElementById('rhiFileInput').click();" style="display:none;">

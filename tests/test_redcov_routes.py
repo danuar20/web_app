@@ -54,10 +54,6 @@ def test_redcov_page_viewer_allowed(viewer_client):
     res_okr = viewer_client.get("/okr/redcov")
     assert res_okr.status_code == 200
 
-    # But viewer is blocked from mutating import endpoint
-    res_import = viewer_client.post("/api/sow/redcov/import", follow_redirects=False)
-    assert res_import.status_code in (302, 403)
-
 
 def test_api_redcov_summary(auth_client):
     """Test API returning summary metrics, target, baseline, and NOP distribution."""

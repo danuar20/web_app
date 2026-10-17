@@ -192,6 +192,10 @@ def _get_target_for_week(yearweek):
 @cei.route("/okr/cei")
 @login_required
 def cei_dashboard_page():
+    cache_ctrl = request.headers.get("Cache-Control", "")
+    pragma = request.headers.get("Pragma", "")
+    if "no-cache" in cache_ctrl or "max-age=0" in cache_ctrl or "no-cache" in pragma or request.args.get("refresh") == "1":
+        clear_cei_caches()
     yearweeks = _get_yearweeks()
     yearweeks_asc = list(reversed(yearweeks)) if yearweeks else []
     default_yw = yearweeks[0] if yearweeks else 202637
@@ -805,39 +809,47 @@ class _CeiCountingReader:
         self._fh = fh
         self._total = max(1, int(total_bytes or 0))
         self._job_id = job_id
+        self._read_bytes = 0
+        self._last_report = 0
 
     def read(self, size=-1):
         chunk = self._fh.read(size)
-        self._update(len(chunk))
+        n = len(chunk)
+        if n > 0:
+            self._read_bytes += n
+            # Throttle updates to every 1MB or completion to eliminate thread lock contention
+            if (self._read_bytes - self._last_report >= 1048576) or (self._read_bytes >= self._total):
+                self._last_report = self._read_bytes
+                pct = 25 + int(70 * min(1.0, self._read_bytes / float(self._total)))
+                _cei_set_job(
+                    self._job_id,
+                    status="processing",
+                    pct=pct,
+                    message=f"Streaming to database... {self._read_bytes/1048576:.1f}/{self._total/1048576:.1f} MB",
+                    stage="copy"
+                )
         return chunk
 
-    def _update(self, n):
-        if n <= 0: return
-        with _CEI_IMPORT_JOBS_LOCK:
-            job = _CEI_IMPORT_JOBS.get(self._job_id)
-            if not job: return
-            job["_read"] = job.get("_read", 0) + n
-            read_bytes = job["_read"]
-        pct = 10 + int(70 * min(1.0, read_bytes / float(self._total)))
-        _cei_set_job(self._job_id, status="processing", pct=pct,
-                     message="Uploading to database... %.1f/%.1f MB" % (
-                         read_bytes / 1048576.0, self._total / 1048576.0))
+    def readable(self):
+        return True
 
-    def readable(self): return True
-    def writable(self): return False
+    def writable(self):
+        return False
 
 
 def _cei_set_job(job_id, **kw):
     with _CEI_IMPORT_JOBS_LOCK:
         job = _CEI_IMPORT_JOBS.get(job_id)
-        if job: job.update(kw)
+        if job:
+            job.update(kw)
 
 
 @cei.route("/api/sow/cei/import", methods=["POST"])
 @csrf.exempt
 @login_required
 def api_sow_cei_import():
-    if "file" not in request.files: return jsonify({"status": "error", "message": "No file uploaded"}), 400
+    if "file" not in request.files:
+        return jsonify({"status": "error", "message": "No file uploaded"}), 400
     uploaded_file = request.files["file"]
     filename = (uploaded_file.filename or "").lower()
     if not filename.endswith((".csv", ".xlsx", ".xls")):
@@ -847,7 +859,13 @@ def api_sow_cei_import():
     tmp_path = os.path.join(tempfile.gettempdir(), "cei_%s%s" % (job_id, os.path.splitext(filename)[1]))
     uploaded_file.save(tmp_path)
     with _CEI_IMPORT_JOBS_LOCK:
-        _CEI_IMPORT_JOBS[job_id] = {"status": "processing", "pct": 2, "message": "Queued...", "created": time.time(), "_read": 0}
+        _CEI_IMPORT_JOBS[job_id] = {
+            "status": "processing",
+            "pct": 2,
+            "message": "Queued...",
+            "created": time.time(),
+            "_read": 0
+        }
     threading.Thread(target=_bg_cei_import, args=(job_id, tmp_path, filename), daemon=True).start()
     return jsonify({"status": "queued", "job_id": job_id}), 202
 
@@ -857,68 +875,265 @@ def api_sow_cei_import():
 def api_sow_cei_import_progress(job_id):
     with _CEI_IMPORT_JOBS_LOCK:
         job = _CEI_IMPORT_JOBS.get(job_id)
-        if job is None: return jsonify({"status": "error", "message": "Job not found"}), 404
+        if job is None:
+            return jsonify({"status": "error", "message": "Job not found"}), 404
         snapshot = {k: v for k, v in job.items() if not k.startswith("_")}
     return jsonify(snapshot)
 
 
-def _bg_cei_import(job_id, tmp_path, filename):
+def _bg_cei_import(job_id, file_path, filename):
+    temp_csv_path = None
+    start_time = time.time()
     try:
-        _cei_set_job(job_id, status="processing", pct=5, message="Parsing file...")
-        raw_rows = []
-        if filename.endswith(".csv"):
-            with open(tmp_path, "r", encoding="utf-8-sig", errors="replace", newline="") as fh:
-                reader = csv.reader(fh)
-                headers = next(reader)
-                idx = {str(h).strip().lower(): i for i, h in enumerate(headers)}
-                for r in reader:
-                    if any(r): raw_rows.append([r[idx.get(c, -1)] if idx.get(c, -1) != -1 else "" for c in CEI_COLUMNS])
-        else:
-            from python_calamine import CalamineWorkbook
-            wb = CalamineWorkbook.from_path(tmp_path)
-            rows = list(wb.get_sheet_by_index(0).to_python())
-            idx = {str(h).strip().lower(): i for i, h in enumerate(rows[0])}
-            for r in rows[1:]:
-                raw_rows.append([r[idx.get(c, -1)] if idx.get(c, -1) != -1 else "" for c in CEI_COLUMNS])
+        _cei_set_job(job_id, status="processing", pct=5, message="Opening file...", stage="parse")
+        is_csv = filename.lower().endswith(".csv")
 
-        converted = []
+        fd, temp_csv_path = tempfile.mkstemp(prefix="cei_stream_", suffix=".csv")
+        os.close(fd)
+
         weeknums = set()
+        total_rows = 0
         week_idx = CEI_COLUMNS.index("weeknum")
-        int_idx = {CEI_COLUMNS.index(c) for c in CEI_INT_COLS}
-        float_idx = {CEI_COLUMNS.index(c) for c in CEI_FLOAT_COLS}
 
-        for r in raw_rows:
-            yw = _safe_int(r[week_idx], 0)
-            if yw <= 0: continue
-            weeknums.add(yw)
-            out = []
-            for i, val in enumerate(r):
-                if i == week_idx: out.append(str(yw))
-                elif i in int_idx: out.append(str(_safe_int(val, 0)))
-                elif i in float_idx: out.append("" if (fv := _safe_float(val)) is None else str(fv))
-                else: out.append(_safe_str(val, ""))
-            converted.append(out)
+        with open(temp_csv_path, "w", encoding="utf-8", newline="", buffering=1048576) as out_fh:
+            writer = csv.writer(out_fh, lineterminator="\n")
 
-        _cei_set_job(job_id, status="processing", pct=15, message="Uploading...")
-        buf = io.StringIO()
-        csv.writer(buf, lineterminator="\n").writerows(converted)
-        payload = buf.getvalue().encode("utf-8")
-        
+            if is_csv:
+                with open(file_path, "r", encoding="utf-8-sig", errors="replace", newline="") as fh:
+                    reader = csv.reader(fh)
+                    try:
+                        headers = next(reader)
+                    except StopIteration:
+                        _cei_set_job(job_id, status="error", message="Uploaded CSV file is empty")
+                        return
+                    idx = {str(h).strip().lower(): i for i, h in enumerate(headers) if h is not None}
+
+                    # Require week column
+                    src_week = idx.get("weeknum", -1)
+                    if src_week == -1:
+                        src_week = idx.get("yearweek", -1)
+                    if src_week == -1:
+                        src_week = idx.get("week", -1)
+                    if src_week == -1:
+                        header_sample = ", ".join([str(h) for h in headers[:8] if h])
+                        _cei_set_job(job_id, status="error", message=f"Column 'weeknum' not found in file headers. Found headers: [{header_sample}].")
+                        return
+
+                    # Require at least one core CEI metric / identifier column
+                    cei_kpi_cols = {"cei_score", "cqi_score", "packet_loss_score", "throughput_score", "remark_cell", "rule_1_hit_at_week", "sai_cgi_ecgi", "cell_name", "tot_vol_mb"}
+                    if not any(c in idx for c in cei_kpi_cols):
+                        header_sample = ", ".join([str(h) for h in headers[:8] if h])
+                        _cei_set_job(
+                            job_id,
+                            status="error",
+                            message=f"Invalid format for CEI: None of the core CEI columns ('cei_score', 'remark_cell', 'cqi_score', etc.) were found in headers [{header_sample}]. This file cannot be evaluated as CEI."
+                        )
+                        return
+
+                    col_specs = []
+                    for i, c in enumerate(CEI_COLUMNS):
+                        src = idx.get(c, -1)
+                        if i == week_idx:
+                            t = 0
+                        elif c in CEI_INT_COLS:
+                            t = 1
+                        elif c in CEI_FLOAT_COLS:
+                            t = 2
+                        else:
+                            t = 3
+                        col_specs.append((src, t))
+
+                    chunk = []
+                    for r in reader:
+                        if not any(r):
+                            continue
+                        if src_week >= len(r):
+                            continue
+                        raw_yw = r[src_week]
+                        yw = int(raw_yw) if isinstance(raw_yw, (int, float)) else _safe_int(raw_yw, 0)
+                        if yw <= 0:
+                            continue
+                        weeknums.add(yw)
+
+                        r_len = len(r)
+                        out_row = []
+                        for src, t in col_specs:
+                            if src == -1 or src >= r_len:
+                                out_row.append("0" if t == 1 else "")
+                                continue
+                            v = r[src]
+                            if v is None or v == "":
+                                out_row.append("0" if t == 1 else "")
+                            elif t == 0:
+                                out_row.append(str(yw))
+                            elif t == 1:
+                                out_row.append(str(int(v)) if isinstance(v, (int, float)) else str(_safe_int(v, 0)))
+                            elif t == 2:
+                                out_row.append(str(v) if isinstance(v, (int, float)) else str(_safe_float(v) or ""))
+                            else:
+                                out_row.append(str(v).strip())
+
+                        chunk.append(out_row)
+                        total_rows += 1
+                        if len(chunk) >= 5000:
+                            writer.writerows(chunk)
+                            chunk.clear()
+                            _cei_set_job(job_id, status="processing", pct=min(24, 5 + int(total_rows / 2500)),
+                                         message=f"Reading CSV: {total_rows:,} rows...", stage="parse")
+                    if chunk:
+                        writer.writerows(chunk)
+                        chunk.clear()
+            else:
+                row_iterator = None
+                try:
+                    from python_calamine import CalamineWorkbook
+                    wb = CalamineWorkbook.from_path(file_path)
+                    sheet = wb.get_sheet_by_index(0)
+                    row_iterator = sheet.iter_rows()
+                except Exception as ex_cal:
+                    logger.warning("Calamine reader failed, falling back to openpyxl: %s", ex_cal)
+                    import openpyxl
+                    wb = openpyxl.load_workbook(file_path, data_only=True, read_only=True)
+                    ws = wb.active
+                    row_iterator = ws.iter_rows(values_only=True)
+
+                try:
+                    headers = next(row_iterator)
+                except StopIteration:
+                    _cei_set_job(job_id, status="error", message="Uploaded Excel file is empty")
+                    return
+
+                idx = {str(h).strip().lower(): i for i, h in enumerate(headers) if h is not None}
+
+                src_week = idx.get("weeknum", -1)
+                if src_week == -1:
+                    src_week = idx.get("yearweek", -1)
+                if src_week == -1:
+                    src_week = idx.get("week", -1)
+                if src_week == -1:
+                    header_sample = ", ".join([str(h) for h in headers[:8] if h])
+                    _cei_set_job(job_id, status="error", message=f"Column 'weeknum' not found in Excel file headers. Found headers: [{header_sample}].")
+                    return
+
+                cei_kpi_cols = {"cei_score", "cqi_score", "packet_loss_score", "throughput_score", "remark_cell", "rule_1_hit_at_week", "sai_cgi_ecgi", "cell_name", "tot_vol_mb"}
+                if not any(c in idx for c in cei_kpi_cols):
+                    header_sample = ", ".join([str(h) for h in headers[:8] if h])
+                    _cei_set_job(
+                        job_id,
+                        status="error",
+                        message=f"Invalid format for CEI: None of the core CEI columns ('cei_score', 'remark_cell', 'cqi_score', etc.) were found in headers [{header_sample}]. This file cannot be evaluated as CEI."
+                    )
+                    return
+
+                col_specs = []
+                for i, c in enumerate(CEI_COLUMNS):
+                    src = idx.get(c, -1)
+                    if i == week_idx:
+                        t = 0
+                    elif c in CEI_INT_COLS:
+                        t = 1
+                    elif c in CEI_FLOAT_COLS:
+                        t = 2
+                    else:
+                        t = 3
+                    col_specs.append((src, t))
+
+                chunk = []
+                for r in row_iterator:
+                    if not any(v is not None for v in r):
+                        continue
+                    if src_week >= len(r):
+                        continue
+                    raw_yw = r[src_week]
+                    yw = int(raw_yw) if isinstance(raw_yw, (int, float)) else _safe_int(raw_yw, 0)
+                    if yw <= 0:
+                        continue
+                    weeknums.add(yw)
+
+                    r_len = len(r)
+                    out_row = []
+                    for src, t in col_specs:
+                        if src == -1 or src >= r_len:
+                            out_row.append("0" if t == 1 else "")
+                            continue
+                        v = r[src]
+                        if v is None or v == "":
+                            out_row.append("0" if t == 1 else "")
+                        elif t == 0:
+                            out_row.append(str(yw))
+                        elif t == 1:
+                            out_row.append(str(int(v)) if isinstance(v, (int, float)) else str(_safe_int(v, 0)))
+                        elif t == 2:
+                            out_row.append(str(v) if isinstance(v, (int, float)) else str(_safe_float(v) or ""))
+                        else:
+                            out_row.append(str(v).strip())
+
+                    chunk.append(out_row)
+                    total_rows += 1
+                    if len(chunk) >= 5000:
+                        writer.writerows(chunk)
+                        chunk.clear()
+                        _cei_set_job(job_id, status="processing", pct=min(24, 5 + int(total_rows / 2500)),
+                                     message=f"Parsed {total_rows:,} rows from Excel...", stage="validate")
+                if chunk:
+                    writer.writerows(chunk)
+                    chunk.clear()
+
+        if total_rows == 0 or not weeknums:
+            _cei_set_job(job_id, status="error", message="No valid data rows with a valid weeknum found in file.")
+            return
+
+        file_size = os.path.getsize(temp_csv_path)
+        _cei_set_job(job_id, status="processing", pct=25,
+                     message=f"Uploading {total_rows:,} rows to database...", stage="copy")
+
         with get_postgres_connection() as conn:
             cur = conn.cursor()
-            cur.execute("DELETE FROM sow.cei_score WHERE weeknum IN (%s)" % ",".join(["%s"]*len(weeknums)), tuple(weeknums))
-            cur.copy_expert("COPY sow.cei_score (%s) FROM STDIN WITH (FORMAT CSV, NULL '')" % 
-                            ",".join(['"%s"' % c for c in CEI_COLUMNS]), _CeiCountingReader(io.BytesIO(payload), len(payload), job_id))
+            cur.execute(
+                "DELETE FROM sow.cei_score WHERE weeknum IN (%s)" % ",".join(["%s"] * len(weeknums)),
+                tuple(weeknums)
+            )
+            col_names_sql = ",".join(['"%s"' % c for c in CEI_COLUMNS])
+            with open(temp_csv_path, "rb", buffering=1048576) as stream_fh:
+                cr = _CeiCountingReader(stream_fh, file_size, job_id)
+                cur.copy_expert(
+                    f"COPY sow.cei_score ({col_names_sql}) FROM STDIN WITH (FORMAT CSV, NULL '')",
+                    cr
+                )
             conn.commit()
             cur.close()
-            conn.close()
 
         clear_cei_caches()
-        _cei_set_job(job_id, status="success", pct=100, message="Import complete.")
+        duration_s = round(time.time() - start_time, 1)
+        dur_str = f"{int(duration_s)}s" if duration_s < 60 else f"{int(duration_s//60)}m {int(duration_s%60)}s"
+        weeks_str = ", ".join(f"W{str(w)[4:]}" for w in sorted(weeknums))
+        _cei_set_job(
+            job_id,
+            status="success",
+            pct=100,
+            message=f"Successfully imported {total_rows:,} rows across week(s): {weeks_str} in {dur_str}.",
+            weeknums=list(sorted(weeknums)),
+            total_rows=total_rows,
+            duration_s=duration_s,
+            duration_str=dur_str
+        )
     except Exception as e:
-        _cei_set_job(job_id, status="error", pct=0, message=str(e))
+        logger.exception("CEI bulk import failed: %s", e)
+        err_msg = str(e).strip()
+        if "CONTEXT:" in err_msg:
+            err_msg = err_msg.split("CONTEXT:")[0].strip()
+        _cei_set_job(job_id, status="error", pct=0, message=f"Import error: {err_msg}")
     finally:
-        if os.path.exists(tmp_path): os.remove(tmp_path)
+        if file_path and os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except OSError:
+                pass
+        if temp_csv_path and os.path.exists(temp_csv_path):
+            try:
+                os.remove(temp_csv_path)
+            except OSError:
+                pass
 
 
 # ══════════════════════════════════════════════════════════════════════

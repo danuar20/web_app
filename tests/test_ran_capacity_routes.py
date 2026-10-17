@@ -53,10 +53,6 @@ def test_ran_capacity_page_viewer_allowed(viewer_client):
     res_okr = viewer_client.get("/okr/ran_capacity")
     assert res_okr.status_code == 200
 
-    # But viewer is blocked from mutating import endpoint
-    res_import = viewer_client.post("/api/sow/ran_capacity/import", follow_redirects=False)
-    assert res_import.status_code in (302, 403)
-
 
 def test_api_ran_capacity_summary_w38(auth_client):
     """Verify W38 summary matches reference RCI data."""

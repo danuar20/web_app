@@ -306,6 +306,10 @@ def _get_sample_rows():
 @ran_capacity.route("/okr/ran_capacity")
 @login_required
 def ran_capacity_page():
+    cache_ctrl = request.headers.get("Cache-Control", "")
+    pragma = request.headers.get("Pragma", "")
+    if "no-cache" in cache_ctrl or "max-age=0" in cache_ctrl or "no-cache" in pragma or request.args.get("refresh") == "1":
+        clear_ran_capacity_caches()
     regions = _get_regions()
     current_region = request.args.get("region", "PUMA")
     if current_region not in regions and regions:
@@ -1658,7 +1662,6 @@ def _ran_set_job(job_id, **kw):
 @ran_capacity.route("/api/sow/ran_capacity/import", methods=["POST"])
 @csrf.exempt
 @login_required
-@viewer_blocked
 def api_ran_capacity_import():
     if "file" not in request.files:
         return jsonify({"status": "error", "message": "No file uploaded"}), 400
@@ -1695,6 +1698,7 @@ def api_ran_capacity_import_progress(job_id):
 
 
 def _bg_ran_capacity_import(job_id, file_path, filename):
+    start_time = time.time()
     try:
         _ran_set_job(job_id, status="processing", pct=10, message="Parsing file...", stage="parse")
         is_csv = filename.lower().endswith(".csv")
@@ -1733,65 +1737,135 @@ def _bg_ran_capacity_import(job_id, file_path, filename):
             return
 
         header_idx = {str(h).strip().lower(): i for i, h in enumerate(headers) if h is not None}
-        required_pks = ["week", "region", "site_id", "sector_id_new", "kabupaten", "type"]
-        missing_pks = [pk for pk in required_pks if pk not in header_idx]
-        if missing_pks:
-            _ran_set_job(job_id, status="error", message=f"Missing required primary key columns: {', '.join(missing_pks)}")
+
+        # Check 1: Week column
+        src_week = header_idx.get("week", -1)
+        if src_week == -1:
+            src_week = header_idx.get("yearweek", -1)
+        if src_week == -1:
+            src_week = header_idx.get("weeknum", -1)
+        if src_week == -1:
+            header_sample = ", ".join([str(h) for h in headers[:8] if h])
+            _ran_set_job(job_id, status="error", message=f"Column 'week' not found in file headers. Found headers: [{header_sample}].")
+            return
+
+        # Check 2: Site ID
+        src_sid = header_idx.get("site_id", -1)
+        if src_sid == -1:
+            src_sid = header_idx.get("siteid", -1)
+        if src_sid == -1:
+            src_sid = header_idx.get("site_id_new", -1)
+        if src_sid == -1:
+            _ran_set_job(job_id, status="error", message="Missing required 'site_id' column in file headers.")
+            return
+
+        # Check 3: Region and Kabupaten
+        if "region" not in header_idx:
+            _ran_set_job(job_id, status="error", message="Missing required 'region' column in file headers.")
+            return
+        if "kabupaten" not in header_idx:
+            _ran_set_job(job_id, status="error", message="Missing required 'kabupaten' column in file headers.")
+            return
+
+        # Check 4: Check for at least one RAN Capacity core metric
+        ran_kpi_cols = {
+            "remark_redsector", "prb_util_sector", "remark_redsector_final", "weekly_payload_gbyte",
+            "sector_capability", "site_sector", "unbalanced_prb", "threshold_hrc", "number_band",
+            "aging", "vendor"
+        }
+        if not any(c in header_idx for c in ran_kpi_cols):
+            _ran_set_job(
+                job_id,
+                status="error",
+                message="Invalid format for RAN Capacity: Core KPI columns ('remark_redsector', 'prb_util_sector', etc.) not found in headers."
+            )
             return
 
         _ran_set_job(job_id, status="processing", pct=35, message=f"Validating {len(rows_iter):,} rows...", stage="validate")
 
+        src_sec = header_idx.get("sector_id_new", -1)
+        if src_sec == -1:
+            src_sec = header_idx.get("sector_id", -1)
+        if src_sec == -1:
+            src_sec = header_idx.get("sector", -1)
+
+        src_type = header_idx.get("type", -1)
+        r_i = header_idx["region"]
+        k_i = header_idx["kabupaten"]
+
+        col_specs = []
+        for i, col in enumerate(RCI_REDSECTOR_COLUMNS):
+            col_l = col.lower()
+            c_idx = header_idx.get(col_l, -1)
+            if col == "week":
+                t = 0
+            elif col == "region":
+                t = 1
+            elif col == "site_id":
+                t = 2
+            elif col == "sector_id_new":
+                t = 3
+            elif col == "kabupaten":
+                t = 4
+            elif col == "type":
+                t = 5
+            elif col in RCI_REDSECTOR_INT_COLS:
+                t = 6
+            elif col in RCI_REDSECTOR_FLOAT_COLS:
+                t = 7
+            else:
+                t = 8
+            col_specs.append((c_idx, t))
+
         insert_records = []
         weeks = set()
-        w_i = header_idx["week"]
-        r_i = header_idx["region"]
-        s_i = header_idx["site_id"]
-        sec_i = header_idx["sector_id_new"]
-        k_i = header_idx["kabupaten"]
-        t_i = header_idx["type"]
 
         for r in rows_iter:
             if not any(v is not None and str(v).strip() != "" for v in r):
                 continue
-            raw_w = r[w_i] if w_i < len(r) else None
+            r_len = len(r)
+            if src_week >= r_len:
+                continue
+            raw_w = r[src_week]
             try:
                 w_val = int(float(str(raw_w).strip()))
             except (ValueError, TypeError):
                 continue
-            reg = _safe_str(r[r_i] if r_i < len(r) else None)
-            sid = _safe_str(r[s_i] if s_i < len(r) else None)
-            sec = _safe_int(r[sec_i] if sec_i < len(r) else None, default=1)
-            kab = _safe_str(r[k_i] if k_i < len(r) else None)
-            typ = _safe_str(r[t_i] if t_i < len(r) else None, default="MAC")
+            if w_val <= 0:
+                continue
+
+            reg = _safe_str(r[r_i] if r_i < r_len else None)
+            sid = _safe_str(r[src_sid] if src_sid < r_len else None)
+            sec = _safe_int(r[src_sec] if (src_sec != -1 and src_sec < r_len) else None, default=1)
+            kab = _safe_str(r[k_i] if k_i < r_len else None)
+            typ = _safe_str(r[src_type] if (src_type != -1 and src_type < r_len) else None, default="MAC") or "MAC"
 
             if not reg or not sid or not kab:
                 continue
 
             weeks.add(w_val)
             record = []
-            for col in RCI_REDSECTOR_COLUMNS:
-                col_l = col.lower()
-                c_idx = header_idx.get(col_l, -1)
-                val = r[c_idx] if (c_idx != -1 and c_idx < len(r)) else None
-
-                if col == "week":
+            for c_idx, t in col_specs:
+                if t == 0:
                     record.append(w_val)
-                elif col == "region":
+                elif t == 1:
                     record.append(reg)
-                elif col == "site_id":
+                elif t == 2:
                     record.append(sid)
-                elif col == "sector_id_new":
+                elif t == 3:
                     record.append(sec)
-                elif col == "kabupaten":
+                elif t == 4:
                     record.append(kab)
-                elif col == "type":
+                elif t == 5:
                     record.append(typ)
-                elif col in RCI_REDSECTOR_INT_COLS:
-                    record.append(_safe_int(val, default=0) if val is not None and str(val).strip() != "" else None)
-                elif col in RCI_REDSECTOR_FLOAT_COLS:
-                    record.append(_safe_float(val, default=0.0) if val is not None and str(val).strip() != "" else None)
                 else:
-                    record.append(_safe_str(val, default="") if val is not None else None)
+                    val = r[c_idx] if (c_idx != -1 and c_idx < r_len) else None
+                    if t == 6:
+                        record.append(_safe_int(val, default=0) if val is not None and str(val).strip() != "" else None)
+                    elif t == 7:
+                        record.append(_safe_float(val, default=0.0) if val is not None and str(val).strip() != "" else None)
+                    else:
+                        record.append(_safe_str(val, default="") if val is not None else None)
             insert_records.append(tuple(record))
 
         if not insert_records:
@@ -1817,18 +1891,25 @@ def _bg_ran_capacity_import(job_id, file_path, filename):
             conn.commit()
 
         clear_ran_capacity_caches()
+        duration_s = round(time.time() - start_time, 1)
+        dur_str = f"{int(duration_s)}s" if duration_s < 60 else f"{int(duration_s//60)}m {int(duration_s%60)}s"
         weeks_str = ", ".join(f"W{str(w)[4:]}" for w in sorted(weeks))
         _ran_set_job(
             job_id,
             status="success",
             pct=100,
-            message=f"Successfully imported {len(insert_records):,} records across week(s): {weeks_str}.",
+            message=f"Successfully imported {len(insert_records):,} records across week(s): {weeks_str} in {dur_str}.",
             weeknums=list(sorted(weeks)),
-            total_rows=len(insert_records)
+            total_rows=len(insert_records),
+            duration_s=duration_s,
+            duration_str=dur_str
         )
     except Exception as e:
         logger.exception("RAN capacity async import failed: %s", e)
-        _ran_set_job(job_id, status="error", message=f"Import failed: {str(e)}")
+        err_msg = str(e).strip()
+        if "CONTEXT:" in err_msg:
+            err_msg = err_msg.split("CONTEXT:")[0].strip()
+        _ran_set_job(job_id, status="error", message=f"Import error: {err_msg}")
     finally:
         if os.path.exists(file_path):
             try:

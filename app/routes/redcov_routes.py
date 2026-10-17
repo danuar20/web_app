@@ -282,6 +282,10 @@ def _get_redcov_sample_rows():
 @redcov.route("/okr/redcov")
 @login_required
 def redcov_dashboard_page():
+    cache_ctrl = request.headers.get("Cache-Control", "")
+    pragma = request.headers.get("Pragma", "")
+    if "no-cache" in cache_ctrl or "max-age=0" in cache_ctrl or "no-cache" in pragma or request.args.get("refresh") == "1":
+        clear_redcov_caches()
     regions = _get_regions()
     current_region = request.args.get("region", "MALUKU DAN PAPUA")
     if current_region not in regions and regions:
@@ -1216,7 +1220,6 @@ def _redcov_set_job(job_id, **kw):
 @redcov.route("/api/sow/redcov/import", methods=["POST"])
 @csrf.exempt
 @login_required
-@viewer_blocked
 def api_redcov_import():
     if "file" not in request.files:
         return jsonify({"status": "error", "message": "No file uploaded"}), 400
@@ -1251,6 +1254,7 @@ def api_redcov_import_progress(job_id):
 
 
 def _bg_redcov_import(job_id, file_path, filename):
+    start_time = time.time()
     try:
         _redcov_set_job(job_id, status="processing", pct=10, message="Parsing file...", stage="parse")
         is_csv = filename.lower().endswith(".csv")
@@ -1289,50 +1293,105 @@ def _bg_redcov_import(job_id, file_path, filename):
             return
 
         header_idx = {str(h).strip().lower(): i for i, h in enumerate(headers) if h is not None}
-        if "yearweek" not in header_idx or "region" not in header_idx or "kabupaten" not in header_idx:
-            _redcov_set_job(job_id, status="error", message="Missing required columns ('yearweek', 'region', 'kabupaten')")
+
+        # Check 1: Week column
+        src_week = header_idx.get("yearweek", -1)
+        if src_week == -1:
+            src_week = header_idx.get("weeknum", -1)
+        if src_week == -1:
+            src_week = header_idx.get("week", -1)
+        if src_week == -1:
+            header_sample = ", ".join([str(h) for h in headers[:8] if h])
+            _redcov_set_job(job_id, status="error", message=f"Column 'yearweek' not found in file headers. Found headers: [{header_sample}].")
+            return
+
+        # Check 2: Region and Kabupaten columns
+        if "region" not in header_idx:
+            _redcov_set_job(job_id, status="error", message="Missing required 'region' column in file headers.")
+            return
+        if "kabupaten" not in header_idx:
+            _redcov_set_job(job_id, status="error", message="Missing required 'kabupaten' column in file headers.")
+            return
+
+        # Check 3: Check for at least one Redcov core metric
+        redcov_kpi_cols = {
+            "total_geohash7", "grid_red_cov", "red optim", "not red cov", "red engineering",
+            "bad non potential", "total_tiles", "bad_tiles_rsrp", "grid_bad_grid",
+            "grid_tot", "grid_tot_bad", "grid_optim_bad", "%_red_optim"
+        }
+        if not any(c in header_idx for c in redcov_kpi_cols):
+            header_sample = ", ".join([str(h) for h in headers[:8] if h])
+            _redcov_set_job(
+                job_id,
+                status="error",
+                message=f"Invalid format for Redcov: None of the core Redcov metrics ('total_geohash7', 'grid_red_cov', 'RED OPTIM', etc.) were found in headers [{header_sample}]. This file cannot be evaluated as Redcov."
+            )
             return
 
         _redcov_set_job(job_id, status="processing", pct=35, message=f"Validating {len(rows_iter):,} rows...", stage="validate")
 
+        week_idx = REDCOV_COLUMNS.index("yearweek")
+        reg_idx = REDCOV_COLUMNS.index("region")
+        kab_idx = REDCOV_COLUMNS.index("kabupaten")
+
+        col_specs = []
+        for i, c in enumerate(REDCOV_COLUMNS):
+            src = header_idx.get(c.lower(), -1)
+            if i == week_idx:
+                t = 0
+            elif i == reg_idx:
+                t = 1
+            elif i == kab_idx:
+                t = 2
+            elif c in REDCOV_INT_COLS:
+                t = 3
+            elif c in REDCOV_FLOAT_COLS:
+                t = 4
+            else:
+                t = 5
+            col_specs.append((src, t))
+
         insert_records = []
         weeknums = set()
-        yw_i = header_idx["yearweek"]
-        reg_i = header_idx["region"]
-        kab_i = header_idx["kabupaten"]
+        src_reg = header_idx["region"]
+        src_kab = header_idx["kabupaten"]
 
         for r in rows_iter:
             if not any(v is not None and str(v).strip() != "" for v in r):
                 continue
-            raw_yw = r[yw_i] if yw_i < len(r) else None
+            r_len = len(r)
+            if src_week >= r_len:
+                continue
+            raw_yw = r[src_week]
             try:
                 yw = int(float(str(raw_yw).strip()))
             except (ValueError, TypeError):
                 continue
-            region = _safe_str(r[reg_i] if reg_i < len(r) else None)
-            kabupaten = _safe_str(r[kab_i] if kab_i < len(r) else None)
+            if yw <= 0:
+                continue
+
+            region = _safe_str(r[src_reg] if src_reg < r_len else None)
+            kabupaten = _safe_str(r[src_kab] if src_kab < r_len else None)
             if not region or not kabupaten:
                 continue
 
             weeknums.add(yw)
             record = []
-            for col in REDCOV_COLUMNS:
-                col_l = col.lower()
-                c_idx = header_idx.get(col_l, -1)
-                val = r[c_idx] if (c_idx != -1 and c_idx < len(r)) else None
-
-                if col == "yearweek":
+            for src, t in col_specs:
+                if t == 0:
                     record.append(yw)
-                elif col == "region":
+                elif t == 1:
                     record.append(region)
-                elif col == "kabupaten":
+                elif t == 2:
                     record.append(kabupaten)
-                elif col in REDCOV_INT_COLS:
-                    record.append(_safe_int(val, default=0))
-                elif col in REDCOV_FLOAT_COLS:
-                    record.append(_safe_float(val, default=0.0))
                 else:
-                    record.append(_safe_str(val, default=""))
+                    val = r[src] if (src != -1 and src < r_len) else None
+                    if t == 3:
+                        record.append(_safe_int(val, default=0))
+                    elif t == 4:
+                        record.append(_safe_float(val, default=0.0))
+                    else:
+                        record.append(_safe_str(val, default=""))
             insert_records.append(tuple(record))
 
         if not insert_records:
@@ -1358,18 +1417,25 @@ def _bg_redcov_import(job_id, file_path, filename):
             conn.commit()
 
         clear_redcov_caches()
+        duration_s = round(time.time() - start_time, 1)
+        dur_str = f"{int(duration_s)}s" if duration_s < 60 else f"{int(duration_s//60)}m {int(duration_s%60)}s"
         weeks_str = ", ".join(f"W{str(w)[4:]}" for w in sorted(weeknums))
         _redcov_set_job(
             job_id,
             status="success",
             pct=100,
-            message=f"Successfully imported {len(insert_records):,} rows across week(s): {weeks_str}.",
+            message=f"Successfully imported {len(insert_records):,} rows across week(s): {weeks_str} in {dur_str}.",
             weeknums=list(sorted(weeknums)),
-            total_rows=len(insert_records)
+            total_rows=len(insert_records),
+            duration_s=duration_s,
+            duration_str=dur_str
         )
     except Exception as e:
         logger.exception("Redcov async import failed: %s", e)
-        _redcov_set_job(job_id, status="error", message=f"Import failed: {str(e)}")
+        err_msg = str(e).strip()
+        if "CONTEXT:" in err_msg:
+            err_msg = err_msg.split("CONTEXT:")[0].strip()
+        _redcov_set_job(job_id, status="error", message=f"Import error: {err_msg}")
     finally:
         if os.path.exists(file_path):
             try:

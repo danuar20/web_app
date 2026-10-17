@@ -2072,6 +2072,26 @@
     let isRanQueueRunning = false;
     let ranQueueAborted = false;
 
+    // Helper to format seconds into readable string (e.g. 14s, 1m 25s)
+    function formatDuration(sec) {
+        if (!sec || isNaN(sec) || sec < 0) return '0s';
+        sec = Math.round(sec);
+        if (sec < 60) return `${sec}s`;
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        return s === 0 ? `${m}m` : `${m}m ${s}s`;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     window.openImportModal = function () {
         const modal = document.getElementById('ranImportModalOverlay');
         if (modal) modal.style.display = 'flex';
@@ -2085,9 +2105,13 @@
             }
             ranQueueAborted = true;
         }
+        const hadSuccess = ranFileQueue.some(f => f.status === 'done');
         const modal = document.getElementById('ranImportModalOverlay');
         if (modal) modal.style.display = 'none';
         resetRanImportState();
+        if (hadSuccess) {
+            window.location.reload();
+        }
     };
 
     function resetRanImportState() {
@@ -2098,9 +2122,22 @@
         if (fileInput) fileInput.value = '';
         renderRanQueueUI();
         const alertBox = document.getElementById('ranImportAlert');
-        if (alertBox) alertBox.style.display = 'none';
+        if (alertBox) {
+            alertBox.style.display = 'none';
+            alertBox.innerHTML = '';
+        }
         const prog = document.getElementById('ranQueueOverallProgress');
         if (prog) prog.style.display = 'none';
+        const curFileStage = document.getElementById('ranCurrentFileStage');
+        if (curFileStage) curFileStage.textContent = 'Ready';
+        const curFilePct = document.getElementById('ranCurrentFilePct');
+        if (curFilePct) curFilePct.textContent = '--';
+        const overallBar = document.getElementById('ranOverallProgressBar');
+        if (overallBar) overallBar.style.width = '0%';
+        const overallPct = document.getElementById('ranOverallPct');
+        if (overallPct) overallPct.textContent = '0%';
+        const overallStage = document.getElementById('ranOverallStage');
+        if (overallStage) overallStage.textContent = 'Overall Queue: 0 of 0';
     }
 
     window.clearRanQueue = function () {
@@ -2163,8 +2200,11 @@
                 name: f.name,
                 size: f.size,
                 status: 'pending',
-                message: 'Queued',
+                message: 'Waiting',
                 pct: 0,
+                duration_s: 0,
+                duration_str: '',
+                elapsed_s: 0,
                 rows: 0,
                 weeks: []
             });
@@ -2186,7 +2226,7 @@
             if (sec) sec.style.display = 'none';
             if (submitBtn) {
                 submitBtn.disabled = true;
-                if (btnCount) btnCount.textContent = '0';
+                submitBtn.innerHTML = '<i class="fas fa-upload"></i> Upload & Import (0)';
             }
             if (addMoreBtn) addMoreBtn.style.display = 'none';
             return;
@@ -2201,46 +2241,83 @@
 
         if (countEl) countEl.textContent = ranFileQueue.length;
         if (sizeEl) sizeEl.textContent = `${totalMb} MB`;
-        if (btnCount) btnCount.textContent = `${ranFileQueue.length} files`;
 
-        if (submitBtn) {
-            submitBtn.disabled = isRanQueueRunning || ranFileQueue.every(f => f.status === 'done');
+        if (submitBtn && !isRanQueueRunning) {
+            const allDone = ranFileQueue.length > 0 && ranFileQueue.every(f => f.status === 'done');
+            if (allDone) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Import Complete (Close & Refresh)';
+                submitBtn.onclick = function () {
+                    closeImportModal();
+                };
+            } else {
+                const pendingCount = ranFileQueue.filter(f => f.status !== 'done').length;
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<i class="fas fa-upload"></i> Upload & Import (${pendingCount})`;
+            }
         }
 
         if (list) {
             list.innerHTML = ranFileQueue.map((item, idx) => {
                 let badgeHtml = '';
                 const sizeMb = (item.size / (1024 * 1024)).toFixed(1);
+                let extraMeta = `${sizeMb} MB`;
+                if (item.duration_str) {
+                    extraMeta += ` • ${item.duration_str}`;
+                } else if (item.status === 'uploading' || item.status === 'processing') {
+                    extraMeta += ` • ${formatDuration(item.elapsed_s || 0)}`;
+                }
 
                 if (item.status === 'pending') {
-                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(0,0,0,0.06); color:var(--ran-text-muted); font-weight:700;">Waiting</span>`;
-                } else if (item.status === 'uploading' || item.status === 'processing') {
-                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(20,93,160,0.12); color:var(--ran-blue); font-weight:700;">
-                        <i class="fas fa-spinner fa-spin"></i> ${item.pct || 0}%
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(0,0,0,0.06); color:var(--text-muted); font-weight:700;">Waiting</span>`;
+                } else if (item.status === 'uploading') {
+                    const elapsed = formatDuration(item.elapsed_s || 0);
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(20,93,160,0.12); color:#145DA0; font-weight:700;">
+                        <i class="fas fa-arrow-up"></i> ${item.pct || 0}% (${elapsed})
+                    </span>`;
+                } else if (item.status === 'processing') {
+                    const elapsed = formatDuration(item.elapsed_s || 0);
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(20,93,160,0.12); color:#145DA0; font-weight:700;">
+                        <i class="fas fa-spinner fa-spin"></i> ${item.pct || 0}% (${elapsed})
                     </span>`;
                 } else if (item.status === 'done') {
                     const wText = (item.weeks && item.weeks.length) ? item.weeks.map(w => 'W' + String(w).slice(4)).join(',') : 'Done';
                     const rText = item.rows ? ` (${item.rows.toLocaleString()} rows)` : '';
+                    const durText = item.duration_str ? ` in ${item.duration_str}` : '';
                     badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(16,185,129,0.15); color:#10b981; font-weight:700;">
-                        <i class="fas fa-check"></i> ${wText}${rText}
+                        <i class="fas fa-check"></i> ${wText}${rText}${durText}
                     </span>`;
                 } else if (item.status === 'error') {
-                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(239,68,68,0.15); color:#ef4444; font-weight:700;" title="${item.message}">
-                        <i class="fas fa-exclamation-triangle"></i> Error
+                    const durText = item.duration_str ? ` (${item.duration_str})` : (item.elapsed_s ? ` (${formatDuration(item.elapsed_s)})` : '');
+                    badgeHtml = `<span style="font-size:10.5px; padding:2px 8px; border-radius:12px; background:rgba(239,68,68,0.15); color:#ef4444; font-weight:700;" title="${escapeHtml(item.message)}">
+                        <i class="fas fa-exclamation-triangle"></i> Error${durText}
                     </span>`;
                 }
 
+                let errorRowHtml = '';
+                if (item.status === 'error' && item.message) {
+                    errorRowHtml = `
+                        <div style="margin-top: 5px; padding: 4px 8px; background: rgba(239, 68, 68, 0.08); border-left: 3px solid #ef4444; border-radius: 4px; font-size: 11px; color: #b91c1c; line-height: 1.35; display: flex; align-items: flex-start; gap: 6px; max-height: 48px; overflow-y: auto;">
+                            <i class="fas fa-exclamation-circle" style="color: #ef4444; margin-top: 2px; flex-shrink: 0;"></i>
+                            <div><strong>Reason:</strong> ${escapeHtml(item.message)}</div>
+                        </div>
+                    `;
+                }
+
                 return `
-                    <div id="${item.id}" style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:#ffffff; border:1px solid var(--border); border-radius:6px; font-size:11.5px;">
-                        <div style="display:flex; align-items:center; gap:8px; overflow:hidden; margin-right:8px;">
-                            <span style="font-weight:700; color:var(--ran-text-muted); font-size:10px; width:16px;">#${idx + 1}</span>
-                            <i class="fas fa-file-excel" style="color:var(--ran-blue, #145DA0); flex-shrink:0;"></i>
-                            <span style="font-weight:700; color:var(--ran-text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${item.name}">${item.name}</span>
-                            <span style="color:var(--ran-text-muted); font-size:10.5px; flex-shrink:0;">(${sizeMb} MB)</span>
+                    <div id="${item.id}" style="padding: 7px 10px; background: #ffffff; border: 1px solid var(--border); border-radius: 6px; font-size: 11.5px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div style="display:flex; align-items:center; gap:8px; overflow:hidden; margin-right:8px;">
+                                <span style="font-weight:700; color:var(--text-muted); font-size:10px; width:16px;">#${idx + 1}</span>
+                                <i class="fas fa-file-excel" style="color:#145DA0; flex-shrink:0;"></i>
+                                <span style="font-weight:700; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${item.name}">${item.name}</span>
+                                <span style="color:var(--text-muted); font-size:10.5px; flex-shrink:0;">(${extraMeta})</span>
+                            </div>
+                            <div style="flex-shrink:0;">
+                                ${badgeHtml}
+                            </div>
                         </div>
-                        <div style="flex-shrink:0;">
-                            ${badgeHtml}
-                        </div>
+                        ${errorRowHtml}
                     </div>
                 `;
             }).join('');
@@ -2270,7 +2347,10 @@
         }
         if (addMoreBtn) addMoreBtn.style.display = 'none';
         if (clearBtn) clearBtn.style.display = 'none';
-        if (alertBox) alertBox.style.display = 'none';
+        if (alertBox) {
+            alertBox.style.display = 'none';
+            alertBox.innerHTML = '';
+        }
         if (overallProg) overallProg.style.display = 'block';
 
         let successCount = 0;
@@ -2279,6 +2359,7 @@
         let allWeeksImported = new Set();
 
         const totalFiles = ranFileQueue.length;
+        const queueStartTime = Date.now();
 
         for (let i = 0; i < totalFiles; i++) {
             if (ranQueueAborted) break;
@@ -2292,13 +2373,26 @@
             const currentFileNum = i + 1;
             const overallProgressValue = Math.round((i / totalFiles) * 100);
 
-            if (overallStage) overallStage.textContent = `Overall: File ${currentFileNum} of ${totalFiles} (${item.name})`;
+            const elapsedTotalSec = Math.round((Date.now() - queueStartTime) / 1000);
+            const elapsedTotalStr = formatDuration(elapsedTotalSec);
+
+            if (overallStage) overallStage.textContent = `Overall: File ${currentFileNum} of ${totalFiles} · Total elapsed: ${elapsedTotalStr}`;
             if (overallPct) overallPct.textContent = `${overallProgressValue}%`;
             if (overallBar) overallBar.style.width = `${overallProgressValue}%`;
 
             item.status = 'uploading';
-            item.pct = 10;
+            item.pct = 5;
             item.message = 'Uploading file...';
+            item.elapsed_s = 0;
+            const fileStartTime = Date.now();
+
+            const fileTimer = setInterval(() => {
+                if (item.status === 'uploading' || item.status === 'processing') {
+                    item.elapsed_s = Math.round((Date.now() - fileStartTime) / 1000);
+                    renderRanQueueUI();
+                }
+            }, 1000);
+
             renderRanQueueUI();
 
             try {
@@ -2306,20 +2400,60 @@
                 formData.append('file', item.file);
 
                 if (curFileStage) curFileStage.textContent = `Uploading ${item.name}...`;
-                if (curFilePct) curFilePct.textContent = '10%';
+                if (curFilePct) curFilePct.textContent = '5%';
 
-                const res = await fetch('/api/sow/ran_capacity/import', {
-                    method: 'POST',
-                    body: formData
+                const uploadRes = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/api/sow/ran_capacity/import', true);
+
+                    xhr.upload.onprogress = (e) => {
+                        if (e.lengthComputable) {
+                            const percent = Math.min(99, Math.round((e.loaded / e.total) * 100));
+                            item.pct = percent;
+                            const loadedMb = (e.loaded / 1048576).toFixed(1);
+                            const totalMb = (e.total / 1048576).toFixed(1);
+                            const sec = Math.round((Date.now() - fileStartTime) / 1000);
+                            item.message = `Uploading: ${loadedMb}/${totalMb} MB (${percent}%)`;
+                            if (curFileStage) curFileStage.textContent = `${item.name}: ${loadedMb}/${totalMb} MB (${sec}s)`;
+                            if (curFilePct) curFilePct.textContent = `${percent}%`;
+                            renderRanQueueUI();
+                        }
+                    };
+
+                    xhr.onload = () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            try {
+                                resolve(JSON.parse(xhr.responseText));
+                            } catch (e) {
+                                reject(new Error('Invalid JSON response from server'));
+                            }
+                        } else {
+                            try {
+                                const errData = JSON.parse(xhr.responseText);
+                                reject(new Error(errData.message || `Upload failed with status ${xhr.status}`));
+                            } catch (e) {
+                                reject(new Error(`Upload failed with status ${xhr.status}`));
+                            }
+                        }
+                    };
+
+                    xhr.onerror = () => reject(new Error('Network error during upload'));
+                    xhr.send(formData);
                 });
-                const data = await res.json();
+
+                const data = uploadRes;
 
                 if (data.status === 'queued' && data.job_id) {
                     item.status = 'processing';
+                    item.pct = 15;
+                    item.message = 'Processing file...';
+                    renderRanQueueUI();
+
                     await new Promise((resolve) => {
                         const poll = setInterval(async () => {
                             if (ranQueueAborted) {
                                 clearInterval(poll);
+                                clearInterval(fileTimer);
                                 resolve();
                                 return;
                             }
@@ -2330,6 +2464,7 @@
                                 if (pdata.status !== 'queued') {
                                     item.pct = pdata.pct || 15;
                                     item.message = pdata.message || pdata.status;
+                                    item.elapsed_s = Math.round((Date.now() - fileStartTime) / 1000);
                                     if (curFileStage) curFileStage.textContent = `${item.name}: ${pdata.message || pdata.status}`;
                                     if (curFilePct) curFilePct.textContent = `${pdata.pct || 0}%`;
                                     renderRanQueueUI();
@@ -2337,10 +2472,13 @@
 
                                 if (pdata.status === 'success') {
                                     clearInterval(poll);
+                                    clearInterval(fileTimer);
                                     item.status = 'done';
                                     item.pct = 100;
                                     item.rows = pdata.total_rows || 0;
                                     item.weeks = pdata.weeknums || [];
+                                    item.duration_s = pdata.duration_s || Math.round((Date.now() - fileStartTime) / 1000);
+                                    item.duration_str = pdata.duration_str || formatDuration(item.duration_s);
                                     item.message = pdata.message;
                                     successCount++;
                                     totalRowsImported += (pdata.total_rows || 0);
@@ -2349,7 +2487,10 @@
                                     resolve();
                                 } else if (pdata.status === 'error') {
                                     clearInterval(poll);
+                                    clearInterval(fileTimer);
                                     item.status = 'error';
+                                    item.duration_s = Math.round((Date.now() - fileStartTime) / 1000);
+                                    item.duration_str = formatDuration(item.duration_s);
                                     item.message = pdata.message || 'Import error';
                                     failCount++;
                                     renderRanQueueUI();
@@ -2362,9 +2503,12 @@
 
                         setTimeout(() => {
                             clearInterval(poll);
+                            clearInterval(fileTimer);
                             if (item.status !== 'done') {
                                 item.status = 'error';
-                                item.message = 'Timeout';
+                                item.duration_s = Math.round((Date.now() - fileStartTime) / 1000);
+                                item.duration_str = formatDuration(item.duration_s);
+                                item.message = 'Processing timed out after 10 minutes';
                                 failCount++;
                                 renderRanQueueUI();
                             }
@@ -2372,22 +2516,32 @@
                         }, 600000);
                     });
                 } else {
+                    clearInterval(fileTimer);
                     item.status = 'error';
+                    item.duration_s = Math.round((Date.now() - fileStartTime) / 1000);
+                    item.duration_str = formatDuration(item.duration_s);
                     item.message = data.message || 'Upload failed';
                     failCount++;
                     renderRanQueueUI();
                 }
             } catch (err) {
+                clearInterval(fileTimer);
                 item.status = 'error';
+                item.duration_s = Math.round((Date.now() - fileStartTime) / 1000);
+                item.duration_str = formatDuration(item.duration_s);
                 item.message = err.message || 'Network error';
                 failCount++;
                 renderRanQueueUI();
             }
         }
 
+        const totalQueueSec = Math.round((Date.now() - queueStartTime) / 1000);
+        const totalQueueStr = formatDuration(totalQueueSec);
+        const avgSec = totalFiles > 0 ? Math.round(totalQueueSec / totalFiles) : 0;
+
         if (overallBar) overallBar.style.width = '100%';
         if (overallPct) overallPct.textContent = '100%';
-        if (overallStage) overallStage.textContent = `Completed ${successCount} of ${totalFiles} files`;
+        if (overallStage) overallStage.textContent = `Completed ${successCount} of ${totalFiles} files in ${totalQueueStr} (avg ${avgSec}s/file)`;
         if (curFileStage) curFileStage.textContent = 'All files processed.';
         if (curFilePct) curFilePct.textContent = 'Done';
 
@@ -2395,8 +2549,16 @@
         renderRanQueueUI();
 
         if (submitBtn) {
-            submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Import Complete';
-            submitBtn.disabled = true;
+            if (successCount > 0) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Import Complete (Close & Refresh)';
+                submitBtn.onclick = function () {
+                    closeImportModal();
+                };
+            } else {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Import Failed';
+            }
         }
 
         if (alertBox) {
@@ -2404,18 +2566,27 @@
             if (failCount === 0) {
                 alertBox.style.background = 'rgba(16,185,129,0.15)';
                 alertBox.style.color = '#10b981';
+                alertBox.style.border = '1px solid rgba(16,185,129,0.3)';
                 const weeksStr = Array.from(allWeeksImported).sort().map(w => 'W' + String(w).slice(4)).join(', ');
-                alertBox.innerHTML = `<i class="fas fa-check-circle"></i> <strong>Queue Completed!</strong> Successfully imported ${successCount} files (${totalRowsImported.toLocaleString()} rows) across week(s): ${weeksStr}.`;
+                alertBox.innerHTML = `<i class="fas fa-check-circle"></i> <strong>Queue Completed in ${totalQueueStr}!</strong> Successfully imported ${successCount} files (${totalRowsImported.toLocaleString()} rows) across week(s): ${weeksStr}. Average time: ${avgSec}s per file.`;
             } else {
-                alertBox.style.background = 'rgba(234,179,8,0.15)';
-                alertBox.style.color = '#ca8a04';
-                alertBox.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Processed ${totalFiles} files: <strong>${successCount} succeeded</strong>, <strong>${failCount} failed</strong>. Total rows: ${totalRowsImported.toLocaleString()}.`;
+                alertBox.style.background = 'rgba(239, 68, 68, 0.08)';
+                alertBox.style.color = '#991b1b';
+                alertBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+                alertBox.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-exclamation-triangle" style="color:#ef4444; font-size:14px; flex-shrink:0;"></i>
+                        <div>
+                            <div>Processed <strong>${totalFiles} files</strong> in ${totalQueueStr}: <strong style="color:#10b981;">${successCount} succeeded</strong>, <strong style="color:#ef4444;">${failCount} failed</strong>.</div>
+                            <div style="font-size:11px; font-weight:normal; opacity:0.85; margin-top:2px;">Specific error reasons are shown under each file in the queue above.</div>
+                        </div>
+                    </div>
+                `;
             }
         }
 
-        setTimeout(() => {
-            window.location.reload();
-        }, 1500);
+        // Trigger cache refresh in background so DB changes are ready when user closes modal
+        fetch('/api/sow/ran_capacity/summary?refresh=1').catch(() => {});
     };
 
     // ── Resize All Charts Helper ────────────────────────────────────────────

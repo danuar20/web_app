@@ -150,6 +150,8 @@ def viewer_blocked(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
         if session.get("role") == "viewer":
+            if request.path.startswith("/api/"):
+                return jsonify({"status": "error", "message": "Access denied: Role 'viewer' is not authorized for this operation."}), 403
             flash("Access denied. This page is not available for your role.", "danger")
             return redirect(url_for("auth.home_page"))
         return f(*args, **kwargs)
