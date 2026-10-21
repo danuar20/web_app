@@ -3693,6 +3693,7 @@
                             <span class="sub-item-dot"></span> Site Level
                         </a>
                     </div>
+                    {% if session.get('role') == 'admin' %}
                     <div class="menu-item {% block nav_database %}{% endblock %}" onclick="toggleSub('subDB', this)">
                         <div class="menu-icon"><i class="fas fa-circle"></i></div>
                         <span class="menu-item-label">Database</span>
@@ -3706,6 +3707,7 @@
                             <span class="sub-item-dot"></span> Sites DB
                         </a>
                     </div>
+                    {% endif %}
                 </div>
 
                 <div class="menu-section">

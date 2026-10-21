@@ -1206,13 +1206,13 @@
                     <tbody>
                         {% for kpi in kpi_defs %}
                         {% set d = cluster_compare.get(kpi[0], {}) %}
-                        {% if d and d.get('before') is not none %}
+                        {% if d and (d.get('before') is not none or d.get('after') is not none) %}
                         <tr data-kpi="{{ kpi[0] }}" data-lb="{{ 'true' if d.get('is_lower_better') else 'false' }}">
                             <td class="text-left" data-label="Category" style="opacity:0.7;">{{ d.get('group') }}</td>
                             <td class="text-left" data-label="KPI" style="font-weight:600;">{{ d.get('title') }} {% if d.get('unit') %}({{ d.get('unit') }}){% endif %}</td>
-                            <td data-label="Before" class="before-val">{{ "%.2f"|format(d.get('before')) }}</td>
-                            <td data-label="After" class="after-val">{{ "%.2f"|format(d.get('after')) }}</td>
-                            <td data-label="Delta" class="delta-val">{{ "+%.2f"|format(d.get('delta')) if d.get('delta') > 0 else "%.2f"|format(d.get('delta')) }}</td>
+                            <td data-label="Before" class="before-val">{% if d.get('before') is not none %}{{ "%.2f"|format(d.get('before')) }}{% else %}-{% endif %}</td>
+                            <td data-label="After" class="after-val">{% if d.get('after') is not none %}{{ "%.2f"|format(d.get('after')) }}{% else %}-{% endif %}</td>
+                            <td data-label="Delta" class="delta-val">{% if d.get('delta') is not none %}{{ "+%.2f"|format(d.get('delta')) if d.get('delta') > 0 else "%.2f"|format(d.get('delta')) }}{% else %}-{% endif %}</td>
                             <td data-label="Growth" class="growth-val">
                                 {% set pct = d.get('delta_pct') %}
                                 {% if pct is not none %}

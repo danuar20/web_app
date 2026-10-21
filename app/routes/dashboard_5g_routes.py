@@ -345,13 +345,15 @@ def dashboard_5g_view():
                     d_end = _dt.strptime(d_to_str, "%Y-%m-%d").date()
                 except Exception:
                     return [(d_from_str, d_to_str)]
+                if d_start > d_end:
+                    return [(d_from_str, d_to_str)]
                 chunks = []
                 curr = d_start
                 while curr <= d_end:
                     chunk_end = min(curr + _td(days=max_days - 1), d_end)
                     chunks.append((curr.strftime("%Y-%m-%d"), chunk_end.strftime("%Y-%m-%d")))
                     curr = chunk_end + _td(days=1)
-                return chunks
+                return chunks if chunks else [(d_from_str, d_to_str)]
 
             def run_trend_worker():
                 chunks = _split_trend_dates(trend_from_date, trend_to_date, max_days=7)
@@ -692,7 +694,7 @@ def dashboard_5g_view():
         is_cluster_mode=is_cluster_mode,
         cluster_list=cluster_list,
         cluster_mapping_json=json.dumps(cluster_mapping_norm) if is_cluster_mode else "",
-        band_compare=dict(sorted(band_compare.items(), key=lambda x: (len(x[0]), x[0]))),
+        band_compare=dict(sorted(band_compare.items(), key=lambda x: (len(str(x[0] or "")), str(x[0] or "")))),
         sector_compare=dict(sector_compare),
         site_compare=dict(site_compare),
         

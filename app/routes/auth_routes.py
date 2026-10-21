@@ -1,7 +1,7 @@
 from flask import Blueprint, make_response, render_template, request, redirect, url_for, session, flash, jsonify
 from werkzeug.security import check_password_hash
 from app.db.db_webapp import get_connection, get_postgres_connection
-from ._utils import login_required, viewer_blocked, json_response, db_query, _no_cache
+from ._utils import login_required, admin_required, viewer_blocked, json_response, db_query, _no_cache
 import psycopg2
 import json
 import uuid
@@ -450,6 +450,7 @@ def api_home():
 # ── Database Status Page ──────────────────────────────────────────────────────
 @auth.route("/database/<db_type>")
 @login_required
+@admin_required
 def database_page(db_type):
     from ._utils import _no_cache
     if db_type != "postgres":
@@ -465,6 +466,7 @@ def database_page(db_type):
 
 @auth.route("/api/database_status/<db_type>")
 @login_required
+@viewer_blocked
 def api_database_status(db_type):
     from app import cache
     from app.db.db_webapp import get_postgres_connection

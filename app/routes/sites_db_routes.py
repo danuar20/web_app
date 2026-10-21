@@ -4,7 +4,7 @@ Enhanced Routes for Sites DB page & dynamic CRUD, CSV import/upsert, and map per
 
 from flask import Blueprint, render_template, request, jsonify, session, make_response, flash, redirect, url_for, Response
 from app.db.db_webapp import get_postgres_connection
-from ._utils import login_required, viewer_blocked, json_response, csv_response, db_query, _no_cache
+from ._utils import login_required, admin_required, viewer_blocked, json_response, csv_response, db_query, _no_cache
 import psycopg2
 import psycopg2.extras
 import psycopg2.errors
@@ -74,6 +74,7 @@ def _get_table_schema(cur):
 
 @sites_db_bp.route("/database/sites_db")
 @login_required
+@admin_required
 def sites_db_page():
     response = make_response(render_template(
         "sites_db.html",
@@ -85,6 +86,7 @@ def sites_db_page():
 
 @sites_db_bp.route("/api/sites_db/schema")
 @login_required
+@viewer_blocked
 def api_sites_db_schema():
     try:
         with db_query(get_postgres_connection) as (conn, cur):
@@ -102,6 +104,7 @@ def api_sites_db_schema():
 
 @sites_db_bp.route("/api/sites_db/data")
 @login_required
+@viewer_blocked
 def api_sites_db_data():
     try:
         page = max(1, int(request.args.get("page", 1)))
@@ -180,6 +183,7 @@ def api_sites_db_data():
 
 @sites_db_bp.route("/api/sites_db/map")
 @login_required
+@viewer_blocked
 def api_sites_db_map():
     """Optimized lightweight map API returning only coordinates, SiteID_v2, and provider."""
     try:
@@ -261,6 +265,7 @@ def api_sites_db_map():
 
 @sites_db_bp.route("/api/sites_db/detail/<path:site_id>")
 @login_required
+@viewer_blocked
 def api_sites_db_detail(site_id):
     """Fetch complete site metadata for map popup on-demand."""
     try:
@@ -286,6 +291,7 @@ def api_sites_db_detail(site_id):
 
 @sites_db_bp.route("/api/sites_db/autocomplete")
 @login_required
+@viewer_blocked
 def api_sites_db_autocomplete():
     """Autocomplete suggestions for SiteID_v2 (max 10 prefix matches)."""
     try:
@@ -388,6 +394,7 @@ def _format_display_val(val):
 
 @sites_db_bp.route("/api/sites_db/export_csv")
 @login_required
+@viewer_blocked
 def api_sites_db_export_csv():
     """Export complete sites_db data dynamically to CSV with UTF-8 encoding."""
     try:
@@ -428,6 +435,7 @@ def api_sites_db_export_csv():
 
 @sites_db_bp.route("/api/sites_db/csv_template")
 @login_required
+@viewer_blocked
 def api_sites_db_csv_template():
     """Download dynamic CSV header template matching sites_db schema."""
     try:

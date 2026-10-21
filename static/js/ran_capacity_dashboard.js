@@ -1062,91 +1062,135 @@
                 : 'Branch Performance vs Target (Unbalance)';
         }
 
-        const branches = d.regional_gauge || [];
+        const branches = (d.regional_gauge && d.regional_gauge.length) ? d.regional_gauge.slice() : [];
         const puma = d.regional_puma || { value: 0 };
-        const target = d.target || (gaugeMode === 'rci' ? 0.42 : 1.85);
+        const target = d.target !== undefined && d.target !== null ? Number(d.target) : (gaugeMode === 'rci' ? 0.42 : 1.65);
+
+        // Sort ascending by value so layout & collision logic is consistent
+        branches.sort((a, b) => a.value - b.value);
 
         // Calculate dynamic domain bounds
         const allVals = branches.map(b => b.value).concat([puma.value, target]);
-        const minVal = Math.max(0, Math.min(...allVals) * 0.8);
-        const maxVal = Math.max(...allVals) * 1.25;
-        const span = maxVal - minVal || 1;
+        const minRaw = Math.min(...allVals);
+        const maxRaw = Math.max(...allVals);
+
+        let minScale = Math.max(0, Math.floor(minRaw * 10) / 10 - 0.1);
+        let maxScale = Math.ceil(maxRaw * 10) / 10 + 0.15;
+        if (maxScale - minScale < 0.6) {
+            minScale = Math.max(0, minScale - 0.2);
+            maxScale += 0.3;
+        }
+        const scaleRange = maxScale - minScale || 1;
 
         function pctToLeft(v) {
-            const clamp = Math.max(minVal, Math.min(maxVal, v));
-            return ((clamp - minVal) / span) * 100;
+            const clamped = Math.max(minScale, Math.min(maxScale, v));
+            return ((clamped - minScale) / scaleRange) * 100;
         }
 
         const targetLeft = pctToLeft(target);
-        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-        const targetLineColor = isDark ? '#ffffff' : '#0f172a';
+        const pumaLeft = pctToLeft(puma.value);
 
-        // Build HTML for track
-        let html = `
-            <!-- Target Line Marker (Taller on top) -->
-            <div style="position: absolute; left: ${targetLeft}%; top: 0px; transform: translateX(-50%); z-index: 5; text-align: center;">
-                <span style="font-size: 11px; font-weight: 800; color: ${targetLineColor};">Target ${target.toFixed(2)}%</span>
-            </div>
-            <div style="position: absolute; left: ${targetLeft}%; top: 16px; bottom: 52px; border-left: 2px dashed ${targetLineColor}; z-index: 4;"></div>
+        // Anti-collision branch positioning with staggered heights and nudging
+        let branchPointsHtml = '';
+        let lastLeft = -999;
+        let lastTop = 22;
 
-            <!-- Track Bar (Lower is better: Green on left, Red on right) -->
-            <div class="ran-track-bar">
-                <div class="ran-track-pass" style="width: ${targetLeft}%;"></div>
-                <div class="ran-track-fail"></div>
-            </div>
-        `;
+        branches.forEach((b, idx) => {
+            const bLeft = pctToLeft(b.value);
+            const isPass = b.value <= target;
+            const dotColor = isPass ? '#10b981' : '#ef4444';
+            const valColor = isPass ? '#16a34a' : '#dc2626';
 
-        // Anti-collision branch pin grouping & placement
-        const sortedBranches = branches.slice().sort((a, b) => a.value - b.value);
-        const pinGroups = [];
-        sortedBranches.forEach(b => {
-            const existing = pinGroups.find(g => Math.abs(g.value - b.value) < 0.005);
-            if (existing) {
-                existing.items.push(b);
-            } else {
-                pinGroups.push({ value: b.value, items: [b] });
-            }
-        });
+            // Anti-collision: alternate top position if adjacent to previous branch or target line
+            let topOffset = 22;
+            let nudgeX = 0;
 
-        pinGroups.forEach((g, idx) => {
-            const gLeft = pctToLeft(g.value);
-            const isPass = g.value <= target;
-            const dotColor = isPass ? '#16a34a' : '#dc2626';
-
-            let labelName = g.items.map(b => b.name).join(' & ');
-            let labelVal = `${g.value.toFixed(2)}%`;
-
-            let topOffset = '6px';
-            if (idx > 0) {
-                const prevLeft = pctToLeft(pinGroups[idx - 1].value);
-                if (Math.abs(gLeft - prevLeft) < 9.0) {
-                    topOffset = (idx % 2 === 1) ? '24px' : '6px';
+            if (Math.abs(bLeft - lastLeft) < 10.0) {
+                topOffset = (lastTop === 22) ? 4 : 22;
+                if (Math.abs(bLeft - lastLeft) < 3.5) {
+                    nudgeX = (lastTop === 22) ? -1.8 : 1.8;
                 }
+            } else if (Math.abs(bLeft - targetLeft) < 7.5) {
+                // If close to the target line, place at top: 22 so target label at top: 0 doesn't collide
+                topOffset = 22;
             }
 
-            html += `
-                <div style="position: absolute; left: ${gLeft}%; top: ${topOffset}; transform: translateX(-50%); z-index: 3; text-align: center; pointer-events: none;">
-                    <div style="font-size: 10px; font-weight: 700; color: ${dotColor}; white-space: nowrap;">${labelName}</div>
-                    <div style="font-size: 10.5px; font-weight: 800; color: ${dotColor};">${labelVal}</div>
+            lastLeft = bLeft + nudgeX;
+            lastTop = topOffset;
+
+            const displayLeft = Math.max(2.5, Math.min(97.5, bLeft + nudgeX));
+            const dotMarginTop = (topOffset === 4) ? '24px' : '6px';
+
+            branchPointsHtml += `
+                <div class="ran-distrib-branch-top" style="left: ${displayLeft}%; top: ${topOffset}px;" title="${b.name}: ${b.value.toFixed(2)}%">
+                    <div class="ran-branch-text">
+                        <span class="ran-branch-name">${b.name}</span>
+                        <span class="ran-branch-val" style="color: ${valColor};">${b.value.toFixed(2)}%</span>
+                    </div>
+                    <div class="ran-branch-dot" style="background: ${dotColor}; margin-top: ${dotMarginTop};"></div>
                 </div>
-                <div style="position: absolute; left: ${gLeft}%; top: 60px; transform: translate(-50%, -50%); width: 10px; height: 10px; border-radius: 50%; background: ${dotColor}; border: 2px solid #ffffff; z-index: 3;"></div>
             `;
         });
 
-        // Regional PUMA marker on bottom
-        const pumaLeft = pctToLeft(puma.value);
+        // Numeric Axis Ticks
+        let ticksHtml = '';
+        const tickStep = (maxScale - minScale) > 2.5 ? 0.5 : 0.25;
+        for (let tickVal = Math.ceil(minScale / tickStep) * tickStep; tickVal <= maxScale + 0.001; tickVal += tickStep) {
+            const tickLeft = pctToLeft(tickVal);
+            if (tickLeft >= 2 && tickLeft <= 98) {
+                ticksHtml += `
+                    <div class="ran-distrib-tick" style="left: ${tickLeft}%;">
+                        <div class="ran-distrib-tick-line"></div>
+                        <span>${tickVal.toFixed(2)}</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Regional PUMA Marker at BOTTOM
         const pumaPass = puma.value <= target;
         const pumaColor = pumaPass ? '#16a34a' : '#dc2626';
+        const pumaDotBg = pumaPass ? '#10b981' : '#ef4444';
+        const displayPumaLeft = Math.max(3.5, Math.min(96.5, pumaLeft));
 
-        html += `
-            <div style="position: absolute; left: ${pumaLeft}%; top: 70px; transform: translateX(-50%); z-index: 3; text-align: center;">
-                <span style="font-size: 10.5px; font-weight: 800; color: ${pumaColor}; background: rgba(125, 125, 125, 0.12); padding: 2px 6px; border-radius: 4px; border: 1px solid ${pumaColor};">
+        const pumaHtml = `
+            <div class="ran-distrib-puma-bottom" style="left: ${displayPumaLeft}%;" title="PUMA Regional: ${puma.value.toFixed(2)}%">
+                <div style="width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent; border-bottom:5px solid ${pumaDotBg}; margin-bottom:2px;"></div>
+                <div class="ran-puma-pill" style="color:${pumaColor}; border-color:${pumaColor};">
                     ▲ PUMA ${puma.value.toFixed(2)}%
-                </span>
+                </div>
             </div>
         `;
 
-        trackWrap.innerHTML = html;
+        // Render everything inside .ran-distrib-stage for 100% exact sub-pixel alignment
+        trackWrap.innerHTML = `
+            <div class="ran-distrib-stage">
+                <!-- Track Bar (100% width of stage, perfectly matched with target line) -->
+                <div class="ran-track-bar">
+                    <div class="ran-track-pass" style="width: ${targetLeft}%;"></div>
+                    <div class="ran-track-fail"></div>
+                </div>
+
+                <!-- Target Line (cuts through track at exactly targetLeft%) -->
+                <div class="ran-target-line" style="left: ${targetLeft}%;"></div>
+
+                <!-- Target Badge on TOP -->
+                <div class="ran-target-label" style="left: ${targetLeft}%;">
+                    Target ${target.toFixed(2)}%
+                </div>
+
+                <!-- Branch Markers on TOP -->
+                ${branchPointsHtml}
+
+                <!-- Axis Ticks below track -->
+                <div class="ran-distrib-ticks">
+                    ${ticksHtml}
+                </div>
+
+                <!-- PUMA Regional Marker at BOTTOM -->
+                ${pumaHtml}
+            </div>
+        `;
 
         // Render Companion Branch Chips Row
         if (statRow) {
