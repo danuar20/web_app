@@ -5,10 +5,23 @@ from ._utils import login_required, _no_cache, db_query
 from datetime import datetime, timedelta
 import psycopg2
 import psycopg2.errors
+import traceback
 
 kpi5g_monitoring = Blueprint("kpi5g_monitoring", __name__)
 
 import re
+
+
+BAND_SQL_EXPR = """CASE RIGHT(SPLIT_PART(cellid::text, '.', 1), 1)
+    WHEN '1' THEN 'NR1800'
+    WHEN '2' THEN 'NR900'
+    WHEN '3' THEN 'NR2100'
+    WHEN '4' THEN 'NR2300'
+    WHEN '5' THEN 'NR2300'
+    WHEN '6' THEN 'NR2600'
+    WHEN '7' THEN 'NR700'
+    ELSE 'Unknown'
+END"""
 
 
 def extract_sector_code(cell_du_name, siteid=""):
@@ -80,6 +93,8 @@ def kpi_5g_monitoring():
 
     chart_labels      = []
     regional_data     = {}
+    regional_band_data = {}
+    regional_band_dims = []
     nop_data          = {}
     city_data         = {}
     subnet_data       = {}
@@ -226,6 +241,36 @@ def kpi_5g_monitoring():
                 city_data     = align_data(temp_city, sorted(city_dims_set))
                 subnet_data   = align_data(temp_subnet, sorted(subnet_dims_set))
 
+                # Regional Band Level Data
+                sql_reg_band = f"""
+                    SELECT 
+                        TO_CHAR(datehour::date, 'YYYY-MM-DD') as dt_label,
+                        {BAND_SQL_EXPR} as band,
+                        {kpi_selects}
+                    FROM "5g_kpi_zte"
+                    WHERE datehour::date >= %s::date AND datehour::date <= %s::date
+                      AND {BAND_SQL_EXPR} != 'Unknown'
+                    GROUP BY datehour::date, dt_label, band
+                    ORDER BY datehour::date, band
+                """
+                cur.execute(sql_reg_band, [from_date, to_date])
+                reg_band_rows = cur.fetchall()
+
+                temp_regional_band = {k[0]: {} for k in kpi_defs}
+                reg_bands_set = set()
+                for r in reg_band_rows:
+                    dt_label = r[0]
+                    band = r[1]
+                    reg_bands_set.add(band)
+                    for idx, k in enumerate(kpi_defs):
+                        val = r[2 + idx]
+                        if band not in temp_regional_band[k[0]]:
+                            temp_regional_band[k[0]][band] = {}
+                        temp_regional_band[k[0]][band][dt_label] = round(float(val), 2) if val is not None else None
+
+                regional_band_dims = sorted(list(reg_bands_set), key=lambda x: (len(x), x))
+                regional_band_data = align_data(temp_regional_band, regional_band_dims)
+
                 cur.execute("""
                     SELECT city, subnetwork_name, siteid 
                     FROM "5g_kpi_zte" 
@@ -278,6 +323,8 @@ def kpi_5g_monitoring():
         chart_labels=chart_labels,
         regional_dims=["Regional"],
         regional_data=regional_data,
+        regional_band_dims=regional_band_dims,
+        regional_band_data=regional_band_data,
         nop_dims=sorted(nop_dims_set),
         nop_data=nop_data,
         city_dims=sorted(city_dims_set),
@@ -305,6 +352,7 @@ def api_kpi_5g_monitoring_hourly():
     entities = data.get("entities", [])
     kpi_ids = data.get("kpis", [])
     granularity = data.get("granularity", "hourly")
+    level = data.get("level", "total")
     
     if not all([from_date, to_date, tab, kpi_ids]):
         return jsonify({"error": "Missing parameters"}), 400
@@ -347,55 +395,125 @@ def api_kpi_5g_monitoring_hourly():
             
             if granularity == 'hourly':
                 date_col = "TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI')"
-                group_by = "datehour, dt_label, dimension"
-                order_by = "datehour"
+                group_by_base = "datehour, dt_label"
+                order_by_base = "datehour"
             else:
                 date_col = "TO_CHAR(datehour::date, 'YYYY-MM-DD')"
-                group_by = "datehour::date, dt_label, dimension"
-                order_by = "datehour::date"
+                group_by_base = "datehour::date, dt_label"
+                order_by_base = "datehour::date"
 
-            sql = f"""
-                SELECT 
-                    {date_col} as dt_label,
-                    {group_col} as dimension,
-                    {kpi_selects}
-                FROM "5g_kpi_zte"
-                WHERE datehour::date >= %s::date AND datehour::date <= %s::date
-                  {where_clause}
-                GROUP BY {group_by}
-                ORDER BY {order_by}
-            """
-        
-            cur.execute(sql, params)
-            rows = cur.fetchall()
-        
-            labels_set = set()
-            raw_map = {} 
-        
-            for r in rows:
-                dt_label = r[0]
-                dim = r[1]
-                labels_set.add(dt_label)
+            if level == "band":
+                if tab == "regional":
+                    sql = f"""
+                        SELECT 
+                            {date_col} as dt_label,
+                            {BAND_SQL_EXPR} as band,
+                            {kpi_selects}
+                        FROM "5g_kpi_zte"
+                        WHERE datehour::date >= %s::date AND datehour::date <= %s::date
+                          AND {BAND_SQL_EXPR} != 'Unknown'
+                        GROUP BY {group_by_base}, band
+                        ORDER BY {order_by_base}, band
+                    """
+                else:
+                    sql = f"""
+                        SELECT 
+                            {date_col} as dt_label,
+                            {group_col} as entity,
+                            {BAND_SQL_EXPR} as band,
+                            {kpi_selects}
+                        FROM "5g_kpi_zte"
+                        WHERE datehour::date >= %s::date AND datehour::date <= %s::date
+                          {where_clause}
+                          AND {BAND_SQL_EXPR} != 'Unknown'
+                        GROUP BY {group_by_base}, entity, band
+                        ORDER BY {order_by_base}, entity, band
+                    """
+                cur.execute(sql, params)
+                rows = cur.fetchall()
+
+                labels_set = set()
+                raw_map = {}
+                dim_set = set()
+
+                for r in rows:
+                    dt_label = r[0]
+                    labels_set.add(dt_label)
+                    if tab == "regional":
+                        dim = r[1]
+                        kpi_vals = r[2:]
+                    else:
+                        entity = r[1]
+                        band = r[2]
+                        dim = f"{entity} | {band}"
+                        kpi_vals = r[3:]
+
+                    dim_set.add(dim)
+                    if dt_label not in raw_map: raw_map[dt_label] = {}
+                    if dim not in raw_map[dt_label]: raw_map[dt_label][dim] = {}
+
+                    for idx, k in enumerate(kpi_defs):
+                        val = kpi_vals[idx]
+                        raw_map[dt_label][dim][k[0]] = round(float(val), 2) if val is not None else None
+
+                labels = sorted(list(labels_set))
+                all_legends = sorted(list(dim_set), key=lambda x: (x.split('|')[0], len(x), x))
+
+                res_data = {}
+                for k in kpi_defs:
+                    res_data[k[0]] = {}
+                    for dim in all_legends:
+                        res_data[k[0]][dim] = [raw_map.get(dt, {}).get(dim, {}).get(k[0], None) for dt in labels]
+
+                return jsonify({
+                    "labels": labels,
+                    "data": res_data,
+                    "legends": all_legends
+                })
+            else:
+                sql = f"""
+                    SELECT 
+                        {date_col} as dt_label,
+                        {group_col} as dimension,
+                        {kpi_selects}
+                    FROM "5g_kpi_zte"
+                    WHERE datehour::date >= %s::date AND datehour::date <= %s::date
+                      {where_clause}
+                    GROUP BY {group_by_base}, dimension
+                    ORDER BY {order_by_base}
+                """
             
-                if dt_label not in raw_map: raw_map[dt_label] = {}
-                if dim not in raw_map[dt_label]: raw_map[dt_label][dim] = {}
+                cur.execute(sql, params)
+                rows = cur.fetchall()
             
-                for idx, k in enumerate(kpi_defs):
-                    val = r[2 + idx]
-                    raw_map[dt_label][dim][k[0]] = round(float(val), 2) if val is not None else None
+                labels_set = set()
+                raw_map = {} 
+            
+                for r in rows:
+                    dt_label = r[0]
+                    dim = r[1]
+                    labels_set.add(dt_label)
                 
-            labels = sorted(list(labels_set))
-        
-            res_data = {}
-            for k in kpi_defs:
-                res_data[k[0]] = {}
-                for dim in (['Regional'] if tab == 'regional' else entities):
-                    res_data[k[0]][dim] = [raw_map.get(dt, {}).get(dim, {}).get(k[0], None) for dt in labels]
+                    if dt_label not in raw_map: raw_map[dt_label] = {}
+                    if dim not in raw_map[dt_label]: raw_map[dt_label][dim] = {}
                 
-            return jsonify({
-                "labels": labels,
-                "data": res_data
-            })
+                    for idx, k in enumerate(kpi_defs):
+                        val = r[2 + idx]
+                        raw_map[dt_label][dim][k[0]] = round(float(val), 2) if val is not None else None
+                    
+                labels = sorted(list(labels_set))
+            
+                res_data = {}
+                for k in kpi_defs:
+                    res_data[k[0]] = {}
+                    for dim in (['Regional'] if tab == 'regional' else entities):
+                        res_data[k[0]][dim] = [raw_map.get(dt, {}).get(dim, {}).get(k[0], None) for dt in labels]
+                    
+                return jsonify({
+                    "labels": labels,
+                    "data": res_data,
+                    "legends": (['Regional'] if tab == 'regional' else entities)
+                })
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -412,6 +530,7 @@ def api_kpi_5g_monitoring_site_cluster():
     sites       = req.get('sites', [])
     granularity = req.get('granularity', 'daily')
     sel_kpis    = req.get('kpis', [])
+    level       = req.get('level', 'total')
     
     if not sites:
         return jsonify({'error': 'No sites selected'}), 400
@@ -431,50 +550,98 @@ def api_kpi_5g_monitoring_site_cluster():
         
             if granularity == 'hourly':
                 date_col = "TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI')"
-                group_by = "datehour, dt_label"
                 order_by = "datehour"
+                group_by_base = "datehour, dt_label"
             else:
                 date_col = "TO_CHAR(datehour::date, 'YYYY-MM-DD')"
-                group_by = "datehour::date, dt_label"
                 order_by = "datehour::date"
+                group_by_base = "datehour::date, dt_label"
+
+            if level == 'band':
+                sql = f"""
+                    SELECT 
+                        {date_col} as dt_label,
+                        {BAND_SQL_EXPR} as band,
+                        {kpi_selects}
+                    FROM "5g_kpi_zte"
+                    WHERE datehour::date >= %s::date AND datehour::date <= %s::date
+                      AND siteid = ANY(%s)
+                      AND {BAND_SQL_EXPR} != 'Unknown'
+                    GROUP BY {group_by_base}, band
+                    ORDER BY {order_by}, band
+                """
+                cur.execute(sql, [from_date, to_date, sites])
+                rows = cur.fetchall()
+
+                labels_set = set()
+                raw_map = {}
+                bands_set = set()
+
+                for r in rows:
+                    dt_label = r[0]
+                    band = r[1]
+                    labels_set.add(dt_label)
+                    bands_set.add(band)
+                    if dt_label not in raw_map: raw_map[dt_label] = {}
+                    if band not in raw_map[dt_label]: raw_map[dt_label][band] = {}
+
+                    for idx, k in enumerate(kpi_defs):
+                        val = r[2 + idx]
+                        raw_map[dt_label][band][k[0]] = round(float(val), 2) if val is not None else None
+
+                labels = sorted(list(labels_set))
+                all_legends = sorted(list(bands_set), key=lambda x: (len(x), x))
+
+                res_data = {}
+                for k in kpi_defs:
+                    res_data[k[0]] = {}
+                    for band in all_legends:
+                        res_data[k[0]][band] = [raw_map.get(dt, {}).get(band, {}).get(k[0], None) for dt in labels]
+
+                return jsonify({
+                    'labels': labels,
+                    'data': res_data,
+                    'legends': all_legends
+                })
+            else:
+                sql = f"""
+                    SELECT 
+                        {date_col} as dt_label,
+                        {kpi_selects}
+                    FROM "5g_kpi_zte"
+                    WHERE datehour::date >= %s::date AND datehour::date <= %s::date
+                      AND siteid = ANY(%s)
+                    GROUP BY {group_by_base}
+                    ORDER BY {order_by}
+                """
             
-            sql = f"""
-                SELECT 
-                    {date_col} as dt_label,
-                    {kpi_selects}
-                FROM "5g_kpi_zte"
-                WHERE datehour::date >= %s::date AND datehour::date <= %s::date
-                  AND siteid = ANY(%s)
-                GROUP BY {group_by}
-                ORDER BY {order_by}
-            """
-        
-            cur.execute(sql, [from_date, to_date, sites])
-            rows = cur.fetchall()
-        
-            labels_set = set()
-            raw_map = {} 
-        
-            for r in rows:
-                dt_label = r[0]
-                labels_set.add(dt_label)
-                raw_map[dt_label] = {}
+                cur.execute(sql, [from_date, to_date, sites])
+                rows = cur.fetchall()
             
-                for idx, k in enumerate(kpi_defs):
-                    val = r[1 + idx]
-                    raw_map[dt_label][k[0]] = round(float(val), 2) if val is not None else None
+                labels_set = set()
+                raw_map = {} 
+            
+                for r in rows:
+                    dt_label = r[0]
+                    labels_set.add(dt_label)
+                    raw_map[dt_label] = {}
                 
-            labels = sorted(list(labels_set))
-        
-            res_data = {}
-            for k in kpi_defs:
-                res_data[k[0]] = {}
-                res_data[k[0]]['Cluster'] = [raw_map.get(dt, {}).get(k[0], None) for dt in labels]
-                
-            return jsonify({
-                'labels': labels,
-                'data': res_data
-            })
+                    for idx, k in enumerate(kpi_defs):
+                        val = r[1 + idx]
+                        raw_map[dt_label][k[0]] = round(float(val), 2) if val is not None else None
+                    
+                labels = sorted(list(labels_set))
+            
+                res_data = {}
+                for k in kpi_defs:
+                    res_data[k[0]] = {}
+                    res_data[k[0]]['Cluster'] = [raw_map.get(dt, {}).get(k[0], None) for dt in labels]
+                    
+                return jsonify({
+                    'labels': labels,
+                    'data': res_data,
+                    'legends': ['Cluster']
+                })
         
     except Exception as e:
         traceback.print_exc()

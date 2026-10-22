@@ -107,7 +107,9 @@ def create_app():
         cei,
         rhi,
         redcov,
-        ran_capacity
+        ran_capacity,
+        fb_pptx,
+        dashboard_pptx
     )
     app.register_blueprint(auth)
     app.register_blueprint(admin_bp)
@@ -125,6 +127,8 @@ def create_app():
     app.register_blueprint(rhi)
     app.register_blueprint(redcov)
     app.register_blueprint(ran_capacity)
+    app.register_blueprint(fb_pptx)
+    app.register_blueprint(dashboard_pptx)
     app.register_blueprint(kpi5g_monitoring)
     app.register_blueprint(pl_monitoring)
     app.register_blueprint(ta4g_new)

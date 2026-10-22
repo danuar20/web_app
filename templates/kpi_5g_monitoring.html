@@ -546,6 +546,12 @@
             <button class="view-btn" onclick="setTabView('regional','table',this)">Table</button>
         </div>
         <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div class="level-controls" style="display:flex; align-items:center; gap:6px;">
+                <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                    <button class="row-btn chartGrid-regional-level-btn active" style="background:rgba(79,172,254,0.3);" onclick="setLevel('regional', 'total', this)">Total</button>
+                    <button class="row-btn chartGrid-regional-level-btn" style="background:transparent;" onclick="setLevel('regional', 'band', this)">Band</button>
+                </div>
+            </div>
             <div class="row-controls" style="display:flex; align-items:center; gap:6px;">
                 <span style="font-size:11px; font-weight:600; opacity:0.7;">Charts / Row:</span>
                 <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
@@ -601,6 +607,12 @@
                 <button class="view-btn" onclick="setTabView('nop','table',this)">Table</button>
             </div>
             <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <div class="level-controls" style="display:flex; align-items:center; gap:6px;">
+                    <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                        <button class="row-btn chartGrid-nop-level-btn active" style="background:rgba(79,172,254,0.3);" onclick="setLevel('nop', 'total', this)">Total</button>
+                        <button class="row-btn chartGrid-nop-level-btn" style="background:transparent;" onclick="setLevel('nop', 'band', this)">Band</button>
+                    </div>
+                </div>
                 <div class="row-controls" style="display:flex; align-items:center; gap:6px;">
                     <span style="font-size:11px; font-weight:600; opacity:0.7;">Charts / Row:</span>
                     <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
@@ -655,6 +667,12 @@
                 <button class="view-btn" onclick="setTabView('city','table',this)">Table</button>
             </div>
             <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <div class="level-controls" style="display:flex; align-items:center; gap:6px;">
+                    <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                        <button class="row-btn chartGrid-city-level-btn active" style="background:rgba(79,172,254,0.3);" onclick="setLevel('city', 'total', this)">Total</button>
+                        <button class="row-btn chartGrid-city-level-btn" style="background:transparent;" onclick="setLevel('city', 'band', this)">Band</button>
+                    </div>
+                </div>
                 <div class="row-controls" style="display:flex; align-items:center; gap:6px;">
                     <span style="font-size:11px; font-weight:600; opacity:0.7;">Charts / Row:</span>
                     <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
@@ -708,6 +726,12 @@
                 <button class="view-btn" onclick="setTabView('subnet','table',this)">Table</button>
             </div>
             <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <div class="level-controls" style="display:flex; align-items:center; gap:6px;">
+                    <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                        <button class="row-btn chartGrid-subnet-level-btn active" style="background:rgba(79,172,254,0.3);" onclick="setLevel('subnet', 'total', this)">Total</button>
+                        <button class="row-btn chartGrid-subnet-level-btn" style="background:transparent;" onclick="setLevel('subnet', 'band', this)">Band</button>
+                    </div>
+                </div>
                 <div class="row-controls" style="display:flex; align-items:center; gap:6px;">
                     <span style="font-size:11px; font-weight:600; opacity:0.7;">Charts / Row:</span>
                     <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
@@ -788,6 +812,12 @@
                     <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
                         <button class="row-btn chartGrid-site-mode-btn active" style="background:rgba(79,172,254,0.3);" onclick="setSiteMode('per_site', this)">Per Site</button>
                         <button class="row-btn chartGrid-site-mode-btn" style="background:transparent;" onclick="setSiteMode('cluster', this)">Cluster</button>
+                    </div>
+                </div>
+                <div class="level-controls" style="display:flex; align-items:center; gap:6px;">
+                    <div style="display:flex; border:1px solid rgba(79,172,254,0.3); border-radius:6px; overflow:hidden;">
+                        <button class="row-btn chartGrid-site-level-btn active" style="background:rgba(79,172,254,0.3);" onclick="setLevel('site', 'total', this)">Total</button>
+                        <button class="row-btn chartGrid-site-level-btn" style="background:transparent;" onclick="setLevel('site', 'band', this)">Band</button>
                     </div>
                 </div>
                 <div class="row-controls" style="display:flex; align-items:center; gap:6px;">
@@ -951,6 +981,26 @@ var TAB_DIMS = {
     subnet:   {{ subnet_dims   | tojson | safe }},
     site:     {{ site_dims     | tojson | safe }},
     sector:   []
+};
+
+var REGIONAL_BAND_DATA = {{ regional_band_data | tojson | safe }};
+var REGIONAL_BAND_DIMS = {{ regional_band_dims | tojson | safe }};
+
+var CURRENT_LEVEL = { regional: 'total', nop: 'total', city: 'total', subnet: 'total', site: 'total' };
+var BAND_DATA = { regional: REGIONAL_BAND_DATA, nop: {}, city: {}, subnet: {}, site: {} };
+var BAND_DIMS = { regional: REGIONAL_BAND_DIMS, nop: {}, city: {}, subnet: {}, site: {} };
+
+var CLUSTER_BAND_DATA = { daily: null, hourly: null };
+var CLUSTER_BAND_LABELS = { daily: null, hourly: null };
+var CLUSTER_BAND_DIMS = { daily: [], hourly: [] };
+
+var BAND_COLORS = {
+    "NR700": "#f093fb",
+    "NR900": "#ff5555",
+    "NR1800": "#4facfe",
+    "NR2100": "#00c853",
+    "NR2300": "#a78bfa",
+    "NR2600": "#00f2fe"
 };
 
 var NSA_CITY_MAP    = {{ nsa_city_map    | tojson | safe }};
@@ -1414,7 +1464,28 @@ function applySectorLocalFilters() {
 }
 
 
-function fetchClusterData(granularity, dims) {
+function fetchClusterData(granularity, dims, level = 'total') {
+    if (level === 'band') {
+        if (CLUSTER_BAND_DATA[granularity]) {
+            renderTabCharts('site', CLUSTER_BAND_DIMS[granularity]);
+            var tv = document.getElementById("tableView-site");
+            if(tv && tv.style.display !== "none") buildTable('site', CLUSTER_BAND_DIMS[granularity]);
+            return;
+        }
+    } else {
+        if (granularity === 'hourly' && CLUSTER_HOURLY_DATA) {
+            renderTabCharts('site', dims);
+            var tv = document.getElementById("tableView-site");
+            if(tv && tv.style.display !== "none") buildTable('site', dims);
+            return;
+        } else if (granularity === 'daily' && CLUSTER_DAILY_DATA) {
+            renderTabCharts('site', dims);
+            var tv = document.getElementById("tableView-site");
+            if(tv && tv.style.display !== "none") buildTable('site', dims);
+            return;
+        }
+    }
+
     var loading = document.getElementById("loadingOverlay");
     if(loading) loading.style.display = "flex";
     
@@ -1429,6 +1500,7 @@ function fetchClusterData(granularity, dims) {
             to_date: "{{ to_date }}",
             sites: dims,
             granularity: granularity,
+            level: level,
             kpis: KPI_DEFS.map(k => k[0])
         })
     })
@@ -1439,20 +1511,93 @@ function fetchClusterData(granularity, dims) {
             alert("Error: " + data.error);
             return;
         }
-        if (granularity === 'hourly') {
-            CLUSTER_HOURLY_DATA = data.data;
-            CLUSTER_HOURLY_LABELS = data.labels;
+        if (level === 'band') {
+            CLUSTER_BAND_DATA[granularity] = data.data;
+            CLUSTER_BAND_LABELS[granularity] = data.labels;
+            CLUSTER_BAND_DIMS[granularity] = data.legends || [];
+            renderTabCharts('site', data.legends || []);
+            var tv = document.getElementById("tableView-site");
+            if(tv && tv.style.display !== "none") buildTable('site', data.legends || []);
         } else {
-            CLUSTER_DAILY_DATA = data.data;
-            CLUSTER_DAILY_LABELS = data.labels;
+            if (granularity === 'hourly') {
+                CLUSTER_HOURLY_DATA = data.data;
+                CLUSTER_HOURLY_LABELS = data.labels;
+            } else {
+                CLUSTER_DAILY_DATA = data.data;
+                CLUSTER_DAILY_LABELS = data.labels;
+            }
+            renderTabCharts('site', dims);
+            var tv = document.getElementById("tableView-site");
+            if(tv && tv.style.display !== "none") buildTable('site', dims);
         }
-        renderTabCharts('site', dims);
-        var tv = document.getElementById("tableView-site");
-        if(tv && tv.style.display !== "none") buildTable('site', dims);
     })
     .catch(err => {
         if(loading) loading.style.display = "none";
         alert("Failed to fetch cluster data.");
+        console.error(err);
+    });
+}
+
+
+function setLevel(tabId, mode, btn) {
+    if (CURRENT_LEVEL[tabId] === mode) return;
+
+    document.querySelectorAll(`.chartGrid-${tabId}-level-btn`).forEach(b => {
+        b.classList.remove('active');
+        b.style.background = 'transparent';
+    });
+    btn.classList.add('active');
+    btn.style.background = 'rgba(79,172,254,0.3)';
+
+    CURRENT_LEVEL[tabId] = mode;
+    updateTabDisplay(tabId);
+}
+
+function fetchBandData(tabId, dims, granularity) {
+    var cacheKey = dims.slice().sort().join(',') + '_' + granularity;
+    if (BAND_DATA[tabId] && BAND_DATA[tabId][cacheKey]) {
+        var cached = BAND_DATA[tabId][cacheKey];
+        renderTabCharts(tabId, cached.legends || []);
+        var tv = document.getElementById("tableView-" + tabId);
+        if(tv && tv.style.display !== "none") buildTable(tabId, cached.legends || []);
+        return;
+    }
+
+    var loading = document.getElementById("loadingOverlay");
+    if(loading) loading.style.display = "flex";
+
+    fetch('/api/kpi_5g_monitoring/hourly', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            from_date: "{{ from_date }}",
+            to_date: "{{ to_date }}",
+            tab: tabId,
+            entities: dims,
+            granularity: granularity,
+            level: 'band',
+            kpis: KPI_DEFS.map(k => k[0])
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(loading) loading.style.display = "none";
+        if (data.error) {
+            alert("Error: " + data.error);
+            return;
+        }
+        if (!BAND_DATA[tabId]) BAND_DATA[tabId] = {};
+        BAND_DATA[tabId][cacheKey] = data;
+        renderTabCharts(tabId, data.legends || []);
+        var tv = document.getElementById("tableView-" + tabId);
+        if(tv && tv.style.display !== "none") buildTable(tabId, data.legends || []);
+    })
+    .catch(err => {
+        if(loading) loading.style.display = "none";
+        alert("Failed to fetch band data.");
         console.error(err);
     });
 }
@@ -1584,23 +1729,36 @@ function updateTabDisplay(tabId) {
         if(emptyState) emptyState.style.display = "none";
         
         var isHourly = CURRENT_GRANULARITY[tabId] === 'hourly';
+        var isBand = CURRENT_LEVEL[tabId] === 'band';
+        var isCluster = tabId === 'site' && SITE_MODE === 'cluster';
         
-        
-    if (tabId === 'sector') {
-        fetchSectorData(dims);
-        return;
-    }
+        if (tabId === 'sector') {
+            fetchSectorData(dims);
+            return;
+        }
 
-    if (tabId === 'site' && SITE_MODE === 'cluster') {
-            fetchClusterData(isHourly ? 'hourly' : 'daily', dims);
-        } else if (isHourly) {
-            fetchHourlyData(tabId, dims);
-        } else if (tabId === 'site' && SITE_MODE === 'per_site') {
-            fetchSiteDailyData(dims);
+        if (isBand) {
+            if (tabId === 'regional') {
+                renderTabCharts('regional', BAND_DIMS['regional']);
+                var tv = document.getElementById("tableView-regional");
+                if(tv && tv.style.display !== "none") buildTable('regional', BAND_DIMS['regional']);
+            } else if (isCluster) {
+                fetchClusterData(isHourly ? 'hourly' : 'daily', dims, 'band');
+            } else {
+                fetchBandData(tabId, dims, isHourly ? 'hourly' : 'daily');
+            }
         } else {
-            renderTabCharts(tabId, dims);
-            var tv = document.getElementById("tableView-"+tabId);
-            if(tv && tv.style.display !== "none") buildTable(tabId, dims);
+            if (isCluster) {
+                fetchClusterData(isHourly ? 'hourly' : 'daily', dims, 'total');
+            } else if (isHourly) {
+                fetchHourlyData(tabId, dims);
+            } else if (tabId === 'site' && SITE_MODE === 'per_site') {
+                fetchSiteDailyData(dims);
+            } else {
+                renderTabCharts(tabId, dims);
+                var tv = document.getElementById("tableView-"+tabId);
+                if(tv && tv.style.display !== "none") buildTable(tabId, dims);
+            }
         }
     }
 }
@@ -1668,13 +1826,29 @@ function makeChartOpts(unit, yMin, yMax){
 function buildDatasets(tabId, kpiId, dims){
     var isHourly = CURRENT_GRANULARITY[tabId] === 'hourly';
     var isCluster = tabId === 'site' && SITE_MODE === 'cluster';
+    var isBand = CURRENT_LEVEL[tabId] === 'band';
     
     var data;
-    if (isCluster) {
-        data = isHourly ? CLUSTER_HOURLY_DATA || {} : CLUSTER_DAILY_DATA || {};
-        dims = ['Cluster'];
+    if (isBand) {
+        if (tabId === 'regional') {
+            data = BAND_DATA['regional'] || {};
+            dims = BAND_DIMS['regional'] || [];
+        } else if (isCluster) {
+            data = (isHourly ? CLUSTER_BAND_DATA.hourly : CLUSTER_BAND_DATA.daily) || {};
+            dims = (isHourly ? CLUSTER_BAND_DIMS.hourly : CLUSTER_BAND_DIMS.daily) || [];
+        } else {
+            var cacheKey = (activeFilterDims[tabId] || []).slice().sort().join(',') + '_' + (isHourly ? 'hourly' : 'daily');
+            var bObj = BAND_DATA[tabId] && BAND_DATA[tabId][cacheKey] ? BAND_DATA[tabId][cacheKey] : {};
+            data = bObj.data || {};
+            dims = bObj.legends || dims;
+        }
     } else {
-        data = isHourly ? HOURLY_DATA[tabId] || {} : TAB_DATA[tabId] || {};
+        if (isCluster) {
+            data = isHourly ? CLUSTER_HOURLY_DATA || {} : CLUSTER_DAILY_DATA || {};
+            dims = ['Cluster'];
+        } else {
+            data = isHourly ? HOURLY_DATA[tabId] || {} : TAB_DATA[tabId] || {};
+        }
     }
     var kpiData = data[kpiId] || {};
 
@@ -1692,14 +1866,23 @@ function buildDatasets(tabId, kpiId, dims){
                         legendLabel = parts[1].split(' ')[0].split('-')[0];
                     }
                 }
+            } else if (isBand) {
+                if (activeFilterDims[tabId] && activeFilterDims[tabId].length === 1 && d.includes('|')) {
+                    legendLabel = d.split('|')[1].trim();
+                } else {
+                    legendLabel = d;
+                }
             } else if (tabId === 'subnet') {
                 legendLabel = d;
             }
             
+            var bandKey = legendLabel.includes('|') ? legendLabel.split('|')[1].trim() : legendLabel;
+            var color = BAND_COLORS[bandKey] || COLORS[i % COLORS.length];
+
             return {
                 label: legendLabel,
                 data:  arr,
-                borderColor: COLORS[i % COLORS.length],
+                borderColor: color,
                 backgroundColor: "transparent",
                 tension: 0.22, pointRadius: 0, pointHoverRadius: 5, borderWidth: 1.8
             };
@@ -1724,9 +1907,19 @@ function renderChart(tabId, kpiDef, dims, suffix = ''){
     var opts = makeChartOpts(unit, yMin, yMax);
     var isHourly = CURRENT_GRANULARITY[tabId] === 'hourly';
     var isCluster = tabId === 'site' && SITE_MODE === 'cluster';
+    var isBand = CURRENT_LEVEL[tabId] === 'band';
     
     var labels;
-    if (isCluster) {
+    if (isBand) {
+        if (tabId === 'regional') {
+            labels = CHART_LABELS;
+        } else if (isCluster) {
+            labels = isHourly ? (CLUSTER_BAND_LABELS.hourly || []) : (CLUSTER_BAND_LABELS.daily || []);
+        } else {
+            var cacheKey = (activeFilterDims[tabId] || []).slice().sort().join(',') + '_' + (isHourly ? 'hourly' : 'daily');
+            labels = (BAND_DATA[tabId] && BAND_DATA[tabId][cacheKey] ? BAND_DATA[tabId][cacheKey].labels : CHART_LABELS) || [];
+        }
+    } else if (isCluster) {
         labels = isHourly ? (CLUSTER_HOURLY_LABELS || []) : (CLUSTER_DAILY_LABELS || []);
     } else {
         if (tabId === 'site' && !isHourly) {
@@ -1756,30 +1949,32 @@ function buildTable(tabId, dims){
     var tbody = document.getElementById("tableBody-"+tabId);
     if(!thead||!tbody) return;
 
-    var dimLabel = {regional:"Group",nop:"NOP",city:"City",subnet:"Subnet",site:"Site",sector:"Sector Legend"}[tabId]||"Group";
-    
-    var isCluster = tabId === 'site' && SITE_MODE === 'cluster';
-    if (isCluster) dims = ['Cluster'];
-    
-    var hdrs = ["Date"];
-    if (tabId === 'sector') {
-        hdrs.push("Sector", "Band", "Cell");
-    } else {
-        hdrs.push(dimLabel);
-    }
-    hdrs = hdrs.concat(KPI_DEFS.map(function(k){ 
-        var unit = k[2];
-        return k[1]+(unit?" ("+unit+")":""); 
-    }));
-    thead.innerHTML = "<tr>" + hdrs.map(function(h){ return "<th>"+h+"</th>"; }).join("") + "</tr>";
-
     var isHourly = CURRENT_GRANULARITY[tabId] === 'hourly';
-    
+    var isCluster = tabId === 'site' && SITE_MODE === 'cluster';
+    var isBand = CURRENT_LEVEL[tabId] === 'band';
+
     var data;
     var labels;
-    if (isCluster) {
+    if (isBand) {
+        if (tabId === 'regional') {
+            data = BAND_DATA['regional'] || {};
+            labels = CHART_LABELS;
+            dims = BAND_DIMS['regional'] || [];
+        } else if (isCluster) {
+            data = (isHourly ? CLUSTER_BAND_DATA.hourly : CLUSTER_BAND_DATA.daily) || {};
+            labels = (isHourly ? CLUSTER_BAND_LABELS.hourly : CLUSTER_BAND_LABELS.daily) || [];
+            dims = (isHourly ? CLUSTER_BAND_DIMS.hourly : CLUSTER_BAND_DIMS.daily) || [];
+        } else {
+            var cacheKey = (activeFilterDims[tabId] || []).slice().sort().join(',') + '_' + (isHourly ? 'hourly' : 'daily');
+            var bObj = BAND_DATA[tabId] && BAND_DATA[tabId][cacheKey] ? BAND_DATA[tabId][cacheKey] : {};
+            data = bObj.data || {};
+            labels = bObj.labels || [];
+            dims = bObj.legends || [];
+        }
+    } else if (isCluster) {
         data = isHourly ? CLUSTER_HOURLY_DATA || {} : CLUSTER_DAILY_DATA || {};
         labels = isHourly ? (CLUSTER_HOURLY_LABELS || []) : (CLUSTER_DAILY_LABELS || []);
+        dims = ['Cluster'];
     } else {
         data = isHourly ? HOURLY_DATA[tabId] || {} : TAB_DATA[tabId] || {};
         if (tabId === 'site' && !isHourly) {
@@ -1797,6 +1992,26 @@ function buildTable(tabId, dims){
         dims = anyKpi && data[anyKpi] ? Object.keys(data[anyKpi]) : [];
     }
     
+    var dimLabel = {regional:"Group",nop:"NOP",city:"City",subnet:"Subnet",site:"Site",sector:"Sector Legend"}[tabId]||"Group";
+    
+    var hdrs = ["Date"];
+    if (tabId === 'sector') {
+        hdrs.push("Sector", "Band", "Cell");
+    } else if (isBand) {
+        if (tabId === 'regional' || isCluster) {
+            hdrs.push("Band");
+        } else {
+            hdrs.push(dimLabel, "Band");
+        }
+    } else {
+        hdrs.push(dimLabel);
+    }
+    hdrs = hdrs.concat(KPI_DEFS.map(function(k){ 
+        var unit = k[2];
+        return k[1]+(unit?" ("+unit+")":""); 
+    }));
+    thead.innerHTML = "<tr>" + hdrs.map(function(h){ return "<th>"+h+"</th>"; }).join("") + "</tr>";
+
     var rows = "";
     labels.forEach(function(day){
         dims.forEach(function(dim){
@@ -1813,6 +2028,19 @@ function buildTable(tabId, dims){
                     bandStr = cellStr.split(" ")[0].split("-")[0].split("_")[0];
                 }
                 rowHtml += "<td>"+secBase+"</td><td>"+bandStr+"</td><td>"+cellStr+"</td>";
+            } else if (isBand) {
+                if (tabId === 'regional' || isCluster) {
+                    rowHtml += "<td>" + dim + "</td>";
+                } else {
+                    var entity = (activeFilterDims[tabId] && activeFilterDims[tabId].length === 1) ? activeFilterDims[tabId][0] : dim;
+                    var bandName = dim;
+                    if (dim.includes('|')) {
+                        var parts = dim.split('|');
+                        entity = parts[0].trim();
+                        bandName = parts[1].trim();
+                    }
+                    rowHtml += "<td>" + entity + "</td><td>" + bandName + "</td>";
+                }
             } else {
                 rowHtml += "<td>"+dim+"</td>";
             }
@@ -1820,7 +2048,7 @@ function buildTable(tabId, dims){
                 var arr = (data[k[0]]||{})[dim]||[];
                 var idx = labels.indexOf(day);
                 var v   = arr[idx];
-                rowHtml += "<td>"+(v!==null&&v!==undefined?v.toFixed(2):"—")+"</td>";
+                rowHtml += "<td>"+(v!==null&&v!==undefined?Number(v).toFixed(2):"—")+"</td>";
             });
             rowHtml += "</tr>";
             rows += rowHtml;
@@ -2568,12 +2796,31 @@ function doExportCsv(){
     if(dims.length === 0) { alert("No data available to export. Please select filters first."); return; }
     
     var isHourly = CURRENT_GRANULARITY[tabId] === 'hourly';
+    var isCluster = tabId === 'site' && SITE_MODE === 'cluster';
+    var isBand = CURRENT_LEVEL[tabId] === 'band';
     
     var data;
     var labels;
-    if (isCluster) {
+    if (isBand) {
+        if (tabId === 'regional') {
+            data = BAND_DATA['regional'] || {};
+            labels = CHART_LABELS;
+            dims = BAND_DIMS['regional'] || [];
+        } else if (isCluster) {
+            data = (isHourly ? CLUSTER_BAND_DATA.hourly : CLUSTER_BAND_DATA.daily) || {};
+            labels = (isHourly ? CLUSTER_BAND_LABELS.hourly : CLUSTER_BAND_LABELS.daily) || [];
+            dims = (isHourly ? CLUSTER_BAND_DIMS.hourly : CLUSTER_BAND_DIMS.daily) || [];
+        } else {
+            var cacheKey = (activeFilterDims[tabId] || []).slice().sort().join(',') + '_' + (isHourly ? 'hourly' : 'daily');
+            var bObj = BAND_DATA[tabId] && BAND_DATA[tabId][cacheKey] ? BAND_DATA[tabId][cacheKey] : {};
+            data = bObj.data || {};
+            labels = bObj.labels || [];
+            dims = bObj.legends || [];
+        }
+    } else if (isCluster) {
         data = isHourly ? CLUSTER_HOURLY_DATA || {} : CLUSTER_DAILY_DATA || {};
         labels = isHourly ? (CLUSTER_HOURLY_LABELS || []) : (CLUSTER_DAILY_LABELS || []);
+        dims = ['Cluster'];
     } else {
         data = isHourly ? HOURLY_DATA[tabId] || {} : TAB_DATA[tabId] || {};
         if (tabId === 'site' && !isHourly) {
@@ -2584,7 +2831,7 @@ function doExportCsv(){
             labels = isHourly ? (HOURLY_LABELS[tabId] || []) : CHART_LABELS;
         }
     }
-        if(tabId === 'sector') {
+    if(tabId === 'sector') {
         var anyKpi = Object.keys(data)[0];
         dims = anyKpi && data[anyKpi] ? Object.keys(data[anyKpi]) : [];
         if(dims.length === 0) { alert("No data available to export. Please select filters first."); return; }
@@ -2596,6 +2843,12 @@ function doExportCsv(){
     var hdrs = ["Date"];
     if (tabId === 'sector') {
         hdrs.push("Sector", "Band", "Cell");
+    } else if (isBand) {
+        if (tabId === 'regional' || isCluster) {
+            hdrs.push("Band");
+        } else {
+            hdrs.push(dimLabel, "Band");
+        }
     } else {
         hdrs.push(dimLabel);
     }
@@ -2620,6 +2873,19 @@ function doExportCsv(){
                     bandStr = cellStr.split(" ")[0].split("-")[0].split("_")[0];
                 }
                 row.push('"' + secBase + '"', '"' + bandStr + '"', '"' + cellStr + '"');
+            } else if (isBand) {
+                if (tabId === 'regional' || isCluster) {
+                    row.push('"' + dim + '"');
+                } else {
+                    var entity = (activeFilterDims[tabId] && activeFilterDims[tabId].length === 1) ? activeFilterDims[tabId][0] : dim;
+                    var bandName = dim;
+                    if (dim.includes('|')) {
+                        var parts = dim.split('|');
+                        entity = parts[0].trim();
+                        bandName = parts[1].trim();
+                    }
+                    row.push('"' + entity + '"', '"' + bandName + '"');
+                }
             } else {
                 row.push('"' + dim + '"');
             }

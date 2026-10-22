@@ -1958,6 +1958,9 @@
                     <button type="button" class="btn-secondary" onclick="fbExportAllXLSX()" title="Export all FB Share data to Excel">
                         <i class="fas fa-file-excel" style="color:#10b981;"></i> Export XLSX
                     </button>
+                    <button type="button" class="btn-secondary" onclick="openFbPptxModal()" title="Export FB Share report to PowerPoint">
+                        <i class="fas fa-file-powerpoint" style="color:#d24726;"></i> Export PPTX
+                    </button>
                 </div>
             </div>
         </div>
@@ -6921,5 +6924,82 @@
         window.location.href = url;
         closeExportCsvModal();
     }
+
+    // ── FB Share PPTX export ─────────────────────────────────────────────
+    function openFbPptxModal() {
+        const source = document.getElementById('fbRefYw');
+        const select = document.getElementById('fbPptxWeek');
+        select.innerHTML = source ? source.innerHTML : '';
+        if (source && source.value) select.value = source.value;
+        document.getElementById('fbPptxModal').classList.add('open');
+        fbPptxPreviewWeeks();
+    }
+
+    function closeFbPptxModal() {
+        document.getElementById('fbPptxModal').classList.remove('open');
+    }
+
+    async function fbPptxPreviewWeeks() {
+        const week = document.getElementById('fbPptxWeek').value;
+        const box = document.getElementById('fbPptxCompareInfo');
+        if (!week) { box.textContent = 'Comparison weeks: —'; return; }
+        box.textContent = 'Checking comparison weeks...';
+        try {
+            const resp = await fetch(`/api/sow/fb-share/compare-weeks?week=${encodeURIComponent(week)}`);
+            const d = await resp.json();
+            if (d.status !== 'success') throw new Error(d.message || 'Failed');
+            const line = (key) => {
+                const w = d.weeks[key];
+                if (!w) return `<b>${key.toUpperCase()}</b> — no comparison week with data`;
+                const note = d.shift[key] ? ` <span style="color:#ea580c;">(${d.nominal[key]} blank → fallback)</span>` : '';
+                return `<b>${key.toUpperCase()}</b> ${d.yearweek} vs ${w}${note}`;
+            };
+            box.innerHTML = [line('wow'), line('mom'), line('yoy')].join('<br>');
+        } catch (err) {
+            box.textContent = 'Comparison weeks: ' + err.message;
+        }
+    }
+
+    function fbPptxDownload() {
+        const week = document.getElementById('fbPptxWeek').value;
+        if (!week) return;
+        const params = new URLSearchParams({ week });
+        const threshold = document.getElementById('fbThreshold');
+        if (threshold && threshold.value) params.set('threshold', threshold.value);
+        const btn = document.getElementById('fbPptxDownloadBtn');
+        const original = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+        window.location.href = `/export/sow/fb-share-pptx?${params.toString()}`;
+        closeFbPptxModal();
+        setTimeout(() => { btn.disabled = false; btn.innerHTML = original; }, 20000);
+    }
 </script>
+
+<div id="fbPptxModal" class="import-modal-overlay">
+    <div class="import-modal-card" style="max-width: 470px;">
+        <div class="filter-card-header">
+            <div class="filter-title">
+                <i class="fas fa-file-powerpoint" style="color:#d24726;"></i> Export FB Share PPTX
+            </div>
+            <button type="button" class="btn-secondary" onclick="closeFbPptxModal()" style="height: 30px; padding: 0 10px;">
+                <i class="fas fa-times"></i> Close
+            </button>
+        </div>
+        <div class="filter-grid" style="display: flex; flex-direction: column; gap: 12px;">
+            <div class="filter-group" style="width: 100%;">
+                <label class="filter-label" for="fbPptxWeek"><i class="fas fa-calendar-alt"></i> Report Week</label>
+                <select id="fbPptxWeek" class="filter-select" style="width: 100%;" onchange="fbPptxPreviewWeeks()"></select>
+            </div>
+            <div id="fbPptxCompareInfo" style="width: 100%; text-align: left; font-size: 11.5px; line-height: 1.7; color: var(--sow-text-sub);">Comparison weeks: —</div>
+            <div class="fb-note" style="width: 100%; text-align: left;"><i class="fas fa-info-circle"></i> A comparison week without data falls back to the nearest earlier week with data.</div>
+        </div>
+        <div class="filter-actions" style="margin-top: 16px; justify-content: flex-end;">
+            <button type="button" class="btn-secondary" onclick="closeFbPptxModal()">Cancel</button>
+            <button type="button" class="btn-apply" id="fbPptxDownloadBtn" onclick="fbPptxDownload()">
+                <i class="fas fa-download"></i> Download PPTX
+            </button>
+        </div>
+    </div>
+</div>
 {% endblock %}

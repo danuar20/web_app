@@ -121,6 +121,60 @@ def test_api_sow_sample_template_xlsx(auth_client):
     assert "spreadsheetml" in res.headers["Content-Type"]
 
 
+def test_fb_share_compare_weeks_blank_fallback(auth_client):
+    """A blank comparison week (202540 has rows but all provider columns NULL) must
+    fall back one week to the last week that carries data, while weeks with data
+    (WoW/MoM) stay nominal."""
+    res = auth_client.get("/api/sow/fb-share/compare-weeks?week=202640")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["status"] == "success"
+    assert data["weeks"]["wow"] == 202639
+    assert data["weeks"]["mom"] == 202636
+    assert data["nominal"]["yoy"] == 202540
+    assert data["weeks"]["yoy"] == 202539
+    assert data["shift"]["yoy"] == 1
+
+
+def test_fb_share_compare_api_uses_resolved_weeks(auth_client):
+    """The dashboard comparison endpoint reports the resolved comparison weeks."""
+    res = auth_client.post("/api/sow/fb-share/compare", json={"yearweek": 202640, "threshold": 95})
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["status"] == "success"
+    assert data["compare_weeks"] == {"wow": 202639, "mom": 202636, "yoy": 202539}
+    assert data["summary"]["regional_tsel"] > 0
+    assert len(data["branch_table"]) >= 2
+    assert data["branch_table"][-1]["is_regional"] is True
+
+
+def test_fb_share_pptx_export(auth_client):
+    """The PPTX export returns a 2-slide deck rendered from the template."""
+    from pptx import Presentation
+
+    res = auth_client.get("/export/sow/fb-share-pptx?week=202640&threshold=95")
+    assert res.status_code == 200
+    assert "presentationml.presentation" in res.headers["Content-Type"]
+    assert "crowdsource_fb_share_2026w40.pptx" in res.headers["Content-Disposition"]
+    assert res.data[:2] == b"PK"
+
+    prs = Presentation(io.BytesIO(res.data))
+    assert len(prs.slides) == 2
+    slide_text = "\n".join(
+        sh.text_frame.text for sh in prs.slides[0].shapes if sh.has_text_frame
+    )
+    assert "Summary :" in slide_text
+    assert "W40'26" in slide_text
+    assert "vs W39'25" in slide_text  # YoY compares against the fallback week
+
+
+def test_fb_share_pptx_export_blank_week(auth_client):
+    """A week whose provider columns are all NULL has no report to build."""
+    res = auth_client.get("/export/sow/fb-share-pptx?week=202540")
+    assert res.status_code == 404
+    assert res.get_json()["status"] == "error"
+
+
 def test_api_sow_import_csv(auth_client):
     """Test importing and upserting sample benchmark records via CSV."""
     import os

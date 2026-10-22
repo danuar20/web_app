@@ -40,6 +40,8 @@ def clear_sow_caches():
     _SUMMARY_YEARS_CACHE = {"data": None, "timestamp": 0}
     _FB_YEARWEEKS_CACHE["data"] = None
     _FB_YEARWEEKS_CACHE["timestamp"] = 0
+    _FB_DATA_WEEKS_CACHE["data"] = None
+    _FB_DATA_WEEKS_CACHE["timestamp"] = 0
     _FB_CITY_MASTER_CACHE["data"] = None
     _FB_CITY_MASTER_CACHE["timestamp"] = 0
 
@@ -248,7 +250,11 @@ def api_sow_crowdsource_fb_csv_export():
 
 
 _FB_YEARWEEKS_CACHE = {"data": None, "timestamp": 0}
+# Yearweeks that actually carry FB share numbers. A week can exist as rows while
+# every provider column is NULL (e.g. 202540) — that week is blank, not comparable.
+_FB_DATA_WEEKS_CACHE = {"data": None, "timestamp": 0}
 FB_PROVIDERS = ("tsel", "ioh", "xls")  # tsel=telkomsel, ioh=isat3, xls=xl+smartfren
+FB_COMPARE_MAX_SHIFT = 8  # how many weeks a blank comparison week may be shifted back
 
 
 def get_cached_fb_yearweeks():
@@ -304,6 +310,76 @@ def _fb_values(telkomsel, isat3, xl, smartfren):
     ioh = float(isat3 or 0)
     xls = float(xl or 0) + float(smartfren or 0)
     return tsel, ioh, xls
+
+
+def get_fb_weeks_with_data():
+    """Yearweeks carrying at least one numeric FB share value.
+
+    Weeks whose rows are entirely NULL (blank upload, e.g. 202540) are excluded so
+    comparisons never diff against a fabricated 0.00%.
+    """
+    now = time.time()
+    cached = _FB_DATA_WEEKS_CACHE["data"]
+    if cached is not None and (now - _FB_DATA_WEEKS_CACHE["timestamp"] < _CACHE_TTL):
+        return cached
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute(
+                """
+                SELECT DISTINCT yearweek
+                FROM sow.fb_share
+                WHERE yearweek IS NOT NULL
+                  AND (telkomsel IS NOT NULL OR isat3 IS NOT NULL
+                       OR xl IS NOT NULL OR smartfren IS NOT NULL)
+                """
+            )
+            weeks = {int(r[0]) for r in cur.fetchall() if r[0] is not None}
+        _FB_DATA_WEEKS_CACHE["data"] = weeks
+        _FB_DATA_WEEKS_CACHE["timestamp"] = now
+        return weeks
+    except Exception as e:
+        logger.exception("Error loading fb_share weeks with data: %s", e)
+        return set()
+
+
+def resolve_fb_compare_weeks(ref_yw, max_shift=FB_COMPARE_MAX_SHIFT):
+    """Resolve the WoW / MoM / YoY comparison weeks for *ref_yw*.
+
+    A comparison week with blank data (all provider columns NULL / no rows) is
+    shifted back one week at a time until a week with real data is found, capped at
+    *max_shift* weeks. Example: ref 202640 -> YoY nominal 202540 is blank, so YoY
+    resolves to 202539; MoM nominal 202636 has data and stays 202636.
+
+    Returns {key: {"nominal": int|None, "week": int|None, "shift": int}}.
+    """
+    nominal = {
+        "wow": _shift_yearweek(ref_yw, 1),
+        "mom": _shift_yearweek(ref_yw, 4),
+        "yoy": _shift_yearweek(ref_yw, 52),
+    }
+    weeks = get_fb_weeks_with_data()
+    resolved = {}
+    for key, target in nominal.items():
+        week, shift = target, 0
+        while week and weeks and week not in weeks and shift < max_shift:
+            week = _shift_yearweek(week, 1)
+            shift += 1
+        if weeks and week not in weeks:
+            week = None
+        resolved[key] = {"nominal": target, "week": week, "shift": shift}
+    return resolved
+
+
+def _fb_ref_yearweek(value):
+    """Coerce a client-supplied yearweek, falling back to the latest available week."""
+    try:
+        ref = int(value)
+        if ref > 0:
+            return ref
+    except (ValueError, TypeError):
+        pass
+    yws = get_cached_fb_yearweeks()
+    return yws[0] if yws else None
 
 
 def _avg_nonzero(values):
@@ -383,10 +459,18 @@ def api_fb_share_trend():
     try:
         start_yw = int(req.get("start_yearweek", 202501))
         end_yw = int(req.get("end_yearweek", 202652))
-        if start_yw > end_yw:
-            start_yw, end_yw = end_yw, start_yw
     except (ValueError, TypeError):
         return jsonify({"status": "error", "message": "Invalid yearweek range"}), 400
+    try:
+        return jsonify(build_fb_share_trend(start_yw, end_yw))
+    except Exception:
+        return jsonify({"status": "error", "message": "Failed to fetch FB share trend"}), 500
+
+
+def build_fb_share_trend(start_yw, end_yw):
+    """Compute the FB Share trend payload for an inclusive yearweek range."""
+    if start_yw > end_yw:
+        start_yw, end_yw = end_yw, start_yw
 
     query = """
         SELECT yearweek, region, branch, kabupaten, telkomsel, isat3, xl, smartfren, win_lose
@@ -458,7 +542,7 @@ def api_fb_share_trend():
 
         cities = sorted(city_map.values(), key=lambda c: ((c["branch"] or ""), c["city"]))
 
-        return jsonify({
+        return {
             "status": "success",
             "start_yearweek": start_yw,
             "end_yearweek": end_yw,
@@ -474,10 +558,10 @@ def api_fb_share_trend():
             "regional": finalize(reg_bucket),
             "branch_series": {b: finalize(br_buckets[b]) for b in branches},
             "cities": cities,
-        })
+        }
     except Exception as e:
         logger.exception("Error loading FB share trend: %s", e)
-        return jsonify({"status": "error", "message": "Failed to fetch FB share trend"}), 500
+        raise
 
 
 @sow.route("/api/sow/fb-share/compare", methods=["POST"])
@@ -486,11 +570,7 @@ def api_fb_share_trend():
 def api_fb_share_compare():
     """FB Share comparison tables for a reference week vs WoW (-1w), MoM (-4w), YoY (-1y)."""
     req = request.get_json(silent=True) or {}
-    try:
-        ref_yw = int(req.get("yearweek"))
-    except (ValueError, TypeError):
-        yws = get_cached_fb_yearweeks()
-        ref_yw = yws[0] if yws else None
+    ref_yw = _fb_ref_yearweek(req.get("yearweek"))
     if not ref_yw:
         return jsonify({"status": "error", "message": "No yearweek available"}), 400
 
@@ -499,11 +579,24 @@ def api_fb_share_compare():
     except (ValueError, TypeError):
         threshold = 95.0
 
-    cmp_weeks = {
-        "wow": _shift_yearweek(ref_yw, 1),
-        "mom": _shift_yearweek(ref_yw, 4),
-        "yoy": ref_yw - 100,
-    }
+    try:
+        return jsonify(build_fb_share_compare(ref_yw, threshold))
+    except LookupError as e:
+        return jsonify({"status": "error", "message": str(e)}), 404
+    except Exception:
+        return jsonify({"status": "error", "message": "Failed to fetch FB share comparison"}), 500
+
+
+def build_fb_share_compare(ref_yw, threshold=95.0):
+    """Compute the FB Share comparison payload for *ref_yw*.
+
+    WoW / MoM / YoY weeks are resolved through :func:`resolve_fb_compare_weeks`, so a
+    blank comparison week (all provider columns NULL) is replaced by the closest
+    earlier week that carries data. Raises LookupError when the reference week has
+    no data at all.
+    """
+    resolved = resolve_fb_compare_weeks(ref_yw)
+    cmp_weeks = {k: info["week"] for k, info in resolved.items()}
     all_weeks = [ref_yw] + [w for w in cmp_weeks.values() if w]
 
     query = """
@@ -516,7 +609,7 @@ def api_fb_share_compare():
             cur.execute(query, (all_weeks,))
             rows = cur.fetchall()
 
-        # data[yw][kab] = dict(...)
+        # data[yw][kab] = dict(...)  — has_val marks rows that carry real numbers
         data = {}
         regions = set()
         for r in rows:
@@ -525,12 +618,15 @@ def api_fb_share_compare():
             if r[1]:
                 regions.add(r[1])
             data.setdefault(yw, {})[r[3]] = {
-                "branch": r[2], "tsel": tsel, "ioh": ioh, "xls": xls, "win_lose": r[8]
+                "branch": r[2], "tsel": tsel, "ioh": ioh, "xls": xls, "win_lose": r[8],
+                "has_val": any(v is not None for v in (r[4], r[5], r[6], r[7])),
             }
 
         ref_data = data.get(ref_yw, {})
         if not ref_data:
-            return jsonify({"status": "error", "message": f"No FB share data for week {ref_yw}"}), 404
+            raise LookupError(f"No FB share data for week {ref_yw}")
+        if not any(v["has_val"] for v in ref_data.values()):
+            raise LookupError(f"No FB share data for week {ref_yw}")
 
         available = {k: (w if w in data else None) for k, w in cmp_weeks.items()}
 
@@ -592,7 +688,8 @@ def api_fb_share_compare():
             }
             for k, w in available.items():
                 prev = data.get(w, {}).get(kab) if w else None
-                row[k] = {p: (_delta(v[p], prev[p]) if prev else None) for p in FB_PROVIDERS}
+                ok = bool(prev and prev["has_val"])
+                row[k] = {p: (_delta(v[p], prev[p]) if ok else None) for p in FB_PROVIDERS}
             city_rows.append(row)
         city_rows.sort(key=lambda c: ((c["branch"] or ""), c["city"]))
 
@@ -632,19 +729,23 @@ def api_fb_share_compare():
             "low_branch": {"name": low_branch["name"], "tsel": low_branch["share"]["tsel"]} if low_branch else None,
         }
 
-        return jsonify({
+        return {
             "status": "success",
             "yearweek": ref_yw,
             "compare_weeks": cmp_weeks,
+            "compare_nominal": {k: info["nominal"] for k, info in resolved.items()},
+            "compare_shift": {k: info["shift"] for k, info in resolved.items()},
             "compare_available": {k: bool(w) for k, w in available.items()},
             "region_label": region_label,
             "branch_table": branch_rows,
             "city_table": city_rows,
             "summary": summary,
-        })
+        }
+    except LookupError:
+        raise
     except Exception as e:
         logger.exception("Error loading FB share comparison: %s", e)
-        return jsonify({"status": "error", "message": "Failed to fetch FB share comparison"}), 500
+        raise
 
 
 

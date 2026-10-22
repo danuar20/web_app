@@ -42,6 +42,10 @@ kpi5g_monitoring = kpi_5g_monitoring_routes.kpi5g_monitoring
 from . import dashboard_4g_routes
 dashboard_4g = dashboard_4g_routes.dashboard_4g
 
+# Dashboard 4G PowerPoint export — /api/dashboard_4g/export-pptx
+from . import dashboard_pptx_routes
+dashboard_pptx = dashboard_pptx_routes.dashboard_pptx
+
 # Dashboard 2G — /dashboard_2g
 from . import dashboard_2g_routes
 dashboard_2g = dashboard_2g_routes.dashboard_2g
@@ -120,6 +124,10 @@ redcov = redcov_routes.redcov
 # RAN Capacity Dashboard — /sow/ran_capacity
 from . import ran_capacity_routes
 ran_capacity = ran_capacity_routes.ran_capacity
+
+# Crowdsource FB Share — PowerPoint export (/export/sow/fb-share-pptx)
+from . import fb_pptx_routes
+fb_pptx = fb_pptx_routes.fb_pptx
 
 
 
