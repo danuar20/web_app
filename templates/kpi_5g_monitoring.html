@@ -1876,8 +1876,13 @@ function buildDatasets(tabId, kpiId, dims){
                 legendLabel = d;
             }
             
-            var bandKey = legendLabel.includes('|') ? legendLabel.split('|')[1].trim() : legendLabel;
-            var color = BAND_COLORS[bandKey] || COLORS[i % COLORS.length];
+            var color;
+            var isSingleEntityBand = isBand && (!activeFilterDims[tabId] || activeFilterDims[tabId].length <= 1 || isCluster || tabId === 'regional');
+            if (isSingleEntityBand && BAND_COLORS[legendLabel]) {
+                color = BAND_COLORS[legendLabel];
+            } else {
+                color = COLORS[i % COLORS.length];
+            }
 
             return {
                 label: legendLabel,
