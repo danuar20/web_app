@@ -1106,8 +1106,7 @@ function toggleMsItem(id, value) {
 }
 
 function msSelectAll(id, checkAll) {
-    if (id === 'sector_site' && checkAll) return;
-      if (id === 'sector_site' && checkAll) return; // Only allow clear all for sector_site
+    if (id === 'sector_site' && checkAll) return; // Only allow clear all for sector_site
     msSelections[id] = [];
     document.querySelectorAll(`#ms-list-${id} .ms-item`).forEach(function(item) {
         if(item.style.display !== "none") {
@@ -1410,7 +1409,11 @@ function fetchSectorData(dims) {
         var uniqueSectors = new Set();
         var uniqueBands = new Set();
         var uniqueTypes = new Set();
-        (data.daily.legends || []).forEach(leg => {
+        var allLegends = new Set([
+            ...((data.daily && data.daily.legends) || []),
+            ...((data.hourly && data.hourly.legends) || [])
+        ]);
+        allLegends.forEach(leg => {
             var parts = leg.split(" S");
             if (parts.length > 1) {
                 var p2 = parts[1].split("|");

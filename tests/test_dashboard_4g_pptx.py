@@ -195,9 +195,30 @@ def test_multi_series_chart_support():
     assert s0.format.line.color.rgb == (0x00, 0xE6, 0x76)  # Before neon green
     assert s1.format.line.color.rgb == (0x4F, 0xAC, 0xFE)  # After electric cyan
     assert ch.chart_title.text_frame.paragraphs[0].font.name == "Poppins"
-    assert ch.value_axis.has_major_gridlines is True
+    assert ch.value_axis.has_major_gridlines is False  # Clean view without gridlines
     assert ch.value_axis.has_title is True
     assert ch.value_axis.axis_title.text_frame.text == "GB"
+
+
+def test_dual_axis_chart_generation():
+    chart_dual = {
+        "title": "Throughput vs Payload",
+        "categories": ["14 Oct", "15 Oct", "16 Oct"],
+        "series": [
+            {"name": "DL Thp (Mbps)", "values": [25.5, 30.2, 28.0], "color": "#4facfe", "axis": "L"},
+            {"name": "Payload (GB)", "values": [1200.0, 1500.0, 1400.0], "color": "#00e676", "axis": "R"}
+        ],
+        "left_axis_title": "Mbps",
+        "right_axis_title": "GB"
+    }
+    blob, meta = build_dashboard_pptx(sample_payload(charts=[chart_dual], per_slide=1))
+    assert meta == {"charts": 1, "slides": 1}
+
+    deck = open_deck(blob)
+    chart = deck.slides[0].shapes[2].chart  # shape 0 is title, shape 1 is card, shape 2 is chart
+    assert len(chart.plots) == 2, "Dual axis chart must generate 2 separate plots (L and R)"
+    assert chart.plots[0].series[0].name == "DL Thp (Mbps)"
+    assert chart.plots[1].series[0].name == "Payload (GB)"
 
 
 def test_simplify_hourly_categories_to_daily():

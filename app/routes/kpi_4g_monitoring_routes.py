@@ -14,7 +14,7 @@ def make_post_cache_key(*args, **kwargs):
     import json
     data = request.get_json() or {}
     key = f"{request.path}:{json.dumps(data, sort_keys=True)}"
-    return "post_cache_v6_" + hashlib.md5(key.encode('utf-8')).hexdigest()
+    return "post_cache_v7_" + hashlib.md5(key.encode('utf-8')).hexdigest()
 
 
 
@@ -610,12 +610,12 @@ def api_kpi_4g_monitoring_sector_data():
                     TO_CHAR(datehour, 'YYYY-MM-DD HH24:MI') as dt_label,
                     siteid,
                     cell::text AS cell,
-                    MAX(cell_name) AS cell_name,
+                    cell_name,
                     {kpi_selects}
                 FROM "4g_kpi_zte"
                 WHERE datehour >= %s::date AND datehour < (%s::date + interval '1 day')
                   AND siteid = ANY(%s)
-                GROUP BY datehour, siteid, cell
+                GROUP BY datehour, siteid, cell, cell_name
                 ORDER BY datehour
             '''
             cur.execute(sql_hourly, [from_date, to_date, sites])
@@ -626,12 +626,12 @@ def api_kpi_4g_monitoring_sector_data():
                     TO_CHAR(date, 'YYYY-MM-DD') as dt_label,
                     siteid,
                     cell::text AS cell,
-                    MAX(cell_name) AS cell_name,
+                    cell_name,
                     {kpi_selects}
                 FROM "4g_kpi_zte"
                 WHERE date >= %s::date AND date <= %s::date
                   AND siteid = ANY(%s)
-                GROUP BY date, siteid, cell
+                GROUP BY date, siteid, cell, cell_name
                 ORDER BY date
             '''
             cur.execute(sql_daily, [from_date, to_date, sites])
@@ -641,24 +641,27 @@ def api_kpi_4g_monitoring_sector_data():
                 labels_set = set()
                 raw_map = {}
             
-                # Resolve latest cell_name per (siteid, cell) to prevent series splitting across rename events
+                # Resolve latest cell_name per (siteid, cell, sector_code) to prevent series splitting across rename events
                 cell_meta = {}
                 for r in rows:
                     s_id = r[1]
                     c_str = str(r[2] or "").split('.')[0]
                     cn = r[3]
                     if cn:
-                        cell_meta[(s_id, c_str)] = cn
+                        code = extract_sector_code(cn, s_id)
+                        cell_meta[(s_id, c_str, code)] = cn
 
                 for r in rows:
                     dt_label  = r[0]
                     siteid    = r[1]
                     cell_str  = str(r[2] or "").split('.')[0]
+                    raw_cn    = r[3]
+                    raw_code  = extract_sector_code(raw_cn, siteid)
+                    cell_name = cell_meta.get((siteid, cell_str, raw_code), raw_cn)
+                    code      = extract_sector_code(cell_name, siteid) or raw_code
                     sector, band = get_4g_sector_and_band(cell_str)
                     tech      = cell_str
-                    cell_name = cell_meta.get((siteid, cell_str), r[3])
                 
-                    code = extract_sector_code(cell_name, siteid)
                     sub_str = f" {code}" if code else ""
                     legend_name = f"{siteid} S{sector}|{band}{sub_str}-{tech}"
                 
@@ -793,12 +796,12 @@ def api_kpi_4g_monitoring_sector_data_bdbh():
                     TO_CHAR("Time", 'YYYY-MM-DD HH24:MI') as dt_label,
                     COALESCE(SUBSTRING("Cell Name" FROM '([A-Za-z]{{3}}\\d{{3}})'), SUBSTRING("ME Name", 3, 6)) AS siteid,
                     "Cell ID"::text AS cell,
-                    MAX("Cell Name") AS cell_name,
+                    "Cell Name" AS cell_name,
                     {kpi_selects_hourly}
                 FROM "measKpiBdbh4G"
                 WHERE "Date" >= %s::date AND "Date" <= %s::date
                   AND COALESCE(SUBSTRING("Cell Name" FROM '([A-Za-z]{{3}}\\d{{3}})'), SUBSTRING("ME Name", 3, 6)) = ANY(%s)
-                GROUP BY "Time", siteid, "Cell ID"
+                GROUP BY "Time", siteid, "Cell ID", "Cell Name"
                 ORDER BY "Time"
             '''
             cur.execute(sql_hourly, [from_date, to_date, sites])
@@ -810,12 +813,12 @@ def api_kpi_4g_monitoring_sector_data_bdbh():
                     TO_CHAR("Date", 'YYYY-MM-DD') as dt_label,
                     COALESCE(SUBSTRING("Cell Name" FROM '([A-Za-z]{{3}}\\d{{3}})'), SUBSTRING("ME Name", 3, 6)) AS siteid,
                     "Cell ID"::text AS cell,
-                    MAX("Cell Name") AS cell_name,
+                    "Cell Name" AS cell_name,
                     {kpi_selects_hourly}
                 FROM "measKpiBdbh4G"
                 WHERE "Date" >= %s::date AND "Date" <= %s::date
                   AND COALESCE(SUBSTRING("Cell Name" FROM '([A-Za-z]{{3}}\\d{{3}})'), SUBSTRING("ME Name", 3, 6)) = ANY(%s)
-                GROUP BY "Date", siteid, "Cell ID"
+                GROUP BY "Date", siteid, "Cell ID", "Cell Name"
                 ORDER BY "Date"
             '''
             cur.execute(sql_daily, [from_date, to_date, sites])
@@ -825,24 +828,27 @@ def api_kpi_4g_monitoring_sector_data_bdbh():
                 labels_set = set()
                 raw_map = {}
 
-                # Resolve latest cell_name per (siteid, cell) to prevent series splitting across rename events
+                # Resolve latest cell_name per (siteid, cell, sector_code) to prevent series splitting across rename events
                 cell_meta = {}
                 for r in rows:
                     s_id = r[1]
                     c_str = str(r[2] or "").split('.')[0]
                     cn = r[3]
                     if cn:
-                        cell_meta[(s_id, c_str)] = cn
+                        code = extract_sector_code(cn, s_id)
+                        cell_meta[(s_id, c_str, code)] = cn
 
                 for r in rows:
                     dt_label    = r[0]
                     siteid      = r[1]
                     cell_str    = str(r[2] or "").split('.')[0]
+                    raw_cn      = r[3]
+                    raw_code    = extract_sector_code(raw_cn, siteid)
+                    cell_name   = cell_meta.get((siteid, cell_str, raw_code), raw_cn)
+                    code        = extract_sector_code(cell_name, siteid) or raw_code
                     sector, band = get_4g_sector_and_band(cell_str)
                     tech        = cell_str
-                    cell_name   = cell_meta.get((siteid, cell_str), r[3])
 
-                    code = extract_sector_code(cell_name, siteid)
                     sub_str = f" {code}" if code else ""
                     legend_name = f"{siteid} S{sector}|{band}{sub_str}-{tech}"
 

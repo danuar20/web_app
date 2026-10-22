@@ -68,12 +68,12 @@ GRID_POSITIONS = {
 # Typography scales tuned for compact, clean display across all grid densities
 GRID_TYPOGRAPHY = {
     16: {
-        "title_size": Pt(8.0),
-        "cat_axis_size": Pt(6.0),
-        "val_axis_size": Pt(6.0),
-        "unit_size": Pt(6.0),
-        "legend_size": Pt(6.0),
-        "line_width": Pt(1.5),
+        "title_size": Pt(7.0),
+        "cat_axis_size": Pt(5.0),
+        "val_axis_size": Pt(5.0),
+        "unit_size": Pt(5.0),
+        "legend_size": Pt(5.0),
+        "line_width": Pt(1.25),
         "gridline_width": Pt(0.5),
         "card_border_width": Pt(0.75),
         "inset_x": Inches(0.04),
@@ -81,12 +81,12 @@ GRID_TYPOGRAPHY = {
         "card_radius": 0.04,
     },
     9: {
-        "title_size": Pt(8.5),
-        "cat_axis_size": Pt(6.5),
-        "val_axis_size": Pt(6.5),
-        "unit_size": Pt(6.5),
-        "legend_size": Pt(7.0),
-        "line_width": Pt(1.75),
+        "title_size": Pt(7.5),
+        "cat_axis_size": Pt(5.5),
+        "val_axis_size": Pt(5.5),
+        "unit_size": Pt(5.5),
+        "legend_size": Pt(5.5),
+        "line_width": Pt(1.5),
         "gridline_width": Pt(0.5),
         "card_border_width": Pt(0.85),
         "inset_x": Inches(0.06),
@@ -94,12 +94,12 @@ GRID_TYPOGRAPHY = {
         "card_radius": 0.035,
     },
     6: {
-        "title_size": Pt(9.5),
-        "cat_axis_size": Pt(7.0),
-        "val_axis_size": Pt(7.0),
-        "unit_size": Pt(7.0),
-        "legend_size": Pt(7.5),
-        "line_width": Pt(2.0),
+        "title_size": Pt(8.5),
+        "cat_axis_size": Pt(6.0),
+        "val_axis_size": Pt(6.0),
+        "unit_size": Pt(6.0),
+        "legend_size": Pt(6.5),
+        "line_width": Pt(1.75),
         "gridline_width": Pt(0.65),
         "card_border_width": Pt(1.0),
         "inset_x": Inches(0.07),
@@ -107,12 +107,12 @@ GRID_TYPOGRAPHY = {
         "card_radius": 0.035,
     },
     4: {
-        "title_size": Pt(10.0),
-        "cat_axis_size": Pt(7.5),
-        "val_axis_size": Pt(7.5),
-        "unit_size": Pt(7.5),
-        "legend_size": Pt(8.0),
-        "line_width": Pt(2.25),
+        "title_size": Pt(9.0),
+        "cat_axis_size": Pt(6.5),
+        "val_axis_size": Pt(6.5),
+        "unit_size": Pt(6.5),
+        "legend_size": Pt(7.0),
+        "line_width": Pt(2.0),
         "gridline_width": Pt(0.75),
         "card_border_width": Pt(1.0),
         "inset_x": Inches(0.08),
@@ -120,12 +120,12 @@ GRID_TYPOGRAPHY = {
         "card_radius": 0.035,
     },
     2: {
-        "title_size": Pt(11.0),
-        "cat_axis_size": Pt(8.5),
-        "val_axis_size": Pt(8.5),
-        "unit_size": Pt(8.5),
-        "legend_size": Pt(8.5),
-        "line_width": Pt(2.5),
+        "title_size": Pt(10.0),
+        "cat_axis_size": Pt(7.5),
+        "val_axis_size": Pt(7.5),
+        "unit_size": Pt(7.5),
+        "legend_size": Pt(7.5),
+        "line_width": Pt(2.25),
         "gridline_width": Pt(0.75),
         "card_border_width": Pt(1.0),
         "inset_x": Inches(0.10),
@@ -133,12 +133,12 @@ GRID_TYPOGRAPHY = {
         "card_radius": 0.03,
     },
     1: {
-        "title_size": Pt(12.0),
-        "cat_axis_size": Pt(9.0),
-        "val_axis_size": Pt(9.0),
-        "unit_size": Pt(9.0),
-        "legend_size": Pt(9.0),
-        "line_width": Pt(2.75),
+        "title_size": Pt(11.0),
+        "cat_axis_size": Pt(8.0),
+        "val_axis_size": Pt(8.0),
+        "unit_size": Pt(8.0),
+        "legend_size": Pt(8.0),
+        "line_width": Pt(2.5),
         "gridline_width": Pt(0.75),
         "card_border_width": Pt(1.0),
         "inset_x": Inches(0.12),
@@ -423,9 +423,16 @@ def build_dashboard_pptx(payload: dict[str, Any], template_path: str | None = No
             categories = simplify_hourly_categories(raw_categories)
             series_list = chart_item.get("series") or []
             unit = chart_item.get("unit") or extract_unit_from_title(title)
+            left_axis_title = chart_item.get("left_axis_title") or unit
+            right_axis_title = chart_item.get("right_axis_title")
 
             if not categories and not series_list:
                 continue
+
+            # Determine whether this chart uses dual axis (left and right)
+            has_right_axis = any(str(s.get("axis", "")).upper() == "R" for s in series_list)
+            has_left_axis = any(str(s.get("axis", "L")).upper() != "R" for s in series_list)
+            is_dual_axis = has_right_axis and has_left_axis
 
             # 1. Add Card Container behind chart (Dashboard card elevation aesthetic)
             card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, top, width, height)
@@ -483,19 +490,17 @@ def build_dashboard_pptx(payload: dict[str, Any], template_path: str | None = No
                 ch.legend.font.size = typo["legend_size"]
                 ch.legend.font.color.rgb = RGBColor(0x33, 0x41, 0x55)
 
-            # 6. Value Axis (Y Axis) - clean horizontal gridlines & compact font size
+            # 6. Value Axis (Y Axis Left) - no gridlines (clean view), compact font size
             val_ax = ch.value_axis
-            val_ax.has_major_gridlines = True
-            val_ax.major_gridlines.format.line.color.rgb = RGBColor(0xE2, 0xE8, 0xF0)
-            val_ax.major_gridlines.format.line.width = typo["gridline_width"]
+            val_ax.has_major_gridlines = False
             val_ax.tick_labels.font.name = "Segoe UI"
             val_ax.tick_labels.font.size = typo["val_axis_size"]
             val_ax.tick_labels.font.color.rgb = RGBColor(0x64, 0x74, 0x8B)
 
-            # Only show Y axis title on spacious grids (<= 6 charts) to avoid clutter
-            if unit and per_slide <= 6:
+            # Left Y axis title on spacious grids (<= 6 charts) to avoid clutter
+            if left_axis_title and per_slide <= 6:
                 val_ax.has_title = True
-                val_ax.axis_title.text_frame.text = unit
+                val_ax.axis_title.text_frame.text = left_axis_title
                 p_unit = val_ax.axis_title.text_frame.paragraphs[0]
                 p_unit.font.name = "Segoe UI"
                 p_unit.font.size = typo["unit_size"]
@@ -518,7 +523,7 @@ def build_dashboard_pptx(payload: dict[str, Any], template_path: str | None = No
                 cat_ax._element.append(parse_xml(f'<c:tickLblSkip xmlns:c="{ns_c}" val="1"/>'))
                 cat_ax._element.append(parse_xml(f'<c:tickMarkSkip xmlns:c="{ns_c}" val="1"/>'))
 
-                # If lots of categories (> 15), slightly rotate labels (-45 deg or -90 deg) for readability
+                # If lots of categories (> 15), slightly rotate labels (-90 deg) for readability
                 if len(categories) > 15:
                     txPr = cat_ax._element.find("{http://schemas.openxmlformats.org/drawingml/2006/chart}txPr")
                     if txPr is not None:
@@ -528,19 +533,97 @@ def build_dashboard_pptx(payload: dict[str, Any], template_path: str | None = No
             except Exception:
                 pass
 
-            # 8. Series Line Styling: smooth curved line (tension 0.4), dashboard colors, scaled width
-            plot = ch.plots[0]
-            for s_idx, ser in enumerate(plot.series):
-                ser.smooth = True  # Smooth curved lines matching Chart.js tension 0.4
-                ser.format.line.width = typo["line_width"]
-                s_item = series_list[s_idx] if s_idx < len(series_list) else {}
-                color = resolve_series_color(
-                    ser.name,
-                    s_idx,
-                    s_item.get("color"),
-                    ui_config
-                )
-                ser.format.line.color.rgb = color
+            # 8. Dual Axis Transformation if series use Left and Right axes
+            if is_dual_axis:
+                try:
+                    ns_chart = "http://schemas.openxmlformats.org/drawingml/2006/chart"
+                    ns_main = "http://schemas.openxmlformats.org/drawingml/2006/main"
+
+                    chart_elem = ch._element.find(f"{{{ns_chart}}}chart")
+                    plotArea = chart_elem.find(f"{{{ns_chart}}}plotArea")
+                    lineChart1 = plotArea.find(f"{{{ns_chart}}}lineChart")
+                    catAx_elem = plotArea.find(f"{{{ns_chart}}}catAx")
+                    valAx1_elem = plotArea.find(f"{{{ns_chart}}}valAx")
+
+                    cat_ax_id = catAx_elem.find(f"{{{ns_chart}}}axId").attrib["val"]
+                    val_ax2_id = str(int(valAx1_elem.find(f"{{{ns_chart}}}axId").attrib["val"]) + 999)
+
+                    # Partition series between lineChart1 (Left) and lineChart2 (Right)
+                    all_ser_elems = lineChart1.findall(f"{{{ns_chart}}}ser")
+                    right_ser_elems = []
+                    for s_idx, ser_elem in enumerate(all_ser_elems):
+                        s_cfg = series_list[s_idx] if s_idx < len(series_list) else {}
+                        if str(s_cfg.get("axis", "")).upper() == "R":
+                            lineChart1.remove(ser_elem)
+                            right_ser_elems.append(ser_elem)
+
+                    if right_ser_elems:
+                        lineChart2 = parse_xml(
+                            f'<c:lineChart xmlns:c="{ns_chart}">'
+                            f'<c:grouping val="standard"/>'
+                            f'<c:varyColors val="0"/>'
+                            f'<c:axId val="{cat_ax_id}"/>'
+                            f'<c:axId val="{val_ax2_id}"/>'
+                            f'</c:lineChart>'
+                        )
+                        for r_elem in right_ser_elems:
+                            lineChart2.insert(2, r_elem)
+
+                        val_size_hundredths = int(typo["val_axis_size"].pt * 100)
+                        valAx2 = parse_xml(
+                            f'<c:valAx xmlns:c="{ns_chart}" xmlns:a="{ns_main}">'
+                            f'<c:axId val="{val_ax2_id}"/>'
+                            f'<c:scaling><c:orientation val="minMax"/></c:scaling>'
+                            f'<c:delete val="0"/>'
+                            f'<c:axPos val="r"/>'
+                            f'<c:majorTickMark val="out"/>'
+                            f'<c:minorTickMark val="none"/>'
+                            f'<c:tickLblPos val="nextTo"/>'
+                            f'<c:txPr>'
+                            f'<a:bodyPr/>'
+                            f'<a:lstStyle/>'
+                            f'<a:p><a:pPr><a:defRPr sz="{val_size_hundredths}">'
+                            f'<a:solidFill><a:srgbClr val="64748B"/></a:solidFill>'
+                            f'<a:latin typeface="Segoe UI"/>'
+                            f'</a:defRPr></a:pPr></a:p>'
+                            f'</c:txPr>'
+                            f'<c:crossAx val="{cat_ax_id}"/>'
+                            f'<c:crosses val="max"/>'
+                            f'</c:valAx>'
+                        )
+
+                        if right_axis_title and per_slide <= 6:
+                            unit_size_hundredths = int(typo["unit_size"].pt * 100)
+                            val_title_xml = (
+                                f'<c:title xmlns:c="{ns_chart}" xmlns:a="{ns_main}">'
+                                f'<c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:pPr>'
+                                f'<a:defRPr sz="{unit_size_hundredths}"><a:solidFill><a:srgbClr val="64748B"/></a:solidFill><a:latin typeface="Segoe UI"/></a:defRPr>'
+                                f'</a:pPr><a:r><a:rPr/><a:t>{right_axis_title}</a:t></a:r></a:p></c:rich></c:tx>'
+                                f'<c:layout/><c:overlay val="0"/>'
+                                f'</c:title>'
+                            )
+                            valAx2.append(parse_xml(val_title_xml))
+
+                        plotArea.insert(1, lineChart2)
+                        plotArea.append(valAx2)
+                except Exception:
+                    pass
+
+            # 9. Series Line Styling: smooth curved line (tension 0.4), dashboard colors, scaled width
+            ser_counter = 0
+            for plot in ch.plots:
+                for ser in plot.series:
+                    ser.smooth = True  # Smooth curved lines matching Chart.js tension 0.4
+                    ser.format.line.width = typo["line_width"]
+                    s_item = series_list[ser_counter] if ser_counter < len(series_list) else {}
+                    color = resolve_series_color(
+                        ser.name,
+                        ser_counter,
+                        s_item.get("color"),
+                        ui_config
+                    )
+                    ser.format.line.color.rgb = color
+                    ser_counter += 1
 
     out = io.BytesIO()
     prs.save(out)

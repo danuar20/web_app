@@ -2903,11 +2903,41 @@
                     var title = (cb.dataset && cb.dataset.title) ? cb.dataset.title : cb.value;
                     if (!chart || !chart.data) return;
 
+                    var isCustom = (currentPptxPrefix === 'customChart');
+                    var customCfg = isCustom && customChartsConfig ? customChartsConfig[parseInt(cb.value, 10)] : null;
+
+                    // If custom chart, try to augment title with unit if title has no parenthesized unit
+                    if (isCustom && customCfg && customCfg.series && customCfg.series.length > 0) {
+                        if (!/\([^)]+\)\s*$/.test(title)) {
+                            // Collect units from KPIs
+                            var detectedUnits = [];
+                            customCfg.series.forEach(function(s) {
+                                var kDef = (typeof ALL_KPIS !== 'undefined') ? ALL_KPIS.find(function(k) { return k[0] === s.kpi; }) : null;
+                                var u = (kDef && kDef[2]) ? String(kDef[2]).trim() : '';
+                                if (u && detectedUnits.indexOf(u) === -1) {
+                                    detectedUnits.push(u);
+                                }
+                            });
+                            if (detectedUnits.length > 0) {
+                                title = title + " (" + detectedUnits.join(" / ") + ")";
+                            }
+                        }
+                    }
+
                     var categories = (chart.data.labels || []).map(function(l) { return String(l); });
-                    var series = (chart.data.datasets || []).map(function(ds) {
+
+                    var series = (chart.data.datasets || []).map(function(ds, dsIdx) {
+                        var axis = 'L';
+                        if (ds.yAxisID === 'y-right' || ds.yAxisID === 'right') {
+                            axis = 'R';
+                        } else if (customCfg && customCfg.series && customCfg.series[dsIdx]) {
+                            axis = (customCfg.series[dsIdx].axis === 'R') ? 'R' : 'L';
+                        }
                         return {
                             name: ds.label || 'Value',
                             color: (typeof ds.borderColor === 'string') ? ds.borderColor : null,
+                            type: ds.type || 'line',
+                            axis: axis,
                             values: (ds.data || []).map(function(v) {
                                 if (v === null || v === undefined || isNaN(v)) return null;
                                 return Number(v);
@@ -2915,10 +2945,35 @@
                         };
                     });
 
+                    // Extract Left and Right Y-axis titles if present
+                    var leftAxisTitle = null;
+                    var rightAxisTitle = null;
+                    if (customCfg) {
+                        leftAxisTitle = customCfg.leftAxisName || null;
+                        rightAxisTitle = customCfg.rightAxisName || null;
+                    }
+                    if (chart.options && chart.options.scales) {
+                        var scales = chart.options.scales;
+                        if (!leftAxisTitle) {
+                            if (scales['y-left'] && scales['y-left'].title && scales['y-left'].title.display && scales['y-left'].title.text) {
+                                leftAxisTitle = String(scales['y-left'].title.text);
+                            } else if (scales.y && scales.y.title && scales.y.title.display && scales.y.title.text) {
+                                leftAxisTitle = String(scales.y.title.text);
+                            }
+                        }
+                        if (!rightAxisTitle) {
+                            if (scales['y-right'] && scales['y-right'].title && scales['y-right'].title.display && scales['y-right'].title.text) {
+                                rightAxisTitle = String(scales['y-right'].title.text);
+                            }
+                        }
+                    }
+
                     selectedCharts.push({
                         title: title,
                         categories: categories,
-                        series: series
+                        series: series,
+                        left_axis_title: leftAxisTitle,
+                        right_axis_title: rightAxisTitle
                     });
                 });
 
