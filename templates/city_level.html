@@ -128,7 +128,7 @@
 @keyframes skeleton-loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
 /* Inputs */
-.dropdown-container { position: relative; min-width: 220px; }
+.dropdown-container { position: relative; min-width: 140px; }
 .dropdown-toggle { 
     width: 100%; padding: 10px 14px; border: 1px solid rgba(79,172,254,0.2); 
     border-radius: 8px; cursor: pointer; text-align: left; display: flex; 
@@ -139,7 +139,7 @@
 .dropdown-menu { 
     position: absolute; top: calc(100% + 4px); left: 0; right: 0; 
     border: 1px solid rgba(79,172,254,0.15); border-radius: 8px; 
-    box-shadow: 0 12px 32px rgba(0,0,0,0.15); z-index: 1000; display: none; 
+    box-shadow: 0 12px 32px rgba(0,0,0,0.15); z-index: 1050; display: none; 
     flex-direction: column; background: #fff; max-height: 250px; overflow-y: auto;
 }
 [data-theme="dark"] .dropdown-menu { background: #1e1e2e; }
@@ -173,7 +173,7 @@
                     <button type="button" class="dropdown-toggle" onclick="toggleDropdown('tNsaDrop')">
                         <span id="tNsaLbl">All NSA</span> <i class="fas fa-chevron-down"></i>
                     </button>
-                        <div class="dropdown-menu" id="tNsaDrop">
+                    <div class="dropdown-menu" id="tNsaDrop">
                         <input type="text" class="dropdown-search" onkeyup="filterList(this, 'tNsaList')" placeholder="Search NSA...">
                         <label style="border-bottom:1px solid rgba(128,128,128,0.1); font-weight:bold;">
                             <input type="checkbox" onchange="toggleAll(this, 'tNsaList', 'tNsaLbl', 'NSA'); fetchCities('t');"> Select All
@@ -181,6 +181,26 @@
                         <div id="tNsaList">
                             {% for n in nsas_list %}
                             <label><input type="checkbox" value="{{ n }}" onchange="updateLbl('tNsaList', 'tNsaLbl', 'NSA'); fetchCities('t');"> <span>{{ n }}</span></label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tech multi-select -->
+            <div class="filter-group">
+                <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">Tech</div>
+                <div class="dropdown-container" style="min-width: 130px;">
+                    <button type="button" class="dropdown-toggle" onclick="toggleDropdown('tTechDrop')">
+                        <span id="tTechLbl">All Tech</span> <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="dropdown-menu" id="tTechDrop">
+                        <label style="border-bottom:1px solid rgba(128,128,128,0.1); font-weight:bold;">
+                            <input type="checkbox" onchange="toggleAll(this, 'tTechList', 'tTechLbl', 'Tech'); fetchCities('t');"> Select All
+                        </label>
+                        <div id="tTechList">
+                            {% for t in techs_list %}
+                            <label><input type="checkbox" value="{{ t }}" onchange="updateLbl('tTechList', 'tTechLbl', 'Tech'); fetchCities('t');"> <span>{{ t }}</span></label>
                             {% endfor %}
                         </div>
                     </div>
@@ -250,6 +270,26 @@
                         <div id="cNsaList">
                             {% for n in nsas_list %}
                             <label><input type="checkbox" value="{{ n }}" onchange="updateLbl('cNsaList', 'cNsaLbl', 'NSA'); fetchCities('c');"> <span>{{ n }}</span></label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tech multi-select -->
+            <div class="filter-group">
+                <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">Tech</div>
+                <div class="dropdown-container" style="min-width: 130px;">
+                    <button type="button" class="dropdown-toggle" onclick="toggleDropdown('cTechDrop')">
+                        <span id="cTechLbl">All Tech</span> <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="dropdown-menu" id="cTechDrop">
+                        <label style="border-bottom:1px solid rgba(128,128,128,0.1); font-weight:bold;">
+                            <input type="checkbox" onchange="toggleAll(this, 'cTechList', 'cTechLbl', 'Tech'); fetchCities('c');"> Select All
+                        </label>
+                        <div id="cTechList">
+                            {% for t in techs_list %}
+                            <label><input type="checkbox" value="{{ t }}" onchange="updateLbl('cTechList', 'cTechLbl', 'Tech'); fetchCities('c');"> <span>{{ t }}</span></label>
                             {% endfor %}
                         </div>
                     </div>
@@ -503,6 +543,7 @@ function fetchCities(prefix) {
     fetchCitiesTimeout = setTimeout(async () => {
         let url = `/api/productivity/cities?`;
         document.querySelectorAll(`#${prefix}NsaList input:checked`).forEach(cb => url += `&nsa=${encodeURIComponent(cb.value)}`);
+        document.querySelectorAll(`#${prefix}TechList input:checked`).forEach(cb => url += `&tech=${encodeURIComponent(cb.value)}`);
         
         try {
             const res = await fetch(url);
@@ -512,7 +553,9 @@ function fetchCities(prefix) {
                 const list = document.getElementById(`${prefix}CityList`);
                 let html = '';
                 data.cities.forEach(c => {
-                    html += `<label><input type="checkbox" name="${prefix}_city" value="${c}" onchange="updateLbl('${prefix}CityList', '${prefix}CityLbl', 'City')"> <span>${c}</span></label>`;
+                    if (c && String(c).trim()) {
+                        html += `<label><input type="checkbox" name="${prefix}_city" value="${c}" onchange="updateLbl('${prefix}CityList', '${prefix}CityLbl', 'City')"> <span>${c}</span></label>`;
+                    }
                 });
                 list.innerHTML = html;
                 updateLbl(`${prefix}CityList`, `${prefix}CityLbl`, 'City');
@@ -580,6 +623,7 @@ async function loadDataTrend() {
     
     let url = `/api/productivity/city?mode=trend&from_date=${fDate}&to_date=${tDate}`;
     document.querySelectorAll('#tNsaList input:checked').forEach(cb => url += `&nsa=${encodeURIComponent(cb.value)}`);
+    document.querySelectorAll('#tTechList input:checked').forEach(cb => url += `&tech=${encodeURIComponent(cb.value)}`);
     document.querySelectorAll('#tCityList input:checked').forEach(cb => url += `&city=${encodeURIComponent(cb.value)}`);
 
     try {
@@ -636,6 +680,7 @@ async function loadDataCompare() {
     
     let url = `/api/productivity/city?mode=compare&yw_before=${wb}&yw_after=${wa}`;
     document.querySelectorAll('#cNsaList input:checked').forEach(cb => url += `&nsa=${encodeURIComponent(cb.value)}`);
+    document.querySelectorAll('#cTechList input:checked').forEach(cb => url += `&tech=${encodeURIComponent(cb.value)}`);
     document.querySelectorAll('#cCityList input:checked').forEach(cb => url += `&city=${encodeURIComponent(cb.value)}`);
 
     try {

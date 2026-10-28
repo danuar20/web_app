@@ -875,9 +875,10 @@
                     <div class="filter-group" style="width: 100%;">
                         <div class="filter-label" id="siteFilterLabel"
                             style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
-                            <span id="filterTitleLabel">{% if filter_type == 'city' %}CITIES{% elif filter_type == 'site_cell' %}SITE-CELLS{% else %}SITES{% endif %}</span>
+                            <span id="filterTitleLabel">{% if filter_type == 'city' %}CITIES{% elif filter_type == 'site_sec' %}SITE-SECS{% elif filter_type == 'site_cell' %}SITE-CELLS{% else %}SITES{% endif %}</span>
                             <div style="display: flex; gap: 8px; font-weight: 600; font-size: 10px; text-transform: none;">
                                 <label style="cursor:pointer;"><input type="radio" name="filter_type" value="siteid" {% if filter_type == 'siteid' or not filter_type %}checked{% endif %} onchange="onFilterTypeChange(this.value)"> Site ID</label>
+                                <label style="cursor:pointer;"><input type="radio" name="filter_type" value="site_sec" {% if filter_type == 'site_sec' %}checked{% endif %} onchange="onFilterTypeChange(this.value)"> Site-Sec</label>
                                 <label style="cursor:pointer;"><input type="radio" name="filter_type" value="site_cell" {% if filter_type == 'site_cell' %}checked{% endif %} onchange="onFilterTypeChange(this.value)"> Site-Cell</label>
                                 <label style="cursor:pointer;"><input type="radio" name="filter_type" value="city" {% if filter_type == 'city' %}checked{% endif %} onchange="onFilterTypeChange(this.value)"> City</label>
                             </div>
@@ -885,12 +886,12 @@
                         <div class="dropdown-container" id="siteDropdownContainer" style="position: relative;">
                             <button type="button" class="dropdown-toggle" onclick="toggleSiteDropdown(event)"
                                 style="width: 100%; height: 36px; justify-content: space-between; padding: 0 12px; border-radius: 8px; font-size: 12px;">
-                                <span id="siteBtnText" style="font-weight: 600;">Select {% if filter_type == 'city' %}Cities{% elif filter_type == 'site_cell' %}Cells{% else %}Sites{% endif %} ({{ sel_sites|length if
+                                <span id="siteBtnText" style="font-weight: 600;">Select {% if filter_type == 'city' %}Cities{% elif filter_type == 'site_sec' %}Sectors{% elif filter_type == 'site_cell' %}Cells{% else %}Sites{% endif %} ({{ sel_sites|length if
                                     sel_sites else 0 }})</span> <i class="fas fa-chevron-down"></i>
                             </button>
                             <div class="dropdown-menu" id="siteDropdown"
                                 style="display: none; z-index: 1000; position: absolute; width: 100%; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
-                                <input type="text" id="siteSearch" placeholder="Search {% if filter_type == 'city' %}cities{% elif filter_type == 'site_cell' %}cells{% else %}sites{% endif %}..." onkeyup="filterSites()"
+                                <input type="text" id="siteSearch" placeholder="Search {% if filter_type == 'city' %}cities{% elif filter_type == 'site_sec' %}sectors{% elif filter_type == 'site_cell' %}cells{% else %}sites{% endif %}..." onkeyup="filterSites()"
                                     style="width: calc(100% - 16px); padding: 6px; margin: 8px; border: 1px solid rgba(128,128,128,0.2); border-radius: 4px; font-size: 12px;">
                                 <label class="checkbox-label"
                                     style="border-bottom: 1px solid rgba(128,128,128,0.1); padding: 6px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;">
@@ -908,7 +909,7 @@
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                             <div class="filter-label" id="importLabel"
                                 style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">
-                                Or import {% if filter_type == 'city' %}cities{% elif filter_type == 'site_cell' %}cells{% else %}sites{% endif %} from CSV</div>
+                                Or import {% if filter_type == 'city' %}cities{% elif filter_type == 'site_sec' %}sectors{% elif filter_type == 'site_cell' %}cells{% else %}sites{% endif %} from CSV</div>
                             <span id="sitePasteCount" style="font-size: 10px; color: #4facfe; font-weight: 600;"></span>
                         </div>
                         <input type="hidden" name="cluster_mapping" id="clusterMappingHidden" value="{{ cluster_mapping_json if cluster_mapping_json else '' }}">
@@ -932,7 +933,7 @@
                             <span id="clusterStatusText">{% if is_cluster_mode %}Cluster grouping active: {{ cluster_list|join(', ') }} ({{ cluster_list|length }} clusters){% endif %}</span>
                             <i class="fas fa-times" style="cursor: pointer; margin-left: auto; opacity: 0.7;" onclick="clearClusterMapping()" title="Clear cluster grouping"></i>
                         </div>
-                        <textarea id="sitePasteArea" name="site_paste" class="f-input" placeholder="Paste {% if filter_type == 'city' %}city names{% elif filter_type == 'site_cell' %}cell{% else %}site{% endif %} IDs here
+                        <textarea id="sitePasteArea" name="site_paste" class="f-input" placeholder="Paste {% if filter_type == 'city' %}city names{% elif filter_type == 'site_sec' %}sector{% elif filter_type == 'site_cell' %}cell{% else %}site{% endif %} IDs here
 (one per line or comma-separated)" rows="3"
                             style="width: 100%; resize:vertical; font-size:11px; margin-top:8px; box-sizing: border-box; border-radius: 6px;"
                             oninput="handleInlinePasteAndSelect(this.value)">{{ site_paste if site_paste else '' }}</textarea>
@@ -1254,7 +1255,7 @@
         <!-- Site/City/Cluster Level Comparison -->
         <div class="card" style="margin-top: 16px;">
             <div class="chart-box-header">
-                <div class="card-title" id="siteTableTitle">{% if is_cluster_mode %}Cluster{% elif filter_type == 'city' %}City{% elif filter_type == 'site_cell' %}Site-cell{% else %}Site{% endif %} Level Comparison</div>
+                <div class="card-title" id="siteTableTitle">{% if is_cluster_mode %}Cluster{% elif filter_type == 'city' %}City{% elif filter_type == 'site_sec' %}Site-Sec{% elif filter_type == 'site_cell' %}Site-cell{% else %}Site{% endif %} Level Comparison</div>
                 <button class="btn-apply" onclick="downloadCSV('siteTable')"><i class="fas fa-download"></i>
                     CSV</button>
             </div>
@@ -1263,7 +1264,7 @@
                     <table class="site-table" id="siteTable">
                         <thead>
                             <tr>
-                                <th class="entity-col" rowspan="2" style="background:#1e3a5f;" id="siteTableEntityHeader">{% if is_cluster_mode %}Cluster{% elif filter_type == 'city' %}City{% elif filter_type == 'site_cell' %}Site-Cell{% else %}Site ID{% endif %}</th>
+                                <th class="entity-col" rowspan="2" style="background:#1e3a5f;" id="siteTableEntityHeader">{% if is_cluster_mode %}Cluster{% elif filter_type == 'city' %}City{% elif filter_type == 'site_sec' %}Site-Sec{% elif filter_type == 'site_cell' %}Site-Cell{% else %}Site ID{% endif %}</th>
                                 {% for kpi in kpi_defs %}
                                 <th colspan="4" class="text-center">{{ kpi[1] }}</th>
                                 {% endfor %}
@@ -1601,7 +1602,7 @@
                     <table class="site-table" id="sectorTable">
                         <thead>
                             <tr>
-                                <th rowspan="2" class="entity-col">{% if is_cluster_mode %}Cluster_Sector{% elif filter_type == 'site_cell' %}Cell_Sector{% elif filter_type == 'city' %}City_Sector{% else %}Site_Sector{% endif %}</th>
+                                <th rowspan="2" class="entity-col">{% if is_cluster_mode %}Cluster_Sector{% elif filter_type == 'site_sec' %}Site_Sector{% elif filter_type == 'site_cell' %}Cell_Sector{% elif filter_type == 'city' %}City_Sector{% else %}Site_Sector{% endif %}</th>
                                 {% for kpi in kpi_defs %}
                                 <th colspan="4" class="text-center">{{ kpi[1] }}</th>
                                 {% endfor %}
@@ -2741,7 +2742,7 @@
             }
 
             var filterNode = document.querySelector('input[name="filter_type"]:checked');
-            var filterLabels = { siteid: "Site ID", site_cell: "Site-Cell", city: "City" };
+            var filterLabels = { siteid: "Site ID", site_sec: "Site-Sec", site_cell: "Site-Cell", city: "City" };
             var filterLabel = filterNode ? (filterLabels[filterNode.value] || filterNode.value) : "";
             var siteText = document.getElementById("sitePasteArea")?.value.trim() || "";
             var siteList = siteText ? siteText.split(/[\s,]+/).filter(Boolean) : [];
@@ -4087,6 +4088,7 @@
         const ftype = filterTypeNode ? filterTypeNode.value : 'siteid';
         let typeStr = 'Sites';
         if (ftype === 'city') typeStr = 'Cities';
+        else if (ftype === 'site_sec') typeStr = 'Sectors';
         else if (ftype === 'site_cell') typeStr = 'Cells';
         const btnText = document.getElementById('siteBtnText');
         if (btnText) {
@@ -4138,6 +4140,9 @@
         if (ftype === 'city') {
             csvContent = "City,Cluster\r\nAMBON,MALUKU\r\nAGATS,PAPUA\r\nTUAL,MALUKU\r\n";
             filename = "template_city_cluster.csv";
+        } else if (ftype === 'site_sec') {
+            csvContent = "Site-Sec,Cluster\r\nAMB004-1,AMBON\r\nAMB004-2,AMBON\r\nAMB004-3,AMBON\r\nAGA002-1,AGATS\r\nAGA002-2,AGATS\r\n";
+            filename = "template_site_sec_cluster.csv";
         } else if (ftype === 'site_cell') {
             csvContent = "Site-Cell,Cluster\r\nAMB004-11,AMBON\r\nAMB004-12,AMBON\r\nAMB004-13,AMBON\r\nAGA002-11,AGATS\r\nAGA002-13,AGATS\r\n";
             filename = "template_site_cell_cluster.csv";
@@ -4184,6 +4189,7 @@
         const filterTypeNode = document.querySelector('input[name="filter_type"]:checked');
         const ftype = filterTypeNode ? filterTypeNode.value : 'siteid';
         const isCell = (ftype === 'site_cell');
+        const isSec = (ftype === 'site_sec');
         const isCity = (ftype === 'city');
 
         // Strictly split by newlines and commas
@@ -4205,7 +4211,7 @@
         let matchedCount = 0;
         tokens.forEach(tok => {
             let candidate = tok;
-            if (!isCell && !isCity && candidate.includes('-')) {
+            if (!isCell && !isSec && !isCity && candidate.includes('-')) {
                 candidate = candidate.split('-')[0].trim();
             }
             const upperCand = candidate.toUpperCase();
@@ -4261,6 +4267,7 @@
         const filterTypeNode = document.querySelector('input[name="filter_type"]:checked');
         const ftype = filterTypeNode ? filterTypeNode.value : 'siteid';
         const isCell = (ftype === 'site_cell');
+        const isSec = (ftype === 'site_sec');
         const isCity = (ftype === 'city');
 
         const rawLines = String(csvText).split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
@@ -4281,7 +4288,7 @@
         if (firstLineParts.length >= 2) {
             const h0 = firstLineParts[0].toLowerCase();
             const h1 = firstLineParts[1].toLowerCase();
-            if ((h0.includes('site') || h0.includes('cell') || h0.includes('city')) && (h1.includes('clust') || h1.includes('group'))) {
+            if ((h0.includes('site') || h0.includes('cell') || h0.includes('sec') || h0.includes('city')) && (h1.includes('clust') || h1.includes('group'))) {
                 startIdx = 1;
                 hasClusterColumn = true;
             }
@@ -4318,7 +4325,7 @@
 
         parsedEntities.forEach(item => {
             let candidate = item;
-            if (!isCell && !isCity && candidate.includes('-')) {
+            if (!isCell && !isSec && !isCity && candidate.includes('-')) {
                 candidate = candidate.split('-')[0].trim();
             }
 
@@ -4786,7 +4793,11 @@
         let labelStr = "SITES";
         let singularStr = "site";
         let pluralStr = "Sites";
-        if (type === "site_cell") {
+        if (type === "site_sec") {
+            labelStr = "SITE-SECS";
+            singularStr = "sector";
+            pluralStr = "Sectors";
+        } else if (type === "site_cell") {
             labelStr = "SITE-CELLS";
             singularStr = "cell";
             pluralStr = "Cells";

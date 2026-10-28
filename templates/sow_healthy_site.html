@@ -1,0 +1,1433 @@
+{% extends "base.html" %}
+
+{% block nav_sow %}active sub-open{% endblock %}
+{% block subSow_open %}open{% endblock %}
+{% block nav_sow_healthy_site %}active{% endblock %}
+
+{% block page_title %}OKR Healthy Site{% endblock %}
+{% block page_sub %}Multi-Domain Network Health Check Summary — AREA 4 (PUMA){% endblock %}
+
+{% block topbar_chips %}
+<div class="info-chip" title="Active Evaluation Week">
+    <i class="fas fa-calendar-check" style="color:#10b981;"></i> Week: <span id="topbarWeekChip">{{ latest_week }}</span>
+</div>
+<div class="info-chip" title="Covered OKR Pillars">
+    <i class="fas fa-layer-group" style="color:#38bdf8;"></i> Pillars: CEI &bull; RHI &bull; RCI &bull; UNBALANCE P1
+</div>
+{% endblock %}
+
+{% block page_content %}
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+
+<style>
+    :root, [data-theme="light"] {
+        --hs-bg: #f8fafc;
+        --hs-card-bg: #ffffff;
+        --hs-border: #cbd5e1;
+        --hs-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        --hs-text-main: #0f172a;
+        --hs-text-muted: #64748b;
+        --hs-accent: #0284c7;
+        --hs-primary: #0F3B66;
+        --hs-danger-header: #b91c1c;
+        --hs-danger-dark: #991b1b;
+        --hs-badge-ok-bg: #dcfce7;
+        --hs-badge-ok-text: #166534;
+        --hs-badge-fail-bg: #fee2e2;
+        --hs-badge-fail-text: #991b1b;
+        --hs-tab-active-bg: #38bdf8;
+        --hs-tab-active-text: #082f49;
+    }
+
+    [data-theme="dark"] {
+        --hs-bg: #0b1329;
+        --hs-card-bg: #1e293b;
+        --hs-border: #334155;
+        --hs-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        --hs-text-main: #f8fafc;
+        --hs-text-muted: #94a3b8;
+        --hs-accent: #38bdf8;
+        --hs-primary: #0284c7;
+        --hs-danger-header: #991b1b;
+        --hs-danger-dark: #7f1d1d;
+        --hs-badge-ok-bg: #064e3b;
+        --hs-badge-ok-text: #a7f3d0;
+        --hs-badge-fail-bg: #7f1d1d;
+        --hs-badge-fail-text: #fecaca;
+        --hs-tab-active-bg: #0284c7;
+        --hs-tab-active-text: #ffffff;
+    }
+
+    .hs-wrapper {
+        padding: 16px 20px 48px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        color: var(--hs-text-main);
+        font-family: inherit;
+    }
+
+    /* ── Top Executive Banner ── */
+    .hs-exec-banner {
+        background: linear-gradient(135deg, #0F3B66 0%, #1e40af 50%, #0369a1 100%);
+        color: #ffffff;
+        border-radius: 12px;
+        padding: 18px 24px;
+        box-shadow: 0 4px 16px rgba(15, 59, 102, 0.25);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+    }
+    .hs-banner-title {
+        font-size: 19px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .hs-banner-subtitle {
+        font-size: 13px;
+        color: #bfdbfe;
+        margin-top: 4px;
+    }
+
+    /* ── Filter Bar ── */
+    .hs-filter-card {
+        background: var(--hs-card-bg);
+        border: 1px solid var(--hs-border);
+        border-radius: 10px;
+        padding: 14px 18px;
+        box-shadow: var(--hs-shadow);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 14px;
+    }
+    .hs-filter-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .hs-filter-label {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: var(--hs-text-muted);
+        letter-spacing: 0.5px;
+    }
+    .hs-filter-select, .hs-search-input {
+        background: var(--hs-bg);
+        color: var(--hs-text-main);
+        border: 1px solid var(--hs-border);
+        border-radius: 6px;
+        padding: 7px 12px;
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.15s ease;
+    }
+    .hs-filter-select:focus, .hs-search-input:focus {
+        border-color: var(--hs-accent);
+    }
+    .hs-search-input {
+        min-width: 220px;
+    }
+    .hs-btn {
+        padding: 7px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.15s ease;
+    }
+    .hs-btn-primary {
+        background: var(--hs-accent);
+        color: #ffffff;
+    }
+    .hs-btn-primary:hover {
+        opacity: 0.9;
+    }
+    .hs-btn-secondary {
+        background: var(--hs-card-bg);
+        border: 1px solid var(--hs-border);
+        color: var(--hs-text-main);
+    }
+    .hs-btn-secondary:hover {
+        background: var(--hs-bg);
+    }
+
+    /* ── Metric Summary Cards Grid (Compact 7 in 1 row) ── */
+    .hs-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 8px;
+    }
+    @media (max-width: 1200px) {
+        .hs-cards-grid {
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        }
+    }
+    .hs-card {
+        background: var(--hs-card-bg);
+        border: 1px solid var(--hs-border);
+        border-radius: 8px;
+        padding: 9px 11px;
+        box-shadow: var(--hs-shadow);
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        position: relative;
+        overflow: hidden;
+        min-width: 0;
+    }
+    .hs-card-border-top {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+    }
+    .hs-card-header {
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--hs-text-muted);
+        letter-spacing: 0.2px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        white-space: nowrap;
+        gap: 4px;
+    }
+    .hs-card-header span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .hs-card-val {
+        font-size: 19px;
+        font-weight: 800;
+        color: var(--hs-text-main);
+        line-height: 1.1;
+        white-space: nowrap;
+    }
+    .hs-card-sub {
+        font-size: 10px;
+        color: var(--hs-text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* ── Visual Charts Grid ── */
+    .hs-charts-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        width: 100%;
+    }
+    @media (max-width: 1400px) {
+        .hs-charts-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .hs-charts-grid > .hs-chart-box:nth-child(3) {
+            grid-column: span 2;
+        }
+    }
+    @media (max-width: 860px) {
+        .hs-charts-grid {
+            grid-template-columns: 1fr !important;
+        }
+        .hs-charts-grid > .hs-chart-box:nth-child(3) {
+            grid-column: span 1 !important;
+        }
+    }
+    .hs-chart-box {
+        background: var(--hs-card-bg);
+        border: 1px solid var(--hs-border);
+        border-radius: 10px;
+        padding: 14px 16px;
+        box-shadow: var(--hs-shadow);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+        width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+    .hs-chart-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--hs-text-main);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .hs-chart-canvas {
+        width: 100%;
+        height: 270px;
+        min-height: 270px;
+    }
+
+    /* ── Level View Controls matching the user's reference screenshot ── */
+    .hs-view-nav-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        background: var(--hs-card-bg);
+        border: 1px solid var(--hs-border);
+        border-radius: 8px 8px 0 0;
+        padding: 10px 16px;
+        border-bottom: none;
+    }
+    .hs-view-tabs {
+        display: flex;
+        gap: 4px;
+        background: var(--hs-bg);
+        padding: 4px;
+        border-radius: 6px;
+        border: 1px solid var(--hs-border);
+    }
+    .hs-view-tab {
+        padding: 6px 18px;
+        font-size: 13px;
+        font-weight: 700;
+        border-radius: 4px;
+        cursor: pointer;
+        border: none;
+        background: transparent;
+        color: var(--hs-text-muted);
+        transition: all 0.15s ease;
+    }
+    .hs-view-tab.active {
+        background: var(--hs-tab-active-bg);
+        color: var(--hs-tab-active-text);
+        box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .hs-table-hint {
+        font-size: 12px;
+        color: var(--hs-text-muted);
+    }
+
+    .hs-table-search-wrap {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+    }
+    .hs-table-search-wrap i.fa-search {
+        position: absolute;
+        left: 10px;
+        font-size: 12px;
+        color: var(--hs-text-muted);
+        pointer-events: none;
+    }
+    .hs-table-search-input {
+        background: var(--hs-bg);
+        color: var(--hs-text-main);
+        border: 1px solid var(--hs-border);
+        border-radius: 6px;
+        padding: 6px 28px 6px 30px;
+        font-size: 13px;
+        outline: none;
+        width: 250px;
+        transition: all 0.15s ease;
+    }
+    .hs-table-search-input:focus {
+        border-color: var(--hs-accent);
+        box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+    }
+    .hs-clear-search {
+        position: absolute;
+        right: 8px;
+        background: transparent;
+        border: none;
+        color: var(--hs-text-muted);
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
+        padding: 0 4px;
+    }
+    .hs-clear-search:hover {
+        color: var(--hs-text-main);
+    }
+
+    /* ── Table Container & Red Header Styling (Exact Picture Match) ── */
+    .hs-table-card {
+        background: var(--hs-card-bg);
+        border: 1px solid var(--hs-border);
+        border-radius: 0 0 10px 10px;
+        box-shadow: var(--hs-shadow);
+        overflow: hidden;
+    }
+    .hs-table-responsive {
+        width: 100%;
+        max-height: 540px;
+        overflow-y: auto;
+        overflow-x: auto;
+    }
+    .hs-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        text-align: center;
+    }
+    /* Red header matching user's reference image */
+    .hs-table thead th {
+        background: var(--hs-danger-header);
+        color: #ffffff;
+        font-weight: 700;
+        padding: 11px 12px;
+        border: 1px solid #7f1d1d;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        letter-spacing: 0.3px;
+        white-space: nowrap;
+    }
+    .hs-table tbody tr {
+        border-bottom: 1px solid var(--hs-border);
+        transition: background-color 0.1s ease;
+    }
+    .hs-table tbody tr:hover {
+        background: rgba(2, 132, 199, 0.05);
+    }
+    .hs-table tbody td {
+        padding: 8px 12px;
+        border: 1px solid var(--hs-border);
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+    .hs-entity-cell {
+        font-weight: 700;
+        text-align: left !important;
+        color: var(--hs-text-main);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .hs-entity-link {
+        cursor: pointer;
+        color: var(--hs-accent);
+        text-decoration: none;
+    }
+    .hs-entity-link:hover {
+        text-decoration: underline;
+    }
+
+    /* Binary 0 and 1 indicators */
+    .hs-val-zero {
+        display: inline-block;
+        min-width: 28px;
+        padding: 2px 8px;
+        font-weight: 600;
+        color: #64748b;
+        background: rgba(100, 116, 139, 0.08);
+        border-radius: 4px;
+    }
+    .hs-val-one {
+        display: inline-block;
+        min-width: 28px;
+        padding: 2px 8px;
+        font-weight: 800;
+        color: #dc2626;
+        background: #fee2e2;
+        border: 1px solid #fca5a5;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(220, 38, 38, 0.15);
+    }
+    [data-theme="dark"] .hs-val-one {
+        background: #7f1d1d;
+        color: #fecaca;
+        border-color: #991b1b;
+    }
+
+    /* Remark & Status Badges */
+    .hs-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        font-size: 11.5px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+    }
+    .hs-badge-healthy {
+        background: var(--hs-badge-ok-bg);
+        color: var(--hs-badge-ok-text);
+        border: 1px solid rgba(22, 101, 52, 0.2);
+    }
+    .hs-badge-issue {
+        background: var(--hs-badge-fail-bg);
+        color: var(--hs-badge-fail-text);
+        border: 1px solid rgba(153, 27, 27, 0.2);
+    }
+
+    /* ── Table Footer & Pagination ── */
+    .hs-table-footer {
+        padding: 10px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+        font-size: 12.5px;
+        color: var(--hs-text-muted);
+        border-top: 1px solid var(--hs-border);
+        background: var(--hs-bg);
+    }
+    .hs-pagination {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+    }
+    .hs-page-btn {
+        padding: 4px 10px;
+        border: 1px solid var(--hs-border);
+        background: var(--hs-card-bg);
+        color: var(--hs-text-main);
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+    }
+    .hs-page-btn.active {
+        background: var(--hs-accent);
+        color: #ffffff;
+        border-color: var(--hs-accent);
+    }
+    .hs-page-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    /* ── Dual View Section Divider ── */
+    .hs-dual-section-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--hs-card-bg);
+        border: 1px solid var(--hs-border);
+        border-radius: 8px 8px 0 0;
+        padding: 10px 16px;
+        font-weight: 700;
+        font-size: 14px;
+        color: var(--hs-text-main);
+        border-bottom: none;
+    }
+
+    .hs-spinner-wrap {
+        padding: 40px;
+        text-align: center;
+        color: var(--hs-text-muted);
+        font-size: 14px;
+    }
+</style>
+
+<div class="hs-wrapper">
+
+    <!-- Top Executive Header Banner -->
+    <div class="hs-exec-banner">
+        <div>
+            <div class="hs-banner-title">
+                <i class="fas fa-heartbeat" style="color: #38bdf8;"></i>
+                OKR Multi-Domain Healthy Site Dashboard
+            </div>
+            <div class="hs-banner-subtitle">
+                Correlated Health Check for Regional Papua Maluku (PUMA) &bull; CEI, RHI, RCI &amp; UNBALANCE P1
+            </div>
+        </div>
+        <div style="display:flex; gap: 10px; align-items:center;">
+            <button class="hs-btn hs-btn-secondary" onclick="exportData('site')" title="Export Site Level Data (CSV)">
+                <i class="fas fa-file-csv" style="color:#0284c7;"></i> Site CSV
+            </button>
+            <button class="hs-btn hs-btn-secondary" onclick="exportData('sector')" title="Export Sector Level Data (CSV)">
+                <i class="fas fa-file-csv" style="color:#10b981;"></i> Sector CSV
+            </button>
+            <button class="hs-btn hs-btn-primary" onclick="forceReload()" title="Force Refresh Server Cache">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Filter & Control Toolbar -->
+    <div class="hs-filter-card">
+        <div class="hs-filter-group">
+            <span class="hs-filter-label"><i class="fas fa-calendar-alt"></i> Week:</span>
+            <select class="hs-filter-select" id="selectWeek" onchange="loadHealthData()">
+                {% for w in weeks %}
+                <option value="{{ w }}" {% if w == default_week %}selected{% endif %}>{{ w }} (W{{ (w|string)[4:] }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="hs-filter-group">
+            <span class="hs-filter-label"><i class="fas fa-map-marker-alt"></i> Kabupaten:</span>
+            <select class="hs-filter-select" id="selectKabupaten" onchange="applyFilters()">
+                <option value="ALL">ALL KABUPATEN (PUMA)</option>
+            </select>
+        </div>
+
+        <div class="hs-filter-group">
+            <span class="hs-filter-label"><i class="fas fa-filter"></i> Health Status:</span>
+            <select class="hs-filter-select" id="selectStatusFilter" onchange="applyFilters()">
+                <option value="ALL">All Sites &amp; Sectors</option>
+                <option value="HEALTHY">100% Healthy (All 0)</option>
+                <option value="ISSUE">Any Issue Detected (&ge; 1)</option>
+                <option value="CEI">Has CEI Issue (Bad Cell = 1)</option>
+                <option value="RHI">Has RHI Issue (Fail Cell = 1)</option>
+                <option value="RCI">Has RCI Optim Issue (= 1)</option>
+                <option value="UNBALANCE">Has Unbalance P1 Issue (= 1)</option>
+                <option value="MULTI">Critical Multi-Issue (&ge; 2)</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Executive Health Scorecards Strip -->
+    <div class="hs-cards-grid">
+        <!-- 1. Total Sites -->
+        <div class="hs-card">
+            <div class="hs-card-border-top" style="background:#0284c7;"></div>
+            <div class="hs-card-header">
+                <span>Total Sites</span>
+                <i class="fas fa-broadcast-tower" style="color:#0284c7;"></i>
+            </div>
+            <div class="hs-card-val" id="statTotalSites">—</div>
+            <div class="hs-card-sub" id="statTotalSectors">— sectors evaluated</div>
+        </div>
+
+        <!-- 2. 100% Healthy Sites -->
+        <div class="hs-card">
+            <div class="hs-card-border-top" style="background:#10b981;"></div>
+            <div class="hs-card-header">
+                <span>100% Healthy Sites</span>
+                <i class="fas fa-check-circle" style="color:#10b981;"></i>
+            </div>
+            <div class="hs-card-val" style="color:#10b981;" id="statHealthySites">—</div>
+            <div class="hs-card-sub" id="statHealthyPct">—% of regional sites</div>
+        </div>
+
+        <!-- 3. Degraded / Issue Sites -->
+        <div class="hs-card">
+            <div class="hs-card-border-top" style="background:#ef4444;"></div>
+            <div class="hs-card-header">
+                <span>Sites With Issue</span>
+                <i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i>
+            </div>
+            <div class="hs-card-val" style="color:#ef4444;" id="statIssueSites">—</div>
+            <div class="hs-card-sub" id="statIssuePct">—% require attention</div>
+        </div>
+
+        <!-- 4. CEI Bad Sites -->
+        <div class="hs-card">
+            <div class="hs-card-border-top" style="background:#0ea5e9;"></div>
+            <div class="hs-card-header">
+                <span>CEI Issues</span>
+                <i class="fas fa-mobile-alt" style="color:#0ea5e9;"></i>
+            </div>
+            <div class="hs-card-val" id="statCeiSites">—</div>
+            <div class="hs-card-sub" id="statCeiSec">— sectors breached</div>
+        </div>
+
+        <!-- 5. RHI Fail Sites -->
+        <div class="hs-card">
+            <div class="hs-card-border-top" style="background:#8b5cf6;"></div>
+            <div class="hs-card-header">
+                <span>RHI Issues</span>
+                <i class="fas fa-heartbeat" style="color:#8b5cf6;"></i>
+            </div>
+            <div class="hs-card-val" id="statRhiSites">—</div>
+            <div class="hs-card-sub" id="statRhiSec">— sectors breached</div>
+        </div>
+
+        <!-- 6. RCI Optim Sites -->
+        <div class="hs-card">
+            <div class="hs-card-border-top" style="background:#f59e0b;"></div>
+            <div class="hs-card-header">
+                <span>RCI Optim</span>
+                <i class="fas fa-chart-line" style="color:#f59e0b;"></i>
+            </div>
+            <div class="hs-card-val" id="statRciSites">—</div>
+            <div class="hs-card-sub" id="statRciSec">— sectors breached</div>
+        </div>
+
+        <!-- 7. Unbalance P1 Sites -->
+        <div class="hs-card">
+            <div class="hs-card-border-top" style="background:#ec4899;"></div>
+            <div class="hs-card-header">
+                <span>Unbalance P1</span>
+                <i class="fas fa-balance-scale" style="color:#ec4899;"></i>
+            </div>
+            <div class="hs-card-val" id="statUnbSites">—</div>
+            <div class="hs-card-sub" id="statUnbSec">— sectors breached</div>
+        </div>
+    </div>
+
+    <!-- Visualizations Section -->
+    <div class="hs-charts-grid">
+        <!-- Chart 1: Site Health Distribution -->
+        <div class="hs-chart-box">
+            <div class="hs-chart-title">
+                <i class="fas fa-chart-pie" style="color:#0284c7;"></i>
+                Site Health Distribution (Issue Severity)
+            </div>
+            <div class="hs-chart-canvas" id="chartHealthDonut"></div>
+        </div>
+
+        <!-- Chart 2: Issues by OKR Domain -->
+        <div class="hs-chart-box">
+            <div class="hs-chart-title">
+                <i class="fas fa-chart-bar" style="color:#8b5cf6;"></i>
+                Issue Prevalence: Site vs Sector Level
+            </div>
+            <div class="hs-chart-canvas" id="chartDomainBar"></div>
+        </div>
+
+        <!-- Chart 3: Health Status by Top Kabupaten -->
+        <div class="hs-chart-box">
+            <div class="hs-chart-title">
+                <i class="fas fa-city" style="color:#10b981;"></i>
+                Site Health by Kabupaten (Top 10 Volume)
+            </div>
+            <div class="hs-chart-canvas" id="chartKabBar"></div>
+        </div>
+    </div>
+
+    <!-- ── View Switcher & Table Presentation (Matches Screenshot Format) ── -->
+    <div class="hs-view-nav-wrapper">
+        <div style="display:flex; align-items:center; gap: 14px; flex-wrap: wrap;">
+            <div class="hs-view-tabs">
+                <button class="hs-view-tab active" id="tabBtnSite" onclick="switchMainView('site')">
+                    <i class="fas fa-broadcast-tower"></i> Site
+                </button>
+                <button class="hs-view-tab" id="tabBtnSector" onclick="switchMainView('sector')">
+                    <i class="fas fa-sitemap"></i> Sector
+                </button>
+                <button class="hs-view-tab" id="tabBtnDual" onclick="switchMainView('dual')">
+                    <i class="fas fa-columns"></i> Split / Both
+                </button>
+            </div>
+            <!-- Search bar right next to Site/Sector view buttons, matching the reference picture -->
+            <div class="hs-table-search-wrap">
+                <i class="fas fa-search"></i>
+                <input type="text" class="hs-table-search-input" id="tableSearchInput" placeholder="Search Site ID or Sector..." oninput="applyFilters()">
+                <button id="clearSearchBtn" class="hs-clear-search" onclick="clearSearch()" style="display:none;" title="Clear Search">&times;</button>
+            </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; margin-left: auto; flex-wrap: wrap;">
+            <div class="hs-filter-group" style="margin:0;">
+                <span class="hs-filter-label"><i class="fas fa-tags"></i> Remark Format:</span>
+                <select class="hs-filter-select" id="selectRemarkMode" onchange="renderCurrentViews()">
+                    <option value="names">Issue Names (e.g. Issue: CEI, RHI)</option>
+                    <option value="status">Status Badge (Healthy / Degraded)</option>
+                    <option value="count">Issue Count (e.g. 2 Issues)</option>
+                </select>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+                <span class="hs-filter-label">Rows per page:</span>
+                <select class="hs-filter-select" id="pageSizeSelect" onchange="changePageSize(this.value)">
+                    <option value="25">25</option>
+                    <option value="50" selected>50</option>
+                    <option value="100">100</option>
+                    <option value="500">500</option>
+                    <option value="ALL">All</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── SECTION 1: SITE LEVEL TABLE ── -->
+    <div id="sectionSiteView" class="hs-table-card">
+        <div class="hs-table-responsive">
+            <table class="hs-table">
+                <thead>
+                    <tr>
+                        <th style="min-width: 140px; text-align: left;">Site ID</th>
+                        <th style="min-width: 130px;">Kabupaten</th>
+                        <th style="width: 85px;">CEI</th>
+                        <th style="width: 85px;">RHI</th>
+                        <th style="width: 85px;">RCI</th>
+                        <th style="width: 120px;">UNBALANCE</th>
+                        <th style="min-width: 200px;">Remark</th>
+                    </tr>
+                </thead>
+                <tbody id="siteTableBody">
+                    <tr><td colspan="7" class="hs-spinner-wrap"><i class="fas fa-spinner fa-spin"></i> Loading Site Data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="hs-table-footer">
+            <div id="siteTableCountInfo">Showing 0 to 0 of 0 sites</div>
+            <div class="hs-pagination" id="sitePagination"></div>
+        </div>
+    </div>
+
+    <!-- ── SECTION 2: SECTOR LEVEL TABLE ── -->
+    <div id="sectionSectorView" class="hs-table-card" style="display:none; margin-top: 14px;">
+        <div class="hs-dual-section-title" id="sectorHeaderBar" style="display:none;">
+            <span><i class="fas fa-sitemap" style="color:#0284c7; margin-right:6px;"></i> Sector Level Breakdown</span>
+            <span style="font-size:12px; font-weight:normal; color:var(--hs-text-muted);">Granular per-sector evaluation</span>
+        </div>
+        <div class="hs-table-responsive">
+            <table class="hs-table">
+                <thead>
+                    <tr>
+                        <th style="min-width: 160px; text-align: left;">Site ID (Sector Level)</th>
+                        <th style="min-width: 130px;">Kabupaten</th>
+                        <th style="width: 85px;">CEI</th>
+                        <th style="width: 85px;">RHI</th>
+                        <th style="width: 85px;">RCI</th>
+                        <th style="width: 120px;">UNBALANCE</th>
+                        <th style="min-width: 200px;">Remark</th>
+                    </tr>
+                </thead>
+                <tbody id="sectorTableBody">
+                    <tr><td colspan="7" class="hs-spinner-wrap"><i class="fas fa-spinner fa-spin"></i> Loading Sector Data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="hs-table-footer">
+            <div id="sectorTableCountInfo">Showing 0 to 0 of 0 sectors</div>
+            <div class="hs-pagination" id="sectorPagination"></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // ══════════════════════════════════════════════════════════════════════════
+    // STATE & VARIABLES
+    // ══════════════════════════════════════════════════════════════════════════
+    let RAW_DATA = null;
+    let FILTERED_SITES = [];
+    let FILTERED_SECTORS = [];
+
+    let currentViewMode = "site"; // "site", "sector", or "dual"
+    let pageSize = 50;
+    let siteCurrentPage = 1;
+    let sectorCurrentPage = 1;
+
+    let chartDonutInstance = null;
+    let chartDomainInstance = null;
+    let chartKabInstance = null;
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // INITIALIZATION
+    // ══════════════════════════════════════════════════════════════════════════
+    document.addEventListener("DOMContentLoaded", function () {
+        initCharts();
+        loadHealthData();
+
+        const resizeAllCharts = () => {
+            if (chartDonutInstance) chartDonutInstance.resize();
+            if (chartDomainInstance) chartDomainInstance.resize();
+            if (chartKabInstance) chartKabInstance.resize();
+        };
+
+        window.addEventListener("resize", resizeAllCharts);
+
+        // Auto-observe grid resize so layout adjustments happen smoothly on sidebar collapse or window restore
+        const gridEl = document.querySelector(".hs-charts-grid");
+        if (gridEl && window.ResizeObserver) {
+            const ro = new ResizeObserver(() => {
+                resizeAllCharts();
+            });
+            ro.observe(gridEl);
+        }
+    });
+
+    function initCharts() {
+        const dEl = document.getElementById("chartHealthDonut");
+        const bEl = document.getElementById("chartDomainBar");
+        const kEl = document.getElementById("chartKabBar");
+
+        if (dEl) chartDonutInstance = echarts.init(dEl);
+        if (bEl) chartDomainInstance = echarts.init(bEl);
+        if (kEl) chartKabInstance = echarts.init(kEl);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // DATA FETCHING
+    // ══════════════════════════════════════════════════════════════════════════
+    function loadHealthData(forceRefresh = false) {
+        const week = document.getElementById("selectWeek").value;
+        const topbarChip = document.getElementById("topbarWeekChip");
+        if (topbarChip) topbarChip.innerText = week;
+
+        // Show loading state
+        document.getElementById("siteTableBody").innerHTML =
+            '<tr><td colspan="7" class="hs-spinner-wrap"><i class="fas fa-spinner fa-spin"></i> Loading Site Data for W' + week.slice(4) + '...</td></tr>';
+        document.getElementById("sectorTableBody").innerHTML =
+            '<tr><td colspan="7" class="hs-spinner-wrap"><i class="fas fa-spinner fa-spin"></i> Loading Sector Data for W' + week.slice(4) + '...</td></tr>';
+
+        const url = `/api/okr/healthy_site/data?week=${week}` + (forceRefresh ? "&refresh=1" : "");
+
+        fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status !== "success") {
+                    throw new Error(data.message || "Failed to fetch health data");
+                }
+                RAW_DATA = data;
+                populateKabupatenOptions(data.kabupaten_list);
+                renderSummaryCards(data.summary);
+                renderCharts(data.summary, data.kabupaten_list);
+                applyFilters();
+            })
+            .catch(err => {
+                console.error("Health Data Error:", err);
+                document.getElementById("siteTableBody").innerHTML =
+                    `<tr><td colspan="7" style="color:#ef4444; padding:30px;"><i class="fas fa-exclamation-circle"></i> ${err.message}</td></tr>`;
+                document.getElementById("sectorTableBody").innerHTML =
+                    `<tr><td colspan="7" style="color:#ef4444; padding:30px;"><i class="fas fa-exclamation-circle"></i> ${err.message}</td></tr>`;
+            });
+    }
+
+    function forceReload() {
+        loadHealthData(true);
+    }
+
+    function populateKabupatenOptions(kabList) {
+        const sel = document.getElementById("selectKabupaten");
+        const curVal = sel.value;
+        sel.innerHTML = '<option value="ALL">ALL KABUPATEN (PUMA)</option>';
+        if (Array.isArray(kabList)) {
+            kabList.forEach(k => {
+                const opt = document.createElement("option");
+                opt.value = k.kabupaten;
+                opt.text = `${k.kabupaten} (${k.total} sites - ${k.healthy_pct}% OK)`;
+                sel.appendChild(opt);
+            });
+        }
+        if (curVal && Array.from(sel.options).some(o => o.value === curVal)) {
+            sel.value = curVal;
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SUMMARY CARDS RENDERING
+    // ══════════════════════════════════════════════════════════════════════════
+    function renderSummaryCards(s) {
+        if (!s) return;
+        document.getElementById("statTotalSites").innerText = (s.total_sites || 0).toLocaleString();
+        document.getElementById("statTotalSectors").innerText = `${(s.total_sectors || 0).toLocaleString()} sectors evaluated`;
+
+        document.getElementById("statHealthySites").innerText = (s.healthy_sites || 0).toLocaleString();
+        document.getElementById("statHealthyPct").innerText = `${s.healthy_site_pct || 0}% of regional sites`;
+
+        document.getElementById("statIssueSites").innerText = (s.issue_sites || 0).toLocaleString();
+        const issuePct = s.total_sites > 0 ? (100 - (s.healthy_site_pct || 0)).toFixed(2) : 0;
+        document.getElementById("statIssuePct").innerText = `${issuePct}% require attention`;
+
+        document.getElementById("statCeiSites").innerText = (s.cei_sites || 0).toLocaleString();
+        document.getElementById("statCeiSec").innerText = `${(s.cei_sectors || 0).toLocaleString()} sectors breached`;
+
+        document.getElementById("statRhiSites").innerText = (s.rhi_sites || 0).toLocaleString();
+        document.getElementById("statRhiSec").innerText = `${(s.rhi_sectors || 0).toLocaleString()} sectors breached`;
+
+        document.getElementById("statRciSites").innerText = (s.rci_sites || 0).toLocaleString();
+        document.getElementById("statRciSec").innerText = `${(s.rci_sectors || 0).toLocaleString()} sectors breached`;
+
+        document.getElementById("statUnbSites").innerText = (s.unbalance_sites || 0).toLocaleString();
+        document.getElementById("statUnbSec").innerText = `${(s.unbalance_sectors || 0).toLocaleString()} sectors breached`;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // CHARTS RENDERING
+    // ══════════════════════════════════════════════════════════════════════════
+    function renderCharts(s, kabList) {
+        const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+        const textColor = isDark ? "#f8fafc" : "#0f172a";
+        const subTextColor = isDark ? "#94a3b8" : "#64748b";
+
+        // 1. Donut: Site Health Severity Distribution
+        if (chartDonutInstance && s && s.issue_distribution) {
+            const d = s.issue_distribution;
+            const donutData = [
+                { value: d[0] || 0, name: "100% Healthy", itemStyle: { color: "#10b981" } },
+                { value: d[1] || 0, name: "1 Issue", itemStyle: { color: "#38bdf8" } },
+                { value: d[2] || 0, name: "2 Issues", itemStyle: { color: "#f59e0b" } },
+                { value: d[3] || 0, name: "3 Issues", itemStyle: { color: "#f97316" } },
+                { value: d[4] || 0, name: "4 Issues (All Fail)", itemStyle: { color: "#ef4444" } },
+            ].filter(item => item.value > 0);
+
+            const donutOpt = {
+                tooltip: { trigger: "item", formatter: "{b}: <b>{c}</b> sites ({d}%)" },
+                legend: {
+                    bottom: 4,
+                    left: "center",
+                    itemWidth: 9,
+                    itemHeight: 9,
+                    itemGap: 8,
+                    textStyle: { color: subTextColor, fontSize: 10 }
+                },
+                series: [{
+                    name: "Health Severity",
+                    type: "pie",
+                    radius: ["36%", "58%"],
+                    center: ["50%", "40%"],
+                    avoidLabelOverlap: true,
+                    label: {
+                        show: true,
+                        position: "inside",
+                        formatter: function(params) {
+                            return params.percent >= 5 ? params.percent.toFixed(1) + "%" : "";
+                        },
+                        fontSize: 10,
+                        color: "#ffffff",
+                        fontWeight: "bold"
+                    },
+                    emphasis: {
+                        label: { show: true, fontSize: 12, fontWeight: "bold", color: textColor }
+                    },
+                    data: donutData
+                }]
+            };
+            chartDonutInstance.setOption(donutOpt, true);
+        }
+
+        // 2. Bar Chart: Issue Prevalence Site vs Sector
+        if (chartDomainInstance && s) {
+            const domainOpt = {
+                tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+                legend: {
+                    top: 0,
+                    left: "center",
+                    itemWidth: 10,
+                    itemHeight: 9,
+                    itemGap: 12,
+                    textStyle: { color: subTextColor, fontSize: 10 }
+                },
+                grid: {
+                    top: 32,
+                    bottom: 8,
+                    left: 8,
+                    right: 12,
+                    containLabel: true
+                },
+                xAxis: {
+                    type: "category",
+                    data: ["CEI", "RHI", "RCI", "UNBALANCE P1"],
+                    axisLabel: {
+                        interval: 0,
+                        color: textColor,
+                        fontWeight: "600",
+                        fontSize: 10.5,
+                        formatter: function(val) {
+                            return val === "UNBALANCE P1" ? "UNBALANCE\nP1" : val;
+                        }
+                    }
+                },
+                yAxis: {
+                    type: "value",
+                    axisLabel: { color: subTextColor, fontSize: 10 },
+                    splitLine: { lineStyle: { color: isDark ? "#334155" : "#e2e8f0" } }
+                },
+                series: [
+                    {
+                        name: "Sites with Issue",
+                        type: "bar",
+                        barWidth: 14,
+                        data: [s.cei_sites, s.rhi_sites, s.rci_sites, s.unbalance_sites],
+                        itemStyle: { color: "#0284c7", borderRadius: [3, 3, 0, 0] }
+                    },
+                    {
+                        name: "Sectors with Issue",
+                        type: "bar",
+                        barWidth: 14,
+                        data: [s.cei_sectors, s.rhi_sectors, s.rci_sectors, s.unbalance_sectors],
+                        itemStyle: { color: "#ec4899", borderRadius: [3, 3, 0, 0] }
+                    }
+                ]
+            };
+            chartDomainInstance.setOption(domainOpt, true);
+        }
+
+        // 3. Horizontal Bar: Top 10 Kabupaten Health Rate
+        if (chartKabInstance && Array.isArray(kabList)) {
+            const topKabs = kabList.slice(0, 10).reverse();
+            const names = topKabs.map(k => k.kabupaten);
+            const healthyVals = topKabs.map(k => k.healthy);
+            const issueVals = topKabs.map(k => k.issue);
+
+            const kabOpt = {
+                tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+                legend: {
+                    top: 0,
+                    right: 8,
+                    itemWidth: 10,
+                    itemHeight: 9,
+                    itemGap: 8,
+                    textStyle: { color: subTextColor, fontSize: 10 }
+                },
+                grid: {
+                    top: 30,
+                    bottom: 10,
+                    left: 8,
+                    right: 18,
+                    containLabel: true
+                },
+                xAxis: {
+                    type: "value",
+                    axisLabel: { color: subTextColor, fontSize: 10, margin: 6 },
+                    axisTick: { show: true },
+                    axisLine: { show: true, lineStyle: { color: isDark ? "#475569" : "#cbd5e1" } },
+                    splitLine: { lineStyle: { color: isDark ? "#334155" : "#e2e8f0" } }
+                },
+                yAxis: {
+                    type: "category",
+                    data: names,
+                    axisLabel: {
+                        color: textColor,
+                        fontSize: 10,
+                        fontWeight: "500",
+                        margin: 6,
+                        formatter: function(val) {
+                            return val.length > 18 ? val.slice(0, 16) + '...' : val;
+                        }
+                    },
+                    axisTick: { show: false },
+                    axisLine: { show: true, lineStyle: { color: isDark ? "#475569" : "#cbd5e1" } }
+                },
+                series: [
+                    {
+                        name: "Healthy Sites",
+                        type: "bar",
+                        stack: "total",
+                        barWidth: 9,
+                        itemStyle: { color: "#10b981" },
+                        data: healthyVals
+                    },
+                    {
+                        name: "Issue Sites",
+                        type: "bar",
+                        stack: "total",
+                        barWidth: 9,
+                        itemStyle: { color: "#ef4444", borderRadius: [0, 3, 3, 0] },
+                        data: issueVals
+                    }
+                ]
+            };
+            chartKabInstance.setOption(kabOpt, true);
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // FILTERING & SEARCH
+    // ══════════════════════════════════════════════════════════════════════════
+    function clearSearch() {
+        const tblSearch = document.getElementById("tableSearchInput");
+        if (tblSearch) tblSearch.value = "";
+        const clr = document.getElementById("clearSearchBtn");
+        if (clr) clr.style.display = "none";
+        applyFilters();
+    }
+
+    function applyFilters() {
+        if (!RAW_DATA) return;
+
+        const kabFilter = (document.getElementById("selectKabupaten") ? document.getElementById("selectKabupaten").value : "ALL").toUpperCase();
+        const statFilter = (document.getElementById("selectStatusFilter") ? document.getElementById("selectStatusFilter").value : "ALL").toUpperCase();
+        
+        const tblInput = document.getElementById("tableSearchInput");
+        const search = (tblInput ? tblInput.value : "").trim().toUpperCase();
+
+        const clr = document.getElementById("clearSearchBtn");
+        if (clr) clr.style.display = search ? "inline-block" : "none";
+
+        let sites = (RAW_DATA.sites || RAW_DATA.site_records || []).slice();
+        let sectors = (RAW_DATA.sectors || RAW_DATA.sector_records || []).slice();
+
+        // 1. Kabupaten filter
+        if (kabFilter !== "ALL") {
+            sites = sites.filter(s => (s.kabupaten || "").toUpperCase() === kabFilter);
+            sectors = sectors.filter(s => (s.kabupaten || "").toUpperCase() === kabFilter);
+        }
+
+        // 2. Search query (Site ID or Sector ID)
+        if (search) {
+            sites = sites.filter(s => (s.site_id || "").toUpperCase().includes(search) || (s.kabupaten || "").toUpperCase().includes(search));
+            sectors = sectors.filter(s => (s.sector_id || "").toUpperCase().includes(search) || (s.kabupaten || "").toUpperCase().includes(search));
+        }
+
+        // 3. Status filter
+        if (statFilter === "HEALTHY") {
+            sites = sites.filter(s => s.issues_count === 0);
+            sectors = sectors.filter(s => s.issues_count === 0);
+        } else if (statFilter === "ISSUE") {
+            sites = sites.filter(s => s.issues_count > 0);
+            sectors = sectors.filter(s => s.issues_count > 0);
+        } else if (statFilter === "CEI") {
+            sites = sites.filter(s => s.cei === 1);
+            sectors = sectors.filter(s => s.cei === 1);
+        } else if (statFilter === "RHI") {
+            sites = sites.filter(s => s.rhi === 1);
+            sectors = sectors.filter(s => s.rhi === 1);
+        } else if (statFilter === "RCI") {
+            sites = sites.filter(s => s.rci === 1);
+            sectors = sectors.filter(s => s.rci === 1);
+        } else if (statFilter === "UNBALANCE") {
+            sites = sites.filter(s => s.unbalance === 1);
+            sectors = sectors.filter(s => s.unbalance === 1);
+        } else if (statFilter === "MULTI") {
+            sites = sites.filter(s => s.issues_count >= 2);
+            sectors = sectors.filter(s => s.issues_count >= 2);
+        }
+
+        FILTERED_SITES = sites;
+        FILTERED_SECTORS = sectors;
+
+        siteCurrentPage = 1;
+        sectorCurrentPage = 1;
+
+        renderCurrentViews();
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // VIEW SWITCHING (Site vs Sector vs Split)
+    // ══════════════════════════════════════════════════════════════════════════
+    function switchMainView(mode) {
+        currentViewMode = mode;
+        const btnSite = document.getElementById("tabBtnSite");
+        const btnSector = document.getElementById("tabBtnSector");
+        const btnDual = document.getElementById("tabBtnDual");
+        const secSite = document.getElementById("sectionSiteView");
+        const secSector = document.getElementById("sectionSectorView");
+        const secHdr = document.getElementById("sectorHeaderBar");
+
+        btnSite.classList.remove("active");
+        btnSector.classList.remove("active");
+        btnDual.classList.remove("active");
+
+        if (mode === "site") {
+            btnSite.classList.add("active");
+            secSite.style.display = "block";
+            secSector.style.display = "none";
+            secHdr.style.display = "none";
+        } else if (mode === "sector") {
+            btnSector.classList.add("active");
+            secSite.style.display = "none";
+            secSector.style.display = "block";
+            secHdr.style.display = "none";
+        } else if (mode === "dual") {
+            btnDual.classList.add("active");
+            secSite.style.display = "block";
+            secSector.style.display = "block";
+            secHdr.style.display = "flex";
+        }
+
+        renderCurrentViews();
+    }
+
+    function changePageSize(val) {
+        pageSize = val === "ALL" ? 999999 : parseInt(val, 10);
+        siteCurrentPage = 1;
+        sectorCurrentPage = 1;
+        renderCurrentViews();
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // TABLE RENDERING
+    // ══════════════════════════════════════════════════════════════════════════
+    function renderCurrentViews() {
+        if (currentViewMode === "site" || currentViewMode === "dual") {
+            renderSiteTable();
+        }
+        if (currentViewMode === "sector" || currentViewMode === "dual") {
+            renderSectorTable();
+        }
+    }
+
+    function formatRemark(row, remarkMode) {
+        if (row.issues_count === 0) {
+            return '<span class="hs-badge hs-badge-healthy"><i class="fas fa-check-circle"></i> Healthy</span>';
+        }
+
+        if (remarkMode === "status") {
+            return `<span class="hs-badge hs-badge-issue"><i class="fas fa-exclamation-triangle"></i> Degraded (${row.issues_count} Issues)</span>`;
+        } else if (remarkMode === "count") {
+            return `<span class="hs-badge hs-badge-issue"><i class="fas fa-times-circle"></i> ${row.issues_count} Issue(s)</span>`;
+        } else {
+            // Default "names": "Issue: CEI, RHI"
+            const issueStr = (row.issue_names || []).join(", ");
+            return `<span class="hs-badge hs-badge-issue"><i class="fas fa-exclamation-triangle"></i> Issue: ${issueStr}</span>`;
+        }
+    }
+
+    function renderBinary(val) {
+        return val === 1
+            ? '<span class="hs-val-one">1</span>'
+            : '<span class="hs-val-zero">0</span>';
+    }
+
+    function renderSiteTable() {
+        const tbody = document.getElementById("siteTableBody");
+        const countInfo = document.getElementById("siteTableCountInfo");
+        const pagination = document.getElementById("sitePagination");
+        const remarkMode = document.getElementById("selectRemarkMode").value;
+
+        const total = FILTERED_SITES.length;
+        if (total === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="padding:26px; color:var(--hs-text-muted);">No sites matched the selected criteria.</td></tr>';
+            countInfo.innerText = "Showing 0 of 0 sites";
+            pagination.innerHTML = "";
+            return;
+        }
+
+        const startIdx = (siteCurrentPage - 1) * pageSize;
+        const endIdx = Math.min(startIdx + pageSize, total);
+        const pageItems = FILTERED_SITES.slice(startIdx, endIdx);
+
+        countInfo.innerText = `Showing ${startIdx + 1} to ${endIdx} of ${total.toLocaleString()} sites`;
+
+        let html = "";
+        pageItems.forEach(s => {
+            html += `
+                <tr>
+                    <td class="hs-entity-cell">
+                        <a class="hs-entity-link" onclick="drillDownSite('${s.site_id}')" title="Click to view sectors under ${s.site_id}">
+                            <i class="fas fa-broadcast-tower" style="font-size:11px; margin-right:4px;"></i>${s.site_id}
+                        </a>
+                        <span style="font-size:11px; font-weight:normal; color:var(--hs-text-muted);">(${s.total_sectors} sec)</span>
+                    </td>
+                    <td style="color:var(--hs-text-muted); font-size:12px;">${s.kabupaten}</td>
+                    <td>${renderBinary(s.cei)}</td>
+                    <td>${renderBinary(s.rhi)}</td>
+                    <td>${renderBinary(s.rci)}</td>
+                    <td>${renderBinary(s.unbalance)}</td>
+                    <td style="text-align:left;">${formatRemark(s, remarkMode)}</td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+
+        renderPagination(pagination, total, siteCurrentPage, (p) => {
+            siteCurrentPage = p;
+            renderSiteTable();
+        });
+    }
+
+    function renderSectorTable() {
+        const tbody = document.getElementById("sectorTableBody");
+        const countInfo = document.getElementById("sectorTableCountInfo");
+        const pagination = document.getElementById("sectorPagination");
+        const remarkMode = document.getElementById("selectRemarkMode").value;
+
+        const total = FILTERED_SECTORS.length;
+        if (total === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="padding:26px; color:var(--hs-text-muted);">No sectors matched the selected criteria.</td></tr>';
+            countInfo.innerText = "Showing 0 of 0 sectors";
+            pagination.innerHTML = "";
+            return;
+        }
+
+        const startIdx = (sectorCurrentPage - 1) * pageSize;
+        const endIdx = Math.min(startIdx + pageSize, total);
+        const pageItems = FILTERED_SECTORS.slice(startIdx, endIdx);
+
+        countInfo.innerText = `Showing ${startIdx + 1} to ${endIdx} of ${total.toLocaleString()} sectors`;
+
+        let html = "";
+        pageItems.forEach(sec => {
+            html += `
+                <tr>
+                    <td class="hs-entity-cell">
+                        <span style="font-family:monospace; font-size:13px; font-weight:700;">
+                            <i class="fas fa-sitemap" style="font-size:11px; color:#0284c7; margin-right:4px;"></i>${sec.sector_id}
+                        </span>
+                    </td>
+                    <td style="color:var(--hs-text-muted); font-size:12px;">${sec.kabupaten}</td>
+                    <td>${renderBinary(sec.cei)}</td>
+                    <td>${renderBinary(sec.rhi)}</td>
+                    <td>${renderBinary(sec.rci)}</td>
+                    <td>${renderBinary(sec.unbalance)}</td>
+                    <td style="text-align:left;">${formatRemark(sec, remarkMode)}</td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+
+        renderPagination(pagination, total, sectorCurrentPage, (p) => {
+            sectorCurrentPage = p;
+            renderSectorTable();
+        });
+    }
+
+    function renderPagination(container, total, curPage, onPageSelect) {
+        const totalPages = Math.ceil(total / pageSize);
+        if (totalPages <= 1) {
+            container.innerHTML = "";
+            return;
+        }
+
+        let html = `<button class="hs-page-btn" ${curPage === 1 ? 'disabled' : ''} onclick="changePageNum(${curPage - 1})">&laquo; Prev</button>`;
+
+        let pages = [];
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pages.push(i);
+        } else {
+            pages = [1];
+            if (curPage > 3) pages.push("...");
+            const start = Math.max(2, curPage - 1);
+            const end = Math.min(totalPages - 1, curPage + 1);
+            for (let i = start; i <= end; i++) pages.push(i);
+            if (curPage < totalPages - 2) pages.push("...");
+            pages.push(totalPages);
+        }
+
+        pages.forEach(p => {
+            if (p === "...") {
+                html += '<span style="padding:0 4px; color:var(--hs-text-muted);">...</span>';
+            } else {
+                html += `<button class="hs-page-btn ${p === curPage ? 'active' : ''}" onclick="changePageNum(${p})">${p}</button>`;
+            }
+        });
+
+        html += `<button class="hs-page-btn" ${curPage === totalPages ? 'disabled' : ''} onclick="changePageNum(${curPage + 1})">Next &raquo;</button>`;
+        container.innerHTML = html;
+
+        window.changePageNum = onPageSelect;
+    }
+
+    // ── Drill-down helper: Clicking a site filters and opens its sectors ──
+    function drillDownSite(siteId) {
+        const tblInput = document.getElementById("tableSearchInput");
+        if (tblInput) tblInput.value = siteId;
+        switchMainView("sector");
+        applyFilters();
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // CSV EXPORT
+    // ══════════════════════════════════════════════════════════════════════════
+    function exportData(level) {
+        const week = document.getElementById("selectWeek").value;
+        const kab = document.getElementById("selectKabupaten").value;
+        const status = document.getElementById("selectStatusFilter").value;
+        const tblInput = document.getElementById("tableSearchInput");
+        const search = (tblInput ? tblInput.value : "").trim();
+
+        const params = new URLSearchParams({
+            week: week,
+            level: level,
+            kabupaten: kab,
+            status_filter: status,
+            search: search
+        });
+
+        window.location.href = `/api/okr/healthy_site/export?${params.toString()}`;
+    }
+</script>
+{% endblock %}

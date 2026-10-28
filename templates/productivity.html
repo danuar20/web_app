@@ -139,7 +139,7 @@
 .pill-neg { background: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 12px; }
 
 /* Multi-select styling */
-.dropdown-container { position: relative; min-width: 200px; }
+.dropdown-container { position: relative; min-width: 140px; }
 .dropdown-toggle { 
     width: 100%; padding: 10px 14px; border: 1px solid rgba(79,172,254,0.2); 
     border-radius: 8px; cursor: pointer; text-align: left; display: flex; 
@@ -150,7 +150,7 @@
 .dropdown-menu { 
     position: absolute; top: calc(100% + 4px); left: 0; right: 0; 
     border: 1px solid rgba(79,172,254,0.15); border-radius: 8px; 
-    box-shadow: 0 12px 32px rgba(0,0,0,0.15); z-index: 1000; display: none; 
+    box-shadow: 0 12px 32px rgba(0,0,0,0.15); z-index: 1050; display: none; 
     flex-direction: column; background: #fff; max-height: 250px; overflow-y: auto;
 }
 [data-theme="dark"] .dropdown-menu { background: #1e1e2e; }
@@ -197,6 +197,28 @@
                         {% for n in nsas_list %}
                         <label>
                             <input type="checkbox" name="nsa" value="{{ n }}" onchange="updateCount('nsa')"> <span>{{ n }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tech multi-select -->
+        <div class="filter-group">
+            <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">Tech</div>
+            <div class="dropdown-container" style="min-width: 140px;">
+                <button type="button" class="dropdown-toggle" onclick="toggleDropdown('techDropdown')">
+                    <span id="techToggleLabel">All Tech</span> <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="dropdown-menu" id="techDropdown">
+                    <label style="border-bottom:1px solid rgba(128,128,128,0.1); font-weight:bold;">
+                        <input type="checkbox" id="techSelectAll" onchange="toggleAllInList('tech')"> Select All
+                    </label>
+                    <div id="techCheckboxes">
+                        {% for t in techs_list %}
+                        <label>
+                            <input type="checkbox" name="tech" value="{{ t }}" onchange="updateCount('tech')"> <span>{{ t }}</span>
                         </label>
                         {% endfor %}
                     </div>
@@ -349,7 +371,8 @@ function toggleAllInList(prefix){
 function updateCount(prefix){
     const checked = document.querySelectorAll(`input[name='${prefix}']:checked`).length;
     const total = document.querySelectorAll(`input[name='${prefix}']`).length;
-    document.getElementById(prefix+'ToggleLabel').textContent = (checked === 0 || checked === total) ? 'All NSA' : `${checked} Selected`;
+    const allLabel = prefix === 'tech' ? 'All Tech' : 'All NSA';
+    document.getElementById(prefix+'ToggleLabel').textContent = (checked === 0 || checked === total) ? allLabel : `${checked} Selected`;
 }
 function toggleGroup(groupId, rowEl){
     rowEl.classList.toggle("expanded");
@@ -416,6 +439,7 @@ async function loadData() {
     // Build URL
     let url = `/api/productivity/trend?year_before=${yb}&year_after=${ya}`;
     document.querySelectorAll("input[name='nsa']:checked").forEach(cb => { url += `&nsa=${encodeURIComponent(cb.value)}`; });
+    document.querySelectorAll("input[name='tech']:checked").forEach(cb => { url += `&tech=${encodeURIComponent(cb.value)}`; });
 
     try {
         const response = await fetch(url);

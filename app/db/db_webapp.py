@@ -147,6 +147,54 @@ def _get_site_list_4g_impl():
     except Exception as e:
         return [], str(e)
 
+def get_site_sec_list_4g():
+    """Get the list of 4G site sectors from the mv_site_cell_4g reference table or 4g_kpi_zte."""
+    return _get_cached("4g_site_secs", lambda: _get_site_sec_list_4g_impl())
+
+def _get_site_sec_list_4g_impl():
+    sector_sql = """CASE
+        WHEN LENGTH(cell::text) = 2 THEN LEFT(cell::text, 1)
+        WHEN RIGHT(cell::text, 1) = '8' THEN
+            CASE SUBSTRING(cell::text FROM 2 FOR 1)
+                WHEN '0' THEN '1'
+                WHEN '1' THEN '2'
+                WHEN '2' THEN '3'
+                ELSE SUBSTRING(cell::text FROM 2 FOR 1)
+            END
+        WHEN RIGHT(cell::text, 1) = '5' THEN SUBSTRING(cell::text FROM 2 FOR 1)
+        ELSE LEFT(cell::text, 2)
+    END"""
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute(f"""
+                    SELECT DISTINCT siteid || '-' || ({sector_sql}) AS site_sec
+                    FROM "mv_site_cell_4g"
+                    WHERE siteid IS NOT NULL AND cell IS NOT NULL
+                    ORDER BY site_sec
+                """)
+                secs = [r[0] for r in cur.fetchall() if r[0] and str(r[0]).strip()]
+                if secs:
+                    return secs, "reference"
+    except Exception:
+        pass
+
+    # Fallback: extract from 4g_kpi_zte using siteid and cell
+    try:
+        with closing(get_postgres_connection()) as conn:
+            with closing(conn.cursor()) as cur:
+                cur.execute(f"""
+                    SELECT DISTINCT siteid || '-' || ({sector_sql}) AS site_sec
+                    FROM "4g_kpi_zte"
+                    WHERE siteid IS NOT NULL AND cell IS NOT NULL
+                      AND date >= CURRENT_DATE - INTERVAL '30 days'
+                    ORDER BY site_sec
+                    LIMIT 10000
+                """)
+                return [r[0] for r in cur.fetchall() if r[0] and str(r[0]).strip()], "kpi"
+    except Exception as e:
+        return [], str(e)
+
 def get_site_cell_list_4g():
     """Get the list of 4G site cells from the mv_site_cell_4g reference table."""
     return _get_cached("4g_site_cells", lambda: _get_site_cell_list_4g_impl())

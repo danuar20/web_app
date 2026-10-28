@@ -129,5 +129,9 @@ ran_capacity = ran_capacity_routes.ran_capacity
 from . import fb_pptx_routes
 fb_pptx = fb_pptx_routes.fb_pptx
 
+# OKR Healthy Site — /okr/healthy_site
+from . import healthy_site_routes
+healthy_site = healthy_site_routes.healthy_site
+
 
 

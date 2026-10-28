@@ -12,35 +12,40 @@ logger = logging.getLogger(__name__)
 
 prod = Blueprint("prod", __name__)
 
-_prod_cache = {"ts": 0, "years": [], "nsas": [], "yw": [], "cities": [], "sites": []}
+_prod_cache = {"ts": 0, "years": [], "nsas": [], "yw": [], "cities": [], "sites": [], "techs": []}
 
 def _get_dropdown_data():
     now = time.time()
-    if now - _prod_cache["ts"] < 3600 and _prod_cache["years"] and _prod_cache["nsas"]:
+    if now - _prod_cache["ts"] < 3600 and _prod_cache["years"] and _prod_cache["nsas"] and _prod_cache.get("techs"):
         return _prod_cache
     
     try:
         with db_query() as (conn, cur):
             # Years
-            cur.execute('SELECT DISTINCT "Year by Date" FROM mv_traffic_payload_daily_city WHERE "Year by Date" IS NOT NULL ORDER BY "Year by Date"')
+            cur.execute('SELECT DISTINCT "Year by Date" FROM mv_traffic_payload_daily_city WHERE "Year by Date" IS NOT NULL AND TRIM("Year by Date") != \'\' ORDER BY "Year by Date"')
             years = [r[0] for r in cur.fetchall()]
             
             # NSAs (exclude bad data like SORONG RAJA AMPAT)
-            cur.execute('SELECT DISTINCT "NSA" FROM mv_traffic_payload_daily_city WHERE "NSA" IS NOT NULL AND "NSA" NOT ILIKE \'%SORONG RAJA AMPAT%\' ORDER BY "NSA"')
+            cur.execute('SELECT DISTINCT "NSA" FROM mv_traffic_payload_daily_city WHERE "NSA" IS NOT NULL AND TRIM("NSA") != \'\' AND "NSA" NOT ILIKE \'%SORONG RAJA AMPAT%\' ORDER BY "NSA"')
             nsas = [r[0] for r in cur.fetchall()]
             
             # YW (Year Week) - latest 104 weeks
-            cur.execute('SELECT DISTINCT "Y_W" FROM mv_traffic_payload_yw_city WHERE "Y_W" IS NOT NULL ORDER BY "Y_W" DESC LIMIT 104')
+            cur.execute('SELECT DISTINCT "Y_W" FROM mv_traffic_payload_yw_city WHERE "Y_W" IS NOT NULL AND TRIM("Y_W") != \'\' ORDER BY "Y_W" DESC LIMIT 104')
             yw = [r[0] for r in cur.fetchall()]
             
             # Cities (Recent 30 days)
-            cur.execute('SELECT DISTINCT "KABUPATEN" FROM mv_traffic_payload_daily_city WHERE "KABUPATEN" IS NOT NULL AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "KABUPATEN"')
+            cur.execute('SELECT DISTINCT "KABUPATEN" FROM mv_traffic_payload_daily_city WHERE "KABUPATEN" IS NOT NULL AND TRIM("KABUPATEN") != \'\' AND "Date" >= CURRENT_DATE - INTERVAL \'30 days\' ORDER BY "KABUPATEN"')
             cities = [r[0] for r in cur.fetchall()]
+
+            # Techs (2G, 3G, 4G, 5G)
+            cur.execute('SELECT DISTINCT "Tech" FROM mv_traffic_payload_daily_city WHERE "Tech" IS NOT NULL AND TRIM("Tech") != \'\' ORDER BY "Tech"')
+            techs = [r[0] for r in cur.fetchall()]
             
             _prod_cache["years"] = years
             _prod_cache["nsas"] = nsas
             _prod_cache["yw"] = yw
             _prod_cache["cities"] = cities
+            _prod_cache["techs"] = techs
             _prod_cache["ts"] = now
             
     except Exception as e:
@@ -48,41 +53,42 @@ def _get_dropdown_data():
         
     return _prod_cache
 
-def _get_sites(sel_nsas=None, sel_cities=None):
+def _get_sites(sel_nsas=None, sel_cities=None, sel_techs=None):
     sites = []
     try:
-        # If no NSA or City filter is active, fetch full site list from reference view
-        if not sel_nsas and not sel_cities:
+        # If no NSA, City or Tech filter is active, fetch full site list from reference view
+        if not sel_nsas and not sel_cities and not sel_techs:
             try:
                 from app.db.db_webapp import get_site_list_4g
                 res = get_site_list_4g()
                 if isinstance(res, tuple):
                     res = res[0]
                 if res and isinstance(res, list) and len(res) > 0:
-                    return res
+                    clean_res = [s for s in res if s and str(s).strip()]
+                    return clean_res
             except Exception as ref_err:
                 logger.warning("Reference site list fetch fallback: %s", ref_err)
 
         with db_query() as (conn, cur):
             params = []
-            nsa_clause = ""
+            conditions = ['"Site ID" IS NOT NULL', 'TRIM("Site ID") != \'\'']
             if sel_nsas:
-                nsa_clause = 'AND "NSA"=ANY(%s)'
+                conditions.append('"NSA"=ANY(%s)')
                 params.append(sel_nsas)
-                
-            city_clause = ""
             if sel_cities:
-                city_clause = 'AND "KABUPATEN"=ANY(%s)'
+                conditions.append('"KABUPATEN"=ANY(%s)')
                 params.append(sel_cities)
+            if sel_techs:
+                conditions.append('"Tech"=ANY(%s)')
+                params.append(sel_techs)
                 
             cur.execute(f'''
                 SELECT DISTINCT "Site ID" 
                 FROM traffic_payload 
-                WHERE "Site ID" IS NOT NULL 
-                {nsa_clause} {city_clause}
+                WHERE {" AND ".join(conditions)}
                 ORDER BY "Site ID"
             ''', params)
-            sites = [r[0] for r in cur.fetchall()]
+            sites = [r[0] for r in cur.fetchall() if r[0] and str(r[0]).strip()]
     except Exception as e:
         logger.error("Error fetching sites: %s", e)
     return sites
@@ -110,6 +116,7 @@ def productivity():
         username=session.get("username"),
         years_list=data["years"],
         nsas_list=data["nsas"],
+        techs_list=data.get("techs", []),
         last_date_after=_get_last_update()
     )))
 
@@ -120,6 +127,8 @@ def api_productivity_trend():
     year_after  = request.args.get("year_after",  "")
     sel_nsas    = request.args.getlist("nsa")
     sel_nsas = [n for n in sel_nsas if n]
+    sel_techs   = request.args.getlist("tech")
+    sel_techs = [t for t in sel_techs if t]
 
     if not year_before or not year_after:
         return jsonify({"error": "Please provide year_before and year_after"}), 400
@@ -130,6 +139,7 @@ def api_productivity_trend():
     try:
         with db_query() as (conn, cur):
             nsa_clause = ""
+            tech_clause = ""
             params_after = [year_after]
             params_before = [year_before]
             
@@ -138,6 +148,11 @@ def api_productivity_trend():
                 params_after.append(sel_nsas)
                 params_before.append(sel_nsas)
 
+            if sel_techs:
+                tech_clause = 'AND "Tech" = ANY(%s)'
+                params_after.append(sel_techs)
+                params_before.append(sel_techs)
+
             # Get daily data using Materialized Views
             cur.execute(f'''
                 SELECT 
@@ -145,7 +160,7 @@ def api_productivity_trend():
                     SUM(sum_payload_mb)/1024.0/1024.0 AS pb,
                     SUM(sum_traffic_erl)/1000.0 AS tb
                 FROM mv_traffic_payload_daily_city
-                WHERE "Year by Date" = %s {nsa_clause}
+                WHERE "Year by Date" = %s {nsa_clause} {tech_clause}
                 GROUP BY EXTRACT(DOY FROM "Date")::INT
                 ORDER BY EXTRACT(DOY FROM "Date")::INT
             ''', params_before)
@@ -158,7 +173,7 @@ def api_productivity_trend():
                     SUM(sum_traffic_erl)/1000.0 AS ta,
                     MAX("Date")
                 FROM mv_traffic_payload_daily_city
-                WHERE "Year by Date" = %s {nsa_clause}
+                WHERE "Year by Date" = %s {nsa_clause} {tech_clause}
                 GROUP BY EXTRACT(DOY FROM "Date")::INT
                 ORDER BY EXTRACT(DOY FROM "Date")::INT
             ''', params_after)
@@ -223,6 +238,10 @@ def api_productivity_trend():
             if sel_nsas:
                 reg_nsa_clause = 'AND "NSA" = ANY(%s)'
                 params_reg.append(sel_nsas)
+            reg_tech_clause = ""
+            if sel_techs:
+                reg_tech_clause = 'AND "Tech" = ANY(%s)'
+                params_reg.append(sel_techs)
             
             cur.execute(f'''
                 SELECT 
@@ -232,7 +251,7 @@ def api_productivity_trend():
                     SUM(CASE WHEN "Year by Date"=%s AND EXTRACT(DOY FROM "Date") <= %s THEN sum_traffic_erl END)/1000.0 AS tb,
                     SUM(CASE WHEN "Year by Date"=%s AND EXTRACT(DOY FROM "Date") <= %s THEN sum_traffic_erl END)/1000.0 AS ta
                 FROM mv_traffic_payload_daily_regional
-                WHERE "Year by Date" IN (%s, %s) {reg_nsa_clause}
+                WHERE "Year by Date" IN (%s, %s) {reg_nsa_clause} {reg_tech_clause}
                 GROUP BY "Regional", "NSA", "TO"
                 ORDER BY "Regional", "NSA", "TO"
             ''', params_reg)
@@ -305,21 +324,30 @@ def api_productivity_trend():
 @login_required
 def api_productivity_cities():
     sel_nsas = [n for n in request.args.getlist("nsa") if n]
-    if not sel_nsas:
+    sel_techs = [t for t in request.args.getlist("tech") if t]
+    if not sel_nsas and not sel_techs:
         return jsonify({"cities": _get_dropdown_data()["cities"]})
     cities = []
     try:
         with db_query() as (conn, cur):
-            cur.execute('''
+            conditions = ['"KABUPATEN" IS NOT NULL', 'TRIM("KABUPATEN") != \'\'']
+            params = []
+            if sel_nsas:
+                conditions.append('"NSA"=ANY(%s)')
+                params.append(sel_nsas)
+            if sel_techs:
+                conditions.append('"Tech"=ANY(%s)')
+                params.append(sel_techs)
+            cur.execute(f'''
                 SELECT DISTINCT "KABUPATEN" 
                 FROM mv_traffic_payload_daily_city 
-                WHERE "NSA"=ANY(%s) 
+                WHERE {" AND ".join(conditions)} 
                 ORDER BY "KABUPATEN"
-            ''', [sel_nsas])
-            cities = [r[0] for r in cur.fetchall()]
+            ''', params)
+            cities = [r[0] for r in cur.fetchall() if r[0] and str(r[0]).strip()]
             
             # Cleanup bad mappings where SORONG RAJA AMPAT appears under wrong NSAs
-            if not any("Sorong" in n for n in sel_nsas):
+            if sel_nsas and not any("Sorong" in n for n in sel_nsas):
                 cities = [c for c in cities if c != "SORONG RAJA AMPAT"]
                 
     except Exception as e:
@@ -331,7 +359,8 @@ def api_productivity_cities():
 def api_productivity_sites():
     sel_nsas = [n for n in request.args.getlist("nsa") if n]
     sel_cities = [c for c in request.args.getlist("city") if c]
-    return jsonify({"sites": _get_sites(sel_nsas, sel_cities)})
+    sel_techs = [t for t in request.args.getlist("tech") if t]
+    return jsonify({"sites": _get_sites(sel_nsas, sel_cities, sel_techs)})
 
 # ── City Level ────────────────────────────────────────────────────────────────
 @prod.route("/city_level")
@@ -344,6 +373,7 @@ def city_level():
         nsas_list=data["nsas"],
         cities_list=data["cities"],
         yw_list=data["yw"],
+        techs_list=data.get("techs", []),
         last_update=_get_last_update()
     )))
 
@@ -354,6 +384,7 @@ def api_productivity_city():
     
     sel_nsas = [n for n in request.args.getlist("nsa") if n]
     sel_cities = [c for c in request.args.getlist("city") if c]
+    sel_techs = [t for t in request.args.getlist("tech") if t]
     
     try:
         with db_query() as (conn, cur):
@@ -368,6 +399,10 @@ def api_productivity_city():
                 if sel_nsas:
                     nsa_clause = 'AND "NSA"=ANY(%s)'
                     params.append(sel_nsas)
+                tech_clause = ""
+                if sel_techs:
+                    tech_clause = 'AND "Tech"=ANY(%s)'
+                    params.append(sel_techs)
                 
                 cur.execute(f'''
                     SELECT
@@ -379,7 +414,7 @@ def api_productivity_city():
                         SUM(sum_avail_denum) AS aden,
                         SUM(sum_max_rrc) AS rrc
                     FROM mv_traffic_payload_daily_city
-                    WHERE "Date" BETWEEN %s AND %s AND "KABUPATEN"=ANY(%s) {nsa_clause}
+                    WHERE "Date" BETWEEN %s AND %s AND "KABUPATEN"=ANY(%s) {nsa_clause} {tech_clause}
                     GROUP BY "Date"::text, "KABUPATEN"
                     ORDER BY 1, 2
                 ''', params)
@@ -453,6 +488,9 @@ def api_productivity_city():
                 if sel_nsas:
                     nsa_clause = 'AND "NSA"=ANY(%s)'
                     params.append(sel_nsas)
+                tech_clause = ""
+                if sel_techs:
+                    tech_clause = 'AND "Tech"=ANY(%s)'
                     
                 cur.execute(f'''
                     SELECT
@@ -469,10 +507,10 @@ def api_productivity_city():
                         SUM(CASE WHEN "Y_W"=%s THEN sum_max_rrc END) AS rb,
                         SUM(CASE WHEN "Y_W"=%s THEN sum_max_rrc END) AS ra
                     FROM mv_traffic_payload_yw_city
-                    WHERE "Y_W" IN (%s, %s) AND "KABUPATEN"=ANY(%s) {nsa_clause}
+                    WHERE "Y_W" IN (%s, %s) AND "KABUPATEN"=ANY(%s) {nsa_clause} {tech_clause}
                     GROUP BY "NSA", "KABUPATEN"
                     ORDER BY "NSA", "KABUPATEN"
-                ''', [yw_before, yw_after, yw_before, yw_after, yw_before, yw_before, yw_after, yw_after, yw_before, yw_after] + [yw_before, yw_after, sel_cities] + ([sel_nsas] if sel_nsas else []))
+                ''', [yw_before, yw_after, yw_before, yw_after, yw_before, yw_before, yw_after, yw_after, yw_before, yw_after] + [yw_before, yw_after, sel_cities] + ([sel_nsas] if sel_nsas else []) + ([sel_techs] if sel_techs else []))
                 
                 grouped = {}
                 def pct(a, b): return round((a - b) / b * 100, 1) if b and b > 0 else None
@@ -509,8 +547,9 @@ def site_level():
     data = _get_dropdown_data()
     sel_nsas = [n for n in request.args.getlist("nsa") if n]
     sel_cities = [c for c in request.args.getlist("city") if c]
+    sel_techs = [t for t in request.args.getlist("tech") if t]
     
-    sites_list = _get_sites(sel_nsas, sel_cities)
+    sites_list = _get_sites(sel_nsas, sel_cities, sel_techs)
     last_up = _get_last_update()
 
     from datetime import datetime, timedelta
@@ -530,18 +569,11 @@ def site_level():
         cities_list=data["cities"],
         sites_list=sites_list,
         yw_list=data["yw"],
+        techs_list=data.get("techs", []),
         default_from=from_dt.strftime("%Y-%m-%d"),
         default_to=to_dt.strftime("%Y-%m-%d"),
         last_update=last_up
     )))
-
-@prod.route("/api/productivity/sites")
-@login_required
-def api_productivity_sites_list():
-    sel_nsas = [n for n in request.args.getlist("nsa") if n]
-    sel_cities = [c for c in request.args.getlist("city") if c]
-    sites = _get_sites(sel_nsas, sel_cities)
-    return jsonify({"sites": sites})
 
 @prod.route("/api/productivity/site")
 @login_required
@@ -551,6 +583,7 @@ def api_productivity_site():
     sel_nsas = [n for n in request.args.getlist("nsa") if n]
     sel_cities = [c for c in request.args.getlist("city") if c]
     sel_sites = [s for s in request.args.getlist("site") if s]
+    sel_techs = [t for t in request.args.getlist("tech") if t]
     
     try:
         with db_query() as (conn, cur):
@@ -561,7 +594,7 @@ def api_productivity_site():
                     return jsonify({"error": "Missing required date filters for trend mode"})
                 
                 if not sel_sites:
-                    sel_sites = _get_sites(sel_nsas, sel_cities)
+                    sel_sites = _get_sites(sel_nsas, sel_cities, sel_techs)
                     if len(sel_sites) > 50:
                         sel_sites = sel_sites[:50]
                 
@@ -571,12 +604,16 @@ def api_productivity_site():
                 params = [from_date, to_date, sel_sites]
                 nsa_clause = ""
                 city_clause = ""
+                tech_clause = ""
                 if sel_nsas:
                     nsa_clause = 'AND "NSA"=ANY(%s)'
                     params.append(sel_nsas)
                 if sel_cities:
                     city_clause = 'AND "KABUPATEN"=ANY(%s)'
                     params.append(sel_cities)
+                if sel_techs:
+                    tech_clause = 'AND "Tech"=ANY(%s)'
+                    params.append(sel_techs)
                 
                 cur.execute(f'''
                     SELECT
@@ -588,7 +625,7 @@ def api_productivity_site():
                         SUM(sum_avail_denum) AS aden,
                         SUM(sum_max_rrc) AS rrc
                     FROM mv_traffic_payload_daily_site
-                    WHERE "Date" BETWEEN %s AND %s AND "Site ID"=ANY(%s) {nsa_clause} {city_clause}
+                    WHERE "Date" BETWEEN %s AND %s AND "Site ID"=ANY(%s) {nsa_clause} {city_clause} {tech_clause}
                     GROUP BY "Date"::text, "Site ID"
                     ORDER BY 1, 2
                 ''', params)
@@ -659,6 +696,7 @@ def api_productivity_site():
                 site_clause = ""
                 nsa_clause = ""
                 city_clause = ""
+                tech_clause = ""
                 
                 if sel_sites:
                     site_clause = 'AND "Site ID"=ANY(%s)'
@@ -669,6 +707,9 @@ def api_productivity_site():
                 if sel_cities:
                     city_clause = 'AND "KABUPATEN"=ANY(%s)'
                     query_params.append(sel_cities)
+                if sel_techs:
+                    tech_clause = 'AND "Tech"=ANY(%s)'
+                    query_params.append(sel_techs)
                     
                 cur.execute(f'''
                     SELECT
@@ -685,7 +726,7 @@ def api_productivity_site():
                         SUM(CASE WHEN "Y_W"=%s THEN sum_max_rrc END) AS rb,
                         SUM(CASE WHEN "Y_W"=%s THEN sum_max_rrc END) AS ra
                     FROM mv_traffic_payload_yw_site
-                    WHERE "Y_W" IN (%s, %s) {site_clause} {nsa_clause} {city_clause}
+                    WHERE "Y_W" IN (%s, %s) {site_clause} {nsa_clause} {city_clause} {tech_clause}
                     GROUP BY "KABUPATEN", "Site ID"
                     ORDER BY "KABUPATEN", "Site ID"
                 ''', [yw_before, yw_after, yw_before, yw_after, yw_before, yw_before, yw_after, yw_after, yw_before, yw_after, yw_before, yw_after] + query_params)

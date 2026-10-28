@@ -68,6 +68,10 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_2g_kpi_zte_date_city
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tp_date_year
     ON traffic_payload ("Date", "Year by Date");
 
+-- Tech filter queries
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tp_tech
+    ON traffic_payload ("Tech");
+
 -- City/Site level queries by Date + NSA
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tp_date_nsa
     ON traffic_payload ("Date", "NSA");

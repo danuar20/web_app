@@ -184,6 +184,29 @@ METRIC_TITLES = {
     "voiceexperience_overall": "Voice Experience Overall",
 }
 
+METRIC_CATEGORIES = {
+    # Overall Experience
+    "videoexperience_overall": "Overall Experience",
+    "gamesexperience_overall": "Overall Experience",
+    "voiceexperience_overall": "Overall Experience",
+    "timeon_overall": "Overall Experience",
+    # Speed & Quality
+    "download_overall": "Speed & Quality",
+    "upload_overall": "Speed & Quality",
+    "reliability_overall": "Speed & Quality",
+    "consistentquality_overall": "Speed & Quality",
+    # 5G Experience
+    "videoexperience_5g": "5G Experience",
+    "gamesexperience_5g": "5G Experience",
+    "voiceexperience_5g": "5G Experience",
+    "timeon_5g": "5G Experience",
+    # 5G Speed & Coverage
+    "download_5g": "5G Speed & Coverage",
+    "upload_5g": "5G Speed & Coverage",
+    "onxcoveragesim_5g": "5G Speed & Coverage",
+    "onxcoveragesim_overall": "5G Speed & Coverage",
+}
+
 
 
 @sow.route('/api/sow/crowdsource_onx-csv-export', methods=['GET'])
@@ -2030,6 +2053,249 @@ def api_sow_kabupaten_comparison():
     except Exception as e:
         logger.exception("Error fetching Kabupaten comparison: %s", e)
         return jsonify({"status": "error", "message": "Failed to fetch Kabupaten comparison"}), 500
+
+
+@sow.route("/api/sow/metric-wow-comparison", methods=["POST"])
+@csrf.exempt
+@login_required
+def api_sow_metric_wow_comparison():
+    """Return 16 metrics WoW comparison and granular Kabupaten breakdown for a Region and Yearweek."""
+    req = request.get_json(silent=True) or {}
+    region = req.get("region", "MALUKU DAN PAPUA")
+    provider = req.get("provider", "Telkomsel")
+    try:
+        yearweek = int(req.get("yearweek", 202638))
+    except (ValueError, TypeError):
+        yearweek = 202638
+
+    yw_val = int(yearweek)
+    yr = yw_val // 100
+    wk = yw_val % 100
+    q = min(4, max(1, (wk - 1) // 13 + 1))
+    quarter_label = f"Q{q}"
+
+    target = 14
+    try:
+        with db_query(get_postgres_connection) as (conn_t, cur_t):
+            cur_t.execute("""
+                SELECT "Q1", "Q2", "Q3", "Q4" 
+                FROM sow.sow_target 
+                WHERE "SOW" = 'ONX' AND "Year" = %s
+            """, (yr,))
+            t_row = cur_t.fetchone()
+            if not t_row:
+                cur_t.execute("""
+                    SELECT "Q1", "Q2", "Q3", "Q4" 
+                    FROM sow.sow_target 
+                    WHERE "SOW" = 'ONX' 
+                    ORDER BY "Year" DESC LIMIT 1
+                """)
+                t_row = cur_t.fetchone()
+            if t_row:
+                q_map = {"Q1": int(t_row[0]), "Q2": int(t_row[1]), "Q3": int(t_row[2]), "Q4": int(t_row[3])}
+                target = q_map.get(quarter_label, 14)
+    except Exception as e_tgt:
+        logger.warning("Could not resolve dynamic quarterly target for metric WoW: %s", e_tgt)
+
+    prev_yearweek = _shift_yearweek(yearweek, 1)
+
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            if not prev_yearweek:
+                cur.execute("""
+                    SELECT MAX(yearweek) FROM sow.onx_rank_score
+                    WHERE level = 'Region' AND location = %s AND provider = %s AND yearweek < %s
+                """, (region, provider, yearweek))
+                pw_row = cur.fetchone()
+                if pw_row and pw_row[0]:
+                    prev_yearweek = pw_row[0]
+
+            yws_to_fetch = [yearweek]
+            if prev_yearweek:
+                yws_to_fetch.append(prev_yearweek)
+
+            # 1. Regional metric rank & score
+            cur.execute("""
+                SELECT yearweek, metric, rank, "mean or percentage"
+                FROM sow.onx_rank_score
+                WHERE level = 'Region' AND location = %s AND provider = %s AND yearweek = ANY(%s);
+            """, (region, provider, yws_to_fetch))
+            r1 = cur.fetchall()
+
+            # 2. Kabupaten aggregated wins and averages per metric
+            cur.execute("""
+                SELECT yearweek, metric,
+                       COUNT(*) as total_kabs,
+                       SUM(CASE WHEN rank = 1 THEN 1 ELSE 0 END) as win_kabs,
+                       ROUND(AVG("mean or percentage")::numeric, 2) as avg_score
+                FROM sow.onx_rank_score
+                WHERE level = 'Kabupaten' AND "Region" = %s AND provider = %s AND yearweek = ANY(%s)
+                GROUP BY yearweek, metric;
+            """, (region, provider, yws_to_fetch))
+            r2 = cur.fetchall()
+
+            # 3. Granular Kabupaten rows per metric
+            cur.execute("""
+                SELECT location, metric, yearweek, rank, "mean or percentage"
+                FROM sow.onx_rank_score
+                WHERE level = 'Kabupaten' AND "Region" = %s AND provider = %s AND yearweek = ANY(%s)
+                ORDER BY metric, location, yearweek DESC;
+            """, (region, provider, yws_to_fetch))
+            r3 = cur.fetchall()
+
+        reg_map = {}
+        for r in r1:
+            yw, m, rnk, score = int(r[0]), r[1], r[2], float(r[3]) if r[3] is not None else None
+            reg_map.setdefault(m, {})[yw] = {"rank": rnk, "score": score}
+
+        kab_sum_map = {}
+        for r in r2:
+            yw, m, total, wins, avg_s = int(r[0]), r[1], r[2], r[3], float(r[4]) if r[4] is not None else None
+            kab_sum_map.setdefault(m, {})[yw] = {"total": total, "wins": wins, "avg": avg_s}
+
+        kab_detail_map = {}
+        for r in r3:
+            loc, m, yw, rnk, score = r[0], r[1], int(r[2]), r[3], float(r[4]) if r[4] is not None else None
+            kab_detail_map.setdefault(m, {}).setdefault(loc, {})[yw] = {"rank": rnk, "score": score}
+
+        metrics_list = []
+        curr_wins_count = 0
+        prev_wins_count = 0
+        moved_to_win_count = 0
+        moved_to_lose_count = 0
+        maintained_win_count = 0
+        maintained_lose_count = 0
+
+        for m in ORDERED_16_METRICS:
+            rm = reg_map.get(m, {})
+            c_reg = rm.get(yearweek, {})
+            p_reg = rm.get(prev_yearweek, {}) if prev_yearweek else {}
+
+            c_rnk = c_reg.get("rank")
+            p_rnk = p_reg.get("rank")
+            c_sc = c_reg.get("score")
+            p_sc = p_reg.get("score")
+            d_sc = round(c_sc - p_sc, 2) if (c_sc is not None and p_sc is not None) else None
+
+            c_win = (c_rnk == 1) if c_rnk else False
+            p_win = (p_rnk == 1) if p_rnk else False
+
+            if c_win: curr_wins_count += 1
+            if p_win: prev_wins_count += 1
+
+            if not p_win and c_win:
+                movement = "move_to_win"
+                moved_to_win_count += 1
+            elif p_win and not c_win:
+                movement = "move_to_lose"
+                moved_to_lose_count += 1
+            elif p_win and c_win:
+                movement = "maintain_win"
+                maintained_win_count += 1
+            else:
+                movement = "maintain_lose"
+                maintained_lose_count += 1
+
+            km = kab_sum_map.get(m, {})
+            c_km = km.get(yearweek, {})
+            p_km = km.get(prev_yearweek, {}) if prev_yearweek else {}
+
+            k_total = c_km.get("total", 0)
+            c_kw = c_km.get("wins", 0)
+            p_kw = p_km.get("wins", 0)
+            d_kw = (c_kw - p_kw) if (c_km and p_km) else 0
+
+            metrics_list.append({
+                "metric": m,
+                "title": METRIC_TITLES.get(m, m),
+                "category": METRIC_CATEGORIES.get(m, "General"),
+                "curr_rank": c_rnk,
+                "prev_rank": p_rnk,
+                "curr_score": c_sc,
+                "prev_score": p_sc,
+                "delta_score": d_sc,
+                "curr_win": c_win,
+                "prev_win": p_win,
+                "movement": movement,
+                "kab_total": k_total,
+                "curr_kab_wins": c_kw,
+                "prev_kab_wins": p_kw,
+                "delta_kab_wins": d_kw,
+                "curr_kab_avg": c_km.get("avg"),
+                "prev_kab_avg": p_km.get("avg")
+            })
+
+        drilldown = {}
+        for m in ORDERED_16_METRICS:
+            k_data = kab_detail_map.get(m, {})
+            m_kabs = []
+            for loc, yws in k_data.items():
+                c = yws.get(yearweek, {})
+                p = yws.get(prev_yearweek, {}) if prev_yearweek else {}
+                c_rnk = c.get("rank")
+                p_rnk = p.get("rank")
+                c_sc = c.get("score")
+                p_sc = p.get("score")
+                d_sc = round(c_sc - p_sc, 2) if (c_sc is not None and p_sc is not None) else None
+                c_win = (c_rnk == 1) if c_rnk else False
+                p_win = (p_rnk == 1) if p_rnk else False
+
+                if not p_win and c_win:
+                    mov = "move_to_win"
+                elif p_win and not c_win:
+                    mov = "move_to_lose"
+                elif p_win and c_win:
+                    mov = "maintain_win"
+                else:
+                    mov = "maintain_lose"
+
+                m_kabs.append({
+                    "location": loc,
+                    "curr_rank": c_rnk,
+                    "prev_rank": p_rnk,
+                    "curr_score": c_sc,
+                    "prev_score": p_sc,
+                    "delta_score": d_sc,
+                    "curr_win": c_win,
+                    "prev_win": p_win,
+                    "movement": mov
+                })
+            m_kabs.sort(key=lambda x: (not x["curr_win"], -(x["delta_score"] or -9999), x["location"]))
+            drilldown[m] = m_kabs
+
+        win_rate = round((curr_wins_count / 16.0) * 100, 1)
+        prev_win_rate = round((prev_wins_count / 16.0) * 100, 1) if prev_yearweek else None
+
+        summary = {
+            "total_metrics": len(metrics_list),
+            "target": target,
+            "quarter_label": quarter_label,
+            "target_met": (curr_wins_count >= target),
+            "curr_wins_count": curr_wins_count,
+            "prev_wins_count": prev_wins_count,
+            "curr_win_rate": win_rate,
+            "prev_win_rate": prev_win_rate,
+            "moved_to_win_count": moved_to_win_count,
+            "moved_to_lose_count": moved_to_lose_count,
+            "maintained_win_count": maintained_win_count,
+            "maintained_lose_count": maintained_lose_count
+        }
+
+        return jsonify({
+            "status": "success",
+            "region": region,
+            "provider": provider,
+            "yearweek": yearweek,
+            "prev_yearweek": prev_yearweek,
+            "target": target,
+            "quarter_label": quarter_label,
+            "summary": summary,
+            "metrics": metrics_list,
+            "drilldown": drilldown
+        })
+    except Exception as e:
+        logger.exception("Error in metric WoW comparison: %s", e)
+        return jsonify({"status": "error", "message": "Failed to fetch metric WoW comparison"}), 500
 
 
 @sow.route("/api/sow/sample-template", methods=["GET"])

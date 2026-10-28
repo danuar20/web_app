@@ -20,13 +20,15 @@ def create_materialized_views(conn):
     cur = conn.cursor()
 
     print("Creating mv_traffic_payload_daily_city...")
+    cur.execute("DROP MATERIALIZED VIEW IF EXISTS mv_traffic_payload_daily_city CASCADE;")
     cur.execute("""
-        CREATE MATERIALIZED VIEW IF NOT EXISTS mv_traffic_payload_daily_city AS
+        CREATE MATERIALIZED VIEW mv_traffic_payload_daily_city AS
         SELECT
             "Date",
             "Year by Date",
             "KABUPATEN",
             "NSA",
+            "Tech",
             SUM("Payload (MB)") AS sum_payload_mb,
             SUM("Traffic (erlang)") AS sum_traffic_erl,
             SUM(CASE WHEN "Avail_Num" IS NOT NULL AND "Avail_Denum" IS NOT NULL AND "Avail_Denum" > 0 THEN "Avail_Num" END) AS sum_avail_num,
@@ -34,23 +36,26 @@ def create_materialized_views(conn):
             SUM("Max_RRC_Conn_User") AS sum_max_rrc
         FROM traffic_payload
         WHERE "Date" IS NOT NULL
-        GROUP BY "Date", "Year by Date", "KABUPATEN", "NSA"
+        GROUP BY "Date", "Year by Date", "KABUPATEN", "NSA", "Tech"
     """)
     cur.execute('CREATE INDEX IF NOT EXISTS idx_mv_daily_city_date ON mv_traffic_payload_daily_city("Date");')
     cur.execute('CREATE INDEX IF NOT EXISTS idx_mv_daily_city_kab ON mv_traffic_payload_daily_city("KABUPATEN");')
     cur.execute('CREATE INDEX IF NOT EXISTS idx_mv_daily_city_nsa ON mv_traffic_payload_daily_city("NSA");')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_mv_daily_city_tech ON mv_traffic_payload_daily_city("Tech");')
     print("Created mv_traffic_payload_daily_city.")
 
 
     print("Creating mv_traffic_payload_daily_site...")
+    cur.execute("DROP MATERIALIZED VIEW IF EXISTS mv_traffic_payload_daily_site CASCADE;")
     cur.execute("""
-        CREATE MATERIALIZED VIEW IF NOT EXISTS mv_traffic_payload_daily_site AS
+        CREATE MATERIALIZED VIEW mv_traffic_payload_daily_site AS
         SELECT
             "Date",
             "Year by Date",
             "Site ID",
             "KABUPATEN",
             "NSA",
+            "Tech",
             SUM("Payload (MB)") AS sum_payload_mb,
             SUM("Traffic (erlang)") AS sum_traffic_erl,
             SUM(CASE WHEN "Avail_Num" IS NOT NULL AND "Avail_Denum" IS NOT NULL AND "Avail_Denum" > 0 THEN "Avail_Num" END) AS sum_avail_num,
@@ -58,21 +63,24 @@ def create_materialized_views(conn):
             SUM("Max_RRC_Conn_User") AS sum_max_rrc
         FROM traffic_payload
         WHERE "Date" IS NOT NULL
-        GROUP BY "Date", "Year by Date", "Site ID", "KABUPATEN", "NSA"
+        GROUP BY "Date", "Year by Date", "Site ID", "KABUPATEN", "NSA", "Tech"
     """)
     cur.execute('CREATE INDEX IF NOT EXISTS idx_mv_daily_site_date ON mv_traffic_payload_daily_site("Date");')
     cur.execute('CREATE INDEX IF NOT EXISTS idx_mv_daily_site_id ON mv_traffic_payload_daily_site("Site ID");')
     cur.execute('CREATE INDEX IF NOT EXISTS idx_mv_daily_site_kab ON mv_traffic_payload_daily_site("KABUPATEN");')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_mv_daily_site_tech ON mv_traffic_payload_daily_site("Tech");')
     print("Created mv_traffic_payload_daily_site.")
 
 
     print("Creating mv_traffic_payload_yw_city...")
+    cur.execute("DROP MATERIALIZED VIEW IF EXISTS mv_traffic_payload_yw_city CASCADE;")
     cur.execute("""
-        CREATE MATERIALIZED VIEW IF NOT EXISTS mv_traffic_payload_yw_city AS
+        CREATE MATERIALIZED VIEW mv_traffic_payload_yw_city AS
         SELECT
             "Y_W",
             "KABUPATEN",
             "NSA",
+            "Tech",
             SUM("Payload (MB)") AS sum_payload_mb,
             SUM("Traffic (erlang)") AS sum_traffic_erl,
             SUM(CASE WHEN "Avail_Num" IS NOT NULL AND "Avail_Denum" IS NOT NULL AND "Avail_Denum" > 0 THEN "Avail_Num" END) AS sum_avail_num,
@@ -80,21 +88,24 @@ def create_materialized_views(conn):
             SUM("Max_RRC_Conn_User") AS sum_max_rrc
         FROM traffic_payload
         WHERE "Y_W" IS NOT NULL
-        GROUP BY "Y_W", "KABUPATEN", "NSA"
+        GROUP BY "Y_W", "KABUPATEN", "NSA", "Tech"
     """)
     cur.execute('CREATE INDEX IF NOT EXISTS idx_mv_yw_city_yw ON mv_traffic_payload_yw_city("Y_W");')
     cur.execute('CREATE INDEX IF NOT EXISTS idx_mv_yw_city_kab ON mv_traffic_payload_yw_city("KABUPATEN");')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_mv_yw_city_tech ON mv_traffic_payload_yw_city("Tech");')
     print("Created mv_traffic_payload_yw_city.")
 
 
     print("Creating mv_traffic_payload_yw_site...")
+    cur.execute("DROP MATERIALIZED VIEW IF EXISTS mv_traffic_payload_yw_site CASCADE;")
     cur.execute("""
-        CREATE MATERIALIZED VIEW IF NOT EXISTS mv_traffic_payload_yw_site AS
+        CREATE MATERIALIZED VIEW mv_traffic_payload_yw_site AS
         SELECT
             "Y_W",
             "Site ID",
             "KABUPATEN",
             "NSA",
+            "Tech",
             SUM("Payload (MB)") AS sum_payload_mb,
             SUM("Traffic (erlang)") AS sum_traffic_erl,
             SUM(CASE WHEN "Avail_Num" IS NOT NULL AND "Avail_Denum" IS NOT NULL AND "Avail_Denum" > 0 THEN "Avail_Num" END) AS sum_avail_num,
@@ -102,30 +113,34 @@ def create_materialized_views(conn):
             SUM("Max_RRC_Conn_User") AS sum_max_rrc
         FROM traffic_payload
         WHERE "Y_W" IS NOT NULL
-        GROUP BY "Y_W", "Site ID", "KABUPATEN", "NSA"
+        GROUP BY "Y_W", "Site ID", "KABUPATEN", "NSA", "Tech"
     """)
     cur.execute('CREATE INDEX IF NOT EXISTS idx_mv_yw_site_yw ON mv_traffic_payload_yw_site("Y_W");')
     cur.execute('CREATE INDEX IF NOT EXISTS idx_mv_yw_site_id ON mv_traffic_payload_yw_site("Site ID");')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_mv_yw_site_tech ON mv_traffic_payload_yw_site("Tech");')
     print("Created mv_traffic_payload_yw_site.")
 
 
     print("Creating mv_traffic_payload_daily_regional...")
+    cur.execute("DROP MATERIALIZED VIEW IF EXISTS mv_traffic_payload_daily_regional CASCADE;")
     cur.execute("""
-        CREATE MATERIALIZED VIEW IF NOT EXISTS mv_traffic_payload_daily_regional AS
+        CREATE MATERIALIZED VIEW mv_traffic_payload_daily_regional AS
         SELECT
             "Date",
             "Year by Date",
             "Regional",
             "NSA",
             "TO",
+            "Tech",
             SUM("Payload (MB)") AS sum_payload_mb,
             SUM("Traffic (erlang)") AS sum_traffic_erl
         FROM traffic_payload
         WHERE "Date" IS NOT NULL
-        GROUP BY "Date", "Year by Date", "Regional", "NSA", "TO"
+        GROUP BY "Date", "Year by Date", "Regional", "NSA", "TO", "Tech"
     """)
     cur.execute('CREATE INDEX IF NOT EXISTS idx_mv_daily_reg_date ON mv_traffic_payload_daily_regional("Date");')
     cur.execute('CREATE INDEX IF NOT EXISTS idx_mv_daily_reg_year ON mv_traffic_payload_daily_regional("Year by Date");')
+    cur.execute('CREATE INDEX IF NOT EXISTS idx_mv_daily_reg_tech ON mv_traffic_payload_daily_regional("Tech");')
     print("Created mv_traffic_payload_daily_regional.")
 
     conn.commit()

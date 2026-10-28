@@ -1,6 +1,6 @@
 """4G Dashboard Routes — /dashboard_4g"""
 from flask import Blueprint, render_template, request, session, flash, make_response, jsonify
-from app.db.db_webapp import get_postgres_connection, get_site_list_4g, get_site_cell_list_4g, get_city_list_4g
+from app.db.db_webapp import get_postgres_connection, get_site_list_4g, get_site_sec_list_4g, get_site_cell_list_4g, get_city_list_4g
 from ._utils import login_required, _no_cache, json_response, db_query
 import psycopg2
 import psycopg2.extras
@@ -139,6 +139,20 @@ ALL_KPI_DEFS = [
 KPI_GROUPS = ["Productivity","Availability","User","Accessibility","Retainability","Capacity","Integrity","Mobility","Quality","Coverage","Hardware","Others"]
 
 
+SECTOR_EXPR_4G = """CASE
+    WHEN LENGTH(cell::text) = 2 THEN LEFT(cell::text, 1)
+    WHEN RIGHT(cell::text, 1) = '8' THEN
+        CASE SUBSTRING(cell::text FROM 2 FOR 1)
+            WHEN '0' THEN '1'
+            WHEN '1' THEN '2'
+            WHEN '2' THEN '3'
+            ELSE SUBSTRING(cell::text FROM 2 FOR 1)
+        END
+    WHEN RIGHT(cell::text, 1) = '5' THEN SUBSTRING(cell::text FROM 2 FOR 1)
+    ELSE LEFT(cell::text, 2)
+END"""
+
+
 @dashboard_4g.route("/dashboard_4g")
 @login_required
 def dashboard_4g_view():
@@ -155,6 +169,8 @@ def dashboard_4g_view():
     execution_dates = [d.strip() for d in execution_dates_raw.split(",") if d.strip()]
     
     filter_type = request.args.get("filter_type", "siteid")
+    if filter_type == "site-sec":
+        filter_type = "site_sec"
     sel_sites = request.args.getlist("site")
     
     # Support cluster mapping from CSV (entity -> cluster)
@@ -214,6 +230,34 @@ def dashboard_4g_view():
             from_entity_clause = 'FROM unnest(%s::text[]) AS cl(cl_city) JOIN "4g_kpi_zte" ON city = cl.cl_city'
             from_entity_params = [sel_sites_db]
             group_entity = "cl.cl_city"
+    elif filter_type == "site_sec":
+        parsed = []
+        seen = set()
+        for s in sel_sites_db:
+            if '-' in s:
+                sid, sec = s.rsplit('-', 1)
+                sid_u = sid.strip().upper()
+                sec_clean = str(int(sec)) if sec.strip().isdigit() and int(sec.strip()) > 0 else sec.strip()
+                key = (sid_u, sec_clean)
+                if key not in seen and sid_u and sec_clean:
+                    seen.add(key)
+                    site_sec_str = f"{sid_u}-{sec_clean}"
+                    cluster_val = cluster_mapping_norm.get(s) or cluster_mapping_norm.get(site_sec_str) or 'Other'
+                    parsed.append((sid_u, sec_clean, cluster_val))
+        if not parsed:
+            parsed = [('UNKNOWN', 'UNKNOWN', 'Other')]
+
+        sites_arr = [p[0] for p in parsed]
+        secs_arr = [p[1] for p in parsed]
+        if is_cluster_mode:
+            clusters_arr = [p[2] for p in parsed]
+            from_entity_clause = f'FROM unnest(%s::text[], %s::text[], %s::text[]) AS cl(cl_siteid, cl_sector, cluster) JOIN "4g_kpi_zte" ON siteid = cl.cl_siteid AND ({SECTOR_EXPR_4G}) = cl.cl_sector'
+            from_entity_params = [sites_arr, secs_arr, clusters_arr]
+            group_entity = "cl.cluster"
+        else:
+            from_entity_clause = f'FROM unnest(%s::text[], %s::text[]) AS cl(cl_siteid, cl_sector) JOIN "4g_kpi_zte" ON siteid = cl.cl_siteid AND ({SECTOR_EXPR_4G}) = cl.cl_sector'
+            from_entity_params = [sites_arr, secs_arr]
+            group_entity = "cl.cl_siteid || \'-\' || cl.cl_sector"
     elif filter_type == "site_cell":
         parsed = []
         seen = set()
@@ -273,6 +317,8 @@ def dashboard_4g_view():
     try:
         if filter_type == "city":
             sites_list, _ = get_city_list_4g()
+        elif filter_type == "site_sec":
+            sites_list, _ = get_site_sec_list_4g()
         elif filter_type == "site_cell":
             sites_list, _ = get_site_cell_list_4g()
         else:
@@ -921,9 +967,13 @@ def delete_custom_chart():
 @login_required
 def get_filter_list_4g():
     ftype = request.args.get("filter_type", "siteid")
+    if ftype == "site-sec":
+        ftype = "site_sec"
     try:
         if ftype == "city":
             items, _ = get_city_list_4g()
+        elif ftype == "site_sec":
+            items, _ = get_site_sec_list_4g()
         elif ftype == "site_cell":
             items, _ = get_site_cell_list_4g()
         else:
@@ -948,6 +998,8 @@ def dashboard_4g_tech_api():
         after_to_date = data.get("after_to_date")
         
         filter_type = data.get("filter_type", "siteid")
+        if filter_type == "site-sec":
+            filter_type = "site_sec"
         sel_sites = data.get("site", [])
         site_paste = data.get("site_paste", "")
         
@@ -964,6 +1016,23 @@ def dashboard_4g_tech_api():
                 sel_sites_db = ['UNKNOWN']
             where_entity = "city IN %s"
             tech_where_params = [tuple(sel_sites_db)]
+        elif filter_type == "site_sec":
+            parsed = []
+            siteids_set = set()
+            for s in sel_sites_db:
+                if '-' in s:
+                    sid, sec = s.rsplit('-', 1)
+                    sid_u = sid.strip().upper()
+                    sec_clean = str(int(sec)) if sec.strip().isdigit() and int(sec.strip()) > 0 else sec.strip()
+                    if sid_u and sec_clean:
+                        parsed.append(f"{sid_u}-{sec_clean}")
+                        siteids_set.add(sid_u)
+            if not parsed:
+                parsed = ['UNKNOWN-UNKNOWN']
+            if not siteids_set:
+                siteids_set = {'UNKNOWN'}
+            where_entity = f"siteid IN %s AND (siteid || '-' || ({SECTOR_EXPR_4G})) IN %s"
+            tech_where_params = [tuple(siteids_set), tuple(parsed)]
         elif filter_type == "site_cell":
             parsed = []
             siteids_set = set()

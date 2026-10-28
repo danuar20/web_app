@@ -128,7 +128,7 @@
 @keyframes skeleton-loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
 /* Inputs */
-.dropdown-container { position: relative; min-width: 220px; }
+.dropdown-container { position: relative; min-width: 140px; }
 .dropdown-toggle { 
     width: 100%; padding: 10px 14px; border: 1px solid rgba(79,172,254,0.2); 
     border-radius: 8px; cursor: pointer; text-align: left; display: flex; 
@@ -139,7 +139,7 @@
 .dropdown-menu { 
     position: absolute; top: calc(100% + 4px); left: 0; right: 0; 
     border: 1px solid rgba(79,172,254,0.15); border-radius: 8px; 
-    box-shadow: 0 12px 32px rgba(0,0,0,0.15); z-index: 1000; display: none; 
+    box-shadow: 0 12px 32px rgba(0,0,0,0.15); z-index: 1050; display: none; 
     flex-direction: column; background: #fff; max-height: 250px; overflow-y: auto;
 }
 [data-theme="dark"] .dropdown-menu { background: #1e1e2e; }
@@ -157,19 +157,19 @@
 
     <!-- Filter Bar for Trend -->
     <div class="filter-card" id="filterCardTrend">
-        <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end; width:100%;">
+        <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; width:100%;">
             <div class="filter-group">
                 <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">From Date</div>
-                <input type="date" id="tFromDate" class="f-input" style="padding:9px 12px; border-radius:8px; border: 1px solid rgba(79,172,254,0.2); font-family:inherit;">
+                <input type="date" id="tFromDate" class="f-input" style="padding:9px 12px; border-radius:8px; border: 1px solid rgba(79,172,254,0.2); font-family:inherit; width:140px;">
             </div>
             <div class="filter-group">
                 <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">To Date</div>
-                <input type="date" id="tToDate" class="f-input" style="padding:9px 12px; border-radius:8px; border: 1px solid rgba(79,172,254,0.2); font-family:inherit;">
+                <input type="date" id="tToDate" class="f-input" style="padding:9px 12px; border-radius:8px; border: 1px solid rgba(79,172,254,0.2); font-family:inherit; width:140px;">
             </div>
             
             <div class="filter-group">
                 <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">NSA</div>
-                <div class="dropdown-container">
+                <div class="dropdown-container" style="min-width: 140px;">
                     <button type="button" class="dropdown-toggle" onclick="toggleDropdown('tNsaDrop')">
                         <span id="tNsaLbl">All NSA</span> <i class="fas fa-chevron-down"></i>
                     </button>
@@ -187,9 +187,29 @@
                 </div>
             </div>
 
+            <!-- Tech multi-select -->
+            <div class="filter-group">
+                <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">Tech</div>
+                <div class="dropdown-container" style="min-width: 110px;">
+                    <button type="button" class="dropdown-toggle" onclick="toggleDropdown('tTechDrop')">
+                        <span id="tTechLbl">All Tech</span> <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="dropdown-menu" id="tTechDrop">
+                        <label style="border-bottom:1px solid rgba(128,128,128,0.1); font-weight:bold;">
+                            <input type="checkbox" onchange="toggleAll(this, 'tTechList', 'tTechLbl', 'Tech'); fetchSites('t');"> Select All
+                        </label>
+                        <div id="tTechList">
+                            {% for t in techs_list %}
+                            <label><input type="checkbox" name="t_tech" value="{{ t }}" onchange="updateLbl('tTechList', 'tTechLbl', 'Tech'); fetchSites('t');"> <span>{{ t }}</span></label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="filter-group">
                 <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">City</div>
-                <div class="dropdown-container">
+                <div class="dropdown-container" style="min-width: 150px;">
                     <button type="button" id="tCityToggle" class="dropdown-toggle" onclick="toggleDropdown('tCityDrop')" disabled style="opacity:0.6; cursor:not-allowed;">
                         <span id="tCityLbl">All Cities</span> <i class="fas fa-chevron-down"></i>
                     </button>
@@ -209,7 +229,7 @@
 
             <div class="filter-group">
                 <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">Site ID</div>
-                <div class="dropdown-container">
+                <div class="dropdown-container" style="min-width: 160px;">
                     <button type="button" id="tSiteToggle" class="dropdown-toggle" onclick="toggleDropdown('tSiteDrop')" disabled style="opacity:0.6; cursor:not-allowed;">
                         <span id="tSiteLbl">All Sites</span> <i class="fas fa-chevron-down"></i>
                     </button>
@@ -227,14 +247,14 @@
                 </div>
             </div>
 
-            <button type="button" onclick="loadDataTrend()" class="btn-apply" style="padding: 10px 24px; border-radius: 8px; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom:2px;">
+            <button type="button" onclick="loadDataTrend()" class="btn-apply" style="padding: 10px 20px; border-radius: 8px; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom:2px; flex-shrink:0;">
                 <i class="fas fa-play" id="tBtnIcon"></i> <span id="tBtnText">Analyze Trend</span>
             </button>
-            <div style="display:flex; gap:10px; margin-left:auto; border-left:1px solid rgba(128,128,128,0.2); padding-left:16px; align-items:center;">
-                <button type="button" id="tBtnExportPng" onclick="openPngModal('trend')" class="btn-export-outline" style="display:none; padding: 6px 12px; border-radius: 6px; font-weight: 600; align-items: center; gap: 6px; font-size:12px; border:1px solid currentColor; background:transparent; cursor:pointer;">
+            <div style="display:flex; gap:8px; margin-left:auto; border-left:1px solid rgba(128,128,128,0.2); padding-left:12px; align-items:center; flex-shrink:0;">
+                <button type="button" id="tBtnExportPng" onclick="openPngModal('trend')" class="btn-export-outline" style="display:none; padding: 6px 12px; border-radius: 6px; font-weight: 600; align-items: center; gap: 6px; font-size:12px; border:1px solid currentColor; background:transparent; cursor:pointer; white-space:nowrap;">
                     <i class="fas fa-camera"></i> Export PNG
                 </button>
-                <button type="button" id="tBtnExportCsv" onclick="exportDataCSV('trend')" class="btn-export-outline" style="display:none; padding: 6px 12px; border-radius: 6px; font-weight: 600; align-items: center; gap: 6px; font-size:12px; border:1px solid currentColor; background:transparent; cursor:pointer;">
+                <button type="button" id="tBtnExportCsv" onclick="exportDataCSV('trend')" class="btn-export-outline" style="display:none; padding: 6px 12px; border-radius: 6px; font-weight: 600; align-items: center; gap: 6px; font-size:12px; border:1px solid currentColor; background:transparent; cursor:pointer; white-space:nowrap;">
                     <i class="fas fa-file-csv"></i> Export CSV
                 </button>
             </div>
@@ -243,17 +263,17 @@
 
     <!-- Filter Bar for Compare -->
     <div class="filter-card" id="filterCardCompare" style="display:none;">
-        <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end; width:100%;">
+        <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; width:100%;">
             <div class="filter-group">
                 <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">Week Before</div>
-                <select id="cWb" class="f-select" style="padding:10px; border-radius:8px; border: 1px solid rgba(79,172,254,0.2);">
+                <select id="cWb" class="f-select" style="padding:10px; border-radius:8px; border: 1px solid rgba(79,172,254,0.2); width:130px;">
                     <option value="">-- Select --</option>
                     {% for w in yw_list %}<option value="{{ w }}">{{ w }}</option>{% endfor %}
                 </select>
             </div>
             <div class="filter-group">
                 <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">Week After</div>
-                <select id="cWa" class="f-select" style="padding:10px; border-radius:8px; border: 1px solid rgba(79,172,254,0.2);">
+                <select id="cWa" class="f-select" style="padding:10px; border-radius:8px; border: 1px solid rgba(79,172,254,0.2); width:130px;">
                     <option value="">-- Select --</option>
                     {% for w in yw_list %}<option value="{{ w }}">{{ w }}</option>{% endfor %}
                 </select>
@@ -261,7 +281,7 @@
             
             <div class="filter-group">
                 <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">NSA</div>
-                <div class="dropdown-container">
+                <div class="dropdown-container" style="min-width: 140px;">
                     <button type="button" class="dropdown-toggle" onclick="toggleDropdown('cNsaDrop')">
                         <span id="cNsaLbl">All NSA</span> <i class="fas fa-chevron-down"></i>
                     </button>
@@ -279,9 +299,29 @@
                 </div>
             </div>
 
+            <!-- Tech multi-select -->
+            <div class="filter-group">
+                <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">Tech</div>
+                <div class="dropdown-container" style="min-width: 110px;">
+                    <button type="button" class="dropdown-toggle" onclick="toggleDropdown('cTechDrop')">
+                        <span id="cTechLbl">All Tech</span> <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="dropdown-menu" id="cTechDrop">
+                        <label style="border-bottom:1px solid rgba(128,128,128,0.1); font-weight:bold;">
+                            <input type="checkbox" onchange="toggleAll(this, 'cTechList', 'cTechLbl', 'Tech'); fetchSites('c');"> Select All
+                        </label>
+                        <div id="cTechList">
+                            {% for t in techs_list %}
+                            <label><input type="checkbox" name="c_tech" value="{{ t }}" onchange="updateLbl('cTechList', 'cTechLbl', 'Tech'); fetchSites('c');"> <span>{{ t }}</span></label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="filter-group">
                 <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">City</div>
-                <div class="dropdown-container">
+                <div class="dropdown-container" style="min-width: 150px;">
                     <button type="button" id="cCityToggle" class="dropdown-toggle" onclick="toggleDropdown('cCityDrop')" disabled style="opacity:0.6; cursor:not-allowed;">
                         <span id="cCityLbl">All Cities</span> <i class="fas fa-chevron-down"></i>
                     </button>
@@ -301,7 +341,7 @@
             
             <div class="filter-group">
                 <div class="filter-label" style="font-size:12px; font-weight:600; margin-bottom:6px; opacity:0.8;">Site ID</div>
-                <div class="dropdown-container">
+                <div class="dropdown-container" style="min-width: 160px;">
                     <button type="button" id="cSiteToggle" class="dropdown-toggle" onclick="toggleDropdown('cSiteDrop')" disabled style="opacity:0.6; cursor:not-allowed;">
                         <span id="cSiteLbl">All Sites</span> <i class="fas fa-chevron-down"></i>
                     </button>
@@ -319,14 +359,14 @@
                 </div>
             </div>
 
-            <button type="button" onclick="loadDataCompare()" class="btn-apply" style="padding: 10px 24px; border-radius: 8px; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom:2px;">
+            <button type="button" onclick="loadDataCompare()" class="btn-apply" style="padding: 10px 20px; border-radius: 8px; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom:2px; flex-shrink:0;">
                 <i class="fas fa-balance-scale" id="cBtnIcon"></i> <span id="cBtnText">Compare</span>
             </button>
-            <div style="display:flex; gap:10px; margin-left:auto; border-left:1px solid rgba(128,128,128,0.2); padding-left:16px; align-items:center;">
-                <button type="button" id="cBtnExportPng" onclick="event.stopPropagation(); openPngModal('compare')" class="btn-export-outline" style="display:none; padding: 6px 12px; border-radius: 6px; font-weight: 600; align-items: center; gap: 6px; font-size:12px; border:1px solid currentColor; background:transparent; cursor:pointer;">
+            <div style="display:flex; gap:8px; margin-left:auto; border-left:1px solid rgba(128,128,128,0.2); padding-left:12px; align-items:center; flex-shrink:0;">
+                <button type="button" id="cBtnExportPng" onclick="event.stopPropagation(); openPngModal('compare')" class="btn-export-outline" style="display:none; padding: 6px 12px; border-radius: 6px; font-weight: 600; align-items: center; gap: 6px; font-size:12px; border:1px solid currentColor; background:transparent; cursor:pointer; white-space:nowrap;">
                     <i class="fas fa-camera"></i> Export PNG
                 </button>
-                <button type="button" id="cBtnExportCsv" onclick="event.stopPropagation(); exportDataCSV('compare')" class="btn-export-outline" style="display:none; padding: 6px 12px; border-radius: 6px; font-weight: 600; align-items: center; gap: 6px; font-size:12px; border:1px solid currentColor; background:transparent; cursor:pointer;">
+                <button type="button" id="cBtnExportCsv" onclick="event.stopPropagation(); exportDataCSV('compare')" class="btn-export-outline" style="display:none; padding: 6px 12px; border-radius: 6px; font-weight: 600; align-items: center; gap: 6px; font-size:12px; border:1px solid currentColor; background:transparent; cursor:pointer; white-space:nowrap;">
                     <i class="fas fa-file-csv"></i> Export CSV
                 </button>
             </div>
@@ -606,7 +646,9 @@ function fetchCities(prefix) {
             if(data.cities && data.cities.length > 0 && list) {
                 let html = '';
                 data.cities.forEach(c => {
-                    html += `<label><input type="checkbox" name="${prefix}_city" value="${c}" onchange="updateLbl('${prefix}CityList', '${prefix}CityLbl', 'City'); fetchSites('${prefix}');"> <span>${c}</span></label>`;
+                    if (c && String(c).trim()) {
+                        html += `<label><input type="checkbox" name="${prefix}_city" value="${c}" onchange="updateLbl('${prefix}CityList', '${prefix}CityLbl', 'City'); fetchSites('${prefix}');"> <span>${c}</span></label>`;
+                    }
                 });
                 list.innerHTML = html;
                 updateLbl(`${prefix}CityList`, `${prefix}CityLbl`, 'City');
@@ -622,16 +664,19 @@ function fetchSites(prefix) {
     fetchSitesTimeout = setTimeout(async () => {
         let url = `/api/productivity/sites?`;
         document.querySelectorAll(`#${prefix}NsaList input:checked`).forEach(cb => url += `&nsa=${encodeURIComponent(cb.value)}`);
+        document.querySelectorAll(`#${prefix}TechList input:checked`).forEach(cb => url += `&tech=${encodeURIComponent(cb.value)}`);
         document.querySelectorAll(`#${prefix}CityList input:checked`).forEach(cb => url += `&city=${encodeURIComponent(cb.value)}`);
         
         try {
             const res = await fetch(url);
             const data = await res.json();
             const list = document.getElementById(`${prefix}SiteList`);
-            if(data.sites && data.sites.length > 0 && list) {
+            if (data.sites && data.sites.length > 0 && list) {
                 let html = '';
                 data.sites.forEach(s => {
-                    html += `<label><input type="checkbox" name="${prefix}_site" value="${s}" onchange="updateLbl('${prefix}SiteList', '${prefix}SiteLbl', 'Site')"> <span>${s}</span></label>`;
+                    if (s && String(s).trim()) {
+                        html += `<label><input type="checkbox" name="${prefix}_site" value="${s}" onchange="updateLbl('${prefix}SiteList', '${prefix}SiteLbl', 'Site')"> <span>${s}</span></label>`;
+                    }
                 });
                 list.innerHTML = html;
                 updateLbl(`${prefix}SiteList`, `${prefix}SiteLbl`, 'Site');
@@ -692,6 +737,7 @@ async function loadDataTrend() {
     
     let url = `/api/productivity/site?mode=trend&from_date=${fDate}&to_date=${tDate}`;
     document.querySelectorAll('#tNsaList input:checked').forEach(cb => url += `&nsa=${encodeURIComponent(cb.value)}`);
+    document.querySelectorAll('#tTechList input:checked').forEach(cb => url += `&tech=${encodeURIComponent(cb.value)}`);
     document.querySelectorAll('#tCityList input:checked').forEach(cb => url += `&city=${encodeURIComponent(cb.value)}`);
     document.querySelectorAll('#tSiteList input:checked').forEach(cb => url += `&site=${encodeURIComponent(cb.value)}`);
 
@@ -749,6 +795,7 @@ async function loadDataCompare() {
     
     let url = `/api/productivity/site?mode=compare&yw_before=${wb}&yw_after=${wa}`;
     document.querySelectorAll('#cNsaList input:checked').forEach(cb => url += `&nsa=${encodeURIComponent(cb.value)}`);
+    document.querySelectorAll('#cTechList input:checked').forEach(cb => url += `&tech=${encodeURIComponent(cb.value)}`);
     document.querySelectorAll('#cCityList input:checked').forEach(cb => url += `&city=${encodeURIComponent(cb.value)}`);
     document.querySelectorAll('#cSiteList input:checked').forEach(cb => url += `&site=${encodeURIComponent(cb.value)}`);
 

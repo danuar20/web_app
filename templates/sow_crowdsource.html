@@ -1780,13 +1780,13 @@
     <div class="tab-content-pane" id="paneComparison">
         <div class="filter-card" style="margin-bottom: 14px;">
             <div class="filter-card-header">
-                <div class="filter-title"><i class="fas fa-table"></i> Kabupaten Issue Analysis</div>
-                <button type="button" class="btn-apply" onclick="loadKabupatenComparison()"><i class="fas fa-sync-alt"></i> Refresh</button>
+                <div class="filter-title"><i class="fas fa-table"></i> Comparison &amp; Issue Analysis</div>
+                <button type="button" class="btn-apply" onclick="refreshComparisonData()"><i class="fas fa-sync-alt"></i> Refresh</button>
             </div>
             <div class="filter-grid">
                 <div class="filter-group">
                     <label class="filter-label"><i class="fas fa-compass"></i> Region</label>
-                    <select id="comparisonRegion" class="filter-select" onchange="loadKabupatenComparison()">
+                    <select id="comparisonRegion" class="filter-select" onchange="refreshComparisonData()">
                         {% for reg in kab_regions %}
                         <option value="{{ reg }}" {% if reg == "MALUKU DAN PAPUA" %}selected{% endif %}>{{ reg }}</option>
                         {% endfor %}
@@ -1794,98 +1794,266 @@
                 </div>
                 <div class="filter-group">
                     <label class="filter-label"><i class="fas fa-signal"></i> Provider</label>
-                    <select id="comparisonProvider" class="filter-select" onchange="loadKabupatenComparison()">
+                    <select id="comparisonProvider" class="filter-select" onchange="refreshComparisonData()">
                         {% for p in providers %}<option value="{{ p }}" {% if p == default_provider %}selected{% endif %}>{{ p }}</option>{% endfor %}
                     </select>
                 </div>
                 <div class="filter-group">
                     <label class="filter-label"><i class="fas fa-calendar-check"></i> Yearweek</label>
-                    <select id="comparisonYearweek" class="filter-select" onchange="loadKabupatenComparison()">
+                    <select id="comparisonYearweek" class="filter-select" onchange="refreshComparisonData()">
                         {% for yw in yearweeks %}<option value="{{ yw }}" {% if yw == default_end_yw %}selected{% endif %}>{{ yw }}</option>{% endfor %}
                     </select>
                 </div>
             </div>
         </div>
 
-        <div class="summary-grid" style="grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 14px;">
-            <!-- Card 1: Kabupaten Analyzed -->
-            <div class="kpi-card">
-                <div class="kpi-card-header">
-                    <span class="kpi-card-title">Kabupaten Analyzed</span>
-                    <div class="kpi-card-icon" style="background: rgba(79,172,254,.15); color:#4facfe"><i class="fas fa-city"></i></div>
+        <!-- Comparison Sub-tabs: Kabupaten Overview vs Metric WoW Comparison -->
+        <div class="sow-nav-tabs" style="margin-bottom: 14px; gap: 8px;">
+            <button type="button" class="sow-tab-btn active" id="compSubTabKab" onclick="switchCompSubTab('kab')">
+                <i class="fas fa-city"></i> Kabupaten Overview
+            </button>
+            <button type="button" class="sow-tab-btn" id="compSubTabMetric" onclick="switchCompSubTab('metric')">
+                <i class="fas fa-layer-group"></i> Metric WoW Comparison
+            </button>
+        </div>
+
+        <!-- ── SUB-PANE 1: KABUPATEN OVERVIEW ── -->
+        <div id="compSubPaneKab">
+            <div class="summary-grid" style="grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 14px;">
+                <!-- Card 1: Kabupaten Analyzed -->
+                <div class="kpi-card">
+                    <div class="kpi-card-header">
+                        <span class="kpi-card-title">Kabupaten Analyzed</span>
+                        <div class="kpi-card-icon" style="background: rgba(79,172,254,.15); color:#4facfe"><i class="fas fa-city"></i></div>
+                    </div>
+                    <div class="kpi-card-val-row">
+                        <span class="kpi-card-val" id="compTotal">--</span>
+                        <span class="kpi-card-sub" style="font-size:12px; font-weight:600;">Kabupatens</span>
+                    </div>
+                    <div class="kpi-card-sub" id="compScopeSub" style="font-weight:600; color:var(--sow-text-main); margin-top:4px;">Selected Region</div>
+                    <div class="kpi-card-sub" id="compMetricsSub" style="font-size:11px; opacity:0.8;">16 Crowdsource Metrics Monitored</div>
                 </div>
-                <div class="kpi-card-val-row">
-                    <span class="kpi-card-val" id="compTotal">--</span>
-                    <span class="kpi-card-sub" style="font-size:12px; font-weight:600;">Kabupatens</span>
+
+                <!-- Card 2: Target Achieved -->
+                <div class="kpi-card">
+                    <div class="kpi-card-header">
+                        <span class="kpi-card-title">Target Achieved</span>
+                        <div class="kpi-card-icon" style="background: rgba(98,159,150,.15); color:#629f96"><i class="fas fa-check-circle"></i></div>
+                    </div>
+                    <div class="kpi-card-val-row">
+                        <span class="kpi-card-val" id="compAchieved" style="color:#629f96;">--</span>
+                        <span class="kpi-card-sub" id="compAchievedPct" style="color:#629f96; font-weight:600;">(--%)</span>
+                    </div>
+                    <div class="kpi-card-sub" id="compAchievedSub" style="font-weight:600; color:#629f96; margin-top:4px;">≥ 14 wins</div>
+                    <div class="kpi-card-sub" id="compTopPerformer" style="font-size:11px; color:var(--sow-text-sub);">Top: --</div>
                 </div>
-                <div class="kpi-card-sub" id="compScopeSub" style="font-weight:600; color:var(--sow-text-main); margin-top:4px;">Selected Region</div>
-                <div class="kpi-card-sub" id="compMetricsSub" style="font-size:11px; opacity:0.8;">16 Crowdsource Metrics Monitored</div>
+
+                <!-- Card 3: Below Target -->
+                <div class="kpi-card">
+                    <div class="kpi-card-header">
+                        <span class="kpi-card-title">Below Target</span>
+                        <div class="kpi-card-icon" style="background: rgba(248,151,158,.15); color:#f8979e"><i class="fas fa-exclamation-triangle"></i></div>
+                    </div>
+                    <div class="kpi-card-val-row">
+                        <span class="kpi-card-val" id="compBreaching" style="color:#f8979e;">--</span>
+                        <span class="kpi-card-sub" id="compBreachingPct" style="color:#f8979e; font-weight:600;">(--%)</span>
+                    </div>
+                    <div class="kpi-card-sub" id="compBreachingSub" style="font-weight:600; color:#f8979e; margin-top:4px;">Kabupaten needing action</div>
+                    <div class="kpi-card-sub" id="compLowestPerformer" style="font-size:11px; color:var(--sow-text-sub);">Lowest: --</div>
+                </div>
+
+                <!-- Card 4: Region Avg Win -->
+                <div class="kpi-card">
+                    <div class="kpi-card-header">
+                        <span class="kpi-card-title">Region Avg Win</span>
+                        <div class="kpi-card-icon" style="background: rgba(245,158,11,.15); color:#f59e0b"><i class="fas fa-chart-line"></i></div>
+                    </div>
+                    <div class="kpi-card-val-row">
+                        <span class="kpi-card-val" id="compAvg" style="color:#f59e0b;">--</span>
+                        <span class="kpi-card-sub" style="font-size:12px; font-weight:600;">/ 16 Wins</span>
+                    </div>
+                    <div class="kpi-card-sub" id="compAvgRate" style="font-weight:600; color:var(--sow-text-main); margin-top:4px;">--% average win rate</div>
+                    <div class="kpi-card-sub" id="compWowSummary" style="font-size:11px; color:var(--sow-text-sub);">WoW: --</div>
+                </div>
             </div>
 
-            <!-- Card 2: Target Achieved -->
-            <div class="kpi-card">
-                <div class="kpi-card-header">
-                    <span class="kpi-card-title">Target Achieved</span>
-                    <div class="kpi-card-icon" style="background: rgba(98,159,150,.15); color:#629f96"><i class="fas fa-check-circle"></i></div>
+            <div class="table-card">
+                <div class="table-card-header">
+                    <div class="table-card-title">
+                        <i class="fas fa-table" style="color:#4facfe"></i>
+                        <span>Kabupaten Comparison Table — Week <span id="comparisonWeekLabel">--</span></span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <input type="text" id="compSearchInput" placeholder="Search Kabupaten..." class="filter-select" style="width: 170px; height: 30px; font-size: 11px; padding: 2px 8px;" oninput="filterComparisonTable()">
+                        <select id="compStatusFilter" class="filter-select" style="width: 120px; height: 30px; font-size: 11px; padding: 2px 6px;" onchange="filterComparisonTable()">
+                            <option value="all">All Status</option>
+                            <option value="met">Target Met</option>
+                            <option value="breach">Below Target</option>
+                        </select>
+                        <span class="kpi-badge badge-win" id="comparisonTargetBadge"><i class="fas fa-bullseye"></i> Target: 14 wins</span>
+                    </div>
                 </div>
-                <div class="kpi-card-val-row">
-                    <span class="kpi-card-val" id="compAchieved" style="color:#629f96;">--</span>
-                    <span class="kpi-card-sub" id="compAchievedPct" style="color:#629f96; font-weight:600;">(--%)</span>
+                <div class="table-responsive" style="max-height: 620px; overflow-y:auto;">
+                    <table class="sow-table" id="comparisonTable">
+                        <thead><tr><th>#</th><th>Kabupaten</th><th>#Win</th><th>#Lose</th><th>Win Rate</th><th>Target</th><th>Δ WoW</th><th>Issue Status</th></tr></thead>
+                        <tbody id="comparisonTableBody"><tr><td colspan="8" style="text-align:center;padding:20px">Select Region, Provider and Yearweek, then Refresh.</td></tr></tbody>
+                    </table>
                 </div>
-                <div class="kpi-card-sub" id="compAchievedSub" style="font-weight:600; color:#629f96; margin-top:4px;">≥ 14 wins</div>
-                <div class="kpi-card-sub" id="compTopPerformer" style="font-size:11px; color:var(--sow-text-sub);">Top: --</div>
-            </div>
-
-            <!-- Card 3: Below Target -->
-            <div class="kpi-card">
-                <div class="kpi-card-header">
-                    <span class="kpi-card-title">Below Target</span>
-                    <div class="kpi-card-icon" style="background: rgba(248,151,158,.15); color:#f8979e"><i class="fas fa-exclamation-triangle"></i></div>
-                </div>
-                <div class="kpi-card-val-row">
-                    <span class="kpi-card-val" id="compBreaching" style="color:#f8979e;">--</span>
-                    <span class="kpi-card-sub" id="compBreachingPct" style="color:#f8979e; font-weight:600;">(--%)</span>
-                </div>
-                <div class="kpi-card-sub" id="compBreachingSub" style="font-weight:600; color:#f8979e; margin-top:4px;">Kabupaten needing action</div>
-                <div class="kpi-card-sub" id="compLowestPerformer" style="font-size:11px; color:var(--sow-text-sub);">Lowest: --</div>
-            </div>
-
-            <!-- Card 4: Region Avg Win -->
-            <div class="kpi-card">
-                <div class="kpi-card-header">
-                    <span class="kpi-card-title">Region Avg Win</span>
-                    <div class="kpi-card-icon" style="background: rgba(245,158,11,.15); color:#f59e0b"><i class="fas fa-chart-line"></i></div>
-                </div>
-                <div class="kpi-card-val-row">
-                    <span class="kpi-card-val" id="compAvg" style="color:#f59e0b;">--</span>
-                    <span class="kpi-card-sub" style="font-size:12px; font-weight:600;">/ 16 Wins</span>
-                </div>
-                <div class="kpi-card-sub" id="compAvgRate" style="font-weight:600; color:var(--sow-text-main); margin-top:4px;">--% average win rate</div>
-                <div class="kpi-card-sub" id="compWowSummary" style="font-size:11px; color:var(--sow-text-sub);">WoW: --</div>
             </div>
         </div>
 
-        <div class="table-card">
-            <div class="table-card-header">
-                <div class="table-card-title">
-                    <i class="fas fa-table" style="color:#4facfe"></i>
-                    <span>Kabupaten Comparison Table — Week <span id="comparisonWeekLabel">--</span></span>
+        <!-- ── SUB-PANE 2: METRIC WOW COMPARISON ── -->
+        <div id="compSubPaneMetric" style="display: none;">
+            <div class="summary-grid" style="grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 14px;">
+                <!-- Card 1: Monitored Metrics -->
+                <div class="kpi-card">
+                    <div class="kpi-card-header">
+                        <span class="kpi-card-title">Monitored Metrics</span>
+                        <div class="kpi-card-icon" style="background: rgba(79,172,254,.15); color:#4facfe"><i class="fas fa-layer-group"></i></div>
+                    </div>
+                    <div class="kpi-card-val-row">
+                        <span class="kpi-card-val">16</span>
+                        <span class="kpi-card-sub" style="font-size:12px; font-weight:600;">Metrics</span>
+                    </div>
+                    <div class="kpi-card-sub" id="metricCompScopeSub" style="font-weight:600; color:var(--sow-text-main); margin-top:4px;">Selected Region</div>
+                    <div class="kpi-card-sub" style="font-size:11px; opacity:0.8;">Across 4 Operational Categories</div>
                 </div>
-                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                    <input type="text" id="compSearchInput" placeholder="Search Kabupaten..." class="filter-select" style="width: 170px; height: 30px; font-size: 11px; padding: 2px 8px;" oninput="filterComparisonTable()">
-                    <select id="compStatusFilter" class="filter-select" style="width: 120px; height: 30px; font-size: 11px; padding: 2px 6px;" onchange="filterComparisonTable()">
-                        <option value="all">All Status</option>
-                        <option value="met">Target Met</option>
-                        <option value="breach">Below Target</option>
-                    </select>
-                    <span class="kpi-badge badge-win" id="comparisonTargetBadge"><i class="fas fa-bullseye"></i> Target: 14 wins</span>
+
+                <!-- Card 2: Current Week Wins -->
+                <div class="kpi-card">
+                    <div class="kpi-card-header">
+                        <span class="kpi-card-title">Metric Wins (Curr Wk)</span>
+                        <div class="kpi-card-icon" style="background: rgba(98,159,150,.15); color:#629f96"><i class="fas fa-trophy"></i></div>
+                    </div>
+                    <div class="kpi-card-val-row">
+                        <span class="kpi-card-val" id="metricCompWins" style="color:#629f96;">--</span>
+                        <span class="kpi-card-sub" id="metricCompWinRate" style="color:#629f96; font-weight:600;">/ 16 (--%)</span>
+                    </div>
+                    <div class="kpi-card-sub" id="metricCompTargetSub" style="font-weight:600; color:#629f96; margin-top:4px;">Target: -- wins</div>
+                    <div class="kpi-card-sub" id="metricCompPrevWinsSub" style="font-size:11px; color:var(--sow-text-sub);">Prev: -- wins</div>
+                </div>
+
+                <!-- Card 3: WoW Improvements -->
+                <div class="kpi-card">
+                    <div class="kpi-card-header">
+                        <span class="kpi-card-title">WoW Improvements</span>
+                        <div class="kpi-card-icon" style="background: rgba(14,165,233,.15); color:#0ea5e9"><i class="fas fa-arrow-trend-up"></i></div>
+                    </div>
+                    <div class="kpi-card-val-row">
+                        <span class="kpi-card-val" id="metricCompImproved" style="color:#0ea5e9;">--</span>
+                        <span class="kpi-card-sub" style="font-size:12px; font-weight:600;">Metrics</span>
+                    </div>
+                    <div class="kpi-card-sub" id="metricCompMoveToWinSub" style="font-weight:600; color:#0ea5e9; margin-top:4px;">▲ Move to Win: --</div>
+                    <div class="kpi-card-sub" id="metricCompScoreUpSub" style="font-size:11px; color:var(--sow-text-sub);">Score Improved: --</div>
+                </div>
+
+                <!-- Card 4: Trailing / Degraded -->
+                <div class="kpi-card">
+                    <div class="kpi-card-header">
+                        <span class="kpi-card-title">Trailing / Degraded</span>
+                        <div class="kpi-card-icon" style="background: rgba(248,151,158,.15); color:#f8979e"><i class="fas fa-arrow-trend-down"></i></div>
+                    </div>
+                    <div class="kpi-card-val-row">
+                        <span class="kpi-card-val" id="metricCompDegraded" style="color:#f8979e;">--</span>
+                        <span class="kpi-card-sub" style="font-size:12px; font-weight:600;">Metrics</span>
+                    </div>
+                    <div class="kpi-card-sub" id="metricCompMoveToLoseSub" style="font-weight:600; color:#f8979e; margin-top:4px;">▼ Move to Lose: --</div>
+                    <div class="kpi-card-sub" id="metricCompMaintLoseSub" style="font-size:11px; color:var(--sow-text-sub);">Maintained Lose: --</div>
                 </div>
             </div>
-            <div class="table-responsive" style="max-height: 620px; overflow-y:auto;">
-                <table class="sow-table" id="comparisonTable">
-                    <thead><tr><th>#</th><th>Kabupaten</th><th>#Win</th><th>#Lose</th><th>Win Rate</th><th>Target</th><th>Δ WoW</th><th>Issue Status</th></tr></thead>
-                    <tbody id="comparisonTableBody"><tr><td colspan="8" style="text-align:center;padding:20px">Select Region, Provider and Yearweek, then Refresh.</td></tr></tbody>
-                </table>
+
+            <!-- Table 1: 16 Metrics Performance WoW -->
+            <div class="table-card" style="margin-bottom: 18px;">
+                <div class="table-card-header">
+                    <div class="table-card-title">
+                        <i class="fas fa-list-check" style="color:#0ea5e9;"></i>
+                        <span>16 Metrics Performance WoW — Week <span id="metricCompWeekLabel">--</span> vs <span id="metricCompPrevWeekLabel">--</span></span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <input type="text" id="metricSearchInput" placeholder="Search Metric..." class="filter-select" style="width: 150px; height: 30px; font-size: 11px; padding: 2px 8px;" oninput="filterMetricComparisonTable()">
+                        <select id="metricCategoryFilter" class="filter-select" style="width: 140px; height: 30px; font-size: 11px; padding: 2px 6px;" onchange="filterMetricComparisonTable()">
+                            <option value="all">All Categories</option>
+                            <option value="Overall Experience">Overall Experience</option>
+                            <option value="Speed & Quality">Speed & Quality</option>
+                            <option value="5G Experience">5G Experience</option>
+                            <option value="5G Speed & Coverage">5G Speed & Coverage</option>
+                        </select>
+                        <select id="metricMovementFilter" class="filter-select" style="width: 130px; height: 30px; font-size: 11px; padding: 2px 6px;" onchange="filterMetricComparisonTable()">
+                            <option value="all">All Movements</option>
+                            <option value="move_to_win">▲ Move to Win</option>
+                            <option value="move_to_lose">▼ Move to Lose</option>
+                            <option value="maintain_win">✔ Maintained Win</option>
+                            <option value="maintain_lose">✖ Maintained Lose</option>
+                        </select>
+                        <span class="kpi-badge badge-win" id="metricCompTargetBadge"><i class="fas fa-bullseye"></i> Target: --</span>
+                    </div>
+                </div>
+                <div class="table-responsive" style="max-height: 480px; overflow-y:auto;">
+                    <table class="sow-table" id="metricComparisonTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Metric Title</th>
+                                <th>Category</th>
+                                <th style="text-align:right;">Prev Score</th>
+                                <th style="text-align:right;">Curr Score</th>
+                                <th style="text-align:right;">Δ Score (WoW)</th>
+                                <th style="text-align:center;">Prev Rank</th>
+                                <th style="text-align:center;">Curr Rank</th>
+                                <th>WoW Movement</th>
+                                <th style="text-align:center;">Kabupaten Wins (WoW)</th>
+                                <th>Result</th>
+                                <th style="text-align:center;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="metricComparisonTableBody">
+                            <tr><td colspan="12" style="text-align:center;padding:20px">Loading Metric WoW Comparison...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Table 2: Granular Kabupaten Breakdown for Selected Metric -->
+            <div class="table-card" id="metricDrillCard">
+                <div class="table-card-header">
+                    <div class="table-card-title">
+                        <i class="fas fa-sitemap" style="color:#38bdf8;"></i>
+                        <span>Kabupaten Breakdown WoW — </span>
+                        <select id="metricDrillSelect" class="filter-select" style="font-size:12px; height:30px; font-weight:700; color:var(--sow-text-main); min-width:240px; margin-left:6px;" onchange="onMetricDrillSelectChange(this.value)">
+                        </select>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <input type="text" id="metricKabSearchInput" placeholder="Search Kabupaten..." class="filter-select" style="width: 160px; height: 30px; font-size: 11px; padding: 2px 8px;" oninput="filterMetricDrilldownTable()">
+                        <select id="metricKabFilterStatus" class="filter-select" style="width: 130px; height: 30px; font-size: 11px; padding: 2px 6px;" onchange="filterMetricDrilldownTable()">
+                            <option value="all">All Kabupatens</option>
+                            <option value="win">Win in Curr Week</option>
+                            <option value="lose">Lose in Curr Week</option>
+                            <option value="move_to_win">▲ Move to Win</option>
+                            <option value="move_to_lose">▼ Move to Lose</option>
+                        </select>
+                        <span class="kpi-badge badge-win" id="metricDrillMetricBadge">Regional Rank 1</span>
+                    </div>
+                </div>
+                <div class="table-responsive" style="max-height: 520px; overflow-y:auto;">
+                    <table class="sow-table" id="metricDrillTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Kabupaten</th>
+                                <th style="text-align:right;">Prev Score</th>
+                                <th style="text-align:right;">Curr Score</th>
+                                <th style="text-align:right;">Δ Score (WoW)</th>
+                                <th style="text-align:center;">Prev Rank</th>
+                                <th style="text-align:center;">Curr Rank</th>
+                                <th>WoW Movement</th>
+                                <th>Result</th>
+                            </tr>
+                        </thead>
+                        <tbody id="metricDrillTableBody">
+                            <tr><td colspan="9" style="text-align:center;padding:20px">Select a metric above to inspect its Kabupaten breakdown.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -2794,11 +2962,43 @@
         }
         if (tab === "comparison") {
             hide(paneAch); hide(paneTr); show(paneCmp);
-            if (!kabupatenComparisonLoaded) loadKabupatenComparison();
+            if (activeCompSubTab === "metric") {
+                if (!metricComparisonLoaded) loadMetricWoWComparison();
+            } else {
+                if (!kabupatenComparisonLoaded) loadKabupatenComparison();
+            }
         }
     }
 
+    let activeCompSubTab = "kab";
     let kabupatenComparisonLoaded = false;
+    let metricComparisonLoaded = false;
+    let currentMetricComparisonData = null;
+    let selectedDrillMetric = null;
+
+    function switchCompSubTab(subTab) {
+        activeCompSubTab = subTab;
+        document.getElementById("compSubTabKab").classList.toggle("active", subTab === "kab");
+        document.getElementById("compSubTabMetric").classList.toggle("active", subTab === "metric");
+        document.getElementById("compSubPaneKab").style.display = (subTab === "kab") ? "block" : "none";
+        document.getElementById("compSubPaneMetric").style.display = (subTab === "metric") ? "block" : "none";
+
+        if (subTab === "metric" && !metricComparisonLoaded) {
+            loadMetricWoWComparison();
+        } else if (subTab === "kab" && !kabupatenComparisonLoaded) {
+            loadKabupatenComparison();
+        }
+    }
+
+    function refreshComparisonData() {
+        kabupatenComparisonLoaded = false;
+        metricComparisonLoaded = false;
+        if (activeCompSubTab === "metric") {
+            loadMetricWoWComparison();
+        } else {
+            loadKabupatenComparison();
+        }
+    }
 
     async function loadKabupatenComparison() {
         const region = document.getElementById("comparisonRegion").value;
@@ -2927,6 +3127,296 @@
                 <td>${wow}</td>
                 <td>${met ? '<span class="kpi-badge badge-win"><i class="fas fa-check-circle"></i> Healthy</span>' : '<span class="kpi-badge badge-lose"><i class="fas fa-exclamation-circle"></i> Critical Issue</span>'}</td>
             </tr>`;
+        }).join("");
+    }
+
+    // ── Metric WoW Comparison Logic (Tab 2 of Comparison Scene) ──
+    async function loadMetricWoWComparison() {
+        const region = document.getElementById("comparisonRegion").value;
+        const provider = document.getElementById("comparisonProvider").value;
+        const yearweek = document.getElementById("comparisonYearweek").value;
+        const tbody = document.getElementById("metricComparisonTableBody");
+        if (!region || !provider || !yearweek) return;
+
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:20px"><div class="spinner" style="margin: 0 auto 8px;"></div>Loading Metric WoW Comparison...</td></tr>';
+
+        try {
+            const resp = await fetch("/api/sow/metric-wow-comparison", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ region, provider, yearweek: parseInt(yearweek, 10) })
+            });
+            const result = await resp.json();
+            if (result.status !== "success") throw new Error(result.message || "Load failed");
+            renderMetricWoWComparison(result);
+            metricComparisonLoaded = true;
+        } catch (err) {
+            console.error("Metric WoW comparison error:", err);
+            tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:20px;color:#f8979e">Failed to load Metric WoW comparison data.</td></tr>';
+        }
+    }
+
+    function renderMetricWoWComparison(result) {
+        currentMetricComparisonData = result;
+        const metrics = result.metrics || [];
+        const s = result.summary || {};
+        const qLabel = result.quarter_label || "Q Target";
+        const target = result.target || 14;
+
+        setText("metricCompWeekLabel", result.yearweek);
+        setText("metricCompPrevWeekLabel", result.prev_yearweek || "Prev");
+        document.querySelectorAll(".metric-curr-wk-tag").forEach(el => el.textContent = `Wk ${result.yearweek}`);
+        document.querySelectorAll(".metric-prev-wk-tag").forEach(el => el.textContent = `Wk ${result.prev_yearweek || '--'}`);
+
+        // Target badge
+        const tgtBadge = document.getElementById("metricCompTargetBadge");
+        if (tgtBadge) {
+            tgtBadge.innerHTML = `<i class="fas fa-bullseye"></i> Target (${qLabel}): ${target} wins`;
+        }
+
+        // Summary Cards
+        setText("metricCompScopeSub", `${result.region || 'Region'} • ${result.provider || 'Telkomsel'}`);
+        setText("metricCompWins", s.curr_wins_count !== undefined ? s.curr_wins_count : "--");
+        setText("metricCompWinRate", `/ 16 (${s.curr_win_rate !== undefined ? s.curr_win_rate : '--'}%)`);
+        const tgtMet = s.target_met;
+        const tgtText = tgtMet
+            ? `<span style="color:#629f96;"><i class="fas fa-check-circle"></i> Target ${target} Met</span>`
+            : `<span style="color:#f8979e;"><i class="fas fa-exclamation-circle"></i> Below Target ${target}</span>`;
+        const tgtSubEl = document.getElementById("metricCompTargetSub");
+        if (tgtSubEl) tgtSubEl.innerHTML = tgtText;
+
+        const prevWinsText = s.prev_wins_count !== undefined ? `Prev Wk: ${s.prev_wins_count}/16 wins (${s.prev_win_rate}%)` : "No prior week data";
+        setText("metricCompPrevWinsSub", prevWinsText);
+
+        const scoreUpCount = metrics.filter(m => m.delta_score > 0).length;
+        setText("metricCompImproved", (s.moved_to_win_count || 0) + scoreUpCount);
+        setText("metricCompMoveToWinSub", `▲ ${s.moved_to_win_count || 0} Move to Win`);
+        setText("metricCompScoreUpSub", `${scoreUpCount} Metrics Score Improved`);
+
+        setText("metricCompDegraded", (s.moved_to_lose_count || 0) + (s.maintained_lose_count || 0));
+        setText("metricCompMoveToLoseSub", `▼ ${s.moved_to_lose_count || 0} Move to Lose`);
+        setText("metricCompMaintLoseSub", `✖ ${s.maintained_lose_count || 0} Maintained Lose`);
+
+        // Populate drilldown dropdown
+        const sel = document.getElementById("metricDrillSelect");
+        if (sel) {
+            const prevVal = sel.value;
+            sel.innerHTML = "";
+            metrics.forEach(m => {
+                const opt = document.createElement("option");
+                opt.value = m.metric;
+                const statusIcon = (m.curr_rank === 1) ? '✔' : '✖';
+                opt.textContent = `${statusIcon} ${m.title} (${m.category})`;
+                sel.appendChild(opt);
+            });
+            if (prevVal && metrics.some(m => m.metric === prevVal)) {
+                sel.value = prevVal;
+                selectedDrillMetric = prevVal;
+            } else if (metrics.length > 0) {
+                const loseM = metrics.find(m => m.curr_rank !== 1);
+                sel.value = loseM ? loseM.metric : metrics[0].metric;
+                selectedDrillMetric = sel.value;
+            }
+        }
+
+        filterMetricComparisonTable();
+        renderMetricDrilldown(selectedDrillMetric);
+    }
+
+    function filterMetricComparisonTable() {
+        if (!currentMetricComparisonData) return;
+        const metrics = currentMetricComparisonData.metrics || [];
+        const tbody = document.getElementById("metricComparisonTableBody");
+        if (!tbody) return;
+
+        const search = (document.getElementById("metricSearchInput")?.value || "").toLowerCase().trim();
+        const category = document.getElementById("metricCategoryFilter")?.value || "all";
+        const movement = document.getElementById("metricMovementFilter")?.value || "all";
+
+        let filtered = metrics.filter(m => {
+            if (search && !m.title.toLowerCase().includes(search) && !m.category.toLowerCase().includes(search)) return false;
+            if (category !== "all" && m.category !== category) return false;
+            if (movement !== "all" && m.movement !== movement) return false;
+            return true;
+        });
+
+        if (!filtered.length) {
+            tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;padding:20px;color:var(--sow-text-sub);">No metrics match filter criteria.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = filtered.map((m, idx) => {
+            const prevScoreStr = (m.prev_score !== null && m.prev_score !== undefined) ? m.prev_score : "—";
+            const currScoreStr = (m.curr_score !== null && m.curr_score !== undefined) ? m.curr_score : "—";
+
+            let deltaHtml = '<span style="color:#94a3b8;">—</span>';
+            if (m.delta_score !== null && m.delta_score !== undefined) {
+                if (m.delta_score > 0) {
+                    deltaHtml = `<span style="color:#629f96; font-weight:700;">▲ +${m.delta_score}</span>`;
+                } else if (m.delta_score < 0) {
+                    deltaHtml = `<span style="color:#f8979e; font-weight:700;">▼ ${m.delta_score}</span>`;
+                } else {
+                    deltaHtml = `<span style="color:#94a3b8;">● 0.0</span>`;
+                }
+            }
+
+            const prevRankBadge = m.prev_rank === 1 ? '<span class="rank-badge rank-1">1</span>' : (m.prev_rank ? `<span class="rank-badge rank-other">${m.prev_rank}</span>` : '—');
+            const currRankBadge = m.curr_rank === 1 ? '<span class="rank-badge rank-1">1</span>' : (m.curr_rank ? `<span class="rank-badge rank-other">${m.curr_rank}</span>` : '—');
+
+            let movBadge = '';
+            if (m.movement === 'move_to_win') {
+                movBadge = '<span class="kpi-badge badge-win" style="font-weight:700;"><i class="fas fa-arrow-up"></i> Move to Win</span>';
+            } else if (m.movement === 'move_to_lose') {
+                movBadge = '<span class="kpi-badge badge-lose" style="font-weight:700;"><i class="fas fa-arrow-down"></i> Move to Lose</span>';
+            } else if (m.movement === 'maintain_win') {
+                movBadge = '<span class="kpi-badge badge-win"><i class="fas fa-check"></i> Maintained Win</span>';
+            } else {
+                movBadge = '<span class="kpi-badge badge-lose"><i class="fas fa-times"></i> Maintained Lose</span>';
+            }
+
+            const kabDelta = m.delta_kab_wins > 0 ? `<span style="color:#629f96; font-weight:600;">(+${m.delta_kab_wins})</span>` : (m.delta_kab_wins < 0 ? `<span style="color:#f8979e; font-weight:600;">(${m.delta_kab_wins})</span>` : '');
+            const kabWinsStr = `<span style="font-weight:600;">${m.curr_kab_wins}</span> / ${m.kab_total} ${kabDelta}`;
+
+            const resultBadge = (m.curr_rank === 1)
+                ? '<span class="kpi-badge badge-win"><i class="fas fa-trophy"></i> Win</span>'
+                : '<span class="kpi-badge badge-lose"><i class="fas fa-circle-exclamation"></i> Lose</span>';
+
+            const isSelected = (selectedDrillMetric === m.metric);
+            const rowBg = isSelected ? 'background: rgba(14, 165, 233, 0.08);' : '';
+
+            return `
+                <tr style="${rowBg} cursor:pointer;" onclick="selectMetricForDrill('${m.metric}')">
+                    <td style="color:var(--sow-text-sub); font-size:11px;">${idx + 1}</td>
+                    <td>
+                        <div style="font-weight:700; color:var(--sow-text-main);">${m.title}</div>
+                        <div style="font-size:11px; color:var(--sow-text-sub);">${m.metric}</div>
+                    </td>
+                    <td><span class="info-chip" style="font-size:10.5px; padding:2px 8px;">${m.category}</span></td>
+                    <td style="text-align:right; font-weight:600; color:var(--sow-text-sub);">${prevScoreStr}</td>
+                    <td style="text-align:right; font-weight:700; color:var(--sow-text-main);">${currScoreStr}</td>
+                    <td style="text-align:right;">${deltaHtml}</td>
+                    <td style="text-align:center;">${prevRankBadge}</td>
+                    <td style="text-align:center;">${currRankBadge}</td>
+                    <td>${movBadge}</td>
+                    <td style="text-align:center;">${kabWinsStr}</td>
+                    <td>${resultBadge}</td>
+                    <td style="text-align:center;">
+                        <button type="button" class="btn-secondary" style="height:26px; padding:0 8px; font-size:11px;" onclick="event.stopPropagation(); selectMetricForDrill('${m.metric}')">
+                            <i class="fas fa-sitemap" style="color:#0ea5e9;"></i> Inspect
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+    }
+
+    function selectMetricForDrill(metricKey) {
+        selectedDrillMetric = metricKey;
+        const sel = document.getElementById("metricDrillSelect");
+        if (sel) sel.value = metricKey;
+        filterMetricComparisonTable();
+        renderMetricDrilldown(metricKey);
+        const card = document.getElementById("metricDrillCard");
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    function onMetricDrillSelectChange(metricKey) {
+        selectedDrillMetric = metricKey;
+        filterMetricComparisonTable();
+        renderMetricDrilldown(metricKey);
+    }
+
+    function renderMetricDrilldown(metricKey) {
+        if (!currentMetricComparisonData || !metricKey) return;
+        const metrics = currentMetricComparisonData.metrics || [];
+        const mInfo = metrics.find(m => m.metric === metricKey) || { title: metricKey, curr_rank: '--' };
+
+        const badgeEl = document.getElementById("metricDrillMetricBadge");
+        if (badgeEl) {
+            if (mInfo.curr_rank === 1) {
+                badgeEl.className = "kpi-badge badge-win";
+                badgeEl.innerHTML = `<i class="fas fa-check-circle"></i> Regional Rank 1 (Win)`;
+            } else {
+                badgeEl.className = "kpi-badge badge-lose";
+                badgeEl.innerHTML = `<i class="fas fa-circle-exclamation"></i> Regional Rank ${mInfo.curr_rank || '—'} (Lose)`;
+            }
+        }
+
+        filterMetricDrilldownTable();
+    }
+
+    function filterMetricDrilldownTable() {
+        if (!currentMetricComparisonData || !selectedDrillMetric) return;
+        const drill = currentMetricComparisonData.drilldown || {};
+        const kabs = drill[selectedDrillMetric] || [];
+        const tbody = document.getElementById("metricDrillTableBody");
+        if (!tbody) return;
+
+        const search = (document.getElementById("metricKabSearchInput")?.value || "").toLowerCase().trim();
+        const status = document.getElementById("metricKabFilterStatus")?.value || "all";
+
+        let filtered = kabs.filter(k => {
+            if (search && !k.location.toLowerCase().includes(search)) return false;
+            if (status === "win" && !k.curr_win) return false;
+            if (status === "lose" && k.curr_win) return false;
+            if (status === "move_to_win" && k.movement !== 'move_to_win') return false;
+            if (status === "move_to_lose" && k.movement !== 'move_to_lose') return false;
+            return true;
+        });
+
+        if (!filtered.length) {
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--sow-text-sub);">No kabupatens match filter criteria for this metric (out of ${kabs.length} total).</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = filtered.map((k, idx) => {
+            const prevScoreStr = (k.prev_score !== null && k.prev_score !== undefined) ? k.prev_score : "—";
+            const currScoreStr = (k.curr_score !== null && k.curr_score !== undefined) ? k.curr_score : "—";
+
+            let deltaHtml = '<span style="color:#94a3b8;">—</span>';
+            if (k.delta_score !== null && k.delta_score !== undefined) {
+                if (k.delta_score > 0) {
+                    deltaHtml = `<span style="color:#629f96; font-weight:700;">▲ +${k.delta_score}</span>`;
+                } else if (k.delta_score < 0) {
+                    deltaHtml = `<span style="color:#f8979e; font-weight:700;">▼ ${k.delta_score}</span>`;
+                } else {
+                    deltaHtml = `<span style="color:#94a3b8;">● 0.0</span>`;
+                }
+            }
+
+            const prevRankBadge = k.prev_rank === 1 ? '<span class="rank-badge rank-1">1</span>' : (k.prev_rank ? `<span class="rank-badge rank-other">${k.prev_rank}</span>` : '<span style="color:#94a3b8;">—</span>');
+            const currRankBadge = k.curr_rank === 1 ? '<span class="rank-badge rank-1">1</span>' : (k.curr_rank ? `<span class="rank-badge rank-other">${k.curr_rank}</span>` : '<span style="color:#94a3b8;">—</span>');
+
+            let movBadge = '';
+            if (k.movement === 'move_to_win') {
+                movBadge = '<span class="kpi-badge badge-win" style="font-weight:700;"><i class="fas fa-arrow-up"></i> Move to Win</span>';
+            } else if (k.movement === 'move_to_lose') {
+                movBadge = '<span class="kpi-badge badge-lose" style="font-weight:700;"><i class="fas fa-arrow-down"></i> Move to Lose</span>';
+            } else if (k.movement === 'maintain_win') {
+                movBadge = '<span class="kpi-badge badge-win"><i class="fas fa-check"></i> Maintained Win</span>';
+            } else {
+                movBadge = '<span class="kpi-badge badge-lose"><i class="fas fa-times"></i> Maintained Lose</span>';
+            }
+
+            const resultBadge = k.curr_win
+                ? '<span class="kpi-badge badge-win"><i class="fas fa-trophy"></i> Win</span>'
+                : '<span class="kpi-badge badge-lose"><i class="fas fa-circle-exclamation"></i> Lose</span>';
+
+            return `
+                <tr>
+                    <td style="color:var(--sow-text-sub); font-size:11px;">${idx + 1}</td>
+                    <td style="font-weight:600; text-align:left;">${k.location}</td>
+                    <td style="text-align:right; font-weight:600; color:var(--sow-text-sub);">${prevScoreStr}</td>
+                    <td style="text-align:right; font-weight:700; color:var(--sow-text-main);">${currScoreStr}</td>
+                    <td style="text-align:right;">${deltaHtml}</td>
+                    <td style="text-align:center;">${prevRankBadge}</td>
+                    <td style="text-align:center;">${currRankBadge}</td>
+                    <td>${movBadge}</td>
+                    <td>${resultBadge}</td>
+                </tr>
+            `;
         }).join("");
     }
 
