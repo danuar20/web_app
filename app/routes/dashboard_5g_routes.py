@@ -35,6 +35,8 @@ ALL_KPI_DEFS = [
     ("retainabilityChart", "NR Retainability", "%", "NR Retainability (%)", None, 100, 'CASE WHEN SUM(denum_nr_retainability_xhj) > 0 THEN ROUND((100.0 - (SUM(num_nr_retainability_xhj) / SUM(denum_nr_retainability_xhj) * 100.0))::numeric, 2) ELSE NULL END', "Retainability", False),
     
     ("mobilityChart", "NR Mobility SR", "%", "NR Mobility SR (%)", None, 100, 'CASE WHEN SUM(nr_mobility_success_rate_denum) > 0 THEN ROUND((SUM(nr_mobility_success_rate_num) / SUM(nr_mobility_success_rate_denum) * 100.0)::numeric, 2) ELSE NULL END', "Mobility", False),
+    ("intraHoChart", "Intra HO SR", "%", "Intra HO SR (%)", None, 100, 'CASE WHEN SUM(denum_intra_handover_success_rate_xhj) > 0 THEN ROUND((SUM(num_intra_handover_success_rate_xhj) / SUM(denum_intra_handover_success_rate_xhj) * 100.0)::numeric, 2) ELSE NULL END', "Mobility", False),
+    ("interHoChart", "Inter HO SR", "%", "Inter HO SR (%)", None, 100, 'CASE WHEN SUM(denum_inter_handover_success_rate_xhj) > 0 THEN ROUND((SUM(num_inter_handover_success_rate_xhj) / SUM(denum_inter_handover_success_rate_xhj) * 100.0)::numeric, 2) ELSE NULL END', "Mobility", False),
     
     ("dlPrbChart", "DL PRB", "%", "DL PRB (%)", 0, 100, 'CASE WHEN SUM(denum_prb_utilization_dl_xhj) > 0 THEN ROUND((SUM(num_prb_utilization_dl_xhj) / SUM(denum_prb_utilization_dl_xhj) * 100.0)::numeric, 2) ELSE NULL END', "Capacity", False),
     ("ulPrbChart", "UL PRB", "%", "UL PRB (%)", 0, 100, 'CASE WHEN SUM(denum_prb_utilization_ul_xhj) > 0 THEN ROUND((SUM(num_prb_utilization_ul_xhj) / SUM(denum_prb_utilization_ul_xhj) * 100.0)::numeric, 2) ELSE NULL END', "Capacity", False),

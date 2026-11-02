@@ -71,3 +71,39 @@ def test_dashboard_5g_inverted_trend_dates(auth_client):
     }
     res = auth_client.get("/dashboard_5g", query_string=params)
     assert res.status_code == 200
+
+
+def test_5g_intra_inter_ho_kpis(auth_client):
+    """5G Monitoring and Dashboard 5G support Intra and Inter HO SR KPIs."""
+    # 1. Dashboard 5G
+    params_dash = {
+        "submitted": "1",
+        "trend_from_date": "2026-10-01",
+        "trend_to_date": "2026-10-05",
+        "before_from_date": "2026-10-01",
+        "before_to_date": "2026-10-02",
+        "after_from_date": "2026-10-03",
+        "after_to_date": "2026-10-04",
+        "filter_type": "siteid",
+        "site": ["JAP013"],
+        "kpi": ["intraHoChart", "interHoChart"],
+    }
+    res_dash = auth_client.get("/dashboard_5g", query_string=params_dash)
+    assert res_dash.status_code == 200
+    html_dash = res_dash.data.decode("utf-8")
+    assert "Intra HO SR" in html_dash
+    assert "Inter HO SR" in html_dash
+
+    # 2. 5G Monitoring
+    params_mon = {
+        "submitted": "1",
+        "from_date": "2026-10-01",
+        "to_date": "2026-10-05",
+        "kpi": ["intraHoChart", "interHoChart"],
+    }
+    res_mon = auth_client.get("/kpi_5g_monitoring", query_string=params_mon)
+    assert res_mon.status_code == 200
+    html_mon = res_mon.data.decode("utf-8")
+    assert "Intra HO SR" in html_mon
+    assert "Inter HO SR" in html_mon
+
