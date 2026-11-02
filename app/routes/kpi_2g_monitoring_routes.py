@@ -2,7 +2,8 @@
 from flask import Blueprint, render_template, request, session, make_response, flash, jsonify
 from app import cache
 from app.db.db_webapp import get_postgres_connection
-from ._utils import login_required, _no_cache, db_query
+from ._utils import (login_required, _no_cache, db_query,
+                    remember_view, recall_view, RESULT_CACHE_TTL)
 from datetime import datetime, timedelta
 import psycopg2
 import psycopg2.errors
@@ -119,10 +120,17 @@ def kpi_2g_monitoring():
     default_to = today.strftime("%Y-%m-%d")
     default_fr = (today - timedelta(days=29)).strftime("%Y-%m-%d")
 
-    from_date  = request.args.get("from_date", "")
-    to_date    = request.args.get("to_date",   "")
-    submitted  = request.args.get("submitted", "0") == "1"
-    sel_kpis   = request.args.getlist("kpi")
+    # Restore the last generated view when the page is opened from the sidebar
+    # (bare URL, no query string) so the user does not have to regenerate.
+    if not request.args:
+        _saved = recall_view("kpi_2g_monitoring")
+    else:
+        _saved = {}
+
+    from_date  = request.args.get("from_date", _saved.get("from_date", ""))
+    to_date    = request.args.get("to_date",   _saved.get("to_date", ""))
+    submitted  = request.args.get("submitted", "1" if _saved else "0") == "1"
+    sel_kpis   = request.args.getlist("kpi") or list(_saved.get("kpis") or [])
 
     # Populate KPI selection (default = DEFAULT_KPIS on initial load)
     if not sel_kpis and not submitted:
@@ -157,14 +165,14 @@ def kpi_2g_monitoring():
     cache_key = None
     if submitted and from_date and to_date and kpi_defs:
         kpi_names = "-".join(sorted([k[0] for k in kpi_defs]))
-        cache_key = f"2g_mon_data_{from_date}_{to_date}_{kpi_names}"
+        cache_key = f"2g_mon_data_v2_{from_date}_{to_date}_{kpi_names}"
 
     cached_data = cache.get(cache_key) if cache_key else None
-    
+
     if cached_data:
-        (regional_data, nop_data, city_data, subnet_data, site_data, 
-         nsa_city_map, city_subnet_map, subnet_city_map, city_site_map, subnet_site_map, 
-         nop_dims_set, city_dims_set, subnet_dims_set, site_dims_set, 
+        (regional_data, nop_data, city_data, bsc_data, site_data,
+         nsa_city_map, city_site_map, bsc_site_map,
+         nop_dims_set, city_dims_set, bsc_dims_set, site_dims_set,
          chart_labels, last_update, query_done) = cached_data
     elif submitted and from_date and to_date and kpi_defs:
         conn = None
@@ -377,6 +385,14 @@ def kpi_2g_monitoring():
                     bsc_site_map[b].add(s)
 
                 query_done = True
+
+                if cache_key:
+                    cache.set(cache_key, (
+                        regional_data, nop_data, city_data, bsc_data, site_data,
+                        nsa_city_map, city_site_map, bsc_site_map,
+                        nop_dims_set, city_dims_set, bsc_dims_set, site_dims_set,
+                        chart_labels, last_update, query_done
+                    ), timeout=RESULT_CACHE_TTL)
         except psycopg2.OperationalError:
             flash("Database connection failed. Please try again.", "warning")
         except psycopg2.errors.QueryCanceled:
@@ -391,8 +407,16 @@ def kpi_2g_monitoring():
     city_site_map_list = {k: sorted(v) for k, v in city_site_map.items()}
     bsc_site_map_list = {k: sorted(v) for k, v in bsc_site_map.items()}
 
+    if query_done:
+        remember_view("kpi_2g_monitoring", from_date=from_date, to_date=to_date,
+                      kpis=sel_kpis, submitted=True)
+
+    sess_id = session.get("session_id") or f"user_{session.get('username')}"
+    saved_ui_state = cache.get(f"sess_state:{sess_id}:2g") or {}
+
     return _no_cache(make_response(render_template(
         "kpi_2g_monitoring.html",
+        saved_ui_state=saved_ui_state,
         username=session["username"],
         from_date=from_date or default_fr,
         to_date=to_date or default_to,

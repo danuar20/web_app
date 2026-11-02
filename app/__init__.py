@@ -34,13 +34,17 @@ def create_app():
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
     # ── Configure Cache (Supports REDIS or Local fallback) ────────────────────
-    app.config['CACHE_TYPE'] = os.getenv("CACHE_TYPE", "SimpleCache")
+    # FileSystemCache keeps expensive KPI results on disk, so a page that is
+    # revisited (or served by another worker / after a restart) does not re-run
+    # the aggregation. SimpleCache was per-process and lost on restart.
+    app.config['CACHE_TYPE'] = os.getenv("CACHE_TYPE", "FileSystemCache")
     if app.config['CACHE_TYPE'] == 'RedisCache':
         app.config['CACHE_REDIS_URL'] = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     else:
         app.config['CACHE_DIR'] = os.getenv("CACHE_DIR", os.path.join(_project_dir, 'var', 'cache'))
         if not os.path.exists(app.config['CACHE_DIR']):
             os.makedirs(app.config['CACHE_DIR'])
+        app.config['CACHE_THRESHOLD'] = int(os.getenv("CACHE_THRESHOLD", "2000"))
 
     app.config['CACHE_DEFAULT_TIMEOUT'] = 21600  # 6 hours
     cache.init_app(app)

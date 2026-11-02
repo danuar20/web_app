@@ -400,7 +400,7 @@ function buildChartOpts(leftLabel) {
         responsive: true, maintainAspectRatio: false, animation: { duration: 600, easing: 'easeOutQuart' },
         plugins: {
             legend: { display: true, position: 'bottom', labels: { color: tc(), font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' } },
-            tooltip: { mode: 'index', intersect: false, backgroundColor: 'rgba(15,23,42,0.9)', titleFont: { size: 12 }, bodyFont: { size: 12 }, padding: 12, cornerRadius: 8 }
+            tooltip: { mode: 'index', intersect: false, backgroundColor: 'rgba(15,23,42,0.94)', titleColor: '#ffffff', bodyColor: '#f1f5f9', footerColor: '#cbd5e1', borderColor: 'rgba(255, 255, 255, 0.15)', borderWidth: 1, titleFont: { size: 12 }, bodyFont: { size: 12 }, padding: 12, cornerRadius: 8 }
         },
         interaction: { mode: 'index', intersect: false },
         scales: {
@@ -442,10 +442,17 @@ async function loadData() {
     document.querySelectorAll("input[name='tech']:checked").forEach(cb => { url += `&tech=${encodeURIComponent(cb.value)}`; });
 
     try {
-        const response = await fetch(url);
-        const data = await response.json();
-        
-        if(!response.ok || data.error) throw new Error(data.error || "Failed to fetch data");
+        let data = null;
+        try {
+            var raw = sessionStorage.getItem("qcache_{{ username }}_" + url);
+            if (raw) data = JSON.parse(raw);
+        } catch(e) {}
+        if (!data) {
+            const response = await fetch(url);
+            data = await response.json();
+            if(!response.ok || data.error) throw new Error(data.error || "Failed to fetch data");
+            try { sessionStorage.setItem("qcache_{{ username }}_" + url, JSON.stringify(data)); } catch(e){}
+        }
         
         window.trendExportData = data;
         
@@ -539,6 +546,7 @@ async function loadData() {
         document.getElementById('dataContainer').style.display = 'flex';
         document.getElementById('btnExportPng').style.display = 'flex';
         document.getElementById('btnExportCsv').style.display = 'flex';
+        saveProdTrendState();
         
     } catch(err) {
         document.getElementById('skeletonContainer').style.display = 'none';
@@ -685,6 +693,42 @@ function exportDataCSV() {
         }
     }, 50);
 }
+
+function saveProdTrendState() {
+    try {
+        var state = {
+            yb: document.getElementById('selYB').value,
+            ya: document.getElementById('selYA').value,
+            nsa: Array.from(document.querySelectorAll("input[name='nsa']:checked")).map(cb => cb.value),
+            tech: Array.from(document.querySelectorAll("input[name='tech']:checked")).map(cb => cb.value),
+            hasLoaded: (document.getElementById('dataContainer') && (document.getElementById('dataContainer').style.display === 'flex' || document.getElementById('dataContainer').style.display === 'block'))
+        };
+        sessionStorage.setItem("netkpi_trend_yoy_{{ username }}", JSON.stringify(state));
+    } catch(e) {}
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    try {
+        var saved = JSON.parse(sessionStorage.getItem("netkpi_trend_yoy_{{ username }}"));
+        if (saved && saved.hasLoaded) {
+            if (saved.yb) document.getElementById('selYB').value = saved.yb;
+            if (saved.ya) document.getElementById('selYA').value = saved.ya;
+            if (saved.nsa && typeof updateNsaLabel === 'function') {
+                document.querySelectorAll("input[name='nsa']").forEach(cb => {
+                    cb.checked = saved.nsa.includes(cb.value);
+                });
+                updateNsaLabel();
+            }
+            if (saved.tech && typeof updateTechLabel === 'function') {
+                document.querySelectorAll("input[name='tech']").forEach(cb => {
+                    cb.checked = saved.tech.includes(cb.value);
+                });
+                updateTechLabel();
+            }
+            loadData();
+        }
+    } catch(e) {}
+});
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 {% endblock %}

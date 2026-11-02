@@ -1,7 +1,10 @@
 """4G Dashboard Routes — /dashboard_4g"""
 from flask import Blueprint, render_template, request, session, flash, make_response, jsonify
 from app.db.db_webapp import get_postgres_connection, get_site_list_4g, get_site_sec_list_4g, get_site_cell_list_4g, get_city_list_4g
-from ._utils import login_required, _no_cache, json_response, db_query
+from ._utils import (login_required, _no_cache, json_response, db_query,
+                    remember_view, recall_view, RESULT_CACHE_TTL, to_dict)
+from app import cache
+import hashlib
 import psycopg2
 import psycopg2.extras
 import psycopg2.errors
@@ -156,22 +159,27 @@ END"""
 @dashboard_4g.route("/dashboard_4g")
 @login_required
 def dashboard_4g_view():
-    submitted = request.args.get("submitted", "")
+    if not request.args:
+        _saved = recall_view("dashboard_4g")
+    else:
+        _saved = {}
+
+    submitted = request.args.get("submitted", "1" if _saved else "")
     query_done = bool(submitted)
-    trend_from_date = request.args.get("trend_from_date", "")
-    trend_to_date   = request.args.get("trend_to_date",   "")
-    before_from_date = request.args.get("before_from_date", "")
-    before_to_date   = request.args.get("before_to_date",   "")
-    after_from_date = request.args.get("after_from_date",  "")
-    after_to_date   = request.args.get("after_to_date",    "")
+    trend_from_date = request.args.get("trend_from_date", _saved.get("trend_from_date", ""))
+    trend_to_date   = request.args.get("trend_to_date",   _saved.get("trend_to_date", ""))
+    before_from_date = request.args.get("before_from_date", _saved.get("before_from_date", ""))
+    before_to_date   = request.args.get("before_to_date",   _saved.get("before_to_date", ""))
+    after_from_date = request.args.get("after_from_date",  _saved.get("after_from_date", ""))
+    after_to_date   = request.args.get("after_to_date",    _saved.get("after_to_date", ""))
     
-    execution_dates_raw = request.args.get("execution_dates", "")
+    execution_dates_raw = request.args.get("execution_dates", _saved.get("execution_dates", ""))
     execution_dates = [d.strip() for d in execution_dates_raw.split(",") if d.strip()]
     
-    filter_type = request.args.get("filter_type", "siteid")
+    filter_type = request.args.get("filter_type", _saved.get("filter_type", "siteid"))
     if filter_type == "site-sec":
         filter_type = "site_sec"
-    sel_sites = request.args.getlist("site")
+    sel_sites = request.args.getlist("site") or list(_saved.get("sites") or [])
     
     # Support cluster mapping from CSV (entity -> cluster)
     cluster_mapping_raw = request.args.get("cluster_mapping", "")
@@ -307,7 +315,7 @@ def dashboard_4g_view():
             from_entity_params = [sel_sites_db]
             group_entity = "cl.cl_siteid"
 
-    sel_kpis = request.args.getlist("kpi")
+    sel_kpis = request.args.getlist("kpi") or list(_saved.get("kpis") or [])
     if not sel_kpis:
         sel_kpis = DEFAULT_KPIS
         
@@ -357,7 +365,23 @@ def dashboard_4g_view():
     has_trend = trend_from_date and trend_to_date and sel_sites and KPI_DEFS
     has_compare = before_from_date and before_to_date and after_from_date and after_to_date and sel_sites and KPI_DEFS
 
+    cache_key = None
     if has_trend or has_compare:
+        s_hash = hashlib.md5(",".join(sorted(sel_sites_db)).encode()).hexdigest()
+        k_hash = hashlib.md5(",".join(sorted(sel_kpis)).encode()).hexdigest()
+        c_hash = hashlib.md5(json.dumps(cluster_mapping_norm, sort_keys=True).encode()).hexdigest()
+        cache_key = f"dash4g_cache_v2_{trend_from_date}_{trend_to_date}_{before_from_date}_{before_to_date}_{after_from_date}_{after_to_date}_{filter_type}_{s_hash}_{k_hash}_{c_hash}"
+
+    cached_res = cache.get(cache_key) if cache_key else None
+    if cached_res:
+        (daily_trend_labels, hourly_trend_labels, daily_trend_chart_data, hourly_trend_chart_data,
+         daily_site_trend_chart_data, hourly_site_trend_chart_data, daily_band_trend_chart_data,
+         hourly_band_trend_chart_data, daily_tech_trend_chart_data, hourly_tech_trend_chart_data,
+         cluster_compare, band_compare, cluster_band_compare, tech_compare, sector_compare, site_compare,
+         daily_cluster_band_trend_chart_data, hourly_cluster_band_trend_chart_data,
+         compare_hourly_labels, compare_hourly_data, site_compare_hourly_data,
+         before_str, after_str) = cached_res
+    elif has_trend or has_compare:
         try:
             try:
                 from datetime import datetime
@@ -839,6 +863,16 @@ def dashboard_4g_view():
                             site_compare_hourly_data[chart_id]["before"][site].append(b)
                             site_compare_hourly_data[chart_id]["after"][site].append(a)
 
+            if cache_key:
+                cache.set(cache_key, to_dict((
+                    daily_trend_labels, hourly_trend_labels, daily_trend_chart_data, hourly_trend_chart_data,
+                    daily_site_trend_chart_data, hourly_site_trend_chart_data, daily_band_trend_chart_data,
+                    hourly_band_trend_chart_data, daily_tech_trend_chart_data, hourly_tech_trend_chart_data,
+                    cluster_compare, band_compare, cluster_band_compare, tech_compare, sector_compare, site_compare,
+                    daily_cluster_band_trend_chart_data, hourly_cluster_band_trend_chart_data,
+                    compare_hourly_labels, compare_hourly_data, site_compare_hourly_data,
+                    before_str, after_str
+                )), timeout=RESULT_CACHE_TTL)
         except Exception as e:
             import traceback; traceback.print_exc()
             logger.exception("Error executing dashboard queries")
@@ -855,8 +889,20 @@ def dashboard_4g_view():
     except Exception as e:
         logger.error("Error fetching custom charts: %s", e)
 
+    if query_done:
+        remember_view("dashboard_4g",
+                      trend_from_date=trend_from_date, trend_to_date=trend_to_date,
+                      before_from_date=before_from_date, before_to_date=before_to_date,
+                      after_from_date=after_from_date, after_to_date=after_to_date,
+                      execution_dates=execution_dates_raw, filter_type=filter_type,
+                      sites=sel_sites, kpis=sel_kpis, submitted="1")
+
+    sess_id = session.get("session_id") or f"user_{session.get('username')}"
+    saved_ui_state = cache.get(f"sess_state:{sess_id}:dash_4g") or {}
+
     return _no_cache(make_response(render_template(
         "dashboard_4g.html",
+        saved_ui_state=saved_ui_state,
         username=username,
         filter_type=filter_type,
         sites_list=sites_list,

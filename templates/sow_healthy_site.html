@@ -386,11 +386,11 @@
     }
     /* Red header matching user's reference image */
     .hs-table thead th {
-        background: var(--hs-danger-header);
-        color: #ffffff;
+        background: var(--hs-danger-header) !important;
+        color: #ffffff !important;
         font-weight: 700;
         padding: 11px 12px;
-        border: 1px solid #7f1d1d;
+        border: 1px solid var(--hs-danger-dark, #7f1d1d) !important;
         position: sticky;
         top: 0;
         z-index: 10;
@@ -414,9 +414,21 @@
         font-weight: 700;
         text-align: left !important;
         color: var(--hs-text-main);
-        display: flex;
+        /* NOTE: must stay a table-cell. `display:flex` on a <td> drops the cell
+           out of the row/column grid and its content then overlaps the sticky
+           header and the neighbouring columns. */
+        display: table-cell;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+    .hs-entity-cell .hs-entity-link {
+        display: inline-flex;
         align-items: center;
-        gap: 6px;
+    }
+    .hs-entity-cell .hs-entity-meta {
+        display: inline-block;
+        margin-left: 4px;
+        vertical-align: middle;
     }
     .hs-entity-link {
         cursor: pointer;
@@ -899,6 +911,16 @@
         loadHealthData(true);
     }
 
+    // Rebuild the three ECharts canvases whenever the colour theme changes
+    if (typeof window.nkRegisterChartRedraw === "function") {
+        window.nkRegisterChartRedraw(function () {
+            if (!RAW_DATA) return;
+            try {
+                renderCharts(RAW_DATA.summary, RAW_DATA.kabupaten_list);
+            } catch (e) { }
+        });
+    }
+
     function populateKabupatenOptions(kabList) {
         const sel = document.getElementById("selectKabupaten");
         const curVal = sel.value;
@@ -948,9 +970,13 @@
     // CHARTS RENDERING
     // ══════════════════════════════════════════════════════════════════════════
     function renderCharts(s, kabList) {
+        const ct = (typeof window.nkChartTheme === "function") ? window.nkChartTheme() : null;
         const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-        const textColor = isDark ? "#f8fafc" : "#0f172a";
-        const subTextColor = isDark ? "#94a3b8" : "#64748b";
+        const textColor = ct ? ct.text : (isDark ? "#f8fafc" : "#0f172a");
+        const subTextColor = ct ? ct.sub : (isDark ? "#94a3b8" : "#64748b");
+        const axisLineColor = ct ? ct.axis : (isDark ? "#475569" : "#cbd5e1");
+        const splitLineColor = ct ? ct.line : (isDark ? "#334155" : "#e2e8f0");
+        const panelColor = ct ? ct.panel : (isDark ? "#1e1e2d" : "#ffffff");
 
         // 1. Donut: Site Health Severity Distribution
         if (chartDonutInstance && s && s.issue_distribution) {
@@ -960,24 +986,35 @@
                 { value: d[1] || 0, name: "1 Issue", itemStyle: { color: "#38bdf8" } },
                 { value: d[2] || 0, name: "2 Issues", itemStyle: { color: "#f59e0b" } },
                 { value: d[3] || 0, name: "3 Issues", itemStyle: { color: "#f97316" } },
-                { value: d[4] || 0, name: "4 Issues (All Fail)", itemStyle: { color: "#ef4444" } },
+                { value: d[4] || 0, name: "All 4 Fail", itemStyle: { color: "#ef4444" } },
             ].filter(item => item.value > 0);
 
             const donutOpt = {
-                tooltip: { trigger: "item", formatter: "{b}: <b>{c}</b> sites ({d}%)" },
+                tooltip: {
+                    trigger: "item",
+                    formatter: "{b}: <b>{c}</b> sites ({d}%)",
+                    backgroundColor: panelColor,
+                    borderColor: splitLineColor,
+                    textStyle: { color: textColor, fontSize: 11 }
+                },
                 legend: {
-                    bottom: 4,
+                    type: "scroll",
+                    bottom: 2,
                     left: "center",
-                    itemWidth: 9,
-                    itemHeight: 9,
-                    itemGap: 8,
-                    textStyle: { color: subTextColor, fontSize: 10 }
+                    itemWidth: 10,
+                    itemHeight: 10,
+                    itemGap: 12,
+                    padding: [0, 6],
+                    textStyle: { color: textColor, fontSize: 11, fontWeight: 600 },
+                    pageIconColor: textColor,
+                    pageIconInactiveColor: subTextColor,
+                    pageTextStyle: { color: textColor, fontSize: 10 }
                 },
                 series: [{
                     name: "Health Severity",
                     type: "pie",
-                    radius: ["36%", "58%"],
-                    center: ["50%", "40%"],
+                    radius: ["34%", "52%"],
+                    center: ["50%", "42%"],
                     avoidLabelOverlap: true,
                     label: {
                         show: true,
@@ -990,7 +1027,7 @@
                         fontWeight: "bold"
                     },
                     emphasis: {
-                        label: { show: true, fontSize: 12, fontWeight: "bold", color: textColor }
+                        label: { show: true, fontSize: 12, fontWeight: "bold", color: "#ffffff" }
                     },
                     data: donutData
                 }]
@@ -1001,20 +1038,26 @@
         // 2. Bar Chart: Issue Prevalence Site vs Sector
         if (chartDomainInstance && s) {
             const domainOpt = {
-                tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+                tooltip: {
+                    trigger: "axis",
+                    axisPointer: { type: "shadow" },
+                    backgroundColor: panelColor,
+                    borderColor: splitLineColor,
+                    textStyle: { color: textColor, fontSize: 11 }
+                },
                 legend: {
                     top: 0,
                     left: "center",
-                    itemWidth: 10,
-                    itemHeight: 9,
-                    itemGap: 12,
-                    textStyle: { color: subTextColor, fontSize: 10 }
+                    itemWidth: 11,
+                    itemHeight: 10,
+                    itemGap: 16,
+                    textStyle: { color: textColor, fontSize: 11 }
                 },
                 grid: {
-                    top: 32,
-                    bottom: 8,
-                    left: 8,
-                    right: 12,
+                    top: 36,
+                    bottom: 6,
+                    left: 10,
+                    right: 14,
                     containLabel: true
                 },
                 xAxis: {
@@ -1024,16 +1067,20 @@
                         interval: 0,
                         color: textColor,
                         fontWeight: "600",
-                        fontSize: 10.5,
+                        fontSize: 11,
+                        margin: 8,
                         formatter: function(val) {
                             return val === "UNBALANCE P1" ? "UNBALANCE\nP1" : val;
                         }
-                    }
+                    },
+                    axisLine: { lineStyle: { color: axisLineColor } },
+                    axisTick: { show: false }
                 },
                 yAxis: {
                     type: "value",
                     axisLabel: { color: subTextColor, fontSize: 10 },
-                    splitLine: { lineStyle: { color: isDark ? "#334155" : "#e2e8f0" } }
+                    axisLine: { show: false },
+                    splitLine: { lineStyle: { color: splitLineColor } }
                 },
                 series: [
                     {
@@ -1041,7 +1088,7 @@
                         type: "bar",
                         barWidth: 14,
                         data: [s.cei_sites, s.rhi_sites, s.rci_sites, s.unbalance_sites],
-                        itemStyle: { color: "#0284c7", borderRadius: [3, 3, 0, 0] }
+                        itemStyle: { color: ct ? ct.accent : "#0284c7", borderRadius: [3, 3, 0, 0] }
                     },
                     {
                         name: "Sectors with Issue",
@@ -1063,18 +1110,24 @@
             const issueVals = topKabs.map(k => k.issue);
 
             const kabOpt = {
-                tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+                tooltip: {
+                    trigger: "axis",
+                    axisPointer: { type: "shadow" },
+                    backgroundColor: panelColor,
+                    borderColor: splitLineColor,
+                    textStyle: { color: textColor, fontSize: 11 }
+                },
                 legend: {
                     top: 0,
                     right: 8,
-                    itemWidth: 10,
-                    itemHeight: 9,
-                    itemGap: 8,
-                    textStyle: { color: subTextColor, fontSize: 10 }
+                    itemWidth: 11,
+                    itemHeight: 10,
+                    itemGap: 12,
+                    textStyle: { color: textColor, fontSize: 11 }
                 },
                 grid: {
-                    top: 30,
-                    bottom: 10,
+                    top: 34,
+                    bottom: 8,
                     left: 8,
                     right: 18,
                     containLabel: true
@@ -1083,8 +1136,8 @@
                     type: "value",
                     axisLabel: { color: subTextColor, fontSize: 10, margin: 6 },
                     axisTick: { show: true },
-                    axisLine: { show: true, lineStyle: { color: isDark ? "#475569" : "#cbd5e1" } },
-                    splitLine: { lineStyle: { color: isDark ? "#334155" : "#e2e8f0" } }
+                    axisLine: { show: true, lineStyle: { color: axisLineColor } },
+                    splitLine: { lineStyle: { color: splitLineColor } }
                 },
                 yAxis: {
                     type: "category",
@@ -1094,12 +1147,14 @@
                         fontSize: 10,
                         fontWeight: "500",
                         margin: 6,
+                        width: 96,
+                        overflow: "truncate",
                         formatter: function(val) {
                             return val.length > 18 ? val.slice(0, 16) + '...' : val;
                         }
                     },
                     axisTick: { show: false },
-                    axisLine: { show: true, lineStyle: { color: isDark ? "#475569" : "#cbd5e1" } }
+                    axisLine: { show: true, lineStyle: { color: axisLineColor } }
                 },
                 series: [
                     {
@@ -1300,7 +1355,7 @@
                         <a class="hs-entity-link" onclick="drillDownSite('${s.site_id}')" title="Click to view sectors under ${s.site_id}">
                             <i class="fas fa-broadcast-tower" style="font-size:11px; margin-right:4px;"></i>${s.site_id}
                         </a>
-                        <span style="font-size:11px; font-weight:normal; color:var(--hs-text-muted);">(${s.total_sectors} sec)</span>
+                        <span class="hs-entity-meta" style="font-size:11px; font-weight:normal; color:var(--hs-text-muted);">(${s.total_sectors} sec)</span>
                     </td>
                     <td style="color:var(--hs-text-muted); font-size:12px;">${s.kabupaten}</td>
                     <td>${renderBinary(s.cei)}</td>

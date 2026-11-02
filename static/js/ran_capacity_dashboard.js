@@ -9,7 +9,13 @@
  */
 
 (function () {
-    'use strict';
+'use strict';
+
+    /* Skin-aware chart colours (defined in templates/base.html). */
+    const __nk = () => (window.nkChartTheme ? window.nkChartTheme() : {
+        text: '#f8fafc', sub: '#94a3b8', line: '#334155', axis: '#475569',
+        panel: '#1e1e2d', accent: '#4facfe'
+    });
 
     // Global ECharts Instances
     let chartMacroTrendInstance = null;
@@ -54,17 +60,17 @@
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         return {
             isDark: isDark,
-            textColor: isDark ? '#f8fafc' : '#0f172a',
-            textMuted: isDark ? '#94a3b8' : '#64748b',
-            legendColor: isDark ? '#e2e8f0' : '#1e293b',
+            textColor: __nk().text,
+            textMuted: __nk().sub,
+            legendColor: __nk().text,
             axisLineColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)',
             splitLineColor: isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.07)',
             targetLineColor: isDark ? '#ffffff' : '#000000',
             labelBg: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-            labelBorder: isDark ? '#475569' : '#cbd5e1',
+            labelBorder: __nk().axis,
             tooltipBg: isDark ? 'rgba(15, 23, 42, 0.96)' : 'rgba(255, 255, 255, 0.98)',
             tooltipBorder: isDark ? '#334155' : '#cbd5e1',
-            tooltipText: isDark ? '#f8fafc' : '#0f172a'
+            tooltipText: __nk().text
         };
     }
 
@@ -2679,5 +2685,13 @@
             hideLoading();
         });
     });
+
+    if (typeof window.nkRegisterChartRedraw === 'function') {
+        window.nkRegisterChartRedraw(function () {
+            try {
+                if (typeof renderTrendSection === 'function') renderTrendSection();
+            } catch (e) { }
+        });
+    }
 
 })();

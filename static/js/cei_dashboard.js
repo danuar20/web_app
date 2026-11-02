@@ -9,6 +9,12 @@
 (function () {
     'use strict';
 
+    /* Skin-aware chart colours (defined in templates/base.html). */
+    const __nk = () => (window.nkChartTheme ? window.nkChartTheme() : {
+        text: '#f8fafc', sub: '#94a3b8', line: '#334155', axis: '#475569',
+        panel: '#1e1e2d', accent: '#4facfe'
+    });
+
     // Global ECharts Instances
     let pumaGaugeInstance = null;
     let branchContribInstance = null;
@@ -43,6 +49,17 @@
         initSidebarObserver();
         initWeeksAndData();
     });
+
+    // ── Global theme redraw registration ──
+    if (typeof window.nkRegisterChartRedraw === 'function') {
+        window.nkRegisterChartRedraw(function () {
+            try {
+                if (typeof window.onGaugeFilterChange === 'function') window.onGaugeFilterChange();
+                if (typeof window.onTrendFilterChange === 'function') window.onTrendFilterChange();
+                if (typeof loadGeoTrend === 'function') loadGeoTrend();
+            } catch (e) { }
+        });
+    }
 
     // ── Tab Management ──
     window.switchCeiTab = function (tabId, btnElem) {
@@ -378,7 +395,7 @@
                         offsetCenter: [0, '35%'],
                         fontSize: 11.5,
                         fontWeight: '700',
-                        color: isDark ? '#94a3b8' : '#64748b'
+                        color: __nk().sub
                     },
                     detail: {
                         valueAnimation: true,
@@ -452,21 +469,21 @@
                 bottom: 0,
                 itemWidth: 14,
                 itemHeight: 9,
-                textStyle: { color: isDark ? '#cbd5e1' : '#334155', fontSize: 10 }
+                textStyle: { color: __nk().text, fontSize: 10 }
             },
             grid: { top: 26, left: 48, right: 46, bottom: 36 },
             xAxis: {
                 type: 'category',
                 data: branchNames,
-                axisLabel: { color: isDark ? '#94a3b8' : '#334155', fontSize: 10, fontWeight: '700' }
+                axisLabel: { color: __nk().text, fontSize: 10, fontWeight: '700' }
             },
             yAxis: [
                 {
                     type: 'value',
                     name: 'Cells',
-                    nameTextStyle: { color: isDark ? '#94a3b8' : '#64748b', fontSize: 9.5 },
+                    nameTextStyle: { color: __nk().sub, fontSize: 9.5 },
                     axisLabel: {
-                        color: isDark ? '#94a3b8' : '#64748b',
+                        color: __nk().sub,
                         fontSize: 9.5,
                         formatter: val => (val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val)
                     },
@@ -477,9 +494,9 @@
                     name: '% Good',
                     min: 85,
                     max: 100,
-                    nameTextStyle: { color: isDark ? '#94a3b8' : '#64748b', fontSize: 9.5 },
+                    nameTextStyle: { color: __nk().sub, fontSize: 9.5 },
                     axisLabel: {
-                        color: isDark ? '#94a3b8' : '#64748b',
+                        color: __nk().sub,
                         fontSize: 9.5,
                         formatter: '{value}%'
                     },
@@ -816,21 +833,21 @@
                 bottom: 0,
                 itemWidth: 14,
                 itemHeight: 9,
-                textStyle: { color: isDark ? '#cbd5e1' : '#334155', fontSize: 10 }
+                textStyle: { color: __nk().text, fontSize: 11, fontWeight: '500' }
             },
             grid: { top: 32, left: 52, right: 50, bottom: 40 },
             xAxis: {
                 type: 'category',
                 data: data.labels,
-                axisLabel: { color: isDark ? '#94a3b8' : '#64748b', fontSize: 10 }
+                axisLabel: { color: __nk().sub, fontSize: 10 }
             },
             yAxis: [
                 {
                     type: 'value',
                     name: 'Count Cell',
-                    nameTextStyle: { color: isDark ? '#94a3b8' : '#64748b', fontSize: 10 },
+                    nameTextStyle: { color: __nk().sub, fontSize: 10 },
                     axisLabel: {
-                        color: isDark ? '#94a3b8' : '#64748b',
+                        color: __nk().sub,
                         fontSize: 9.5,
                         formatter: value => (value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value)
                     },
@@ -841,9 +858,9 @@
                     name: '% Cell',
                     min: 80,
                     max: 100,
-                    nameTextStyle: { color: isDark ? '#94a3b8' : '#64748b', fontSize: 10 },
+                    nameTextStyle: { color: __nk().sub, fontSize: 10 },
                     axisLabel: {
-                        color: isDark ? '#94a3b8' : '#64748b',
+                        color: __nk().sub,
                         fontSize: 9.5,
                         formatter: '{value}%'
                     },
@@ -1050,22 +1067,25 @@
                 bottom: 0,
                 itemWidth: 14,
                 itemHeight: 9,
-                textStyle: { color: isDark ? '#cbd5e1' : '#334155', fontSize: 10 },
-                type: 'scroll'
+                textStyle: { color: __nk().text, fontSize: 11, fontWeight: '500' },
+                type: 'scroll',
+                pageIconColor: __nk().text,
+                pageIconInactiveColor: __nk().sub,
+                pageTextStyle: { color: __nk().text, fontSize: 10 }
             },
             grid: { top: 32, left: 52, right: 50, bottom: 40 },
             xAxis: {
                 type: 'category',
                 data: data.labels,
-                axisLabel: { color: isDark ? '#94a3b8' : '#64748b', fontSize: 10 }
+                axisLabel: { color: __nk().sub, fontSize: 10 }
             },
             yAxis: [
                 {
                     type: 'value',
                     name: yNameLeft,
-                    nameTextStyle: { color: isDark ? '#94a3b8' : '#64748b', fontSize: 10 },
+                    nameTextStyle: { color: __nk().sub, fontSize: 10 },
                     axisLabel: {
-                        color: isDark ? '#94a3b8' : '#64748b',
+                        color: __nk().sub,
                         fontSize: 9.5,
                         formatter: value => (value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value)
                     },
@@ -1076,9 +1096,9 @@
                     name: '% Good Cell',
                     min: 80,
                     max: 100,
-                    nameTextStyle: { color: isDark ? '#94a3b8' : '#64748b', fontSize: 10 },
+                    nameTextStyle: { color: __nk().sub, fontSize: 10 },
                     axisLabel: {
-                        color: isDark ? '#94a3b8' : '#64748b',
+                        color: __nk().sub,
                         fontSize: 9.5,
                         formatter: '{value}%'
                     },
@@ -1318,20 +1338,20 @@
                 bottom: 0,
                 itemWidth: 14,
                 itemHeight: 9,
-                textStyle: { color: isDark ? '#cbd5e1' : '#334155', fontSize: 10 }
+                textStyle: { color: __nk().text, fontSize: 10 }
             },
             grid: { top: 20, left: 42, right: 28, bottom: 32 },
             xAxis: {
                 type: 'category',
                 data: data.labels,
-                axisLabel: { color: isDark ? '#94a3b8' : '#64748b', fontSize: 9.5, interval: 3 }
+                axisLabel: { color: __nk().sub, fontSize: 9.5, interval: 3 }
             },
             yAxis: {
                 type: 'value',
                 min: dMin,
                 max: dMax,
                 axisLabel: {
-                    color: isDark ? '#94a3b8' : '#64748b',
+                    color: __nk().sub,
                     fontSize: 9.5,
                     formatter: '{value}%'
                 },
@@ -1451,7 +1471,7 @@
                     borderWidth: 1,
                     padding: [6, 10],
                     textStyle: {
-                        color: isDark ? '#f8fafc' : '#0f172a',
+                        color: __nk().text,
                         fontSize: 11,
                         fontWeight: '600'
                     },
@@ -1466,14 +1486,14 @@
                     type: 'category',
                     data: data.labels,
                     axisLabel: {
-                        color: isDark ? '#94a3b8' : '#64748b',
+                        color: __nk().sub,
                         fontSize: 8.5,
                         interval: 3 // Clean interval spacing so dates never collide
                     }
                 },
                 yAxis: {
                     type: 'value',
-                    axisLabel: { color: isDark ? '#94a3b8' : '#64748b', fontSize: 8.5 },
+                    axisLabel: { color: __nk().sub, fontSize: 8.5 },
                     splitLine: { lineStyle: { color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' } }
                 },
                 series: [

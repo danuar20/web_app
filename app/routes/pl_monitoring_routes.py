@@ -2,7 +2,8 @@
 from flask import Blueprint, render_template, request, session, make_response, flash, jsonify
 from app import cache
 from app.db.db_webapp import get_postgres_connection
-from ._utils import login_required, _no_cache, db_query
+from ._utils import (login_required, _no_cache, db_query,
+                    remember_view, recall_view, to_dict)
 from datetime import datetime, timedelta
 import psycopg2
 import psycopg2.errors
@@ -40,11 +41,18 @@ def pl_monitoring_main():
     default_to = today.strftime("%Y-%m-%d")
     default_fr = (today - timedelta(days=29)).strftime("%Y-%m-%d")
 
-    from_date  = request.args.get("from_date", "")
-    to_date    = request.args.get("to_date",   "")
-    submitted  = request.args.get("submitted", "0") == "1"
-    sel_kpis   = request.args.getlist("kpi")
-    tech = request.args.get('tech', '4G')
+    # Restore the last generated view when the page is opened from the sidebar
+    # (bare URL, no query string) so the user does not have to regenerate.
+    if not request.args:
+        _saved = recall_view("pl_monitoring")
+    else:
+        _saved = {}
+
+    from_date  = request.args.get("from_date", _saved.get("from_date", ""))
+    to_date    = request.args.get("to_date",   _saved.get("to_date", ""))
+    submitted  = request.args.get("submitted", "1" if _saved else "0") == "1"
+    sel_kpis   = request.args.getlist("kpi") or list(_saved.get("kpis") or [])
+    tech = request.args.get('tech') or _saved.get("tech") or '4G'
     if tech == '2G':
         # Remove Tx/Rx packets for 2G
         sel_kpis = [k for k in sel_kpis if k not in ("txPacketsChart", "rxPacketsChart")]
@@ -80,7 +88,7 @@ def pl_monitoring_main():
     cache_key = None
     if submitted and from_date and to_date and kpi_defs:
         kpi_names = "-".join(sorted([k[0] for k in kpi_defs]))
-        cache_key = f"both_pl_data_{from_date}_{to_date}_{kpi_names}"
+        cache_key = f"both_pl_data_v2_{from_date}_{to_date}_{kpi_names}"
 
     cached_data = cache.get(cache_key) if cache_key else None
     
@@ -338,10 +346,10 @@ def pl_monitoring_main():
                 
                 # Cache results
                 if cache_key:
-                    cache.set(cache_key, (
+                    cache.set(cache_key, to_dict((
                         all_data, nsa_city_map, city_cluster_map, cluster_city_map, city_site_map, cluster_site_map, 
                         nop_dims_set, city_dims_set, cluster_dims_set, chart_labels, last_update, query_done
-                    ), timeout=21600)
+                    )), timeout=21600)
 
         except psycopg2.OperationalError:
             flash("Database connection failed. Please try again.", "warning")
@@ -358,8 +366,16 @@ def pl_monitoring_main():
     city_site_map_list = {k: sorted(v) for k, v in city_site_map.items()}
     cluster_site_map_list = {k: sorted(v) for k, v in cluster_site_map.items()}
 
+    if query_done:
+        remember_view("pl_monitoring", from_date=from_date, to_date=to_date,
+                      kpis=sel_kpis, tech=tech, submitted=True)
+
+    sess_id = session.get("session_id") or f"user_{session.get('username')}"
+    saved_ui_state = cache.get(f"sess_state:{sess_id}:pl") or {}
+
     return _no_cache(make_response(render_template(
         "pl_monitoring.html",
+        saved_ui_state=saved_ui_state,
         username=session.get("username", "User"),
         from_date=from_date or default_fr,
         to_date=to_date or default_to,

@@ -807,7 +807,7 @@
     top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0, 0, 0, 0.45);
     backdrop-filter: blur(6px);
-    display: flex;
+    display: none;
     justify-content: center;
     align-items: center;
     z-index: 9999;
@@ -816,6 +816,7 @@
     transition: opacity 0.3s;
 }
 .loading-overlay.active {
+    display: flex;
     opacity: 1;
     pointer-events: all;
 }
@@ -1428,6 +1429,7 @@ function switchTab(tab) {
             Object.values(trendCharts).forEach(c => { if (c) c.resize(); });
         }, 50);
     }
+    saveUnbalanceState();
 }
 
 /* ── Chart Layout Selector ──────────────────────────────────────────── */
@@ -1547,6 +1549,62 @@ function showFilterPanel() {
     }, 150);
 }
 
+
+/* ── IndexedDB Storage for Large Datasets (Unbalance PRB > 4MB) ───────── */
+const _IDB_DB_NAME = "netkpi_idb_cache";
+const _IDB_STORE_NAME = "query_cache";
+
+function _openIdb() {
+    return new Promise((resolve) => {
+        if (!window.indexedDB) return resolve(null);
+        try {
+            const req = indexedDB.open(_IDB_DB_NAME, 1);
+            req.onupgradeneeded = function(e) {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(_IDB_STORE_NAME)) {
+                    db.createObjectStore(_IDB_STORE_NAME);
+                }
+            };
+            req.onsuccess = function(e) { resolve(e.target.result); };
+            req.onerror = function() { resolve(null); };
+        } catch(err) {
+            resolve(null);
+        }
+    });
+}
+
+async function _idbGet(key) {
+    const db = await _openIdb();
+    if (!db) return null;
+    return new Promise((resolve) => {
+        try {
+            const tx = db.transaction(_IDB_STORE_NAME, "readonly");
+            const store = tx.objectStore(_IDB_STORE_NAME);
+            const req = store.get(key);
+            req.onsuccess = function() { resolve(req.result || null); };
+            req.onerror = function() { resolve(null); };
+        } catch(err) {
+            resolve(null);
+        }
+    });
+}
+
+async function _idbSet(key, val) {
+    const db = await _openIdb();
+    if (!db) return false;
+    return new Promise((resolve) => {
+        try {
+            const tx = db.transaction(_IDB_STORE_NAME, "readwrite");
+            const store = tx.objectStore(_IDB_STORE_NAME);
+            store.put(val, key);
+            tx.oncomplete = function() { resolve(true); };
+            tx.onerror = function() { resolve(false); };
+        } catch(err) {
+            resolve(false);
+        }
+    });
+}
+
 /* ── Load Data (Week Range) ─────────────────────────────────────────── */
 async function loadData() {
     const selA = document.getElementById('startWeekSelect').value;
@@ -1569,26 +1627,54 @@ async function loadData() {
     const btn = document.getElementById('btnLoad');
     const overlay = document.getElementById('loadingOverlay');
 
-    btn.disabled = true;
-    document.getElementById('loadingText').textContent = 'Processing Unbalance PRB data...';
-    document.getElementById('loadingSub').textContent = `Loading ${startWeek} → ${endWeek}`;
-    overlay.classList.add('active');
+    const qKey = `qcache_{{ username }}_unbalance_${startWeek}_${endWeek}`;
+    let json = null;
+    try {
+        const raw = sessionStorage.getItem(qKey);
+        if (raw) json = JSON.parse(raw);
+    } catch(e) {}
+    if (!json && window._memQueryCache && window._memQueryCache[qKey]) {
+        json = window._memQueryCache[qKey];
+    }
+    if (!json) {
+        try {
+            json = await _idbGet(qKey);
+        } catch(eIdb) {}
+    }
 
     try {
-        const res = await fetch('/api/unbalance_prb/data', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
-            },
-            body: JSON.stringify({ start_week: startWeek, end_week: endWeek })
-        });
+        if (!json) {
+            btn.disabled = true;
+            document.getElementById('loadingText').textContent = 'Processing Unbalance PRB data...';
+            document.getElementById('loadingSub').textContent = `Loading ${startWeek} → ${endWeek}`;
+            overlay.style.display = 'flex';
+            overlay.classList.add('active');
 
-        const json = await res.json();
+            const res = await fetch('/api/unbalance_prb/data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ start_week: startWeek, end_week: endWeek })
+            });
 
-        if (json.error) {
-            alert('Error: ' + json.error);
-            return;
+            json = await res.json();
+
+            if (json.error) {
+                alert('Error: ' + json.error);
+                return;
+            }
+            try {
+                sessionStorage.setItem(qKey, JSON.stringify(json));
+            } catch(eQuota) {
+                console.warn("sessionStorage quota exceeded, caching in IDB & memory", eQuota);
+                window._memQueryCache = window._memQueryCache || {};
+                window._memQueryCache[qKey] = json;
+            }
+            try {
+                _idbSet(qKey, json);
+            } catch(eIdb) {}
         }
 
         if (json.rows && json.columns) {
@@ -1631,12 +1717,16 @@ async function loadData() {
 
         // Auto-hide filter card when process finishes
         hideFilterPanel();
+        saveUnbalanceState();
 
     } catch (e) {
         alert('Failed to load data: ' + e.message);
     } finally {
         btn.disabled = false;
-        overlay.classList.remove('active');
+        if (overlay) {
+            overlay.classList.remove('active');
+            overlay.style.display = 'none';
+        }
     }
 }
 
@@ -2482,6 +2572,7 @@ async function exportXLSX() {
 
     document.getElementById('loadingText').textContent = 'Exporting Excel Workbook...';
     document.getElementById('loadingSub').textContent = exportTitle;
+    overlay.style.display = 'flex';
     overlay.classList.add('active');
 
     await new Promise(r => setTimeout(r, 60));
@@ -2766,5 +2857,39 @@ async function exportXLSX() {
         }, 500);
     }
 }
+
+function saveUnbalanceState() {
+    try {
+        const state = {
+            startWeek: document.getElementById('startWeekSelect') ? document.getElementById('startWeekSelect').value : null,
+            endWeek: document.getElementById('endWeekSelect') ? document.getElementById('endWeekSelect').value : null,
+            tab: (document.getElementById('panelWeekly') && document.getElementById('panelWeekly').classList.contains('active')) ? 'weekly' : 'trend',
+            hasLoaded: (document.getElementById('tabBarContainer') && document.getElementById('tabBarContainer').style.display === 'block')
+        };
+        sessionStorage.setItem("netkpi_unbalance_{{ username }}", JSON.stringify(state));
+    } catch(e) {}
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    var overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+        overlay.style.display = 'none';
+    }
+    try {
+        const saved = JSON.parse(sessionStorage.getItem("netkpi_unbalance_{{ username }}"));
+        if (saved && saved.hasLoaded) {
+            if (saved.startWeek && document.getElementById('startWeekSelect')) document.getElementById('startWeekSelect').value = saved.startWeek;
+            if (saved.endWeek && document.getElementById('endWeekSelect')) document.getElementById('endWeekSelect').value = saved.endWeek;
+            if (saved.tab) switchTab(saved.tab);
+            
+            // If already loaded in UI, don't leave emptyState showing
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('tabBarContainer').style.display = 'block';
+            
+            loadData();
+        }
+    } catch(e) {}
+});
 </script>
 {% endblock %}

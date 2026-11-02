@@ -455,8 +455,15 @@
 function switchTab(tabId, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('tab-' + tabId).classList.add('active');
+    if (!btn) btn = document.querySelector(`.tab-btn[onclick*="${tabId}"]`);
+    if (btn) btn.classList.add('active');
+    const target = document.getElementById('tab-' + tabId);
+    if (target) target.classList.add('active');
+    try {
+        const saved = JSON.parse(sessionStorage.getItem("netkpi_ta4g_{{ username }}") || "{}");
+        saved.tab = tabId;
+        sessionStorage.setItem("netkpi_ta4g_{{ username }}", JSON.stringify(saved));
+    } catch(e) {}
 }
 
 function switchContentView(tab, view) {
@@ -744,7 +751,6 @@ async function fetchData(tab) {
     if(sites.length === 0) { alert("Please select at least one Site ID."); return; }
     
     let btn = tab === 'actual' ? document.getElementById('actSpinner') : document.getElementById('compSpinner');
-    btn.style.display = 'inline-block';
     
     let payload = { tab: tab, site: sites };
     if(tab === 'actual') {
@@ -756,16 +762,27 @@ async function fetchData(tab) {
         payload.after_from = document.getElementById('compAFrom').value;
         payload.after_to = document.getElementById('compATo').value;
     }
+
+    const qKey = `qcache_{{ username }}_ta4g_${JSON.stringify(payload)}`;
+    let data = null;
+    try {
+        const raw = sessionStorage.getItem(qKey);
+        if (raw) data = JSON.parse(raw);
+    } catch(e) {}
     
     try {
-        let res = await fetch('/api/ta_4g_query', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
-            body: JSON.stringify(payload)
-        });
-        
-        let data = await res.json();
-        if(data.error) throw new Error(data.error);
+        if (!data) {
+            btn.style.display = 'inline-block';
+            let res = await fetch('/api/ta_4g_query', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+                body: JSON.stringify(payload)
+            });
+            
+            data = await res.json();
+            if(data.error) throw new Error(data.error);
+            try { sessionStorage.setItem(qKey, JSON.stringify(data)); } catch(e){}
+        }
         
         if(tab === 'actual') {
             ACT_DATA = data.actual_data;
@@ -781,6 +798,7 @@ async function fetchData(tab) {
         renderCharts(tab);
         buildAnalysisTable(tab);
         switchContentView(tab, 'chart');
+        saveTaState(tab);
         
     } catch(err) {
         alert("Failed to fetch data: " + err.message);
@@ -1191,6 +1209,66 @@ function buildAnalysisTable(tab) {
         tbody.appendChild(tr);
     });
 }
+
+function saveTaState(tab) {
+    try {
+        var currentActiveTab = tab;
+        if (!currentActiveTab) {
+            const compActive = document.getElementById('tab-compare') && document.getElementById('tab-compare').classList.contains('active');
+            currentActiveTab = compActive ? 'compare' : 'actual';
+        }
+        var state = {
+            tab: currentActiveTab,
+            actSites: getCheckedValues('actSiteList'),
+            compSites: getCheckedValues('compSiteList'),
+            actFrom: document.getElementById('actFrom') ? document.getElementById('actFrom').value : '',
+            actTo: document.getElementById('actTo') ? document.getElementById('actTo').value : '',
+            compBFrom: document.getElementById('compBFrom') ? document.getElementById('compBFrom').value : '',
+            compBTo: document.getElementById('compBTo') ? document.getElementById('compBTo').value : '',
+            compAFrom: document.getElementById('compAFrom') ? document.getElementById('compAFrom').value : '',
+            compATo: document.getElementById('compATo') ? document.getElementById('compATo').value : '',
+            hasLoadedActual: (ACT_DATA !== null),
+            hasLoadedCompare: (COMP_BEFORE !== null || COMP_AFTER !== null)
+        };
+        sessionStorage.setItem("netkpi_ta4g_{{ username }}", JSON.stringify(state));
+    } catch(e) {}
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    try {
+        var saved = JSON.parse(sessionStorage.getItem("netkpi_ta4g_{{ username }}"));
+        if (saved) {
+            var activeTab = saved.tab || 'actual';
+            switchTab(activeTab);
+            if (saved.actFrom && document.getElementById('actFrom')) document.getElementById('actFrom').value = saved.actFrom;
+            if (saved.actTo && document.getElementById('actTo')) document.getElementById('actTo').value = saved.actTo;
+            if (saved.compBFrom && document.getElementById('compBFrom')) document.getElementById('compBFrom').value = saved.compBFrom;
+            if (saved.compBTo && document.getElementById('compBTo')) document.getElementById('compBTo').value = saved.compBTo;
+            if (saved.compAFrom && document.getElementById('compAFrom')) document.getElementById('compAFrom').value = saved.compAFrom;
+            if (saved.compATo && document.getElementById('compATo')) document.getElementById('compATo').value = saved.compATo;
+            
+            if (saved.actSites && saved.actSites.length > 0) {
+                document.querySelectorAll('#actSiteList input').forEach(cb => {
+                    cb.checked = saved.actSites.includes(cb.value);
+                });
+                updateLbl('actSiteList', 'actSiteLbl', 'Sites');
+            }
+            if (saved.compSites && saved.compSites.length > 0) {
+                document.querySelectorAll('#compSiteList input').forEach(cb => {
+                    cb.checked = saved.compSites.includes(cb.value);
+                });
+                updateLbl('compSiteList', 'compSiteLbl', 'Sites');
+            }
+            
+            
+
+            if ((activeTab === 'actual' && saved.hasLoadedActual && saved.actSites && saved.actSites.length > 0) ||
+                (activeTab === 'compare' && saved.hasLoadedCompare && saved.compSites && saved.compSites.length > 0)) {
+                fetchData(activeTab);
+            }
+        }
+    } catch(e) {}
+});
 </script>
 
 {% endblock %}

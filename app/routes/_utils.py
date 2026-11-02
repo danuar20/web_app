@@ -210,3 +210,49 @@ def validate_date_params(from_date, to_date):
         return True, None
     except ValueError:
         return False, "Invalid date format. Use YYYY-MM-DD"
+
+
+# ── Per-user "last generated view" state ─────────────────────────────────────
+# Monitoring pages are plain GET forms. Navigating away to another menu item and
+# back used to land on an empty form, forcing the user to re-pick dates + KPIs and
+# re-run a multi-second aggregation. The helpers below keep the last generated
+# filter set in the (server-side signed) session so a bare menu click restores the
+# dashboard, and the result cache serves it without touching the database.
+
+_VIEW_STATE_KEY = "_view_states"
+# Flask sessions live in a signed cookie (~4 KB), so keep only the pages the user
+# visited most recently instead of every page they ever generated.
+_VIEW_STATE_MAX_PAGES = 12
+
+# Boards whose underlying daily/hourly tables are refreshed by batch imports, so a
+# result may be reused for an hour without showing stale numbers to the user.
+RESULT_CACHE_TTL = 3600
+
+
+def remember_view(name, **state):
+    """Persist the last generated filter state of a page in the user's session."""
+    states = dict(session.get(_VIEW_STATE_KEY) or {})
+    states.pop(name, None)          # re-insert so the dict stays in LRU order
+    states[name] = state
+    while len(states) > _VIEW_STATE_MAX_PAGES:
+        states.pop(next(iter(states)))
+    session[_VIEW_STATE_KEY] = states
+    session.modified = True
+
+
+def recall_view(name):
+    """Return the last remembered filter state for a page ({}) when none is saved."""
+    return dict((session.get(_VIEW_STATE_KEY) or {}).get(name) or {})
+
+def to_dict(d):
+    """Recursively convert defaultdicts and nested containers to standard picklable Python types."""
+    from collections import defaultdict
+    if isinstance(d, defaultdict):
+        return {k: to_dict(v) for k, v in d.items()}
+    elif isinstance(d, dict):
+        return {k: to_dict(v) for k, v in d.items()}
+    elif isinstance(d, list):
+        return [to_dict(x) for x in d]
+    elif isinstance(d, tuple):
+        return tuple(to_dict(x) for x in d)
+    return d

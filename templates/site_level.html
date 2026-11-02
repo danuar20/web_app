@@ -528,6 +528,7 @@ var chartInstances = {};
 function switchTab(tabId, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    if (!btn) btn = document.querySelector(`.tab-btn[onclick*="${tabId}"]`);
     if (btn) btn.classList.add('active');
     const target = document.getElementById(`tab-${tabId}`);
     if (target) target.classList.add('active');
@@ -536,6 +537,9 @@ function switchTab(tabId, btn) {
     const fc = document.getElementById('filterCardCompare');
     if (ft) ft.style.display = tabId === 'trend' ? 'flex' : 'none';
     if (fc) fc.style.display = tabId === 'compare' ? 'flex' : 'none';
+    if (typeof saveSiteState === 'function') {
+        saveSiteState(tabId);
+    }
 }
 
 function toggleDropdown(id){
@@ -633,56 +637,60 @@ function updateNsaState(prefix) {
 }
 
 let fetchCitiesTimeout;
-function fetchCities(prefix) {
+async function fetchCities(prefix, selectedToRestore) {
     if (!updateNsaState(prefix)) return;
-    clearTimeout(fetchCitiesTimeout);
-    fetchCitiesTimeout = setTimeout(async () => {
-        let url = `/api/productivity/cities?`;
-        document.querySelectorAll(`#${prefix}NsaList input:checked`).forEach(cb => url += `&nsa=${encodeURIComponent(cb.value)}`);
-        try {
-            const res = await fetch(url);
-            const data = await res.json();
-            const list = document.getElementById(`${prefix}CityList`);
-            if(data.cities && data.cities.length > 0 && list) {
-                let html = '';
-                data.cities.forEach(c => {
-                    if (c && String(c).trim()) {
-                        html += `<label><input type="checkbox" name="${prefix}_city" value="${c}" onchange="updateLbl('${prefix}CityList', '${prefix}CityLbl', 'City'); fetchSites('${prefix}');"> <span>${c}</span></label>`;
-                    }
+    let url = `/api/productivity/cities?`;
+    document.querySelectorAll(`#${prefix}NsaList input:checked`).forEach(cb => url += `&nsa=${encodeURIComponent(cb.value)}`);
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+        const list = document.getElementById(`${prefix}CityList`);
+        if(data.cities && data.cities.length > 0 && list) {
+            let html = '';
+            data.cities.forEach(c => {
+                if (c && String(c).trim()) {
+                    html += `<label><input type="checkbox" name="${prefix}_city" value="${c}" onchange="updateLbl('${prefix}CityList', '${prefix}CityLbl', 'City'); fetchSites('${prefix}');"> <span>${c}</span></label>`;
+                }
+            });
+            list.innerHTML = html;
+            if (selectedToRestore && selectedToRestore.length > 0) {
+                list.querySelectorAll("input").forEach(cb => {
+                    cb.checked = selectedToRestore.includes(cb.value);
                 });
-                list.innerHTML = html;
-                updateLbl(`${prefix}CityList`, `${prefix}CityLbl`, 'City');
             }
-        } catch(e) { console.error("Failed to fetch cities:", e); }
-    }, 300);
+            updateLbl(`${prefix}CityList`, `${prefix}CityLbl`, 'City');
+        }
+    } catch(e) { console.error("Failed to fetch cities:", e); }
 }
 
 let fetchSitesTimeout;
-function fetchSites(prefix) {
+async function fetchSites(prefix, selectedToRestore) {
     if (!updateNsaState(prefix)) return;
-    clearTimeout(fetchSitesTimeout);
-    fetchSitesTimeout = setTimeout(async () => {
-        let url = `/api/productivity/sites?`;
-        document.querySelectorAll(`#${prefix}NsaList input:checked`).forEach(cb => url += `&nsa=${encodeURIComponent(cb.value)}`);
-        document.querySelectorAll(`#${prefix}TechList input:checked`).forEach(cb => url += `&tech=${encodeURIComponent(cb.value)}`);
-        document.querySelectorAll(`#${prefix}CityList input:checked`).forEach(cb => url += `&city=${encodeURIComponent(cb.value)}`);
-        
-        try {
-            const res = await fetch(url);
-            const data = await res.json();
-            const list = document.getElementById(`${prefix}SiteList`);
-            if (data.sites && data.sites.length > 0 && list) {
-                let html = '';
-                data.sites.forEach(s => {
-                    if (s && String(s).trim()) {
-                        html += `<label><input type="checkbox" name="${prefix}_site" value="${s}" onchange="updateLbl('${prefix}SiteList', '${prefix}SiteLbl', 'Site')"> <span>${s}</span></label>`;
-                    }
+    let url = `/api/productivity/sites?`;
+    document.querySelectorAll(`#${prefix}NsaList input:checked`).forEach(cb => url += `&nsa=${encodeURIComponent(cb.value)}`);
+    document.querySelectorAll(`#${prefix}TechList input:checked`).forEach(cb => url += `&tech=${encodeURIComponent(cb.value)}`);
+    document.querySelectorAll(`#${prefix}CityList input:checked`).forEach(cb => url += `&city=${encodeURIComponent(cb.value)}`);
+    
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+        const list = document.getElementById(`${prefix}SiteList`);
+        if (data.sites && data.sites.length > 0 && list) {
+            let html = '';
+            data.sites.forEach(s => {
+                if (s && String(s).trim()) {
+                    html += `<label><input type="checkbox" name="${prefix}_site" value="${s}" onchange="updateLbl('${prefix}SiteList', '${prefix}SiteLbl', 'Site')"> <span>${s}</span></label>`;
+                }
+            });
+            list.innerHTML = html;
+            if (selectedToRestore && selectedToRestore.length > 0) {
+                list.querySelectorAll("input").forEach(cb => {
+                    cb.checked = selectedToRestore.includes(cb.value);
                 });
-                list.innerHTML = html;
-                updateLbl(`${prefix}SiteList`, `${prefix}SiteLbl`, 'Site');
             }
-        } catch(e) { console.error("Failed to fetch sites:", e); }
-    }, 300);
+            updateLbl(`${prefix}SiteList`, `${prefix}SiteLbl`, 'Site');
+        }
+    } catch(e) { console.error("Failed to fetch sites:", e); }
 }
 
 // --- Chart Setup ---
@@ -695,7 +703,7 @@ function getChartOpts(title) {
         responsive: true, maintainAspectRatio: false, animation: { duration: 500 },
         plugins: {
             legend: { display: true, position: 'bottom', labels: { color: tc(), font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' } },
-            tooltip: { mode: 'index', intersect: false, backgroundColor: 'rgba(15,23,42,0.9)', titleFont:{size:11}, bodyFont:{size:11} }
+            tooltip: { mode: 'index', intersect: false, backgroundColor: 'rgba(15,23,42,0.94)', titleColor: '#ffffff', bodyColor: '#f1f5f9', footerColor: '#cbd5e1', borderColor: 'rgba(255, 255, 255, 0.15)', borderWidth: 1, titleFont:{size:11}, bodyFont:{size:11} }
         },
         interaction: { mode: 'index', intersect: false },
         scales: {
@@ -729,22 +737,33 @@ async function loadDataTrend() {
     const tDate = document.getElementById('tToDate').value;
     if(!fDate || !tDate) return;
     
-    document.getElementById('tEmpty').style.display = 'none';
-    document.getElementById('tData').style.display = 'none';
-    document.getElementById('errorAlert').style.display = 'none';
-    document.getElementById('tSkeleton').style.display = 'flex';
-    document.getElementById('tBtnIcon').className = 'fas fa-circle-notch fa-spin';
-    
     let url = `/api/productivity/site?mode=trend&from_date=${fDate}&to_date=${tDate}`;
     document.querySelectorAll('#tNsaList input:checked').forEach(cb => url += `&nsa=${encodeURIComponent(cb.value)}`);
     document.querySelectorAll('#tTechList input:checked').forEach(cb => url += `&tech=${encodeURIComponent(cb.value)}`);
     document.querySelectorAll('#tCityList input:checked').forEach(cb => url += `&city=${encodeURIComponent(cb.value)}`);
     document.querySelectorAll('#tSiteList input:checked').forEach(cb => url += `&site=${encodeURIComponent(cb.value)}`);
 
+    let data = null;
     try {
-        const res = await fetch(url);
-        const data = await res.json();
-        if(data.error) throw new Error(data.error);
+        var raw = sessionStorage.getItem("qcache_{{ username }}_" + url);
+        if (raw) data = JSON.parse(raw);
+    } catch(e){}
+
+    if (!data) {
+        document.getElementById('tEmpty').style.display = 'none';
+        document.getElementById('tData').style.display = 'none';
+        document.getElementById('errorAlert').style.display = 'none';
+        document.getElementById('tSkeleton').style.display = 'flex';
+        document.getElementById('tBtnIcon').className = 'fas fa-circle-notch fa-spin';
+    }
+
+    try {
+        if (!data) {
+            const res = await fetch(url);
+            data = await res.json();
+            if(data.error) throw new Error(data.error);
+            try { sessionStorage.setItem("qcache_{{ username }}_" + url, JSON.stringify(data)); } catch(e){}
+        }
 
         // Update KPIs
         document.getElementById('tk1').textContent = fmt(data.kpis.payload, 1);
@@ -772,6 +791,7 @@ async function loadDataTrend() {
         document.getElementById('tData').style.display = 'flex';
         document.getElementById('tBtnExportPng').style.display = 'flex';
         document.getElementById('tBtnExportCsv').style.display = 'flex';
+        saveSiteState('trend');
 
     } catch(err) {
         document.getElementById('tSkeleton').style.display = 'none';
@@ -787,22 +807,33 @@ async function loadDataCompare() {
     const wa = document.getElementById('cWa').value;
     if(!wb || !wa) return;
     
-    document.getElementById('cEmpty').style.display = 'none';
-    document.getElementById('cData').style.display = 'none';
-    document.getElementById('errorAlert').style.display = 'none';
-    document.getElementById('cSkeleton').style.display = 'flex';
-    document.getElementById('cBtnIcon').className = 'fas fa-circle-notch fa-spin';
-    
     let url = `/api/productivity/site?mode=compare&yw_before=${wb}&yw_after=${wa}`;
     document.querySelectorAll('#cNsaList input:checked').forEach(cb => url += `&nsa=${encodeURIComponent(cb.value)}`);
     document.querySelectorAll('#cTechList input:checked').forEach(cb => url += `&tech=${encodeURIComponent(cb.value)}`);
     document.querySelectorAll('#cCityList input:checked').forEach(cb => url += `&city=${encodeURIComponent(cb.value)}`);
     document.querySelectorAll('#cSiteList input:checked').forEach(cb => url += `&site=${encodeURIComponent(cb.value)}`);
 
+    let data = null;
     try {
-        const res = await fetch(url);
-        const data = await res.json();
-        if(data.error) throw new Error(data.error);
+        var raw = sessionStorage.getItem("qcache_{{ username }}_" + url);
+        if (raw) data = JSON.parse(raw);
+    } catch(e){}
+
+    if (!data) {
+        document.getElementById('cEmpty').style.display = 'none';
+        document.getElementById('cData').style.display = 'none';
+        document.getElementById('errorAlert').style.display = 'none';
+        document.getElementById('cSkeleton').style.display = 'flex';
+        document.getElementById('cBtnIcon').className = 'fas fa-circle-notch fa-spin';
+    }
+
+    try {
+        if (!data) {
+            const res = await fetch(url);
+            data = await res.json();
+            if(data.error) throw new Error(data.error);
+            try { sessionStorage.setItem("qcache_{{ username }}_" + url, JSON.stringify(data)); } catch(e){}
+        }
 
         window.compareExportData = data; // Save for custom CSV export
         
@@ -820,12 +851,18 @@ async function loadDataCompare() {
             </tr>
         `;
 
-        // Render Table
+        // Render Table with row-cap to prevent browser freeze when 3000+ sites are selected
+        const MAX_RENDER_ROWS = 500;
+        let renderedRowCount = 0;
         let html = '';
-        data.compare_table.forEach(cityGrp => {
+        for (let i = 0; i < data.compare_table.length; i++) {
+            const cityGrp = data.compare_table[i];
             const groupName = cityGrp.nsa || cityGrp.city || '—';
             html += `<tr style="background:rgba(79,172,254,0.05)"><td colspan="17" style="font-weight:700; color:#4facfe;">KABUPATEN / NSA: ${groupName}</td></tr>`;
-            cityGrp.rows.forEach(r => {
+            for (let j = 0; j < cityGrp.rows.length; j++) {
+                const r = cityGrp.rows[j];
+                renderedRowCount++;
+                if (renderedRowCount > MAX_RENDER_ROWS) break;
                 const deltaP = r.pa !== null && r.pb !== null ? r.pa - r.pb : null;
                 const deltaT = r.ta !== null && r.tb !== null ? r.ta - r.tb : null;
                 const deltaA = r.aa !== null && r.ab !== null ? r.aa - r.ab : null;
@@ -837,8 +874,14 @@ async function loadDataCompare() {
                     <td>${fmt(r.ab,2)}</td><td>${fmt(r.aa,2)}</td><td>${fmt(deltaA,2)}</td><td>${getPill(r.ach)}</td>
                     <td>${fmt(r.rb,0)}</td><td>${fmt(r.ra,0)}</td><td>${fmt(deltaR,0)}</td><td>${getPill(r.rch)}</td>
                 </tr>`;
-            });
-        });
+            }
+            if (renderedRowCount > MAX_RENDER_ROWS) {
+                html += `<tr><td colspan="17" style="text-align:center; padding:12px; font-weight:600; color:#4facfe; background:rgba(79,172,254,0.08);">
+                    Displaying first 500 of ${allRows.length} sites in table preview to maintain smooth responsiveness. (Full dataset available in CSV export)
+                </td></tr>`;
+                break;
+            }
+        }
         document.getElementById('cTableBody').innerHTML = html;
 
         // Render Bar Charts
@@ -903,6 +946,7 @@ async function loadDataCompare() {
         document.getElementById('cData').style.display = 'flex';
         document.getElementById('cBtnExportPng').style.display = 'flex';
         document.getElementById('cBtnExportCsv').style.display = 'flex';
+        saveSiteState('compare');
 
     } catch(err) {
         document.getElementById('cSkeleton').style.display = 'none';
@@ -1093,10 +1137,88 @@ function exportDataCSV(tab) {
         }
     }, 50);
 }
-document.addEventListener("DOMContentLoaded", function() {
-    updateNsaState('t');
-    updateNsaState('c');
+
+function saveSiteState(mode) {
+    try {
+        const state = {
+            tab: (document.getElementById('tab-compare') && document.getElementById('tab-compare').classList.contains('active')) ? 'compare' : 'trend',
+            tFrom: document.getElementById('tFromDate') ? document.getElementById('tFromDate').value : '',
+            tTo: document.getElementById('tToDate') ? document.getElementById('tToDate').value : '',
+            cWb: document.getElementById('cWb') ? document.getElementById('cWb').value : '',
+            cWa: document.getElementById('cWa') ? document.getElementById('cWa').value : '',
+            tNsa: Array.from(document.querySelectorAll('#tNsaList input:checked')).map(cb => cb.value),
+            tTech: Array.from(document.querySelectorAll('#tTechList input:checked')).map(cb => cb.value),
+            tCity: Array.from(document.querySelectorAll('#tCityList input:checked')).map(cb => cb.value),
+            tSite: Array.from(document.querySelectorAll('#tSiteList input:checked')).map(cb => cb.value),
+            cNsa: Array.from(document.querySelectorAll('#cNsaList input:checked')).map(cb => cb.value),
+            cTech: Array.from(document.querySelectorAll('#cTechList input:checked')).map(cb => cb.value),
+            cCity: Array.from(document.querySelectorAll('#cCityList input:checked')).map(cb => cb.value),
+            cSite: Array.from(document.querySelectorAll('#cSiteList input:checked')).map(cb => cb.value),
+            hasLoadedTrend: (document.getElementById('tData') && document.getElementById('tData').style.display === 'flex'),
+            hasLoadedCompare: (document.getElementById('cData') && document.getElementById('cData').style.display === 'flex')
+        };
+        sessionStorage.setItem("netkpi_prod_site_{{ username }}", JSON.stringify(state));
+    } catch(e) {}
+}
+
+
+document.addEventListener("change", function(e) {
+    if (e.target && e.target.closest && e.target.closest(".filter-card, .dropdown-menu, .f-input, .f-select")) {
+        if (typeof saveSiteState === "function") saveSiteState();
+    }
+}, false);
+window.addEventListener("pagehide", function() {
+    if (typeof saveSiteState === "function") saveSiteState();
 });
+
+document.addEventListener("DOMContentLoaded", async function() {
+    try {
+        const saved = JSON.parse(sessionStorage.getItem("netkpi_prod_site_{{ username }}"));
+        if (saved) {
+            const activeTab = saved.tab || 'trend';
+            switchTab(activeTab);
+
+            if (saved.tFrom && document.getElementById('tFromDate')) document.getElementById('tFromDate').value = saved.tFrom;
+            if (saved.tTo && document.getElementById('tToDate')) document.getElementById('tToDate').value = saved.tTo;
+            if (saved.cWb && document.getElementById('cWb')) document.getElementById('cWb').value = saved.cWb;
+            if (saved.cWa && document.getElementById('cWa')) document.getElementById('cWa').value = saved.cWa;
+
+            function _applyCheckboxes(listId, lblId, name, vals) {
+                if (!vals || vals.length === 0) return;
+                document.querySelectorAll(`#${listId} input`).forEach(cb => {
+                    cb.checked = vals.includes(cb.value);
+                });
+                updateLbl(listId, lblId, name);
+            }
+
+            _applyCheckboxes('tNsaList', 'tNsaLbl', 'NOP', saved.tNsa);
+            _applyCheckboxes('tTechList', 'tTechLbl', 'Tech', saved.tTech);
+
+            _applyCheckboxes('cNsaList', 'cNsaLbl', 'NOP', saved.cNsa);
+            _applyCheckboxes('cTechList', 'cTechLbl', 'Tech', saved.cTech);
+
+            updateNsaState('t');
+            updateNsaState('c');
+
+            if (activeTab === 'trend') {
+                await fetchCities('t', saved.tCity);
+                await fetchSites('t', saved.tSite);
+                if (saved.hasLoadedTrend) loadDataTrend();
+            } else {
+                await fetchCities('c', saved.cCity);
+                await fetchSites('c', saved.cSite);
+                if (saved.hasLoadedCompare) loadDataCompare();
+            }
+        } else {
+            updateNsaState('t');
+            updateNsaState('c');
+        }
+    } catch(e) {
+        updateNsaState('t');
+        updateNsaState('c');
+    }
+});
+
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 {% endblock %}

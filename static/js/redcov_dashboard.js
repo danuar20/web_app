@@ -8,7 +8,13 @@
  */
 
 (function () {
-    'use strict';
+'use strict';
+
+    /* Skin-aware chart colours (defined in templates/base.html). */
+    const __nk = () => (window.nkChartTheme ? window.nkChartTheme() : {
+        text: '#f8fafc', sub: '#94a3b8', line: '#334155', axis: '#475569',
+        panel: '#1e1e2d', accent: '#4facfe'
+    });
 
     // Global ECharts Instances
     let chartCoverageTrend = null;
@@ -60,38 +66,38 @@
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         return {
             isDark: isDark,
-            textColor: isDark ? '#f8fafc' : '#0f172a',
-            textMuted: isDark ? '#94a3b8' : '#64748b',
-            legendColor: isDark ? '#e2e8f0' : '#1e293b',
+            textColor: __nk().text,
+            textMuted: __nk().sub,
+            legendColor: __nk().text,
             axisLineColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)',
             splitLineColor: isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.07)',
             targetLineColor: isDark ? '#ffffff' : '#000000',
             labelBg: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-            labelBorder: isDark ? '#475569' : '#cbd5e1',
+            labelBorder: __nk().axis,
             lineRedCov: isDark ? '#38bdf8' : '#0f172a',
             tooltipBg: isDark ? 'rgba(15, 23, 42, 0.96)' : 'rgba(255, 255, 255, 0.98)',
             tooltipBorder: isDark ? '#334155' : '#cbd5e1',
-            tooltipText: isDark ? '#f8fafc' : '#0f172a'
+            tooltipText: __nk().text
         };
     }
 
     // Shared Frosted Tooltip Styling for ECharts
     const TOOLTIP_STYLE = {
-        backgroundColor: 'rgba(15, 23, 42, 0.96)',
-        borderColor: '#334155',
+        backgroundColor: 'rgba(15, 23, 42, 0.94)',
+        borderColor: 'rgba(255, 255, 255, 0.15)',
         borderWidth: 1,
         padding: [10, 14],
-        textStyle: { color: '#f8fafc', fontSize: 11.5, fontFamily: 'inherit' },
+        textStyle: { color: '#ffffff', fontSize: 11.5, fontFamily: 'inherit' },
         extraCssText: 'box-shadow: 0 10px 25px rgba(0,0,0,0.35); border-radius: 8px;'
     };
 
     function getTooltipStyle(theme) {
         return {
-            backgroundColor: theme ? theme.tooltipBg : TOOLTIP_STYLE.backgroundColor,
-            borderColor: theme ? theme.tooltipBorder : TOOLTIP_STYLE.borderColor,
+            backgroundColor: 'rgba(15, 23, 42, 0.94)',
+            borderColor: 'rgba(255, 255, 255, 0.15)',
             borderWidth: 1,
             padding: [10, 14],
-            textStyle: { color: theme ? theme.tooltipText : TOOLTIP_STYLE.textStyle.color, fontSize: 11.5, fontFamily: 'inherit' },
+            textStyle: { color: '#ffffff', fontSize: 11.5, fontFamily: 'inherit' },
             extraCssText: 'box-shadow: 0 10px 25px rgba(0,0,0,0.35); border-radius: 8px;'
         };
     }
@@ -101,6 +107,21 @@
         initSidebarObserver();
         initDashboard();
     });
+
+    if (typeof window.nkRegisterChartRedraw === 'function') {
+        window.nkRegisterChartRedraw(function () {
+            try {
+                if (typeof window.onRedcovFilterChange === 'function') window.onRedcovFilterChange();
+                if (typeof window.onTrendTabFilterChange === 'function') window.onTrendTabFilterChange();
+                if (activeTab === 'trend' && currentTrendData) {
+                    renderTab2Charts();
+                } else if (activeTab === 'achievement' && currentTrendData) {
+                    renderCoverageTrendChart(currentTrendData);
+                    renderRedBreakdownChart(currentTrendData);
+                }
+            } catch (e) { }
+        });
+    }
 
     // ── Tab Management ──
     window.switchRedcovTab = function (tabId, btnElem) {
@@ -114,6 +135,14 @@
         const targetPane = document.getElementById(`pane-${tabId}`);
         if (targetPane) {
             targetPane.classList.add('active');
+        }
+
+        // If switching to Tab 2 (trend) or Tab 1, ensure charts are rendered and resized
+        if (tabId === 'trend' && currentTrendData) {
+            renderTab2Charts();
+        } else if (tabId === 'achievement' && currentTrendData) {
+            renderCoverageTrendChart(currentTrendData);
+            renderRedBreakdownChart(currentTrendData);
         }
 
         setTimeout(resizeAllVisibleCharts, 50);
@@ -155,12 +184,14 @@
         // Theme Observer: Re-render charts when switching between light and dark modes!
         function handleThemeSwitch() {
             if (currentTrendData) {
-                renderCoverageTrendChart(currentTrendData);
-                renderRedBreakdownChart(currentTrendData);
-                renderTab2Charts();
-                if (window.loadKabupatenTrendCharts) window.loadKabupatenTrendCharts();
+                if (activeTab === 'trend') {
+                    renderTab2Charts();
+                } else if (activeTab === 'achievement') {
+                    renderCoverageTrendChart(currentTrendData);
+                    renderRedBreakdownChart(currentTrendData);
+                }
             }
-            if (currentSummaryData) {
+            if (currentSummaryData && activeTab === 'achievement') {
                 renderBranchDistribution(currentSummaryData.branch_distrib, currentSummaryData.target, currentSummaryData.current.red_optim_pct);
             }
         }
@@ -974,18 +1005,28 @@
 
         // 6. Populate Kabupaten Dropdown and Render Kabupaten Trend Coverage Chart
         populateKabupatenDropdown();
-        loadKabupatenTrendChart();
+        if (typeof window.loadKabupatenTrendCharts === 'function') {
+            window.loadKabupatenTrendCharts();
+        }
     }
 
     // ── Tab 2 Chart 7: Trend Coverage Kabupaten Level ──
     function populateKabupatenDropdown() {
         const sel = document.getElementById('trendKabSelect');
-        if (!sel || sel.options.length > 1) return;
+        if (!sel) return;
+        if (sel.options && sel.options.length > 1) return;
 
-        const kabs = (currentSummaryData && currentSummaryData.all_contributors)
-            ? currentSummaryData.all_contributors.map(c => c.kabupaten).sort()
-            : [];
+        let kabs = [];
+        if (currentSummaryData) {
+            if (currentSummaryData.all_contributors && currentSummaryData.all_contributors.length) {
+                kabs = currentSummaryData.all_contributors.map(c => c.kabupaten);
+            } else if (currentSummaryData.top_contributors && currentSummaryData.top_contributors.length) {
+                kabs = currentSummaryData.top_contributors.map(c => c.kabupaten);
+            }
+        }
 
+        // Dedupe and sort
+        kabs = Array.from(new Set(kabs)).filter(Boolean).sort();
         if (!kabs.length) return;
 
         sel.innerHTML = kabs.map(k => `<option value="${k}">${k}</option>`).join('');
@@ -1112,6 +1153,7 @@
         };
 
         chartKabTrend.setOption(option, true);
+        chartKabTrend.resize();
     }
 
     function renderKabupatenBreakdownChart(data, kabName) {
@@ -1212,6 +1254,7 @@
         };
 
         chartKabBreakdown.setOption(option, true);
+        chartKabBreakdown.resize();
     }
 
     // ── Tab 2 Chart 3: NOP Multi-Line Trend ──
@@ -1284,6 +1327,7 @@
         };
 
         chartNopTrend.setOption(option, true);
+        chartNopTrend.resize();
     }
 
     // ── Tab 2 Chart 4: Top Contributor Kabupaten (Left: 175px Margin Fix for SERAM BAGIAN BARAT) ──
@@ -1319,11 +1363,13 @@
                 trigger: 'axis',
                 axisPointer: { type: 'shadow' },
                 formatter: function (params) {
+                    if (!params || !params.length) return '';
                     const item = params[0];
                     const raw = topSlice[item.dataIndex];
-                    return `<div style="font-weight:700; margin-bottom:3px; font-size:12px;">${item.name} (${raw.branch})</div>
-                        <div style="margin-top:2px;">${sortProp.replace('_', ' ').toUpperCase()}: <strong style="color:#f97316;">${item.value.toLocaleString()}</strong> grids (${raw[pctProp]}%)</div>
-                        <div style="margin-top:2px; font-size:10.5px; opacity:0.8;">Total Red Cov: ${raw.red_cov.toLocaleString()} | Total Grids: ${raw.total_grid.toLocaleString()}</div>`;
+                    if (!raw) return '';
+                    return `<div style="font-weight:700; margin-bottom:3px; font-size:12px;">${item.name} (${raw.branch || '-'})</div>
+                        <div style="margin-top:2px;">${sortProp.replace('_', ' ').toUpperCase()}: <strong style="color:#f97316;">${(item.value || 0).toLocaleString()}</strong> grids (${raw[pctProp] !== undefined ? raw[pctProp] : '-'}%)</div>
+                        <div style="margin-top:2px; font-size:10.5px; opacity:0.8;">Total Red Cov: ${(raw.red_cov || 0).toLocaleString()} | Total Grids: ${(raw.total_grid || 0).toLocaleString()}</div>`;
                 }
             },
             // Left margin widened to 175px so long names like SERAM BAGIAN BARAT are fully readable!
@@ -1347,7 +1393,7 @@
                     barWidth: 14,
                     itemStyle: {
                         color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-                            { offset: 0, color: th.isDark ? '#334155' : '#64748b' },
+                            { offset: 0, color: __nk().sub },
                             { offset: 1, color: '#dc2626' }
                         ]),
                         borderRadius: [0, 4, 4, 0]
@@ -1369,6 +1415,7 @@
         };
 
         chartTopContributors.setOption(option, true);
+        chartTopContributors.resize();
     }
 
     // ── Tab 2 Chart 5: NOP Weekly Stacked Bar ──
@@ -1420,6 +1467,7 @@
         };
 
         chartNopWeeklyBar.setOption(option, true);
+        chartNopWeeklyBar.resize();
     }
 
     // ── Tab 2 Chart 6: Grid Quality Indicators Trend (DUAL AXIS Fix!) ──
@@ -1521,6 +1569,7 @@
         };
 
         chartQualityTrend.setOption(option, true);
+        chartQualityTrend.resize();
     }
 
     // ── Tab 3: Comparison Tables (Table 1: NOP Level, Table 2: Kabupaten Level) ──

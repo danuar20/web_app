@@ -7,7 +7,13 @@
  */
 
 (function () {
-    'use strict';
+'use strict';
+
+    /* Skin-aware chart colours (defined in templates/base.html). */
+    const __nk = () => (window.nkChartTheme ? window.nkChartTheme() : {
+        text: '#f8fafc', sub: '#94a3b8', line: '#334155', axis: '#475569',
+        panel: '#1e1e2d', accent: '#4facfe'
+    });
 
     // Global ECharts Instances
     let pumaGaugeInstance = null;
@@ -49,6 +55,15 @@
         initSidebarObserver();
         initWeeksAndData();
     });
+
+    if (typeof window.nkRegisterChartRedraw === 'function') {
+        window.nkRegisterChartRedraw(function () {
+            try {
+                if (typeof window.onGaugeFilterChange === 'function') window.onGaugeFilterChange();
+                if (typeof window.onTrendFilterChange === 'function') window.onTrendFilterChange();
+            } catch (e) { }
+        });
+    }
 
     let tab2Loaded = false;
     let tab3Loaded = false;
@@ -297,7 +312,7 @@
                         offsetCenter: [0, '35%'],
                         fontSize: isEnlarged ? 16 : 11.5,
                         fontWeight: '700',
-                        color: isDark ? '#94a3b8' : '#64748b'
+                        color: __nk().sub
                     },
                     detail: {
                         valueAnimation: true,
@@ -762,7 +777,7 @@
             },
             legend: {
                 bottom: isEnlarged ? 15 : 0,
-                textStyle: { color: isDark ? '#94a3b8' : '#64748b', fontSize: isEnlarged ? 13 : 11 },
+                textStyle: { color: __nk().sub, fontSize: isEnlarged ? 13 : 11 },
                 data: ['Good Cells', 'Fail Cells', '% Good Cell', 'Target']
             },
             grid: {
@@ -775,17 +790,17 @@
             xAxis: {
                 type: 'category',
                 data: labels,
-                axisLabel: { color: isDark ? '#94a3b8' : '#64748b', fontSize: isEnlarged ? 12.5 : 11 },
+                axisLabel: { color: __nk().sub, fontSize: isEnlarged ? 12.5 : 11 },
                 axisLine: { lineStyle: { color: isDark ? '#334155' : '#cbd5e1' } }
             },
             yAxis: [
                 {
                     type: 'value',
                     name: 'Cell Count',
-                    nameTextStyle: { color: isDark ? '#94a3b8' : '#64748b', fontSize: isEnlarged ? 12.5 : 11 },
+                    nameTextStyle: { color: __nk().sub, fontSize: isEnlarged ? 12.5 : 11 },
                     splitLine: { lineStyle: { color: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9' } },
                     axisLabel: {
-                        color: isDark ? '#94a3b8' : '#64748b',
+                        color: __nk().sub,
                         fontSize: isEnlarged ? 12 : 11,
                         formatter: function (val) { return val >= 1000 ? `${(val/1000).toFixed(0)}k` : val; }
                     }
@@ -795,10 +810,10 @@
                     name: '% Good Cell',
                     min: yPctRange.min,
                     max: yPctRange.max,
-                    nameTextStyle: { color: isDark ? '#94a3b8' : '#64748b', fontSize: isEnlarged ? 12.5 : 11 },
+                    nameTextStyle: { color: __nk().sub, fontSize: isEnlarged ? 12.5 : 11 },
                     splitLine: { show: false },
                     axisLabel: {
-                        color: isDark ? '#94a3b8' : '#64748b',
+                        color: __nk().sub,
                         fontSize: isEnlarged ? 12 : 11,
                         formatter: '{value}%'
                     }
@@ -899,7 +914,7 @@
             },
             legend: {
                 bottom: isEnlarged ? 15 : 0,
-                textStyle: { color: isDark ? '#94a3b8' : '#64748b', fontSize: isEnlarged ? 13 : 11 },
+                textStyle: { color: __nk().sub, fontSize: isEnlarged ? 13 : 11 },
                 data: ['Fail 2g', 'Fail 4g', 'Fail 5g', 'Ach %', 'Target RHI PUMA %']
             },
             grid: {
@@ -912,26 +927,26 @@
             xAxis: {
                 type: 'category',
                 data: labels,
-                axisLabel: { color: isDark ? '#94a3b8' : '#64748b', fontSize: isEnlarged ? 12.5 : 11 },
+                axisLabel: { color: __nk().sub, fontSize: isEnlarged ? 12.5 : 11 },
                 axisLine: { lineStyle: { color: isDark ? '#334155' : '#cbd5e1' } }
             },
             yAxis: [
                 {
                     type: 'value',
                     name: 'Fail Cells',
-                    nameTextStyle: { color: isDark ? '#94a3b8' : '#64748b', fontSize: isEnlarged ? 12.5 : 11 },
+                    nameTextStyle: { color: __nk().sub, fontSize: isEnlarged ? 12.5 : 11 },
                     splitLine: { lineStyle: { color: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9' } },
-                    axisLabel: { color: isDark ? '#94a3b8' : '#64748b', fontSize: isEnlarged ? 12 : 11 }
+                    axisLabel: { color: __nk().sub, fontSize: isEnlarged ? 12 : 11 }
                 },
                 {
                     type: 'value',
                     name: 'Ach %',
                     min: yPctRange.min,
                     max: yPctRange.max,
-                    nameTextStyle: { color: isDark ? '#94a3b8' : '#64748b', fontSize: isEnlarged ? 12.5 : 11 },
+                    nameTextStyle: { color: __nk().sub, fontSize: isEnlarged ? 12.5 : 11 },
                     splitLine: { show: false },
                     axisLabel: {
-                        color: isDark ? '#94a3b8' : '#64748b',
+                        color: __nk().sub,
                         fontSize: isEnlarged ? 12 : 11,
                         formatter: '{value}%'
                     }
@@ -994,8 +1009,8 @@
                     yAxisIndex: 1,
                     step: 'end',
                     data: targetSeries,
-                    lineStyle: { color: isDark ? '#cbd5e1' : '#0f172a', width: 2, type: 'dashed' }, // Black/white dashed
-                    itemStyle: { color: isDark ? '#cbd5e1' : '#0f172a' },
+                    lineStyle: { color: __nk().text, width: 2, type: 'dashed' }, // Black/white dashed
+                    itemStyle: { color: __nk().text },
                     symbol: 'none'
                 }
             ]
@@ -1233,19 +1248,19 @@
             tooltip: { trigger: 'axis', confine: true },
             legend: {
                 bottom: 0,
-                textStyle: { color: isDark ? '#94a3b8' : '#64748b', fontSize: isEnlarged ? 13 : 11 }
+                textStyle: { color: __nk().sub, fontSize: isEnlarged ? 13 : 11 }
             },
             grid: { left: '3%', right: '4%', top: '8%', bottom: '12%', containLabel: true },
             xAxis: {
                 type: 'category',
                 data: labels,
-                axisLabel: { color: isDark ? '#94a3b8' : '#64748b', fontSize: isEnlarged ? 12.5 : 11 }
+                axisLabel: { color: __nk().sub, fontSize: isEnlarged ? 12.5 : 11 }
             },
             yAxis: {
                 type: 'value',
                 min: yRange.min,
                 max: yRange.max,
-                axisLabel: { formatter: '{value}%', color: isDark ? '#94a3b8' : '#64748b' },
+                axisLabel: { formatter: '{value}%', color: __nk().sub },
                 splitLine: { lineStyle: { color: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9' } }
             },
             series: [
@@ -1313,17 +1328,17 @@
             tooltip: { trigger: 'axis', confine: true },
             legend: {
                 bottom: 0,
-                textStyle: { color: isDark ? '#94a3b8' : '#64748b', fontSize: isEnlarged ? 12 : 10 }
+                textStyle: { color: __nk().sub, fontSize: isEnlarged ? 12 : 10 }
             },
             grid: { left: '3%', right: '4%', top: '8%', bottom: '15%', containLabel: true },
             xAxis: {
                 type: 'category',
                 data: labels,
-                axisLabel: { color: isDark ? '#94a3b8' : '#64748b', fontSize: isEnlarged ? 12 : 11 }
+                axisLabel: { color: __nk().sub, fontSize: isEnlarged ? 12 : 11 }
             },
             yAxis: {
                 type: 'value',
-                axisLabel: { color: isDark ? '#94a3b8' : '#64748b' },
+                axisLabel: { color: __nk().sub },
                 splitLine: { lineStyle: { color: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9' } }
             },
             series: seriesData
@@ -1463,14 +1478,14 @@
 
         return {
             tooltip: { trigger: 'axis', confine: true },
-            legend: { bottom: 0, textStyle: { color: isDark ? '#94a3b8' : '#64748b', fontSize: isEnlarged ? 13 : 11 } },
+            legend: { bottom: 0, textStyle: { color: __nk().sub, fontSize: isEnlarged ? 13 : 11 } },
             grid: { left: '3%', right: '4%', top: '8%', bottom: '12%', containLabel: true },
-            xAxis: { type: 'category', data: labels, axisLabel: { color: isDark ? '#94a3b8' : '#64748b', fontSize: isEnlarged ? 12.5 : 11 } },
+            xAxis: { type: 'category', data: labels, axisLabel: { color: __nk().sub, fontSize: isEnlarged ? 12.5 : 11 } },
             yAxis: {
                 type: 'value',
                 min: yRange.min,
                 max: yRange.max,
-                axisLabel: { formatter: '{value}%', color: isDark ? '#94a3b8' : '#64748b' },
+                axisLabel: { formatter: '{value}%', color: __nk().sub },
                 splitLine: { lineStyle: { color: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9' } }
             },
             series: [

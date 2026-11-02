@@ -727,7 +727,7 @@
     <div class="filter-toggle-bar"
         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 4px;">
         <div style="font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px;">
-            <i class="fas fa-sliders-h" style="color: #4facfe;"></i> Filters &amp; KPI Selection
+            <i class="fas fa-sliders-h" style="color: var(--nk-accent, #4facfe);"></i> Filters &amp; KPI Selection
         </div>
         {% if query_done or request.args.get('submitted') %}
         <button type="button" class="filter-toggle-btn" onclick="toggleFilterPanel()" id="filterToggleBtn">
@@ -756,7 +756,7 @@
                 <div class="filter-panel date-panel"
                     style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 12px;">
                     <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
-                        <span style="font-size:10px; font-weight:700; text-transform:uppercase; color:#4facfe; letter-spacing:0.5px;">Range:</span>
+                        <span style="font-size:10px; font-weight:700; text-transform:uppercase; color: var(--nk-accent, #4facfe); letter-spacing:0.5px;">Range:</span>
                         <button type="button" class="btn-xs" onclick="setTrendPreset(7)" style="padding: 2px 8px; font-size: 10px;">7d</button>
                         <button type="button" class="btn-xs" onclick="setTrendPreset(14)" style="padding: 2px 8px; font-size: 10px;">14d</button>
                         <button type="button" class="btn-xs" onclick="setTrendPreset(30)" style="padding: 2px 8px; font-size: 10px;">30d</button>
@@ -826,11 +826,11 @@
                         <input type="hidden" name="execution_dates" id="execution_dates_hidden"
                             value="{{ execution_dates }}">
                         <div id="execDatesChips"
-                            style="display:flex; flex-wrap:wrap; gap:4px; min-height: 24px; padding: 4px; border: 1px dashed rgba(79,172,254,0.3); border-radius: 6px;">
+                            style="display:flex; flex-wrap:wrap; gap:4px; min-height: 24px; padding: 4px; border: 1px dashed var(--nk-line, rgba(79,172,254,0.3)); border-radius: 6px;">
                         </div>
                     </div>
                     <label
-                        style="display:flex; align-items:center; gap:6px; font-size:11px; font-weight:600; cursor:pointer; color: #4facfe; margin-top: 4px;">
+                        style="display:flex; align-items:center; gap:6px; font-size:11px; font-weight:600; cursor:pointer; color: var(--nk-accent, #4facfe); margin-top: 4px;">
                         <input type="checkbox" id="showShadingToggle" checked style="width: 14px; height: 14px;">
                         Show Comparison Shading on Charts
                     </label>
@@ -876,20 +876,20 @@
                             <div class="filter-label" id="importLabel"
                                 style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">
                                 Or import {% if filter_type == 'city' %}cities{% elif filter_type == 'site_cell' %}cells{% else %}sites{% endif %} from CSV</div>
-                            <span id="sitePasteCount" style="font-size: 10px; color: #4facfe; font-weight: 600;"></span>
+                            <span id="sitePasteCount" style="font-size: 10px; color: var(--nk-accent, #4facfe); font-weight: 600;"></span>
                         </div>
                         <input type="hidden" name="cluster_mapping" id="clusterMappingHidden" value="{{ cluster_mapping_json if cluster_mapping_json else '' }}">
                         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                             <label class="f-input"
                                 style="display:flex; align-items:center; gap:6px; cursor:pointer; width: max-content; padding:4px 10px; height: 32px; border-radius: 6px; background: rgba(128,128,128,0.05) !important;">
-                                <i class="fas fa-file-import" style="color: #4facfe; font-size: 12px;"></i>
+                                <i class="fas fa-file-import" style="color: var(--nk-accent, #4facfe); font-size: 12px;"></i>
                                 <input type="file" id="siteFileInput" accept=".csv,.txt" style="display:none;"
                                     onchange="handleSiteFileImport(this)">
                                 <span id="siteFileLabel" style="font-weight: 600; font-size: 11px;">Choose CSV
                                     file...</span>
                             </label>
                             <button type="button" class="btn-xs" onclick="downloadCsvTemplate()"
-                                style="display:inline-flex; align-items:center; gap:5px; height: 32px; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(79,172,254,0.3); background: rgba(79,172,254,0.08); color: #4facfe; cursor: pointer; font-size: 11px; font-weight: 600;"
+                                style="display:inline-flex; align-items:center; gap:5px; height: 32px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--nk-line, rgba(79,172,254,0.3)); background: var(--nk-accent-soft, rgba(79,172,254,0.08)); color: var(--nk-accent, #4facfe); cursor: pointer; font-size: 11px; font-weight: 600;"
                                 title="Download CSV template with Cluster grouping">
                                 <i class="fas fa-file-download"></i> Template CSV
                             </button>
@@ -924,7 +924,7 @@
                                 <label class="checkbox-label"
                                     style="border-bottom: 1px solid rgba(128,128,128,0.1); padding: 10px 12px; margin: 0; background: rgba(79,172,254,0.05); cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px;">
                                     <input type="checkbox" id="kpiSelectAll" onchange="toggleAllKPIs(this)">
-                                    <span style="color:#4facfe; font-weight:700">Select All KPIs</span>
+                                    <span style="color: var(--nk-accent, #4facfe); font-weight:700">Select All KPIs</span>
                                 </label>
                                 <div id="kpiCheckboxes"
                                     style="display: flex; flex-direction: column; padding-bottom: 12px;">
@@ -1054,11 +1054,11 @@
             <div class="ms-container" id="clusterFilterWrap" style="position: relative; width: auto;">
                 <button type="button" class="cluster-pill-toggle" onclick="toggleDropdown('clusterFilterDropdown')">
                     <span style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #4facfe; font-size: 11px;">
-                        <i class="fas fa-cubes" style="color: #4facfe; font-size: 12px;"></i>
+                        <i class="fas fa-cubes" style="color: var(--nk-accent, #4facfe); font-size: 12px;"></i>
                         <span style="opacity: 0.85;">Cluster:</span>
                         <span id="clusterFilterBtnText" style="color: inherit; font-weight: 700; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">All</span>
                     </span>
-                    <span id="clusterFilterBadge" style="background: rgba(79,172,254,0.25); color: #4facfe; border: 1px solid rgba(79,172,254,0.4); padding: 1px 7px; border-radius: 12px; font-size: 10px; font-weight: 700;">{{ cluster_list|length }}</span>
+                    <span id="clusterFilterBadge" style="background: var(--nk-accent-soft, rgba(79,172,254,0.25)); color: var(--nk-accent, #4facfe); border: 1px solid var(--nk-line, rgba(79,172,254,0.4)); padding: 1px 7px; border-radius: 12px; font-size: 10px; font-weight: 700;">{{ cluster_list|length }}</span>
                     <i class="fas fa-chevron-down" style="font-size: 9px; opacity: 0.7; margin-left: 2px;"></i>
                 </button>
                 <div id="clusterFilterDropdown" class="ms-menu cluster-dropdown-menu" 
@@ -1067,10 +1067,10 @@
                     <!-- Header with Title & Quick Buttons -->
                     <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 6px; border-bottom: 1px solid rgba(128,128,128,0.15);">
                         <span style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 5px;">
-                            <i class="fas fa-layer-group" style="color: #4facfe;"></i> Filter Clusters
+                            <i class="fas fa-layer-group" style="color: var(--nk-accent, #4facfe);"></i> Filter Clusters
                         </span>
                         <div style="display: flex; gap: 4px;">
-                            <button type="button" onclick="setAllClusters(true)" style="background: rgba(79,172,254,0.12); border: 1px solid rgba(79,172,254,0.3); color: #4facfe; font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 4px; cursor: pointer;">All</button>
+                            <button type="button" onclick="setAllClusters(true)" style="background: var(--nk-accent-soft, rgba(79,172,254,0.12)); border: 1px solid var(--nk-line, rgba(79,172,254,0.3)); color: var(--nk-accent, #4facfe); font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 4px; cursor: pointer;">All</button>
                             <button type="button" onclick="setAllClusters(false)" style="background: rgba(128,128,128,0.1); border: 1px solid rgba(128,128,128,0.25); color: #94a3b8; font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 4px; cursor: pointer;">Clear</button>
                         </div>
                     </div>
@@ -1101,7 +1101,7 @@
 
             <!-- Daily / Hourly Interval Selector -->
             <div class="interval-selector-wrap" style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;"><i class="fas fa-layer-group" style="margin-right: 4px; color: #4facfe;"></i>Interval:</span>
+                <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;"><i class="fas fa-layer-group" style="margin-right: 4px; color: var(--nk-accent, #4facfe);"></i>Interval:</span>
                 <div class="view-btns" style="display: flex; background: rgba(128,128,128,0.1); border-radius: 6px; overflow: hidden; border: 1px solid rgba(79,172,254,0.25);">
                     <button id="btn-interval-daily" class="view-btn active" style="padding: 4px 12px; font-size: 11px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-weight: 600;" onclick="setIntervalView('daily')">
                         <i class="fas fa-calendar-day"></i> Daily
@@ -1739,10 +1739,20 @@
             shading.addEventListener('change', (e) => localStorage.setItem('d5g_showShadingToggle', e.target.checked));
         }
     }
-    document.addEventListener('DOMContentLoaded', loadUIState);
+    document.addEventListener('DOMContentLoaded', function() {
+        loadUIState();
+        try {
+            const savedTab = sessionStorage.getItem("netkpi_dash_tab_{{ username }}_5g");
+            if (savedTab) {
+                const btn = document.querySelector(`.nav-tab[onclick*="${savedTab}"]`);
+                if (btn) switchTab(savedTab, btn);
+            }
+        } catch(e) {}
+    });
 
     // Tab switching
     function switchTab(tabId, el) {
+        try { sessionStorage.setItem("netkpi_dash_tab_{{ username }}_5g", tabId); } catch(e){}
         document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         if (el) el.classList.add('active');

@@ -5,12 +5,75 @@
     <meta name="google" content="notranslate">
     <meta name="googlebot" content="notranslate">
     <script>
-        /* Apply theme ASAP to prevent flash */
+        /* Apply theme ASAP to prevent flash.
+           data-theme = light|dark  → the *mode*: every existing style rule and
+                                       every JS isDark check keys off this.
+           data-skin  = active skin → palette overlay from
+                                       static/css/skins/<id>.css (loaded last). */
         (function () {
-            var theme = "light";
-            try { theme = localStorage.getItem("theme"); } catch (e) { }
-            if (theme !== "dark" && theme !== "light") theme = "light";
-            document.documentElement.setAttribute("data-theme", theme);
+            var SKIN_BASE = "{{ url_for('static', filename='css/skins/') }}";
+            var themes = window.NK_THEMES = [
+                { id: "light", name: "Default", mode: "light", purpose: "Current NetKPI light palette", swatch: ["#f0f2f8", "#ffffff", "#4facfe"] },
+                { id: "dark", name: "Default Dark", mode: "dark", purpose: "Current NetKPI dark palette", swatch: ["#0d0d1a", "#1e1e2d", "#4facfe"] },
+                { id: "midnight", name: "Midnight", mode: "dark", purpose: "Low-glare violet ink for night shifts", swatch: ["#0b0e1c", "#171d38", "#7f8dfc"] },
+                { id: "ember", name: "Ember", mode: "dark", purpose: "Warm charcoal, one copper accent", swatch: ["#14110e", "#231d17", "#d08a52"] },
+                { id: "paper", name: "Paper", mode: "light", purpose: "Warm print surfaces for reporting", swatch: ["#f1ede4", "#fffdf9", "#2f4f66"] },
+                { id: "signal", name: "Signal", mode: "light", purpose: "High-contrast daylight field theme", swatch: ["#f3f5f4", "#ffffff", "#0f766e"] }
+            ];
+            var byId = {};
+            themes.forEach(function (t) { byId[t.id] = t; });
+
+            var skin = "light";
+            try { skin = localStorage.getItem("theme") || "light"; } catch (e) { }
+            if (!byId[skin]) skin = "light";
+
+            window.NK_SKIN = skin;
+            window.NK_MODE = byId[skin].mode;
+            /* Chart redraw registry: declared this early so page-level scripts
+               (which run before the main base script) can register safely. */
+            window.NK_CHART_REDRAWS = window.NK_CHART_REDRAWS || [];
+            window.nkRegisterChartRedraw = function (fn) {
+                if (typeof fn === "function") window.NK_CHART_REDRAWS.push(fn);
+            };
+            window.NK_SKIN_CSS = function (id) {
+                return (id === "light" || id === "dark") ? "" : SKIN_BASE + id + ".css";
+            };
+            document.documentElement.setAttribute("data-theme", window.NK_MODE);
+            document.documentElement.setAttribute("data-skin", skin);
+            if (skin === "light" || skin === "dark") {
+                // no skin stylesheet needed: nothing to wait for
+                document.documentElement.setAttribute("data-skin-ready", "1");
+            }
+            try { document.cookie = "nk_skin=" + skin + "; path=/; max-age=31536000; SameSite=Lax"; } catch (e) { }
+
+            /* Register ECharts instances so a theme switch can restyle them. */
+            window.NK_ECHARTS = window.NK_ECHARTS || [];
+            function nkWrapEcharts(ec) {
+                if (!ec || ec.__nkWrapped || typeof ec.init !== "function") return ec;
+                var _init = ec.init;
+                ec.init = function () {
+                    var chart = _init.apply(this, arguments);
+                    if (window.NK_ECHARTS.indexOf(chart) === -1) {
+                        window.NK_ECHARTS.push(chart);
+                    }
+                    return chart;
+                };
+                ec.__nkWrapped = true;
+                return ec;
+            }
+            if (window.echarts) {
+                nkWrapEcharts(window.echarts);
+            } else {
+                try {
+                    var _ec = null;
+                    Object.defineProperty(window, "echarts", {
+                        configurable: true,
+                        enumerable: true,
+                        get: function () { return nkWrapEcharts(_ec); },
+                        set: function (v) { _ec = v; }
+                    });
+                } catch (e) { }
+            }
 
             // Mark active nav item based on current path
             window.addEventListener('DOMContentLoaded', function () {
@@ -98,6 +161,11 @@
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/danuar20/image/main/NetMonitor.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    {%- set _nk_skin = (request.cookies.get('nk_skin') or '')|lower %}
+    {%- if _nk_skin in ['midnight', 'ember', 'paper', 'signal'] %}
+    <link rel="preload" as="style" href="{{ url_for('static', filename='css/skins/' ~ _nk_skin ~ '.css') }}">
+    {%- endif %}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-decimation@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2"></script>
@@ -121,6 +189,12 @@
         body {
             font-family: 'Inter', sans-serif;
             transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        /* No flash of the wrong palette: a skin page stays hidden until its
+           stylesheet has loaded (base bootstrap marks default skins ready). */
+        html:not([data-skin-ready]) body {
+            visibility: hidden;
         }
 
         a {
@@ -3109,6 +3183,105 @@
             }
         }
 
+        /* ════════════════ THEME PICKER (Appearance) ════════════════ */
+        .theme-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 7px;
+            margin: 2px 0 6px;
+        }
+
+        .theme-card {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 8px;
+            min-height: 44px;
+            border: 1px solid var(--nk-line, rgba(128, 128, 128, 0.28));
+            border-radius: 8px;
+            background: transparent;
+            color: inherit;
+            font: inherit;
+            text-align: left;
+            cursor: pointer;
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+
+        .theme-card:hover {
+            border-color: var(--nk-accent, #4facfe);
+        }
+
+        .theme-card[aria-checked="true"] {
+            border-color: var(--nk-accent, #4facfe);
+            background: var(--nk-accent-soft, rgba(79, 172, 254, 0.1));
+        }
+
+        .theme-card:focus-visible {
+            outline: 2px solid var(--nk-accent, #4facfe);
+            outline-offset: 1px;
+        }
+
+        .tc-swatches {
+            display: flex;
+            flex-shrink: 0;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid rgba(128, 128, 128, 0.25);
+        }
+
+        .tc-swatches i {
+            display: block;
+            width: 9px;
+            height: 26px;
+        }
+
+        .tc-text {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            min-width: 0;
+        }
+
+        .tc-name {
+            font-size: 11.5px;
+            font-weight: 600;
+            line-height: 1.25;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tc-purpose {
+            font-size: 9px;
+            line-height: 1.25;
+            opacity: 0.62;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .tc-check {
+            margin-left: auto;
+            font-size: 10px;
+            color: var(--nk-accent, #4facfe);
+            opacity: 0;
+            flex-shrink: 0;
+        }
+
+        .theme-card[aria-checked="true"] .tc-check {
+            opacity: 1;
+        }
+
+        .theme-note {
+            font-size: 9.5px;
+            opacity: 0.5;
+            margin: 0 0 10px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
         /* ════════════════ SETTINGS POPUP ════════════════ */
         .settings-overlay {
             display: none;
@@ -3663,7 +3836,7 @@
 
                 <div class="sidebar-brand-wrap">
                     <div class="sidebar-brand">NetKPI</div>
-                    <div class="sidebar-brand-sub">Monitor v3.5</div>
+                    <div class="sidebar-brand-sub">Monitor v3.8</div>
                 </div>
             </div>
 
@@ -3695,7 +3868,7 @@
                     </div>
                     {% if session.get('role') == 'admin' %}
                     <div class="menu-item {% block nav_database %}{% endblock %}" onclick="toggleSub('subDB', this)">
-                        <div class="menu-icon"><i class="fas fa-circle"></i></div>
+                        <div class="menu-icon"><i class="fas fa-database"></i></div>
                         <span class="menu-item-label">Database</span>
                         <i class="fas fa-chevron-right menu-arrow"></i>
                     </div>
@@ -3772,7 +3945,7 @@
 
                     <div class="menu-item {% block nav_capacity %}{% endblock %}"
                         onclick="toggleSub('subCapacity', this)">
-                        <div class="menu-icon"><i class="fas fa-layer-group"></i></div>
+                        <div class="menu-icon"><i class="fas fa-balance-scale"></i></div>
                         <span class="menu-item-label">Capacity</span>
                         <i class="fas fa-chevron-right menu-arrow"></i>
                     </div>
@@ -3784,7 +3957,7 @@
 
                     {% if session.get('role') != 'viewer' %}
                     <div class="menu-item {% block nav_optim %}{% endblock %}" onclick="toggleSub('subOptim', this)">
-                        <div class="menu-icon"><i class="fas fa-chart-pie"></i></div>
+                        <div class="menu-icon"><i class="fas fa-sliders-h"></i></div>
                         <span class="menu-item-label">Optim Analysis</span>
                         <i class="fas fa-chevron-right menu-arrow"></i>
                     </div>
@@ -3836,7 +4009,7 @@
                     <div class="menu-section-label">Others</div>
 
                     <div class="menu-item {% block nav_ta %}{% endblock %}" onclick="toggleSub('subta', this)">
-                        <div class="menu-icon"><i class="fas fa-clock"></i></div>
+                        <div class="menu-icon"><i class="fas fa-wave-square"></i></div>
                         <span class="menu-item-label">Timing Advance</span>
                         <i class="fas fa-chevron-right menu-arrow"></i>
                     </div>
@@ -3856,7 +4029,7 @@
 
                     <div class="menu-item {% block nav_coverage %}{% endblock %}"
                         onclick="toggleSub('subcoverage', this)">
-                        <div class="menu-icon"><i class="fas fa-globe"></i></div>
+                        <div class="menu-icon"><i class="fas fa-satellite-dish"></i></div>
                         <span class="menu-item-label">Coverage</span>
                         <i class="fas fa-chevron-right menu-arrow"></i>
                     </div>
@@ -3910,6 +4083,9 @@
                 </div>
                 <div class="topbar-right">
                     {% block topbar_chips %}{% endblock %}
+                    <button class="theme-toggle-btn" onclick="openThemeModal(); return false;" id="themePaletteBtn" title="Switch theme : Default">
+                        <i class="fas fa-palette"></i>
+                    </button>
                     <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeBtn" title="Toggle light/dark"><i
                             class="fas fa-moon" id="themeIcon"></i></button>
                     <button class="sidebar-toggle-btn" onclick="toggleViewMode()" id="sidebarToggleBtn"
@@ -3933,10 +4109,13 @@
                                         style="margin-right:6px;color:#4facfe"></i><span id="dropName">…</span></div>
                                 <div class="d-role">Network Engineer</div>
                             </div>
+                            <a href="#" onclick="openThemeModal(); return false;">
+                                <i class="fas fa-palette"></i> Themes
+                            </a>
                             <a href="#" onclick="openSettingsPopup(); return false;">
                                 <i class="fas fa-sliders-h"></i> Settings
                             </a>
-                            <a href="/logout" class="logout-item"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                            <a href="/logout" class="logout-item" onclick="try{sessionStorage.clear();}catch(e){}try{indexedDB.deleteDatabase('netkpi_idb_cache');}catch(e){}"><i class="fas fa-sign-out-alt"></i> Logout</a>
                         </div>
                     </div>
                 </div>
@@ -3964,6 +4143,36 @@
             </div>
 
         </div><!-- /main-area -->
+
+        <!-- ════════════════ THEMES MODAL (Dedicated) ════════════════ -->
+        <div id="themeModalOverlay" class="settings-overlay" onclick="if(event.target===this)closeThemeModal()">
+            <div class="settings-popup" id="themeModalPopup" style="width: 440px;">
+                <div class="settings-popup-header">
+                    <div class="settings-popup-title">
+                        <i class="fas fa-palette"></i> Themes
+                    </div>
+                    <button class="settings-popup-close" onclick="closeThemeModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div class="settings-popup-body" style="padding: 16px;">
+                    <div style="font-size: 11px; opacity: 0.7; margin-bottom: 12px; line-height: 1.4;">
+                        Select a crafted visual palette. Changes apply immediately across all pages without refresh.
+                    </div>
+                    <div class="theme-grid" id="nkThemeGrid" role="radiogroup" aria-label="Colour theme"></div>
+                </div>
+
+                <div class="settings-popup-footer">
+                    <div class="settings-footer-info">
+                        <i class="fas fa-check-circle" style="color: var(--nk-pass, #00e676);"></i> Active theme saved
+                    </div>
+                    <div class="settings-footer-actions">
+                        <button class="btn-save-popup" onclick="closeThemeModal()">Done</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- ════════════════ SETTINGS POPUP ════════════════ -->
         <div id="settingsOverlay" class="settings-overlay" onclick="if(event.target===this)closeSettingsPopup()">
@@ -4431,28 +4640,196 @@
             });
         });
 
-        /* ── Theme ── */
-        function updateThemeIcon() {
-            var t = document.documentElement.getAttribute("data-theme");
-            var ic = document.getElementById("themeIcon");
-            if (ic) { ic.className = t === "dark" ? "fas fa-sun" : "fas fa-moon"; }
+        /* ── Theme engine ───────────────────────────────────────────────
+           data-theme = light|dark  → mode (all legacy CSS + isDark() checks)
+           data-skin  = palette id  → static/css/skins/<id>.css, loaded last  */
+        function nkToken(name, fallback) {
+            var v = getComputedStyle(document.documentElement).getPropertyValue(name);
+            v = (v || "").trim();
+            return v || fallback;
         }
-        function toggleTheme() {
-            var next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
-            document.documentElement.setAttribute("data-theme", next);
-            try { localStorage.setItem("theme", next); } catch (e) { }
+
+        function nkTheme(id) {
+            var list = window.NK_THEMES || [];
+            for (var i = 0; i < list.length; i++) {
+                if (list[i].id === (id || window.NK_SKIN)) return list[i];
+            }
+            return list[0] || { id: "light", name: "Default", mode: "light" };
+        }
+
+        function nkChartPalette() {
+            var out = [];
+            for (var i = 1; i <= 8; i++) {
+                var c = nkToken("--nk-chart-" + i, "");
+                if (c) out.push(c);
+            }
+            return out.length ? out : ["#4facfe", "#00e676", "#ffd166", "#ff5252",
+                "#a78bfa", "#38bdf8", "#f87171", "#94a3b8"];
+        }
+
+        /* Shared ECharts/ECharts-lite theme values. Falls back to the legacy
+           light/dark pairs for the two default palettes. */
+        function nkChartTheme() {
+            var mode = document.documentElement.getAttribute("data-theme") || "light";
+            var dark = mode === "dark";
+            return {
+                mode: mode,
+                text: nkToken("--nk-text-1", dark ? "#f8fafc" : "#0f172a"),
+                sub: nkToken("--nk-text-3", dark ? "#94a3b8" : "#64748b"),
+                line: nkToken("--nk-line", dark ? "#334155" : "#e2e8f0"),
+                axis: nkToken("--nk-line", dark ? "#475569" : "#cbd5e1"),
+                panel: nkToken("--nk-surface-3", dark ? "#1e1e2d" : "#ffffff"),
+                accent: nkToken("--nk-accent", "#4facfe"),
+                pass: nkToken("--nk-pass", "#10b981"),
+                breach: nkToken("--nk-breach", "#ef4444"),
+                palette: nkChartPalette()
+            };
+        }
+        window.nkChartTheme = nkChartTheme;
+
+        function nkMarkThemeCards() {
+            var active = window.NK_SKIN || "light";
+            document.querySelectorAll("#nkThemeGrid .theme-card").forEach(function (c) {
+                c.setAttribute("aria-checked", c.getAttribute("data-skin-id") === active ? "true" : "false");
+                c.tabIndex = c.getAttribute("data-skin-id") === active ? 0 : -1;
+            });
+        }
+
+        function nkRenderThemeCards() {
+            var grid = document.getElementById("nkThemeGrid");
+            if (!grid) return;
+            if (grid.dataset.rendered !== "1") {
+                grid.innerHTML = (window.NK_THEMES || []).map(function (t) {
+                    var sw = t.swatch.map(function (c) {
+                        return '<i style="background:' + c + '"></i>';
+                    }).join("");
+                    return '<button type="button" class="theme-card" role="radio" aria-checked="false"' +
+                        ' data-skin-id="' + t.id + '">' +
+                        '<span class="tc-swatches" aria-hidden="true">' + sw + '</span>' +
+                        '<span class="tc-text"><span class="tc-name">' + t.name + '</span>' +
+                        '<span class="tc-purpose">' + t.purpose + '</span></span>' +
+                        '<i class="fas fa-check tc-check" aria-hidden="true"></i></button>';
+                }).join("");
+                grid.dataset.rendered = "1";
+                grid.addEventListener("click", function (ev) {
+                    var card = ev.target.closest(".theme-card");
+                    if (card) nkApplyTheme(card.getAttribute("data-skin-id"));
+                });
+                grid.addEventListener("keydown", function (ev) {
+                    var keys = ["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp"];
+                    if (keys.indexOf(ev.key) < 0) return;
+                    var cards = Array.prototype.slice.call(grid.querySelectorAll(".theme-card"));
+                    var i = cards.indexOf(document.activeElement);
+                    if (i < 0) return;
+                    var fwd = ev.key === "ArrowRight" || ev.key === "ArrowDown";
+                    var next = fwd ? (i + 1) % cards.length : (i - 1 + cards.length) % cards.length;
+                    cards[next].focus();
+                    ev.preventDefault();
+                });
+            }
+            nkMarkThemeCards();
+        }
+
+        function nkSyncSkinLink(id) {
+            var link = document.getElementById("nkSkinLink");
+            if (!link) return;
+            var href = window.NK_SKIN_CSS ? window.NK_SKIN_CSS(id) : "";
+            if (!href) {
+                link.removeAttribute("href");
+                link.disabled = true;
+                document.documentElement.setAttribute("data-skin-ready", "1");
+                return;
+            }
+            if (link.getAttribute("href") === href) {
+                document.documentElement.setAttribute("data-skin-ready", "1");
+                return;
+            }
+            document.documentElement.removeAttribute("data-skin-ready");
+            link.disabled = false;
+            link.setAttribute("href", href);
+            // a runtime href swap fires load again, but a cached sheet can beat
+            // the handler; keep a safety timeout so the page is never left hidden
+            var marked = false;
+            var markReady = function () {
+                if (marked) return;
+                marked = true;
+                document.documentElement.setAttribute("data-skin-ready", "1");
+            };
+            link.addEventListener("load", markReady, { once: true });
+            link.addEventListener("error", markReady, { once: true });
+            setTimeout(markReady, 2500);
+        }
+
+        function nkApplyTheme(id) {
+            var t = nkTheme(id);
+            window.NK_SKIN = t.id;
+            window.NK_MODE = t.mode;
+            document.documentElement.setAttribute("data-theme", t.mode);
+            document.documentElement.setAttribute("data-skin", t.id);
+            try { localStorage.setItem("theme", t.id); } catch (e) { }
+            try { document.cookie = "nk_skin=" + t.id + "; path=/; max-age=31536000; SameSite=Lax"; } catch (e) { }
+            nkSyncSkinLink(t.id);
+            nkMarkThemeCards();
             updateThemeIcon();
             setTimeout(function () {
                 if (typeof updateAllChartsTheme === "function") updateAllChartsTheme();
-            }, 80);
+                // let pages rebuild their charts with the new tokens
+                (window.NK_CHART_REDRAWS || []).forEach(function (fn) {
+                    try { fn(); } catch (e) { }
+                });
+            }, 60);
         }
-        window.addEventListener("DOMContentLoaded", updateThemeIcon);
+        window.nkApplyTheme = nkApplyTheme;
+        window.nkTheme = nkTheme;
+        window.nkChartPalette = nkChartPalette;
+
+        function updateThemeIcon() {
+            var mode = document.documentElement.getAttribute("data-theme");
+            var curTheme = nkTheme();
+            var ic = document.getElementById("themeIcon");
+            if (ic) { ic.className = mode === "dark" ? "fas fa-sun" : "fas fa-moon"; }
+            var btn = document.getElementById("themeBtn");
+            if (btn) {
+                btn.title = "Switch to " + (mode === "dark" ? "light" : "dark");
+            }
+            var pBtn = document.getElementById("themePaletteBtn");
+            if (pBtn) {
+                pBtn.title = "Switch theme : " + curTheme.name;
+            }
+        }
+
+        function toggleTheme() {
+            // quick toggle jumps to the default palette of the opposite mode
+            nkApplyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+        }
+        window.addEventListener("DOMContentLoaded", function () {
+            updateThemeIcon();
+            nkRenderThemeCards();
+            nkSyncSkinLink(window.NK_SKIN || "light");
+        });
 
         function updateAllChartsTheme() {
             if (typeof Chart === 'undefined' || !Chart.instances) return;
-            var theme = document.documentElement.getAttribute("data-theme") || "dark";
-            var gridColor = theme === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
-            var textColor = theme === "dark" ? "rgba(200,208,224,0.6)" : "rgba(0,0,0,0.6)";
+            var mode = document.documentElement.getAttribute("data-theme") || "dark";
+            var gridColor = nkToken("--nk-grid", mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)");
+            var textColor = nkToken("--nk-text-3", mode === "dark" ? "rgba(200,208,224,0.6)" : "rgba(0,0,0,0.6)");
+            var lineColor = nkToken("--nk-line", mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)");
+            var ink = nkToken("--nk-text-1", mode === "dark" ? "#f8fafc" : "#1e293b");
+
+            // global defaults so charts created after a theme switch also match
+            Chart.defaults.color = textColor;
+            Chart.defaults.borderColor = lineColor;
+            if (Chart.defaults.plugins && Chart.defaults.plugins.legend && Chart.defaults.plugins.legend.labels) {
+                Chart.defaults.plugins.legend.labels.color = textColor;
+            }
+            if (Chart.defaults.plugins && Chart.defaults.plugins.tooltip) {
+                Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 23, 42, 0.94)';
+                Chart.defaults.plugins.tooltip.titleColor = '#ffffff';
+                Chart.defaults.plugins.tooltip.bodyColor = '#f1f5f9';
+                Chart.defaults.plugins.tooltip.footerColor = '#cbd5e1';
+                Chart.defaults.plugins.tooltip.borderColor = 'rgba(255, 255, 255, 0.15)';
+                Chart.defaults.plugins.tooltip.borderWidth = 1;
+            }
 
             var charts = Object.values(Chart.instances);
             var i = 0;
@@ -4460,27 +4837,54 @@
             function updateNext() {
                 if (i >= charts.length) return;
                 var chart = charts[i++];
-                if (chart.options && chart.options.scales) {
-                    if (chart.options.scales.x) {
-                        if (chart.options.scales.x.grid) chart.options.scales.x.grid.color = gridColor;
-                        if (chart.options.scales.x.ticks) chart.options.scales.x.ticks.color = textColor;
+                var scales = (chart.options && chart.options.scales) || {};
+                Object.keys(scales).forEach(function (key) {
+                    var sc = scales[key];
+                    if (!sc) return;
+                    if (sc.grid) sc.grid.color = gridColor;
+                    if (sc.ticks) sc.ticks.color = textColor;
+                    if (sc.title) sc.title.color = textColor;
+                    if (sc.border) sc.border.color = lineColor;
+                });
+                if (chart.options && chart.options.plugins) {
+                    if (chart.options.plugins.legend && chart.options.plugins.legend.labels) {
+                        chart.options.plugins.legend.labels.color = textColor;
                     }
-                    if (chart.options.scales.y) {
-                        if (chart.options.scales.y.grid) chart.options.scales.y.grid.color = gridColor;
-                        if (chart.options.scales.y.ticks) chart.options.scales.y.ticks.color = textColor;
-                        if (chart.options.scales.y.title) chart.options.scales.y.title.color = textColor;
+                    if (chart.options.plugins.title) {
+                        chart.options.plugins.title.color = ink;
                     }
-                    if (chart.options.scales.y1 && chart.options.scales.y1.grid) {
-                        chart.options.scales.y1.grid.color = gridColor;
+                    if (chart.options.plugins.tooltip) {
+                        var tt = chart.options.plugins.tooltip;
+                        tt.backgroundColor = 'rgba(15, 23, 42, 0.94)';
+                        tt.titleColor = '#ffffff';
+                        tt.bodyColor = '#f1f5f9';
+                        tt.footerColor = '#cbd5e1';
+                        tt.borderColor = 'rgba(255, 255, 255, 0.15)';
+                        tt.borderWidth = 1;
                     }
-                }
-                if (chart.options && chart.options.plugins && chart.options.plugins.legend && chart.options.plugins.legend.labels) {
-                    chart.options.plugins.legend.labels.color = textColor;
                 }
                 chart.update('none');
                 requestAnimationFrame(updateNext);
             }
             updateNext();
+
+            // ECharts instances registered by the init hook in <head>
+            var ecs = window.NK_ECHARTS || [];
+            ecs.forEach(function (ch) {
+                try {
+                    if (!ch || (ch.isDisposed && ch.isDisposed())) return;
+                    ch.setOption({
+                        backgroundColor: 'transparent',
+                        textStyle: { color: textColor },
+                        legend: {
+                            textStyle: { color: textColor }
+                        },
+                        xAxis: [{ axisLabel: { color: textColor } }],
+                        yAxis: [{ axisLabel: { color: textColor }, nameTextStyle: { color: textColor } },
+                                { axisLabel: { color: textColor }, nameTextStyle: { color: textColor } }]
+                    });
+                } catch (e) { }
+            });
         }
 
         /* ── View Mode (sidebar show/hide) ── */
@@ -4686,6 +5090,20 @@
             });
         }
 
+        function openThemeModal() {
+            nkRenderThemeCards();
+            var ov = document.getElementById("themeModalOverlay");
+            if (ov) ov.classList.add("open");
+            var drop = document.getElementById("accountDropdown");
+            if (drop) drop.classList.remove("open");
+        }
+        function closeThemeModal() {
+            var ov = document.getElementById("themeModalOverlay");
+            if (ov) ov.classList.remove("open");
+        }
+        window.openThemeModal = openThemeModal;
+        window.closeThemeModal = closeThemeModal;
+
         function openSettingsPopup() {
             loadSettingsIntoUI();
             sessionStorage.removeItem(SETTINGS_STAGED_KEY);
@@ -4708,7 +5126,8 @@
 
         // ESC key closes settings popup
         document.addEventListener("keydown", function (e) {
-            if (e.key === "Escape" && document.getElementById("settingsOverlay").classList.contains("open")) {
+            if (e.key === "Escape") {
+                closeThemeModal();
                 closeSettingsPopup();
             }
         });
@@ -5371,6 +5790,16 @@
             }, 50);
         }
     </script>
+
+    {# Skin palette — loaded after the page's own <style> blocks so it wins the
+       cascade; data-skin-ready gates first paint to avoid a wrong-palette flash. #}
+    {%- if _nk_skin in ['midnight', 'ember', 'paper', 'signal'] %}
+    <link rel="stylesheet" id="nkSkinLink" href="{{ url_for('static', filename='css/skins/' ~ _nk_skin ~ '.css') }}"
+        onload="document.documentElement.setAttribute('data-skin-ready','1')"
+        onerror="document.documentElement.setAttribute('data-skin-ready','1')">
+    {%- else %}
+    <link rel="stylesheet" id="nkSkinLink" disabled>
+    {%- endif %}
 
     {% block page_scripts %}{% endblock %}
 </body>

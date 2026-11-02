@@ -639,6 +639,28 @@ def api_sites():
         return jsonify({"error": str(e)}), 500
 
 
+# ── Per-session UI State API ──────────────────────────────────────────────────
+@auth.route("/api/session/state", methods=["GET", "POST"])
+@login_required
+def api_session_state():
+    from app import cache
+    sess_id = session.get("session_id") or f"user_{session.get('username')}"
+    if request.method == "POST":
+        data = request.get_json() or {}
+        page = data.get("page")
+        state = data.get("state")
+        if page and state is not None:
+            cache.set(f"sess_state:{sess_id}:{page}", state, timeout=28800)
+            return jsonify({"status": "success"})
+        return jsonify({"status": "error", "message": "Missing page or state"}), 400
+    else:
+        page = request.args.get("page")
+        if page:
+            state = cache.get(f"sess_state:{sess_id}:{page}") or {}
+            return jsonify({"status": "success", "state": state})
+        return jsonify({"status": "error", "message": "Missing page parameter"}), 400
+
+
 # ── Logout ─────────────────────────────────────────────────────────────────────
 @auth.route("/logout")
 def logout():
@@ -649,6 +671,12 @@ def logout():
             with db_query(get_connection) as (conn, cur):
                 cur.execute("DELETE FROM user_sessions WHERE id = %s", (session_id,))
                 conn.commit()
+        except Exception:
+            pass
+        try:
+            from app import cache
+            for p_code in ["4g", "2g", "5g", "pl", "prod_site", "prod_city"]:
+                cache.delete(f"sess_state:{session_id}:{p_code}")
         except Exception:
             pass
     session.clear()

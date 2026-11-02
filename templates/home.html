@@ -718,7 +718,7 @@
         <div class="wb-icon"><i class="fas fa-hand-sparkles"></i></div>
         <div class="wb-content">
             <div class="wb-title">Welcome back, {{ username }}!</div>
-            <div class="wb-sub">Network KPI Monitor v3.5 — {{ now }}</div>
+            <div class="wb-sub">Network KPI Monitor v3.8, {{ now }}</div>
         </div>
     </div>
 
@@ -990,9 +990,10 @@
 
                     setTimeout(function () {
                         var tooltipCfg = {
-                            mode: 'index', intersect: false, backgroundColor: 'rgba(15,15,30,0.85)',
+                            mode: 'index', intersect: false, backgroundColor: 'rgba(15,15,30,0.92)',
+                            titleColor: '#ffffff', bodyColor: '#f1f5f9', footerColor: '#cbd5e1',
                             titleFont: { size: 13, weight: 600 }, bodyFont: { size: 12 }, padding: 12,
-                            cornerRadius: 8, borderColor: 'rgba(79,172,254,0.3)', borderWidth: 1
+                            cornerRadius: 8, borderColor: 'rgba(255,255,255,0.15)', borderWidth: 1
                         };
 
                         var cp = document.getElementById('cPayload');

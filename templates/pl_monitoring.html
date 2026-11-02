@@ -165,7 +165,7 @@
 </style>
 
 <!-- ═══════════════════ LOADING OVERLAY ═══════════════════ -->
-<div id="loadingOverlay">
+<div id="loadingOverlay" style="display:none;">
     <div class="loading-spinner"></div>
     <div class="loading-text">Processing Query…</div>
     <div class="loading-sub">Aggregating daily KPI data across all dimensions via GROUPING SETS</div>
@@ -850,6 +850,7 @@ document.addEventListener("click", function(e) {
 
 /* ── Specific Filter Event Handlers ── */
 function triggerMsChange(id) {
+    if(typeof saveMonState === 'function') setTimeout(saveMonState, 0);
     if(id === "nop_nsa") {
         activeFilterDims.nop = msSelections[id];
         updateTabDisplay("nop");
@@ -966,7 +967,56 @@ function setSiteMode(mode, btn) {
 
 
 
+var QUERY_CACHE_PREFIX = "netkpi_qcache_{{ username }}_pl_";
+
+function getQueryCache(key) {
+    try {
+        var raw = sessionStorage.getItem(QUERY_CACHE_PREFIX + key);
+        return raw ? JSON.parse(raw) : null;
+    } catch(e) { return null; }
+}
+
+function setQueryCache(key, val) {
+    try {
+        sessionStorage.setItem(QUERY_CACHE_PREFIX + key, JSON.stringify(val));
+    } catch(e) {
+        try {
+            for (var i = sessionStorage.length - 1; i >= 0; i--) {
+                var k = sessionStorage.key(i);
+                if (k && k.indexOf("netkpi_qcache_") === 0) {
+                    sessionStorage.removeItem(k);
+                }
+            }
+            sessionStorage.setItem(QUERY_CACHE_PREFIX + key, JSON.stringify(val));
+        } catch(e2) {}
+    }
+}
+
 function fetchClusterData(granularity, dims) {
+    var dimsKey = dims.slice().sort().join(",");
+    var qKey = "cluster_" + CURRENT_TECH + "_" + granularity + "_" + dimsKey + "_" + "{{ from_date }}" + "_" + "{{ to_date }}";
+    
+    var clusterData = (granularity === 'hourly') ? CLUSTER_HOURLY_DATA : CLUSTER_DAILY_DATA;
+    if (!clusterData) {
+        var cached = getQueryCache(qKey);
+        if (cached && cached.data) {
+            if (granularity === 'hourly') {
+                CLUSTER_HOURLY_DATA = cached.data;
+                CLUSTER_HOURLY_LABELS = cached.labels;
+            } else {
+                CLUSTER_DAILY_DATA = cached.data;
+                CLUSTER_DAILY_LABELS = cached.labels;
+            }
+            clusterData = cached.data;
+        }
+    }
+    if (clusterData) {
+        renderTabCharts('site', dims);
+        var tv = document.getElementById("tableView-site");
+        if(tv && tv.style.display !== "none") buildTable('site', dims);
+        return;
+    }
+
     var loading = document.getElementById("loadingOverlay");
     if(loading) loading.style.display = "flex";
     
@@ -992,6 +1042,7 @@ function fetchClusterData(granularity, dims) {
             alert("Error: " + data.error);
             return;
         }
+        setQueryCache(qKey, data);
         if (granularity === 'hourly') {
             CLUSTER_HOURLY_DATA = data.data;
             CLUSTER_HOURLY_LABELS = data.labels;
@@ -1026,6 +1077,23 @@ function setGranularity(tabId, mode, btn) {
 }
 
 function fetchHourlyData(tabId, dims) {
+    var dimsKey = dims.slice().sort().join(",");
+    var qKey = "hourly_" + CURRENT_TECH + "_" + tabId + "_" + dimsKey + "_" + "{{ from_date }}" + "_" + "{{ to_date }}";
+    
+    if (!HOURLY_DATA[tabId]) {
+        var cached = getQueryCache(qKey);
+        if (cached && cached.data) {
+            HOURLY_DATA[tabId] = cached.data;
+            HOURLY_LABELS[tabId] = cached.labels;
+        }
+    }
+    if (HOURLY_DATA[tabId]) {
+        renderTabCharts(tabId, dims);
+        var tv = document.getElementById("tableView-"+tabId);
+        if(tv && tv.style.display !== "none") buildTable(tabId, dims);
+        return;
+    }
+
     var loading = document.getElementById("loadingOverlay");
     if(loading) loading.style.display = "flex";
     
@@ -1052,6 +1120,7 @@ function fetchHourlyData(tabId, dims) {
             alert("Error: " + data.error);
             return;
         }
+        setQueryCache(qKey, data);
         HOURLY_DATA[tabId] = data.data;
         HOURLY_LABELS[tabId] = data.labels;
         renderTabCharts(tabId, dims);
@@ -1066,12 +1135,22 @@ function fetchHourlyData(tabId, dims) {
 }
 
 function fetchSiteDailyData(dims) {
-    // Check if we already have daily data for all requested dims
+    var dimsKey = dims.slice().sort().join(",");
+    var qKey = "site_daily_" + CURRENT_TECH + "_" + dimsKey + "_" + "{{ from_date }}" + "_" + "{{ to_date }}";
+
+    if (!TAB_DATA['site']) {
+        var cached = getQueryCache(qKey);
+        if (cached && cached.data) {
+            TAB_DATA['site'] = cached.data;
+            SITE_DAILY_LABELS = cached.labels;
+        }
+    }
+
     var hasAll = true;
     if (!TAB_DATA['site']) hasAll = false;
     else {
         dims.forEach(function(d){
-            if (!TAB_DATA['site']['payloadChart'] || !TAB_DATA['site']['payloadChart'].hasOwnProperty(d)) hasAll = false;
+            if (!TAB_DATA['site']['packetLossChart'] || !TAB_DATA['site']['packetLossChart'].hasOwnProperty(d)) hasAll = false;
         });
     }
     if (hasAll) {
@@ -1110,7 +1189,7 @@ function fetchSiteDailyData(dims) {
         if (data.labels && data.labels.length === 0) {
             alert("No Daily data available for the selected Site and Date Range. Try checking the Hourly tab or selecting a different date range.");
         }
-        console.log("Site Daily Data API Response:", data);
+        setQueryCache(qKey, data);
         TAB_DATA['site'] = data.data;
         SITE_DAILY_LABELS = data.labels;
         renderTabCharts('site', dims);
@@ -1176,14 +1255,16 @@ function makeChartOpts(unit, yMin, yMax){
                        labels:{ color:tc(), font:{size:9}, boxWidth:10, padding:8, maxItems:8 }},
             tooltip: {
                 mode:"index", intersect:false,
-                backgroundColor:"rgba(8,8,25,0.90)",
+                backgroundColor:"rgba(8,8,25,0.92)",
+                titleColor:"#ffffff", bodyColor:"#f1f5f9", footerColor:"#cbd5e1",
+                borderColor:"rgba(255,255,255,0.15)", borderWidth:1,
                 titleFont:{size:10}, bodyFont:{size:11}, padding:8,
                 callbacks:{
                     title:function(i){ return i[0]?i[0].label:""; },
                     label:function(ctx){
                         var v = ctx.parsed.y;
                         if(v===null||v===undefined) return null;
-                        return ctx.dataset.label + ": " + v.toFixed(2) + (unit?" "+unit:"");
+                        return ctx.dataset.label + ": " + v.toFixed(2) + " %";
                     }
                 }
             }
@@ -1706,9 +1787,143 @@ function doExportCsv(){
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   DRILL-DOWN SELECTION PERSISTENCE (site / cluster / city)
+   ═══════════════════════════════════════════════════════════════ */
+var SERVER_SAVED_STATE = {{ saved_ui_state | tojson | safe }};
+var MON_STATE_KEY = "netkpi.monstate.{{ username }}.pl";
+
+function _monMsValues(id){
+    return (msSelections && msSelections[id]) ? msSelections[id].slice() : [];
+}
+
+function saveMonState(){
+    try{
+        var snap = {
+            tab: (typeof activeTab !== "undefined") ? activeTab : "regional",
+            siteMode: (typeof SITE_MODE !== "undefined") ? SITE_MODE : null,
+            gran: (typeof CURRENT_GRANULARITY !== "undefined") ? CURRENT_GRANULARITY : null,
+            radio: (document.querySelector('input[name="siteFilterType"]:checked') || {}).value || null,
+            ms: {}
+        };
+        ["nop_nsa","city_nsa","city_city","cluster_cluster","site_city","site_cluster","site_site"].forEach(function(id){
+            var v = _monMsValues(id);
+            if(v.length) snap.ms[id] = v;
+        });
+        sessionStorage.setItem(MON_STATE_KEY, JSON.stringify(snap));
+        try {
+            fetch("/api/session/state", {
+                method: "POST",
+                headers: {"Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token() }}"},
+                body: JSON.stringify({page: "pl", state: snap})
+            }).catch(function(){});
+        } catch(e2){}
+    }catch(e){ }
+}
+
+function _monApplyMs(id, values){
+    var list = document.getElementById("ms-list-" + id);
+    if(!list || !values || !values.length) return;
+    var avail = {};
+    list.querySelectorAll("input[type='checkbox']").forEach(function(cb){ avail[cb.value] = true; });
+    var keep = values.filter(function(v){ return avail[v]; });
+    if(!keep.length) return;
+    msSelections[id] = keep;
+    list.querySelectorAll("input[type='checkbox']").forEach(function(cb){ cb.checked = keep.indexOf(cb.value) !== -1; });
+    updateMsLabel(id);
+}
+
+function _monRebuildCityCity(){
+    var valid = new Set();
+    _monMsValues("city_nsa").forEach(function(nsa){
+        (NSA_CITY_MAP[nsa] || []).forEach(function(c){ valid.add(c); });
+    });
+    if(valid.size){ setMsDisabled("city_city", false); initMsOptions("city_city", Array.from(valid).sort()); }
+}
+
+function _monRebuildSiteSite(mode){
+    var valid = new Set();
+    if(mode === "cluster"){
+        _monMsValues("site_cluster").forEach(function(k){
+            (CLUSTER_SITE_MAP[k] || []).forEach(function(s){ valid.add(s); });
+        });
+    } else {
+        _monMsValues("site_city").forEach(function(city){
+            (CITY_SITE_MAP[city] || []).forEach(function(s){ valid.add(s); });
+        });
+    }
+    if(valid.size){
+        setMsDisabled("site_site", false);
+        initMsOptions("site_site", Array.from(valid).sort());
+    }
+}
+
+function restoreMonState(){
+    var snap = null;
+    try{ snap = JSON.parse(sessionStorage.getItem(MON_STATE_KEY) || "null"); }catch(e){ snap = null; }
+    if(!snap && typeof SERVER_SAVED_STATE !== "undefined" && SERVER_SAVED_STATE && SERVER_SAVED_STATE.ms){
+        snap = SERVER_SAVED_STATE;
+    }
+    if(!snap || !snap.ms) return;
+
+    var radio = snap.radio;
+    if(radio){
+        var r = document.querySelector('input[name="siteFilterType"][value="' + radio + '"]');
+        if(r && !r.checked){
+            r.checked = true;
+            var wrapCity = document.getElementById("siteFilterCityWrapper");
+            var wrapAlt  = document.getElementById("siteFilterClusterWrapper");
+            if(wrapCity) wrapCity.style.display = (radio === "city") ? "block" : "none";
+            if(wrapAlt)  wrapAlt.style.display  = (radio === "city") ? "none"  : "block";
+        }
+    }
+
+    ["nop_nsa","cluster_cluster"].forEach(function(id){ _monApplyMs(id, snap.ms[id]); });
+
+    if(snap.ms.city_nsa){ _monApplyMs("city_nsa", snap.ms.city_nsa); _monRebuildCityCity(); }
+    if(snap.ms.city_city){ _monApplyMs("city_city", snap.ms.city_city); }
+    if(snap.ms.site_city){ _monApplyMs("site_city", snap.ms.site_city); }
+    if(snap.ms.site_cluster){ _monApplyMs("site_cluster", snap.ms.site_cluster); }
+    if(snap.ms.site_site){
+        _monRebuildSiteSite(radio || "city");
+        _monApplyMs("site_site", snap.ms.site_site);
+    }
+
+    activeFilterDims.regional = ["Regional"];
+    activeFilterDims.nop      = _monMsValues("nop_nsa");
+    activeFilterDims.city     = _monMsValues("city_city");
+    activeFilterDims.cluster  = _monMsValues("cluster_cluster");
+    activeFilterDims.site     = _monMsValues("site_site");
+
+    if(snap.siteMode){ SITE_MODE = snap.siteMode; }
+    if(snap.gran && typeof CURRENT_GRANULARITY !== "undefined"){
+        Object.keys(snap.gran).forEach(function(k){
+            if(k in CURRENT_GRANULARITY) CURRENT_GRANULARITY[k] = snap.gran[k];
+        });
+    }
+
+    var tab = snap.tab || "regional";
+    var btn = document.getElementById("tabBtn-" + tab);
+    if(btn) switchTab(tab, btn);
+    updateTabDisplay(tab);
+
+    if (tab !== "regional" && activeFilterDims[tab] && activeFilterDims[tab].length > 0) {
+        renderTabCharts(tab, activeFilterDims[tab]);
+    }
+}
+
+document.addEventListener("click", function(e){
+    if(e.target && e.target.closest && e.target.closest(".ms-container, .mon-tab, .view-mode-bar, .filter-panel")){
+        setTimeout(saveMonState, 0);
+    }
+}, false);
+window.addEventListener("pagehide", saveMonState);
+
+
+/* ═══════════════════════════════════════════════════════════════
    INIT ON DOM READY
    ═══════════════════════════════════════════════════════════════ */
 document.addEventListener("DOMContentLoaded", function(){
+    var o = document.getElementById('loadingOverlay'); if(o) o.style.display = 'none';
     var fc = document.getElementById("filterContainer");
     if(fc) fc.style.maxHeight = fc.scrollHeight + "px";
 
@@ -1728,6 +1943,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
     // Render regional charts
     renderTabCharts("regional", ["Regional"]);
+    restoreMonState();
         if (_filterOpen) toggleFilterPanel();
     {% endif %}
 });

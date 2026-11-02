@@ -774,7 +774,7 @@
 </style>
 
 <!-- ═══════════════════ LOADING OVERLAY ═══════════════════ -->
-<div id="loadingOverlay">
+<div id="loadingOverlay" style="display:none;">
     <div class="loading-spinner"></div>
     <div class="loading-text">Processing Query…</div>
     <div class="loading-sub">Aggregating daily KPI data across all dimensions via GROUPING SETS</div>
@@ -1695,6 +1695,7 @@
 
     /* ── Specific Filter Event Handlers ── */
     function triggerMsChange(id) {
+    if(typeof saveMonState === 'function') setTimeout(saveMonState, 0);
         if (id === "nop_nsa") {
             activeFilterDims.nop = msSelections[id];
             updateTabDisplay("nop");
@@ -1835,6 +1836,59 @@
     }
 
 
+        var QUERY_CACHE_PREFIX = "netkpi_qcache_{{ username }}_2g_";
+
+    function getQueryCache(key) {
+        try {
+            var raw = sessionStorage.getItem(QUERY_CACHE_PREFIX + key);
+            return raw ? JSON.parse(raw) : null;
+        } catch(e) { return null; }
+    }
+
+    function setQueryCache(key, val) {
+        try {
+            sessionStorage.setItem(QUERY_CACHE_PREFIX + key, JSON.stringify(val));
+        } catch(e) {
+            try {
+                for (var i = sessionStorage.length - 1; i >= 0; i--) {
+                    var k = sessionStorage.key(i);
+                    if (k && k.indexOf("netkpi_qcache_") === 0) {
+                        sessionStorage.removeItem(k);
+                    }
+                }
+                sessionStorage.setItem(QUERY_CACHE_PREFIX + key, JSON.stringify(val));
+            } catch(e2) {}
+        }
+    }
+
+    function _populateSectorLegends(data) {
+        if (!data || !data.daily || !data.daily.legends) return;
+        var uniqueSectors = new Set();
+        data.daily.legends.forEach(leg => {
+            var match = leg.match(/ S(\d+)(?:-([A-Za-z0-9]+))?$/);
+            if (match) uniqueSectors.add(match[1]);
+        });
+        var sortedSectors = Array.from(uniqueSectors).sort((a, b) => parseInt(a) - parseInt(b));
+        if (sortedSectors.length > 0) {
+            var saved = (msSelections['sector_sector'] && msSelections['sector_sector'].length > 0) ? msSelections['sector_sector'].slice() : null;
+            initMsOptions('sector_sector', sortedSectors, !saved);
+            if (saved && saved.length > 0) {
+                var avail = new Set(sortedSectors);
+                var keep = saved.filter(v => avail.has(v));
+                if (keep.length > 0) {
+                    msSelections['sector_sector'] = keep;
+                    var list = document.getElementById("ms-list-sector_sector");
+                    if (list) {
+                        list.querySelectorAll("input[type='checkbox']").forEach(cb => {
+                            cb.checked = keep.includes(cb.value);
+                        });
+                    }
+                    updateMsLabel('sector_sector');
+                }
+            }
+        }
+    }
+
     function fetchSectorData(dims) {
         if (dims.length === 0) {
             document.getElementById("emptyState-sector").style.display = "block";
@@ -1844,10 +1898,22 @@
         document.getElementById("emptyState-sector").style.display = "none";
         document.getElementById("dataContainer-sector").style.display = "block";
 
-        // Check if we already have the exact same sites cached in SECTOR_API_DATA
-        // This is simple: just check if the dims string matches the last fetched
-        var dimsStr = dims.sort().join(',');
+        var dimsStr = dims.slice().sort().join(',');
+        var qKey = "sec_" + dimsStr + "_" + "{{ from_date }}" + "_" + "{{ to_date }}";
+
+        // Check in-memory first
         if (SECTOR_API_DATA && SECTOR_API_DATA._dims === dimsStr) {
+            _populateSectorLegends(SECTOR_API_DATA);
+            applySectorLocalFilters();
+            return;
+        }
+
+        // Check sessionStorage
+        var cached = getQueryCache(qKey);
+        if (cached) {
+            SECTOR_API_DATA = cached;
+            SECTOR_API_DATA._dims = dimsStr;
+            _populateSectorLegends(SECTOR_API_DATA);
             applySectorLocalFilters();
             return;
         }
@@ -1877,18 +1943,9 @@
                 }
                 SECTOR_API_DATA = data;
                 SECTOR_API_DATA._dims = dimsStr;
+                setQueryCache(qKey, data);
 
-                // Extract unique sectors from legends dynamically
-                var uniqueSectors = new Set();
-                (data.daily.legends || []).forEach(leg => {
-                    var match = leg.match(/ S(\d+)(?:-([A-Za-z0-9]+))?$/);
-                    if (match) uniqueSectors.add(match[1]);
-                });
-                var sortedSectors = Array.from(uniqueSectors).sort((a, b) => parseInt(a) - parseInt(b));
-                if (sortedSectors.length > 0) {
-                    initMsOptions('sector_sector', sortedSectors, true);
-                }
-
+                _populateSectorLegends(data);
                 applySectorLocalFilters();
             })
             .catch(err => {
@@ -1909,22 +1966,18 @@
         var selSectors = msSelections['sector_sector'] || [];
         var selBands = msSelections['sector_band'] || [];
         var selKpis = msSelections['sector_kpi'] || [];
-        if (selKpis.length === 0) selKpis = KPI_DEFS.map(k => k[0]); // Default to all if empty
+        if (selKpis.length === 0) selKpis = KPI_DEFS.map(k => k[0]);
 
-        // Filter the legend keys
         var validLegends = sourceData.legends.filter(leg => {
-            // Legend format: {siteid} S{sector}-{tech} or {siteid} S{sector}
             var match = leg.match(/ S(\d+)(?:-([A-Za-z0-9]+))?$/);
-            if (!match) return true; // keep if format differs
-            var legSec = match[1];
-            var legBand = match[2] || "";
+            var legSec = match ? match[1] : "";
+            var legBand = match && match[2] ? match[2] : "";
 
             if (selSectors.length > 0 && !selSectors.includes(legSec)) return false;
             if (selBands.length > 0 && !selBands.includes(legBand)) return false;
             return true;
         });
 
-        // Update TAB_DATA['sector'] to only include validLegends
         TAB_DATA['sector'] = {};
         for (var k in sourceData.data) {
             TAB_DATA['sector'][k] = {};
@@ -1933,26 +1986,22 @@
             });
         }
 
-        // Determine active labels
         var labels = sourceData.labels;
         if (isHourly) {
             HOURLY_LABELS['sector'] = labels;
-            HOURLY_DATA['sector'] = TAB_DATA['sector']; // for buildDatasets logic
+            HOURLY_DATA['sector'] = TAB_DATA['sector'];
         } else {
             SECTOR_DAILY_LABELS = labels;
-            // TAB_DATA['sector'] is already set above
         }
 
-        // Dynamically build chart grid
         var kpisToRender = KPI_DEFS.filter(k => selKpis.includes(k[0]));
         var grid = document.getElementById("chartGrid-sector");
         var html = "";
         var chartCalls = [];
 
         function buildCardHtml(k, titleSuffix, canvasSuffix) {
-            var unitLabel;
-            if (['payloadChart', 'gprsPayloadChart', 'edgePayloadChart'].includes(k[0])) unitLabel = ' <span style="font-size:10px;opacity:.55;">(MB)</span>';
-            else if (k[2]) unitLabel = ' <span style="font-size:10px;opacity:.55;">(' + k[2] + ')</span>';
+            var unitLabel = "";
+            if (k[2]) unitLabel = ' <span style="font-size:10px;opacity:.55;">(' + k[2] + ')</span>';
 
             return `<div class="card kpi-card-sector" data-kpi="${k[0]}">
             <div class="card-title">${k[1]}${titleSuffix}${unitLabel}</div>
@@ -1967,18 +2016,17 @@
                 html += buildCardHtml(k, "", "");
                 chartCalls.push({ kpi: k, dims: validLegends, suffix: "" });
             } else {
-                // Group valid legends by base sector (e.g., "AGA002 S1")
                 var groupedSectors = {};
                 validLegends.forEach(function (leg) {
-                    var secBase = leg;
-                    var match = leg.match(/^(.* S\d+)(?:-.*)?$/);
-                    if (match) secBase = match[1];
+                    var match = leg.match(/ S(\d+)/);
+                    var secBase = match ? match[0].trim() : leg;
 
                     if (!groupedSectors[secBase]) groupedSectors[secBase] = [];
                     groupedSectors[secBase].push(leg);
                 });
 
                 Object.keys(groupedSectors).forEach(function (secBase) {
+                    groupedSectors[secBase].sort((a, b) => a.localeCompare(b));
                     var safeSecBase = secBase.replace(/[^a-zA-Z0-9_-]/g, "_");
                     html += buildCardHtml(k, " - " + secBase, "-" + safeSecBase);
                     chartCalls.push({ kpi: k, dims: groupedSectors[secBase], suffix: "-" + safeSecBase });
@@ -1986,7 +2034,6 @@
             }
         });
 
-        // Clean up old chart instances to prevent memory leaks and PNG export bugs
         Object.keys(chartInstances).forEach(function (key) {
             if (key.startsWith('canvas-sector-')) {
                 if (chartInstances[key]) chartInstances[key].destroy();
@@ -1995,7 +2042,6 @@
         });
 
         grid.innerHTML = html;
-
         setTimeout(function () {
             chartCalls.forEach(function (call) {
                 renderChart('sector', call.kpi, call.dims, call.suffix);
@@ -2007,6 +2053,30 @@
     }
 
     function fetchClusterData(granularity, dims) {
+        var dimsKey = dims.slice().sort().join(",");
+        var qKey = "cluster_" + granularity + "_" + dimsKey + "_" + "{{ from_date }}" + "_" + "{{ to_date }}";
+
+        var clusterData = (granularity === 'hourly') ? CLUSTER_HOURLY_DATA : CLUSTER_DAILY_DATA;
+        if (!clusterData) {
+            var cached = getQueryCache(qKey);
+            if (cached && cached.data) {
+                if (granularity === 'hourly') {
+                    CLUSTER_HOURLY_DATA = cached.data;
+                    CLUSTER_HOURLY_LABELS = cached.labels;
+                } else {
+                    CLUSTER_DAILY_DATA = cached.data;
+                    CLUSTER_DAILY_LABELS = cached.labels;
+                }
+                clusterData = cached.data;
+            }
+        }
+        if (clusterData) {
+            renderTabCharts('site', dims);
+            var tv = document.getElementById("tableView-site");
+            if (tv && tv.style.display !== "none") buildTable('site', dims);
+            return;
+        }
+
         var loading = document.getElementById("loadingOverlay");
         if (loading) loading.style.display = "flex";
 
@@ -2031,6 +2101,7 @@
                     alert("Error: " + data.error);
                     return;
                 }
+                setQueryCache(qKey, data);
                 if (granularity === 'hourly') {
                     CLUSTER_HOURLY_DATA = data.data;
                     CLUSTER_HOURLY_LABELS = data.labels;
@@ -2049,7 +2120,6 @@
             });
     }
 
-
     function setGranularity(tabId, mode, btn) {
         if (CURRENT_GRANULARITY[tabId] === mode) return;
 
@@ -2065,6 +2135,23 @@
     }
 
     function fetchHourlyData(tabId, dims) {
+        var dimsKey = dims.slice().sort().join(",");
+        var qKey = "hourly_" + tabId + "_" + dimsKey + "_" + "{{ from_date }}" + "_" + "{{ to_date }}";
+
+        if (!HOURLY_DATA[tabId]) {
+            var cached = getQueryCache(qKey);
+            if (cached && cached.data) {
+                HOURLY_DATA[tabId] = cached.data;
+                HOURLY_LABELS[tabId] = cached.labels;
+            }
+        }
+        if (HOURLY_DATA[tabId]) {
+            renderTabCharts(tabId, dims);
+            var tv = document.getElementById("tableView-" + tabId);
+            if (tv && tv.style.display !== "none") buildTable(tabId, dims);
+            return;
+        }
+
         var loading = document.getElementById("loadingOverlay");
         if (loading) loading.style.display = "flex";
 
@@ -2090,6 +2177,7 @@
                     alert("Error: " + data.error);
                     return;
                 }
+                setQueryCache(qKey, data);
                 HOURLY_DATA[tabId] = data.data;
                 HOURLY_LABELS[tabId] = data.labels;
                 renderTabCharts(tabId, dims);
@@ -2104,7 +2192,17 @@
     }
 
     function fetchSiteDailyData(dims) {
-        // Check if we already have daily data for all requested dims
+        var dimsKey = dims.slice().sort().join(",");
+        var qKey = "site_daily_" + dimsKey + "_" + "{{ from_date }}" + "_" + "{{ to_date }}";
+
+        if (!TAB_DATA['site']) {
+            var cached = getQueryCache(qKey);
+            if (cached && cached.data) {
+                TAB_DATA['site'] = cached.data;
+                SITE_DAILY_LABELS = cached.labels;
+            }
+        }
+
         var hasAll = true;
         if (!TAB_DATA['site']) hasAll = false;
         else {
@@ -2147,7 +2245,7 @@
                 if (data.labels && data.labels.length === 0) {
                     alert("No Daily data available for the selected Site and Date Range. Try checking the Hourly tab or selecting a different date range.");
                 }
-                console.log("Site Daily Data API Response:", data);
+                setQueryCache(qKey, data);
                 TAB_DATA['site'] = data.data;
                 SITE_DAILY_LABELS = data.labels;
                 renderTabCharts('site', dims);
@@ -2161,7 +2259,7 @@
             });
     }
 
-    function updateTabDisplay(tabId) {
+function updateTabDisplay(tabId) {
         var dims = activeFilterDims[tabId];
         if (tabId === 'regional') dims = ['Regional'];
 
@@ -2219,7 +2317,9 @@
                 },
                 tooltip: {
                     mode: "index", intersect: false,
-                    backgroundColor: "rgba(8,8,25,0.90)",
+                    backgroundColor: "rgba(8,8,25,0.92)",
+                    titleColor: "#ffffff", bodyColor: "#f1f5f9", footerColor: "#cbd5e1",
+                    borderColor: "rgba(255,255,255,0.15)", borderWidth: 1,
                     titleFont: { size: 10 }, bodyFont: { size: 11 }, padding: 8,
                     callbacks: {
                         title: function (i) { return i[0] ? i[0].label : ""; },
@@ -3178,10 +3278,151 @@
         URL.revokeObjectURL(url);
     }
 
-    /* ═══════════════════════════════════════════════════════════════
+        /* ═══════════════════════════════════════════════════════════════
+       DRILL-DOWN SELECTION PERSISTENCE (site / sector / BSC)
+       These selections only live in page JS, so navigating to another menu and
+       coming back used to reset them. Snapshot them to localStorage and re-apply
+       them, together with the active tab, once the dropdowns are initialised.
+       ═══════════════════════════════════════════════════════════════ */
+    var SERVER_SAVED_STATE = {{ saved_ui_state | tojson | safe }};
+    var MON_STATE_KEY = "netkpi.monstate.{{ username }}.2g";
+
+    function _monMsValues(id){
+        return (msSelections && msSelections[id]) ? msSelections[id].slice() : [];
+    }
+
+    function saveMonState(){
+        try{
+            var snap = {
+                tab: (typeof activeTab !== "undefined") ? activeTab : "regional",
+                siteMode: (typeof SITE_MODE !== "undefined") ? SITE_MODE : null,
+                gran: (typeof CURRENT_GRANULARITY !== "undefined") ? CURRENT_GRANULARITY : null,
+                radio: (document.querySelector('input[name="siteFilterType"]:checked') || {}).value || null,
+                ms: {}
+            };
+            ["nop_nsa","bsc_bsc","city_nsa","city_city","site_city","site_bsc","site_site","sector_site","sector_sector","sector_band","sector_type","sector_kpi"].forEach(function(id){
+                var v = _monMsValues(id);
+                if(v.length) snap.ms[id] = v;
+            });
+            sessionStorage.setItem(MON_STATE_KEY, JSON.stringify(snap));
+        try {
+            fetch("/api/session/state", {
+                method: "POST",
+                headers: {"Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token() }}"},
+                body: JSON.stringify({page: "2g", state: snap})
+            }).catch(function(){});
+        } catch(e2){}
+        }catch(e){ /* storage unavailable — persistence is a nicety, never fatal */ }
+    }
+
+    function _monApplyMs(id, values){
+        var list = document.getElementById("ms-list-" + id);
+        if(!list || !values || !values.length) return;
+        var avail = {};
+        list.querySelectorAll("input[type='checkbox']").forEach(function(cb){ avail[cb.value] = true; });
+        var keep = values.filter(function(v){ return avail[v]; });
+        if(!keep.length) return;
+        msSelections[id] = keep;
+        list.querySelectorAll("input[type='checkbox']").forEach(function(cb){ cb.checked = keep.indexOf(cb.value) !== -1; });
+        updateMsLabel(id);
+    }
+
+    function _monRebuildCityCity(){
+        var valid = new Set();
+        _monMsValues("city_nsa").forEach(function(nsa){
+            (NSA_CITY_MAP[nsa] || []).forEach(function(c){ valid.add(c); });
+        });
+        if(valid.size){ setMsDisabled("city_city", false); initMsOptions("city_city", Array.from(valid).sort()); }
+    }
+
+    function _monRebuildSiteSite(mode){
+        var valid = new Set();
+        if(mode === "bsc"){
+            _monMsValues("site_bsc").forEach(function(k){
+                (BSC_SITE_MAP[k] || []).forEach(function(s){ valid.add(s); });
+            });
+        } else {
+            _monMsValues("site_city").forEach(function(city){
+                (CITY_SITE_MAP[city] || []).forEach(function(s){ valid.add(s); });
+            });
+        }
+        if(valid.size){
+            setMsDisabled("site_site", false);
+            initMsOptions("site_site", Array.from(valid).sort());
+        }
+    }
+
+    function restoreMonState(){
+        var snap = null;
+        try{ snap = JSON.parse(sessionStorage.getItem(MON_STATE_KEY) || "null"); }catch(e){ snap = null; }
+    if(!snap && typeof SERVER_SAVED_STATE !== "undefined" && SERVER_SAVED_STATE && SERVER_SAVED_STATE.ms){
+        snap = SERVER_SAVED_STATE;
+    }
+        if(!snap || !snap.ms) return;
+
+        // 1) site filter mode (city / bsc) before rebuilding its dropdown
+        var radio = snap.radio;
+        if(radio){
+            var r = document.querySelector('input[name="siteFilterType"][value="' + radio + '"]');
+            if(r && !r.checked){
+                r.checked = true;
+                var wrapCity = document.getElementById("siteFilterCityWrapper");
+                var wrapAlt  = document.getElementById("siteFilterBscWrapper");
+                if(wrapCity) wrapCity.style.display = (radio === "city") ? "block" : "none";
+                if(wrapAlt)  wrapAlt.style.display  = (radio === "city") ? "none"  : "block";
+            }
+        }
+
+        // 2) independent dropdowns
+        ["nop_nsa","bsc_bsc","sector_site","sector_sector","sector_band","sector_type","sector_kpi"].forEach(function(id){ _monApplyMs(id, snap.ms[id]); });
+
+        // 3) cascading dropdowns (parent first, then rebuild the child options)
+        if(snap.ms.city_nsa){ _monApplyMs("city_nsa", snap.ms.city_nsa); _monRebuildCityCity(); }
+        if(snap.ms.city_city){ _monApplyMs("city_city", snap.ms.city_city); }
+        if(snap.ms.site_city){ _monApplyMs("site_city", snap.ms.site_city); }
+        if(snap.ms.site_bsc){ _monApplyMs("site_bsc", snap.ms.site_bsc); }
+        if(snap.ms.site_site){
+            _monRebuildSiteSite(radio || "city");
+            _monApplyMs("site_site", snap.ms.site_site);
+        }
+
+        // 4) mirror the restored checkboxes into the renderer state
+        activeFilterDims.regional = ["Regional"];
+        activeFilterDims.nop      = _monMsValues("nop_nsa");
+        activeFilterDims.city     = _monMsValues("city_city");
+        activeFilterDims.bsc = _monMsValues("site_bsc");
+        activeFilterDims.site     = _monMsValues("site_site");
+        activeFilterDims.sector   = _monMsValues("sector_site");
+        activeFilterDims.bsc = _monMsValues("bsc_bsc");
+
+        // 5) view mode (per-site vs cluster) + daily/hourly granularity
+        if(snap.siteMode){ SITE_MODE = snap.siteMode; }
+        if(snap.gran && typeof CURRENT_GRANULARITY !== "undefined"){
+            Object.keys(snap.gran).forEach(function(k){
+                if(k in CURRENT_GRANULARITY) CURRENT_GRANULARITY[k] = snap.gran[k];
+            });
+        }
+
+        // 6) reopen the tab the user was on and redraw it
+        var tab = snap.tab || "regional";
+        var btn = document.getElementById("tabBtn-" + tab);
+        if(btn) switchTab(tab, btn);
+        updateTabDisplay(tab);
+    }
+
+    document.addEventListener("click", function(e){
+        if(e.target && e.target.closest && e.target.closest(".ms-container, .mon-tab, .view-mode-bar, .filter-panel")){
+            setTimeout(saveMonState, 0);   // after the inline handler updated the selection
+        }
+    }, false);
+    window.addEventListener("pagehide", saveMonState);
+
+
+/* ═══════════════════════════════════════════════════════════════
        INIT ON DOM READY
        ═══════════════════════════════════════════════════════════════ */
     document.addEventListener("DOMContentLoaded", function () {
+    var o = document.getElementById('loadingOverlay'); if(o) o.style.display = 'none';
         var fc = document.getElementById("filterContainer");
         if (fc) fc.style.maxHeight = fc.scrollHeight + "px";
 
@@ -3225,6 +3466,7 @@
 
         // Render regional charts
         renderTabCharts("regional", ["Regional"]);
+    restoreMonState();
         if (_filterOpen) toggleFilterPanel();
         {% endif %}
     });
