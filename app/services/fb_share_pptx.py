@@ -22,6 +22,7 @@ from datetime import date
 from pptx import Presentation
 from pptx.chart.data import CategoryChartData
 from pptx.dml.color import RGBColor
+from pptx.oxml import parse_xml
 from pptx.oxml.ns import qn
 from pptx.util import Pt
 
@@ -222,6 +223,23 @@ def _replace_chart_data(chart, categories, series):
             chart.part.drop_rel(rid)
             chart._chartSpace.remove(external)
     chart.replace_data(data)
+    # Ensure missing/empty data points are connected continuously across gaps
+    chart_elem = chart._element.find(qn("c:chart"))
+    if chart_elem is not None:
+        dba = chart_elem.find(qn("c:dispBlanksAs"))
+        if dba is not None:
+            dba.set("val", "span")
+        else:
+            new_dba = parse_xml(
+                '<c:dispBlanksAs xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" val="span"/>'
+            )
+            show = chart_elem.find(qn("c:showDLblsOverMax"))
+            ext = chart_elem.find(qn("c:extLst"))
+            target_sibling = show if show is not None else ext
+            if target_sibling is not None:
+                target_sibling.addprevious(new_dba)
+            else:
+                chart_elem.append(new_dba)
 
 
 # ── Slide 1: headline, branch table, city table, regional trend ─────────────

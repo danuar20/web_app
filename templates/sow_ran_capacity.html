@@ -1160,6 +1160,15 @@
                     <span id="trendChartTitle">Trend RCI PUMA</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
+                    <!-- Focus Unbalance Toggle (visible in Unbalance mode) -->
+                    <div id="unbFocusToggleGroup" class="ran-section-toggle" style="display: none;">
+                        <button id="btnUnbFocusOnly" class="ran-sec-btn active" onclick="setUnbalanceFocusMode('focus')" title="Focus on Unbalance P1, P2, P3 (Auto rescales Y-axis for high contrast)">
+                            <i class="fas fa-search-plus" style="font-size: 10px; margin-right: 3px;"></i> Focus Unbalance
+                        </button>
+                        <button id="btnUnbFocusAll" class="ran-sec-btn" onclick="setUnbalanceFocusMode('all')" title="Include Balance sectors">
+                            <i class="fas fa-layer-group" style="font-size: 10px; margin-right: 3px;"></i> All (inc. Balance)
+                        </button>
+                    </div>
                     <div class="ran-section-toggle">
                         <button id="trendToggleRci" class="ran-sec-btn active" onclick="setTrendSectionMode('rci')">RCI</button>
                         <button id="trendToggleUnb" class="ran-sec-btn" onclick="setTrendSectionMode('unbalance')">Unbalance</button>
@@ -1357,6 +1366,14 @@
                         <select id="trendKabSelect" class="ran-select" onchange="onTrendKabChange()" style="padding: 3px 8px; font-size: 11px; min-width: 140px;">
                             <!-- Populated dynamically -->
                         </select>
+                        <div id="kabUnbFocusToggleGroup" class="ran-section-toggle" style="display: none;">
+                            <button id="btnKabUnbFocusOnly" class="ran-sec-btn active" onclick="setKabUnbalanceFocusMode('focus')" title="Focus on Unbalance P1, P2, P3">
+                                <i class="fas fa-search-plus" style="font-size: 10px; margin-right: 3px;"></i> Focus Unbalance
+                            </button>
+                            <button id="btnKabUnbFocusAll" class="ran-sec-btn" onclick="setKabUnbalanceFocusMode('all')" title="Include Balance sectors">
+                                <i class="fas fa-layer-group" style="font-size: 10px; margin-right: 3px;"></i> All
+                            </button>
+                        </div>
                         <div class="ran-section-toggle">
                             <button id="kabTrendToggleRci" class="ran-sec-btn active" onclick="setKabTrendSectionMode('rci')">RCI</button>
                             <button id="kabTrendToggleUnb" class="ran-sec-btn" onclick="setKabTrendSectionMode('unbalance')">Unbalance</button>

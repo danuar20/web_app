@@ -1097,6 +1097,13 @@
     }
     .sow-platform-btn.fb.active .plat-icon { background: rgba(255, 255, 255, 0.22); color: #fff; }
 
+    .sow-platform-btn.ookla .plat-icon { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+    .sow-platform-btn.ookla.active {
+        background: linear-gradient(135deg, #059669 0%, #10b981 55%, #14b8a6 100%);
+        box-shadow: 0 6px 18px rgba(16, 185, 129, 0.38);
+    }
+    .sow-platform-btn.ookla.active .plat-icon { background: rgba(255, 255, 255, 0.22); color: #fff; }
+
     .sow-platform-section { display: none; flex-direction: column; gap: 16px; }
     .sow-platform-section.active { display: flex; animation: fbFadeIn 0.3s ease; }
 
@@ -1274,15 +1281,19 @@
 
 <div class="sow-container">
 
-    <!-- ── Platform Switcher: ONX / FB Share ── -->
+    <!-- ── Platform Switcher: ONX / Ookla / FB Share ── -->
     <div class="sow-platform-tabs" role="tablist">
         <button type="button" class="sow-platform-btn active" id="platBtnOnx" role="tab" onclick="switchPlatform('onx')">
             <span class="plat-icon"><i class="fas fa-signal"></i></span>
-            <span class="plat-text">ONX<span class="plat-sub">Achievement &amp; Trend Metrics</span></span>
+            <span class="plat-text">ONX<span class="plat-sub">Achievement</span></span>
+        </button>
+        <button type="button" class="sow-platform-btn ookla" id="platBtnOokla" role="tab" onclick="switchPlatform('ookla')">
+            <span class="plat-icon"><i class="fas fa-tachometer-alt"></i></span>
+            <span class="plat-text">Ookla<span class="plat-sub">Achievement</span></span>
         </button>
         <button type="button" class="sow-platform-btn fb" id="platBtnFb" role="tab" onclick="switchPlatform('fb')">
             <span class="plat-icon"><i class="fab fa-facebook-f"></i></span>
-            <span class="plat-text">FB Share<span class="plat-sub">sow.fb_share</span></span>
+            <span class="plat-text">FB Share<span class="plat-sub">Achievement</span></span>
         </button>
     </div>
 
@@ -2061,6 +2072,690 @@
     </div>
     <!-- ══════════════════════ END PLATFORM: ONX ══════════════════════ -->
 
+    <!-- ══════════════════════ PLATFORM: OOKLA ══════════════════════ -->
+    <div class="sow-platform-section" id="sectionOokla">
+
+        <!-- ── Top Tab Switcher ── -->
+        <div class="sow-nav-tabs ookla-sub-tabs" role="tablist">
+            <button type="button" class="sow-tab-btn active" id="tabBtnOoklaAchievement" onclick="switchOoklaMainTab('achievement')">
+                <i class="fas fa-trophy"></i> Achievement
+            </button>
+            <button type="button" class="sow-tab-btn" id="tabBtnOoklaTrend" onclick="switchOoklaMainTab('trend')">
+                <i class="fas fa-chart-line"></i> Category Trends
+            </button>
+            <button type="button" class="sow-tab-btn" id="tabBtnOoklaCmp" onclick="switchOoklaMainTab('comparison')">
+                <i class="fas fa-table"></i> Comparison Table
+            </button>
+
+            <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+                <div style="display: inline-flex; gap: 4px;">
+                    <button type="button" class="btn-secondary" onclick="openExportCsvModal('crowdsource_ookla')" title="Export Data">
+                        <i class="fas fa-file-export"></i> Export Data
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Card (Common for Ookla, located right after Ookla sub-tabs) -->
+        <div class="filter-card">
+            <div class="filter-card-header">
+                <div class="filter-title">
+                    <i class="fas fa-filter"></i> Filters &amp; Dimensions
+                    <span style="font-size: 11px; font-weight: 500; color: var(--sow-text-sub);">Ookla Speed &amp; Experience Metrics</span>
+                </div>
+                <div class="filter-presets">
+                    <span style="font-size: 11px; color: var(--sow-text-sub); margin-right: 4px;">Quick Range:</span>
+                    <button type="button" class="filter-preset-btn" onclick="ooklaQuickRange('2026')">2026 Full</button>
+                    <button type="button" class="filter-preset-btn" onclick="ooklaQuickRange(12)">Last 12W</button>
+                    <button type="button" class="filter-preset-btn" onclick="ooklaQuickRange(26)">Last 26W</button>
+                    <button type="button" class="filter-preset-btn" onclick="ooklaQuickRange('all')">All Weeks</button>
+                </div>
+            </div>
+
+            <div class="filter-grid">
+                <!-- Level Filter -->
+                <div class="filter-group filter-group-level">
+                    <label class="filter-label" for="filterOoklaLevel"><i class="fas fa-sitemap"></i> Level</label>
+                    <select id="filterOoklaLevel" class="filter-select" onchange="onOoklaLevelChange()">
+                        {% for lvl in (ookla_dimensions.levels if ookla_dimensions else ['Nation', 'Area', 'Region', 'Kabupaten']) %}
+                        <option value="{{ lvl }}" {% if lvl == 'Region' %}selected{% endif %}>{{ lvl }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Area Filter (Shown for Area, Region, Kabupaten) -->
+                <div class="filter-group" id="ooklaAreaGroup">
+                    <label class="filter-label" for="filterOoklaArea"><i class="fas fa-globe-asia"></i> Area</label>
+                    <select id="filterOoklaArea" class="filter-select" onchange="onOoklaAreaChange()">
+                        {% for a in (ookla_dimensions.areas if ookla_dimensions else ['AREA 1', 'AREA 2', 'AREA 3', 'AREA 4']) %}
+                        <option value="{{ a }}" {% if a == 'AREA 4' %}selected{% endif %}>{{ a }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Region Filter (Shown for Region, Kabupaten) -->
+                <div class="filter-group" id="ooklaRegionGroup">
+                    <label class="filter-label" for="filterOoklaRegion"><i class="fas fa-compass"></i> Region</label>
+                    <select id="filterOoklaRegion" class="filter-select" onchange="onOoklaRegionChange()">
+                        <option value="MALUKU DAN PAPUA" selected>MALUKU DAN PAPUA</option>
+                    </select>
+                </div>
+
+                <!-- Kabupaten Filter (Shown ONLY if Level == Kabupaten) -->
+                <div class="filter-group" id="ooklaKabupatenGroup" style="display: none;">
+                    <label class="filter-label" for="filterOoklaKabupaten"><i class="fas fa-map-marker-alt"></i> Kabupaten</label>
+                    <select id="filterOoklaKabupaten" class="filter-select">
+                        <option value="">All Kabupaten</option>
+                    </select>
+                </div>
+
+                <!-- Tech Filter -->
+                <div class="filter-group" id="ooklaTechGroup" style="flex: 0 0 100px; max-width: 110px;">
+                    <label class="filter-label" for="filterOoklaTech"><i class="fas fa-broadcast-tower"></i> Tech</label>
+                    <select id="filterOoklaTech" class="filter-select">
+                        {% for t in (ookla_dimensions.techs if ookla_dimensions else ['ALL', '4G', '5G']) %}
+                        <option value="{{ t }}" {% if t == 'ALL' %}selected{% endif %}>{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Operator Filter -->
+                <div class="filter-group" id="ooklaOperatorGroup">
+                    <label class="filter-label" for="filterOoklaOperator"><i class="fas fa-signal"></i> Operator</label>
+                    <select id="filterOoklaOperator" class="filter-select">
+                        {% for op in (ookla_dimensions.operators if ookla_dimensions else ['Telkomsel', 'IOH', 'XLSMART', 'Smartfren']) %}
+                        <option value="{{ op }}" {% if op == 'Telkomsel' %}selected{% endif %}>{{ op }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Yearweek Start -->
+                <div class="filter-group filter-group-week">
+                    <label class="filter-label" for="ooklaStartYw"><i class="fas fa-calendar-alt"></i> From Week</label>
+                    <select id="ooklaStartYw" class="filter-select">
+                        {% for yw in (ookla_yearweeks|reverse if ookla_yearweeks else [202601]) %}
+                        <option value="{{ yw }}" {% if yw == ookla_default_start_yw %}selected{% endif %}>{{ yw }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Yearweek End -->
+                <div class="filter-group filter-group-week">
+                    <label class="filter-label" for="ooklaEndYw"><i class="fas fa-calendar-check"></i> To Week</label>
+                    <select id="ooklaEndYw" class="filter-select">
+                        {% for yw in (ookla_yearweeks if ookla_yearweeks else [202643]) %}
+                        <option value="{{ yw }}" {% if yw == ookla_default_end_yw %}selected{% endif %}>{{ yw }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Actions -->
+                <div class="filter-actions">
+                    <button type="button" class="btn-apply" onclick="applyOoklaFilters()" title="Apply selected filters">
+                        <i class="fas fa-play"></i> Apply
+                    </button>
+                    <button type="button" class="btn-secondary" onclick="resetOoklaFilters()" title="Reset to defaults">
+                        <i class="fas fa-undo"></i> Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════
+             OOKLA TAB 1: ACHIEVEMENT
+             ══════════════════════════════════════════════════════ -->
+        <div class="tab-content-pane active" id="paneOoklaAchievement">
+
+            <!-- Top Executive Banner -->
+            <div class="sow-exec-banner" id="ooklaExecBanner" style="background: linear-gradient(135deg, #065f46 0%, #047857 50%, #059669 100%);">
+                <div class="sow-exec-title-box">
+                    <div class="sow-exec-title">
+                        <i class="fas fa-tachometer-alt" style="color: #6ee7b7;"></i>
+                        <span id="ooklaBannerRegionTitle">MALUKU DAN PAPUA</span> OOKLA BENCHMARK | WEEK <span id="ooklaBannerWeekNum">--</span>
+                    </div>
+                    <div class="sow-exec-subtitle">
+                        <span>Ookla Experience &amp; Speed Monitoring</span>
+                        <span style="opacity:0.6;">•</span>
+                        <span id="ooklaBannerScopeBadge" style="background:rgba(255,255,255,0.18); padding:1px 7px; border-radius:4px; font-weight:700;">TELKOMSEL</span>
+                        <span style="opacity:0.6;">•</span>
+                        <span id="ooklaBannerTechBadge" style="background:rgba(255,255,255,0.18); padding:1px 7px; border-radius:4px; font-weight:700;">ALL TECH</span>
+                    </div>
+                </div>
+                <div class="sow-exec-kpis">
+                    <div class="sow-exec-item">
+                        <span class="sow-exec-label">Target (Qtr)</span>
+                        <span class="sow-exec-val" id="ooklaBannerTarget" style="color:#6ee7b7;">4</span>
+                    </div>
+                    <div class="sow-exec-item">
+                        <span class="sow-exec-label">Ach. (#Wins)</span>
+                        <span class="sow-exec-val" id="ooklaBannerAch">--</span>
+                    </div>
+                    <div class="sow-exec-item">
+                        <span class="sow-exec-label">Ach. Gap</span>
+                        <span class="sow-exec-val" id="ooklaBannerGap" style="color:#a7f3d0;">--</span>
+                    </div>
+                    <div class="sow-exec-item">
+                        <span class="sow-exec-label">Status</span>
+                        <span class="sow-exec-val" id="ooklaBannerStatus" style="font-size:16px;">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI Summary Cards -->
+            <div class="summary-grid">
+                <!-- Card 1 -->
+                <div class="kpi-card">
+                    <div class="kpi-card-header">
+                        <span class="kpi-card-title">Latest Week Performance</span>
+                        <div class="kpi-card-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                            <i class="fas fa-flag-checkered"></i>
+                        </div>
+                    </div>
+                    <div class="kpi-card-val-row">
+                        <span class="kpi-card-val" id="ooklaCardLatestWin">--</span>
+                        <span class="kpi-card-sub" id="ooklaCardLatestSub">/ 5 Wins</span>
+                    </div>
+                    <div>
+                        <span class="kpi-badge badge-win" id="ooklaCardLatestBadge">
+                            <i class="fas fa-check-circle"></i> Target Met
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="kpi-card">
+                    <div class="kpi-card-header">
+                        <span class="kpi-card-title">Target Met (Weeks)</span>
+                        <div class="kpi-card-icon" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">
+                            <i class="fas fa-bullseye"></i>
+                        </div>
+                    </div>
+                    <div class="kpi-card-val-row">
+                        <span class="kpi-card-val" id="ooklaCardTargetCount">--</span>
+                        <span class="kpi-card-sub" id="ooklaCardTargetPct">(--%)</span>
+                    </div>
+                    <div class="kpi-card-sub" id="ooklaCardTargetRatio">
+                        Out of -- evaluated weeks
+                    </div>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="kpi-card">
+                    <div class="kpi-card-header">
+                        <span class="kpi-card-title">Average Wins / Week</span>
+                        <div class="kpi-card-icon" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                    </div>
+                    <div class="kpi-card-val-row">
+                        <span class="kpi-card-val" id="ooklaCardAvgWin">--</span>
+                        <span class="kpi-card-sub">/ 5 Categories</span>
+                    </div>
+                    <div class="kpi-card-sub" id="ooklaCardAvgRate">
+                        Average Win Rate: --%
+                    </div>
+                </div>
+
+                <!-- Card 4 -->
+                <div class="kpi-card">
+                    <div class="kpi-card-header">
+                        <span class="kpi-card-title">Record Extremes</span>
+                        <div class="kpi-card-icon" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">
+                            <i class="fas fa-trophy"></i>
+                        </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--sow-text-sub);">Best:</span>
+                            <span style="font-weight: 700; color: #10b981;" id="ooklaCardBestWeek">--</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: var(--sow-text-sub);">Lowest:</span>
+                            <span style="font-weight: 700; color: #f87171;" id="ooklaCardLowestWeek">--</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card-sub">
+                        Formula: #lose = 5 - #win
+                    </div>
+                </div>
+            </div>
+
+            <!-- Executive Performance Highlights -->
+            <div class="sow-exec-summary-box" style="margin-top: 2px; margin-bottom: 6px;">
+                <div class="sow-exec-summary-title">
+                    <i class="fas fa-info-circle"></i> Executive Performance Highlights
+                </div>
+                <ul class="sow-exec-summary-list" id="ooklaExecBulletsList">
+                    <li>Loading executive performance highlights...</li>
+                </ul>
+            </div>
+
+            <!-- Main Chart Card -->
+            <div class="chart-card" id="ooklaChartCardContainer">
+                <div class="loading-overlay" id="ooklaChartLoading">
+                    <div class="spinner"></div>
+                </div>
+
+                <div class="chart-card-header">
+                    <div class="chart-title-area">
+                        <div class="chart-title">
+                            <i class="fas fa-chart-bar" style="color: #10b981;"></i>
+                            <span class="card-title">Ookla Speed &amp; Experience Win / Lose Trend</span>
+                        </div>
+                        <div class="chart-subtitle" id="ooklaChartSubtitle">
+                            Loading performance data...
+                        </div>
+                    </div>
+
+                    <div class="chart-controls">
+                        <button type="button" class="chart-btn" onclick="toggleOoklaDataLabels()" id="btnToggleOoklaLabels" title="Toggle values inside bars">
+                            <i class="fas fa-tag"></i> Labels: ON
+                        </button>
+                        <button type="button" class="chart-btn" onclick="exportOoklaChartPNG()" title="Export Chart as PNG">
+                            <i class="fas fa-image"></i> PNG
+                        </button>
+                        <button type="button" class="chart-btn" onclick="openOoklaChartModal()" title="Full Screen View">
+                            <i class="fas fa-expand"></i> Expand
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Canvas -->
+                <div class="chart-wrapper">
+                    <canvas id="ooklaChart"></canvas>
+                </div>
+
+                <!-- Legend Row -->
+                <div class="sow-legend-row" id="ooklaMainLegend">
+                    <span class="sow-legend-label">Legend</span>
+                    <div class="sow-legend-item" onclick="toggleOoklaDataset(1)" title="Click to show/hide #lose">
+                        <span class="sow-legend-box box-lose"></span>
+                        <span>#lose</span>
+                    </div>
+                    <div class="sow-legend-item" onclick="toggleOoklaDataset(0)" title="Click to show/hide #win">
+                        <span class="sow-legend-box box-win" style="background: #10b981;"></span>
+                        <span>#win</span>
+                    </div>
+                    <div style="margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--sow-text-sub);">
+                        <i class="fas fa-info-circle"></i>
+                        <span>Click any bar to inspect 5 Ookla categories breakdown below</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5 Ookla Categories Detail Table -->
+            <div class="table-card">
+                <div class="table-card-header">
+                    <div class="table-card-title">
+                        <i class="fas fa-list-check" style="color: #10b981;"></i>
+                        <span>5 Ookla Categories Breakdown — Week <span id="ooklaTableWeekLabel">--</span></span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label for="ooklaDetailWeekSelect" style="font-size: 12px; font-weight: 600; color: var(--sow-text-sub);">Week:</label>
+                            <select id="ooklaDetailWeekSelect" class="filter-select" style="width: 120px; height: 32px; padding: 2px 8px; font-size: 12px;" onchange="loadOoklaMetricsDetail(this.value)">
+                            </select>
+                        </div>
+                        <div style="display: flex; gap: 6px;">
+                            <span class="kpi-badge badge-win" id="ooklaPillWinCount">-- Wins</span>
+                            <span class="kpi-badge badge-lose" id="ooklaPillLoseCount">-- Loses</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="sow-table" id="ooklaMetricsTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;">#</th>
+                                <th>Category / Metric</th>
+                                <th>Description</th>
+                                <th style="width: 110px; text-align: center;">Operator Rank</th>
+                                <th style="width: 130px; text-align: right;">Operator Score</th>
+                                <th style="width: 130px; text-align: right;">Indosat (IOH)</th>
+                                <th style="width: 130px; text-align: right;">XL (XLSMART)</th>
+                                <th style="width: 100px; text-align: center;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ooklaMetricsTableBody">
+                            <tr><td colspan="8" style="text-align:center; padding: 20px;">Loading metrics detail...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+        <!-- ══════════════════════ END OOKLA TAB 1 ══════════════════════ -->
+
+        <!-- ══════════════════════════════════════════════════════
+             OOKLA TAB 2: CATEGORY TRENDS (METRICS TREND & METRICS RANK)
+             ══════════════════════════════════════════════════════ -->
+        <div class="tab-content-pane" id="paneOoklaTrend" style="display: none;">
+            <!-- Sub-tab switcher inside Category Trends: Metrics Trend vs Metrics Rank -->
+            <div class="sow-nav-tabs" style="margin-bottom: 14px; gap: 8px;">
+                <button type="button" class="sow-tab-btn active" id="btnOoklaSubTrend" onclick="switchOoklaTrendSubTab('trend')">
+                    <i class="fas fa-chart-line"></i> Metrics Trend
+                </button>
+                <button type="button" class="sow-tab-btn" id="btnOoklaSubRank" onclick="switchOoklaTrendSubTab('rank')">
+                    <i class="fas fa-medal"></i> Metrics Rank
+                </button>
+            </div>
+
+            <!-- ── SUB-PANE 1: METRICS TREND ── -->
+            <div id="ooklaTrendSubPane">
+                <div class="table-card">
+                    <div class="table-card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div class="table-card-title">
+                                <i class="fas fa-chart-line" style="color: #10b981;"></i>
+                                <span>Historical Score Trajectory (5 Ookla Categories)</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px; margin-left: auto; flex-wrap: wrap;">
+                            <!-- Operator Checklist -->
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 11px; font-weight: 700; color: var(--sow-text-sub);">Operators:</span>
+                                <div id="ooklaTrendOpChecklist" style="display: inline-flex; align-items: center; gap: 6px;">
+                                    <label style="margin: 0; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; cursor: pointer;">
+                                        <input type="checkbox" class="ookla-trend-op-check" value="Telkomsel" checked onchange="onOoklaTrendOpToggle()">
+                                        <span style="color: #dc2626;">Telkomsel</span>
+                                    </label>
+                                    <label style="margin: 0; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; cursor: pointer;">
+                                        <input type="checkbox" class="ookla-trend-op-check" value="IOH" checked onchange="onOoklaTrendOpToggle()">
+                                        <span style="color: #e6af2e;">IOH</span>
+                                    </label>
+                                    <label style="margin: 0; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; cursor: pointer;">
+                                        <input type="checkbox" class="ookla-trend-op-check" value="XLSMART" checked onchange="onOoklaTrendOpToggle()">
+                                        <span style="color: #2563eb;">XLSMART</span>
+                                    </label>
+                                    <label style="margin: 0; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; cursor: pointer;">
+                                        <input type="checkbox" class="ookla-trend-op-check" value="Smartfren" checked onchange="onOoklaTrendOpToggle()">
+                                        <span style="color: #8b5cf6;">Smartfren</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <!-- Charts / Row -->
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 11.5px; font-weight: 600; color: var(--sow-text-sub);">Charts / Row:</span>
+                                <div class="toggle-group-pills">
+                                    <button type="button" class="toggle-pill" id="btnOoklaTrendCol1" onclick="setOoklaGridCols('trend', 1)">1</button>
+                                    <button type="button" class="toggle-pill active" id="btnOoklaTrendCol2" onclick="setOoklaGridCols('trend', 2)">2</button>
+                                    <button type="button" class="toggle-pill" id="btnOoklaTrendCol3" onclick="setOoklaGridCols('trend', 3)">3</button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn-secondary" onclick="openOoklaSmartExportModal('trend')" title="Smart PNG Presentation Export" style="height: 28px; padding: 0 10px; font-size: 11px;">
+                                <i class="fas fa-camera" style="color: #10b981;"></i> Smart Export PNG
+                            </button>
+                        </div>
+                    </div>
+                    <div id="ooklaTrendGrid" style="padding: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+                        <!-- Speed Score -->
+                        <div class="chart-card" style="padding: 12px;">
+                            <div style="font-weight: 700; font-size: 13px; margin-bottom: 8px; color: #10b981;">
+                                <i class="fas fa-bolt"></i> Speed Score Trend
+                            </div>
+                            <div style="height: 250px; position: relative;">
+                                <canvas id="chartOoklaSpeed"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Video Score -->
+                        <div class="chart-card" style="padding: 12px;">
+                            <div style="font-weight: 700; font-size: 13px; margin-bottom: 8px; color: #f59e0b;">
+                                <i class="fas fa-play-circle"></i> Video Score Trend
+                            </div>
+                            <div style="height: 250px; position: relative;">
+                                <canvas id="chartOoklaVideo"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Game Score -->
+                        <div class="chart-card" style="padding: 12px;">
+                            <div style="font-weight: 700; font-size: 13px; margin-bottom: 8px; color: #8b5cf6;">
+                                <i class="fas fa-gamepad"></i> Game Score Trend
+                            </div>
+                            <div style="height: 250px; position: relative;">
+                                <canvas id="chartOoklaGame"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Connectivity Score -->
+                        <div class="chart-card" style="padding: 12px;">
+                            <div style="font-weight: 700; font-size: 13px; margin-bottom: 8px; color: #38bdf8;">
+                                <i class="fas fa-wifi"></i> Connectivity Score Trend
+                            </div>
+                            <div style="height: 250px; position: relative;">
+                                <canvas id="chartOoklaConn"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Web Score -->
+                        <div class="chart-card" style="padding: 12px;">
+                            <div style="font-weight: 700; font-size: 13px; margin-bottom: 8px; color: #ec4899;">
+                                <i class="fas fa-globe"></i> Web Score Trend
+                            </div>
+                            <div style="height: 250px; position: relative;">
+                                <canvas id="chartOoklaWeb"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── SUB-PANE 2: METRICS RANK (10 Charts: 5 for ALL + 5 for 5G) ── -->
+            <div id="ooklaRankSubPane" style="display: none;">
+                <div class="table-card">
+                    <div class="table-card-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div class="table-card-title">
+                                <i class="fas fa-medal" style="color: #10b981;"></i>
+                                <span>Weekly Rank #1 Distribution (ALL &amp; 5G)</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px; margin-left: auto; flex-wrap: wrap;">
+                            <!-- Operator Checklist -->
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 11px; font-weight: 700; color: var(--sow-text-sub);">Operators:</span>
+                                <div id="ooklaRankOpChecklist" style="display: inline-flex; align-items: center; gap: 6px;">
+                                    <label style="margin: 0; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; cursor: pointer;">
+                                        <input type="checkbox" class="ookla-rank-op-check" value="Telkomsel" checked onchange="onOoklaRankOpToggle()">
+                                        <span style="color: #dc2626;">Telkomsel</span>
+                                    </label>
+                                    <label style="margin: 0; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; cursor: pointer;">
+                                        <input type="checkbox" class="ookla-rank-op-check" value="IOH" checked onchange="onOoklaRankOpToggle()">
+                                        <span style="color: #e6af2e;">IOH</span>
+                                    </label>
+                                    <label style="margin: 0; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; cursor: pointer;">
+                                        <input type="checkbox" class="ookla-rank-op-check" value="XLSMART" checked onchange="onOoklaRankOpToggle()">
+                                        <span style="color: #2563eb;">XLSMART</span>
+                                    </label>
+                                    <label style="margin: 0; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; cursor: pointer;">
+                                        <input type="checkbox" class="ookla-rank-op-check" value="Smartfren" checked onchange="onOoklaRankOpToggle()">
+                                        <span style="color: #8b5cf6;">Smartfren</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <!-- Charts / Row -->
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 11.5px; font-weight: 600; color: var(--sow-text-sub);">Charts / Row:</span>
+                                <div class="toggle-group-pills">
+                                    <button type="button" class="toggle-pill" id="btnOoklaRankCol1" onclick="setOoklaGridCols('rank', 1)">1</button>
+                                    <button type="button" class="toggle-pill active" id="btnOoklaRankCol2" onclick="setOoklaGridCols('rank', 2)">2</button>
+                                    <button type="button" class="toggle-pill" id="btnOoklaRankCol3" onclick="setOoklaGridCols('rank', 3)">3</button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn-secondary" onclick="openOoklaSmartExportModal('rank')" title="Smart PNG Presentation Export" style="height: 28px; padding: 0 10px; font-size: 11px;">
+                                <i class="fas fa-camera" style="color: #10b981;"></i> Smart Export PNG
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 1. Technology: ALL (Overall) -->
+                    <div style="padding: 14px 16px 4px 16px; font-weight: 800; font-size: 13.5px; color: #10b981; display: flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-layer-group"></i> 1. Technology: ALL (Overall)
+                    </div>
+                    <div id="ooklaRankGridAll" style="padding: 10px 16px 16px 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+                        <!-- Rank Connectivity (ALL) -->
+                        <div class="chart-card" style="padding: 14px; border: 1px solid var(--sow-border); border-radius: 8px;">
+                            <div style="text-align: center; font-weight: 800; font-size: 13.5px; margin-bottom: 6px; color: var(--text-main);">Rank Connectivity (ALL)</div>
+                            <div style="height: 260px; position: relative;"><canvas id="chartOoklaRankConnAll"></canvas></div>
+                        </div>
+                        <!-- Rank Speed (ALL) -->
+                        <div class="chart-card" style="padding: 14px; border: 1px solid var(--sow-border); border-radius: 8px;">
+                            <div style="text-align: center; font-weight: 800; font-size: 13.5px; margin-bottom: 6px; color: var(--text-main);">Rank Speed (ALL)</div>
+                            <div style="height: 260px; position: relative;"><canvas id="chartOoklaRankSpeedAll"></canvas></div>
+                        </div>
+                        <!-- Rank Video (ALL) -->
+                        <div class="chart-card" style="padding: 14px; border: 1px solid var(--sow-border); border-radius: 8px;">
+                            <div style="text-align: center; font-weight: 800; font-size: 13.5px; margin-bottom: 6px; color: var(--text-main);">Rank Video (ALL)</div>
+                            <div style="height: 260px; position: relative;"><canvas id="chartOoklaRankVideoAll"></canvas></div>
+                        </div>
+                        <!-- Rank Game (ALL) -->
+                        <div class="chart-card" style="padding: 14px; border: 1px solid var(--sow-border); border-radius: 8px;">
+                            <div style="text-align: center; font-weight: 800; font-size: 13.5px; margin-bottom: 6px; color: var(--text-main);">Rank Game (ALL)</div>
+                            <div style="height: 260px; position: relative;"><canvas id="chartOoklaRankGameAll"></canvas></div>
+                        </div>
+                        <!-- Rank Web (ALL) -->
+                        <div class="chart-card" style="padding: 14px; border: 1px solid var(--sow-border); border-radius: 8px;">
+                            <div style="text-align: center; font-weight: 800; font-size: 13.5px; margin-bottom: 6px; color: var(--text-main);">Rank Web (ALL)</div>
+                            <div style="height: 260px; position: relative;"><canvas id="chartOoklaRankWebAll"></canvas></div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Technology: 5G -->
+                    <div style="padding: 14px 16px 4px 16px; font-weight: 800; font-size: 13.5px; color: #8b5cf6; display: flex; align-items: center; gap: 6px; border-top: 1px dashed var(--sow-border); margin-top: 10px;">
+                        <i class="fas fa-broadcast-tower"></i> 2. Technology: 5G
+                    </div>
+                    <div id="ooklaRankGrid5G" style="padding: 10px 16px 16px 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+                        <!-- Rank Connectivity (5G) -->
+                        <div class="chart-card" style="padding: 14px; border: 1px solid var(--sow-border); border-radius: 8px;">
+                            <div style="text-align: center; font-weight: 800; font-size: 13.5px; margin-bottom: 6px; color: var(--text-main);">Rank Connectivity (5G)</div>
+                            <div style="height: 260px; position: relative;"><canvas id="chartOoklaRankConn5G"></canvas></div>
+                        </div>
+                        <!-- Rank Speed (5G) -->
+                        <div class="chart-card" style="padding: 14px; border: 1px solid var(--sow-border); border-radius: 8px;">
+                            <div style="text-align: center; font-weight: 800; font-size: 13.5px; margin-bottom: 6px; color: var(--text-main);">Rank Speed (5G)</div>
+                            <div style="height: 260px; position: relative;"><canvas id="chartOoklaRankSpeed5G"></canvas></div>
+                        </div>
+                        <!-- Rank Video (5G) -->
+                        <div class="chart-card" style="padding: 14px; border: 1px solid var(--sow-border); border-radius: 8px;">
+                            <div style="text-align: center; font-weight: 800; font-size: 13.5px; margin-bottom: 6px; color: var(--text-main);">Rank Video (5G)</div>
+                            <div style="height: 260px; position: relative;"><canvas id="chartOoklaRankVideo5G"></canvas></div>
+                        </div>
+                        <!-- Rank Game (5G) -->
+                        <div class="chart-card" style="padding: 14px; border: 1px solid var(--sow-border); border-radius: 8px;">
+                            <div style="text-align: center; font-weight: 800; font-size: 13.5px; margin-bottom: 6px; color: var(--text-main);">Rank Game (5G)</div>
+                            <div style="height: 260px; position: relative;"><canvas id="chartOoklaRankGame5G"></canvas></div>
+                        </div>
+                        <!-- Rank Web (5G) -->
+                        <div class="chart-card" style="padding: 14px; border: 1px solid var(--sow-border); border-radius: 8px;">
+                            <div style="text-align: center; font-weight: 800; font-size: 13.5px; margin-bottom: 6px; color: var(--text-main);">Rank Web (5G)</div>
+                            <div style="height: 260px; position: relative;"><canvas id="chartOoklaRankWeb5G"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- ══════════════════════ END OOKLA TAB 2 ══════════════════════ -->
+
+        <!-- ══════════════════════════════════════════════════════
+             OOKLA TAB 3: COMPARISON TABLE
+             ══════════════════════════════════════════════════════ -->
+        <div class="tab-content-pane" id="paneOoklaCmp" style="display: none;">
+            <!-- Comparison KPI Summary Grid -->
+            <div class="summary-grid" style="grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 14px;">
+                <div class="kpi-card">
+                    <div class="kpi-card-header">
+                        <span class="kpi-card-title">Locations Analyzed</span>
+                        <div class="kpi-card-icon" style="background: rgba(16, 185, 129, 0.15); color:#10b981"><i class="fas fa-city"></i></div>
+                    </div>
+                    <div class="kpi-card-val-row">
+                        <span class="kpi-card-val" id="ooklaCmpCardTotal">--</span>
+                        <span class="kpi-card-sub" id="ooklaCmpCardTotalSub">Locations</span>
+                    </div>
+                    <div class="kpi-card-sub" id="ooklaCmpWeekSubtitle">Week -- vs --</div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-card-header">
+                        <span class="kpi-card-title">Target Met (≥4 Wins)</span>
+                        <div class="kpi-card-icon" style="background: rgba(56, 189, 248, 0.15); color:#38bdf8"><i class="fas fa-bullseye"></i></div>
+                    </div>
+                    <div class="kpi-card-val-row">
+                        <span class="kpi-card-val" id="ooklaCmpCardMet">--</span>
+                        <span class="kpi-card-sub" id="ooklaCmpCardMetPct">(--%)</span>
+                    </div>
+                    <div><span class="kpi-badge badge-win" id="ooklaCmpCardMetBadge"><i class="fas fa-check-circle"></i> On Target</span></div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-card-header">
+                        <span class="kpi-card-title">Average Wins / Location</span>
+                        <div class="kpi-card-icon" style="background: rgba(245, 158, 11, 0.15); color:#f59e0b"><i class="fas fa-chart-line"></i></div>
+                    </div>
+                    <div class="kpi-card-val-row">
+                        <span class="kpi-card-val" id="ooklaCmpCardAvg">--</span>
+                        <span class="kpi-card-sub">/ 5 Categories</span>
+                    </div>
+                    <div class="kpi-card-sub">Out of 5 Ookla Metrics</div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-card-header">
+                        <span class="kpi-card-title">Location Extremes</span>
+                        <div class="kpi-card-icon" style="background: rgba(139, 92, 246, 0.15); color:#8b5cf6"><i class="fas fa-trophy"></i></div>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:4px; font-size:13px;">
+                        <div style="display:flex; justify-content:space-between;"><span style="color:var(--sow-text-sub);">Best:</span><span style="font-weight:700; color:#10b981;" id="ooklaCmpCardBest">--</span></div>
+                        <div style="display:flex; justify-content:space-between;"><span style="color:var(--sow-text-sub);">Lowest:</span><span style="font-weight:700; color:#ef4444;" id="ooklaCmpCardLowest">--</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Card -->
+            <div class="table-card">
+                <div class="table-card-header">
+                    <div class="table-card-title">
+                        <i class="fas fa-table" style="color: #10b981;"></i>
+                        <span>Ookla Performance by Location — Week <span id="ooklaCmpWeekTag">--</span> vs <span id="ooklaCmpPrevWeekTag">--</span></span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <select id="ooklaCmpStatusFilter" class="filter-select" style="width: 150px;" onchange="renderOoklaCmpTable()">
+                            <option value="">All Status</option>
+                            <option value="TARGET MET">TARGET MET (≥4 Wins)</option>
+                            <option value="BREACH">BREACH (&lt;4 Wins)</option>
+                        </select>
+                        <input type="search" id="ooklaCmpSearch" class="fb-search" placeholder="Search location..." oninput="renderOoklaCmpTable()">
+                        <button type="button" class="chart-btn" onclick="exportOoklaCmpCSV()"><i class="fas fa-file-csv"></i> CSV</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="sow-table" id="ooklaCmpTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;">#</th>
+                                <th>Location</th>
+                                <th style="width: 90px; text-align: center;">Total Wins</th>
+                                <th style="width: 110px; text-align: center;">Status</th>
+                                <th style="text-align: right;">Connectivity (Score &amp; WoW)</th>
+                                <th style="text-align: right;">Speed (Score &amp; WoW)</th>
+                                <th style="text-align: right;">Video (Score &amp; WoW)</th>
+                                <th style="text-align: right;">Game (Score &amp; WoW)</th>
+                                <th style="text-align: right;">Web (Score &amp; WoW)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ooklaCmpTableBody">
+                            <tr><td colspan="9" style="text-align:center; padding: 20px;">Loading comparison data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!-- ══════════════════════ END OOKLA TAB 3 ══════════════════════ -->
+
+    </div>
+    <!-- ══════════════════════ END PLATFORM: OOKLA ══════════════════════ -->
+
     <!-- ══════════════════════ PLATFORM: FB SHARE ══════════════════════ -->
     <div class="sow-platform-section" id="sectionFb">
 
@@ -2069,7 +2764,6 @@
             <div class="filter-card-header">
                 <div class="filter-title">
                     <i class="fab fa-facebook" style="color:#1877f2;"></i> FB Share Filters
-                    <span style="font-size: 11px; font-weight: 500; color: var(--sow-text-sub);">Telkomsel vs IOH (isat3) vs XLS (xl + smartfren) — averages exclude 0 values</span>
                 </div>
                 <div class="filter-presets">
                     <span style="font-size: 11px; color: var(--sow-text-sub); margin-right: 4px;">Quick Range:</span>
@@ -2078,16 +2772,6 @@
                     <button type="button" class="filter-preset-btn" onclick="fbQuickRange(26)">Last 26W</button>
                     <button type="button" class="filter-preset-btn" onclick="fbQuickRange(52)">Last 52W</button>
                     <button type="button" class="filter-preset-btn" onclick="fbQuickRange('all')">All</button>
-                </div>
-                <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
-                    <button type="button" class="btn-primary btn-fb" onclick="openFbImportModal()" title="Import Excel / CSV" style="display: flex; align-items: center; gap: 6px;">
-                        <i class="fas fa-file-import"></i> Import Data
-                    </button>
-                    <div style="display: inline-flex; gap: 4px;">
-                                                <button type="button" class="btn-secondary" onclick="openExportCsvModal('crowdsource_fb')" title="Export Data">
-                                                    <i class="fas fa-file-export"></i> Export Data
-                                                </button>
-                                            </div>
                 </div>
             </div>
             <div class="filter-grid">
@@ -2123,12 +2807,6 @@
                     <button type="button" class="btn-apply" id="fbApplyBtn" onclick="fbApplyAll()" style="background: linear-gradient(135deg, #1877f2, #8b5cf6); box-shadow: 0 2px 8px rgba(24,119,242,0.35);">
                         <i class="fas fa-play"></i> Apply
                     </button>
-                    <button type="button" class="btn-secondary" onclick="fbExportAllXLSX()" title="Export all FB Share data to Excel">
-                        <i class="fas fa-file-excel" style="color:#10b981;"></i> Export XLSX
-                    </button>
-                    <button type="button" class="btn-secondary" onclick="openFbPptxModal()" title="Export FB Share report to PowerPoint">
-                        <i class="fas fa-file-powerpoint" style="color:#d24726;"></i> Export PPTX
-                    </button>
                 </div>
             </div>
         </div>
@@ -2144,7 +2822,21 @@
             <button type="button" class="sow-tab-btn" id="fbTabBtnCmp" onclick="fbSwitchSubTab('cmp')">
                 <i class="fas fa-table"></i> Comparison Table
             </button>
-            <span class="fb-note" style="margin-left:auto; padding-right:8px;" id="fbRangeNote"></span>
+            <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+                <span class="fb-note" style="padding-right: 4px;" id="fbRangeNote"></span>
+                <button type="button" class="btn-primary btn-fb" onclick="openFbImportModal()" title="Import Excel / CSV" style="display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-file-import"></i> Import Data
+                </button>
+                <button type="button" class="btn-secondary" onclick="openExportCsvModal('crowdsource_fb')" title="Export Data">
+                    <i class="fas fa-file-export"></i> Export Data
+                </button>
+                <button type="button" class="btn-secondary" onclick="fbExportAllXLSX()" title="Export all FB Share data to Excel">
+                    <i class="fas fa-file-excel" style="color:#10b981;"></i> Export XLSX
+                </button>
+                <button type="button" class="btn-secondary" onclick="openFbPptxModal()" title="Export FB Share report to PowerPoint">
+                    <i class="fas fa-file-powerpoint" style="color:#d24726;"></i> Export PPTX
+                </button>
+            </div>
         </div>
 
         <!-- ══════════ SUB-TAB 1: FACEBOOK ACHIEVEMENT ══════════ -->
@@ -2772,6 +3464,132 @@
             </button>
             <button type="button" class="btn-apply" id="btnTrendExportDownload" onclick="executeTrendAdvancedExport()">
                 <i class="fas fa-camera"></i> <span id="btnTrendExportDownloadText">Download PNG</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════ OOKLA SMART PNG EXPORT MODAL ═══════════════════ -->
+<div id="ooklaSmartExportModal" class="import-modal-overlay" style="display: none;" onclick="if(event.target === this) closeOoklaSmartExportModal()">
+    <div class="import-modal-card" style="max-width: 780px; width: 95%; max-height: 90vh; overflow-y: auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #10b981;">
+                    <i class="fas fa-camera"></i> Ookla Smart Export PNG
+                </h3>
+                <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.4px; background: rgba(16,185,129,0.15); color: #059669; border: 1px solid rgba(16,185,129,0.3); padding: 2px 8px; border-radius: 12px;">
+                    <i class="fas fa-magic" style="margin-right: 4px;"></i>PowerPoint (PPT) Ready
+                </span>
+            </div>
+            <button type="button" onclick="closeOoklaSmartExportModal()" style="border: none; font-size: 18px; background: transparent; cursor: pointer; color: var(--sow-text-sub);">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <!-- Category Selection Header -->
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+            <div style="font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                <span>Select Categories:</span>
+                <span id="ooklaExportCountBadge" style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: rgba(16,185,129,0.12); color: #059669; font-weight: 600;">5 selected</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <button type="button" class="btn-secondary" onclick="toggleAllOoklaExportMetrics(true)" style="height: 28px; padding: 0 8px; font-size: 11px;">All</button>
+                <button type="button" class="btn-secondary" onclick="toggleAllOoklaExportMetrics(false)" style="height: 28px; padding: 0 8px; font-size: 11px;">Clear</button>
+            </div>
+        </div>
+        
+        <div id="ooklaExportMetricsList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; font-size: 11.5px; padding: 8px; border: 1px solid var(--sow-border); border-radius: 8px; background: rgba(16, 185, 129, 0.03);">
+            <label style="margin: 0; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" class="ookla-export-check" value="speed" data-title="Speed Score" checked onchange="updateOoklaSmartFitPreview()">
+                <span>Speed</span>
+            </label>
+            <label style="margin: 0; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" class="ookla-export-check" value="video" data-title="Video Score" checked onchange="updateOoklaSmartFitPreview()">
+                <span>Video</span>
+            </label>
+            <label style="margin: 0; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" class="ookla-export-check" value="game" data-title="Game Score" checked onchange="updateOoklaSmartFitPreview()">
+                <span>Game</span>
+            </label>
+            <label style="margin: 0; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" class="ookla-export-check" value="connectivity" data-title="Connectivity Score" checked onchange="updateOoklaSmartFitPreview()">
+                <span>Connectivity</span>
+            </label>
+            <label style="margin: 0; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" class="ookla-export-check" value="web" data-title="Web Score" checked onchange="updateOoklaSmartFitPreview()">
+                <span>Web</span>
+            </label>
+        </div>
+
+        <!-- Smart Fit Options Panel -->
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px; padding: 12px; border-radius: 10px; border: 1px solid var(--sow-border); background: rgba(16, 185, 129, 0.03);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+                <span style="font-size: 12px; font-weight: 700; color: #059669; display: flex; align-items: center; gap: 6px;">
+                    <i class="fas fa-sliders-h"></i> Presentation &amp; Smart Aspect Ratio Settings
+                </span>
+                <span style="font-size: 11px; color: var(--sow-text-sub);">Auto-optimizes layout for PowerPoint</span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px;">
+                <div style="display: flex; flex-direction: column; gap: 3px;">
+                    <label style="font-size: 11px; font-weight: 600; color: var(--sow-text-sub);">Aspect Ratio</label>
+                    <select id="ooklaExportAspect" class="filter-select" style="height: 32px;" onchange="onOoklaExportAspectChange()">
+                        <option value="16:9" selected>16:9 Widescreen (PPT)</option>
+                        <option value="4:3">4:3 Standard Slide</option>
+                        <option value="auto">Auto Grid (Balanced)</option>
+                        <option value="custom">Custom Columns</option>
+                    </select>
+                </div>
+                <div id="ooklaExportCustomColGroup" style="display: none; flex-direction: column; gap: 3px;">
+                    <label style="font-size: 11px; font-weight: 600; color: var(--sow-text-sub);">Columns</label>
+                    <select id="ooklaExportCustomCols" class="filter-select" style="height: 32px;" onchange="updateOoklaSmartFitPreview()">
+                        <option value="1">1 Column</option>
+                        <option value="2" selected>2 Columns</option>
+                        <option value="3">3 Columns</option>
+                        <option value="4">4 Columns</option>
+                        <option value="5">5 Columns</option>
+                        <option value="6">6 Columns</option>
+                    </select>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 3px;">
+                    <label style="font-size: 11px; font-weight: 600; color: var(--sow-text-sub);">Background</label>
+                    <select id="ooklaExportTheme" class="filter-select" style="height: 32px;" onchange="updateOoklaSmartFitPreview()">
+                        <option value="white" selected>Presentation White</option>
+                        <option value="dark">Dark Theme</option>
+                        <option value="transparent">Transparent</option>
+                    </select>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 3px;">
+                    <label style="font-size: 11px; font-weight: 600; color: var(--sow-text-sub);">Resolution</label>
+                    <select id="ooklaExportRes" class="filter-select" style="height: 32px;" onchange="updateOoklaSmartFitPreview()">
+                        <option value="1080p" selected>Full HD (1080p)</option>
+                        <option value="4k">Ultra HD 4K (2× Crisp)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Header Toggle -->
+            <div style="margin-top: 4px;">
+                <label style="font-size: 11.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                    <input type="checkbox" id="ooklaExportShowHeader" checked onchange="updateOoklaSmartFitPreview()">
+                    <span>Include Presentation Header (Title, Location, Week Range &amp; Providers)</span>
+                </label>
+            </div>
+
+            <!-- Dynamic Live Status Banner -->
+            <div id="ooklaExportSmartFitBadge" style="padding: 6px 10px; border-radius: 6px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); font-size: 11.5px; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+                <i class="fas fa-sparkles" style="color: #10b981;"></i>
+                <span id="ooklaExportSmartFitText">Calculating layout...</span>
+            </div>
+        </div>
+        
+        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap;">
+            <button type="button" class="btn-secondary" onclick="closeOoklaSmartExportModal()">Cancel</button>
+            <button type="button" class="btn-secondary" id="btnOoklaExportClipboard" onclick="doCopyOoklaExportClipboard()" style="border-color: #10b981; color: #059669; font-weight: 700;">
+                <i class="fas fa-copy"></i> <span id="btnOoklaExportClipboardText">Copy to Clipboard</span>
+            </button>
+            <button type="button" class="btn-apply" id="btnOoklaExportDownload" onclick="executeOoklaSmartExport()" style="background: linear-gradient(135deg, #059669, #10b981);">
+                <i class="fas fa-camera"></i> <span id="btnOoklaExportDownloadText">Download PNG</span>
             </button>
         </div>
     </div>
@@ -6279,18 +7097,49 @@
         setTimeout(() => { Object.values(fbCharts).forEach(c => c && c.resize()); }, 60);
     }
 
-    // ── Platform switching (ONX / FB Share) ──
+    // ── Platform switching (ONX / Ookla / FB Share) ──
+    let ooklaLoaded = false;
+    let ooklaChartInstance = null;
+    let ooklaTrendChartInstances = {};
+    let ooklaRankChartInstances = {};
+    let ooklaShowDataLabels = true;
+    let ooklaCurrentData = null;
+    let currentOoklaMainTab = 'achievement';
+    let ooklaCmpData = null;
+    let ooklaTrendCols = 2;
+    let ooklaRankCols = 2;
+    let _ooklaExportViewType = 'trend';
+    let ooklaAreaRegions = {{ (ookla_dimensions.area_regions if ookla_dimensions else {}) | tojson }};
+
     function switchPlatform(p) {
+        const isOnx = p === "onx";
+        const isOokla = p === "ookla";
         const isFb = p === "fb";
-        document.getElementById("platBtnOnx").classList.toggle("active", !isFb);
+
+        document.getElementById("platBtnOnx").classList.toggle("active", isOnx);
+        document.getElementById("platBtnOokla").classList.toggle("active", isOokla);
         document.getElementById("platBtnFb").classList.toggle("active", isFb);
-        document.getElementById("sectionOnx").classList.toggle("active", !isFb);
+
+        document.getElementById("sectionOnx").classList.toggle("active", isOnx);
+        document.getElementById("sectionOokla").classList.toggle("active", isOokla);
         document.getElementById("sectionFb").classList.toggle("active", isFb);
-        try { history.replaceState(null, "", isFb ? "#fb" : "#onx"); } catch (e) { /* ignore */ }
+
+        try { history.replaceState(null, "", isOokla ? "#ookla" : (isFb ? "#fb" : "#onx")); } catch (e) { /* ignore */ }
 
         if (isFb) {
             if (!fbLoaded) { fbLoaded = true; fbApplyAll(); }
             else setTimeout(() => Object.values(fbCharts).forEach(c => c && c.resize()), 60);
+        } else if (isOokla) {
+            if (!ooklaLoaded) {
+                ooklaLoaded = true;
+                initOoklaPlatform();
+            } else {
+                setTimeout(() => {
+                    if (ooklaChartInstance) ooklaChartInstance.resize();
+                    Object.values(ooklaTrendChartInstances || {}).forEach(c => { if (c) c.resize(); });
+                    Object.values(ooklaRankChartInstances || {}).forEach(c => { if (c) c.resize(); });
+                }, 60);
+            }
         } else {
             setTimeout(() => {
                 if (sowChart) sowChart.resize();
@@ -6301,7 +7150,1377 @@
 
     document.addEventListener("DOMContentLoaded", function () {
         if (location.hash === "#fb") switchPlatform("fb");
+        else if (location.hash === "#ookla") switchPlatform("ookla");
     });
+
+    // ── OOKLA PLATFORM LOGIC ──
+    function initOoklaPlatform() {
+        if (!ooklaAreaRegions || Object.keys(ooklaAreaRegions).length === 0) {
+            fetch('/api/sow/ookla/dimensions')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success' && data.dimensions) {
+                        ooklaAreaRegions = data.dimensions.area_regions || {};
+                        onOoklaAreaChange();
+                        applyOoklaFilters();
+                    }
+                })
+                .catch(() => applyOoklaFilters());
+        } else {
+            onOoklaAreaChange();
+            applyOoklaFilters();
+        }
+    }
+
+    function onOoklaLevelChange() {
+        const lvl = (document.getElementById('filterOoklaLevel').value || '').toLowerCase();
+        const areaGrp = document.getElementById('ooklaAreaGroup');
+        const regGrp = document.getElementById('ooklaRegionGroup');
+        const kabGrp = document.getElementById('ooklaKabupatenGroup');
+
+        if (lvl === 'nation') {
+            if (areaGrp) areaGrp.style.display = 'none';
+            if (regGrp) regGrp.style.display = 'none';
+            if (kabGrp) kabGrp.style.display = 'none';
+        } else if (lvl === 'area') {
+            if (areaGrp) areaGrp.style.display = 'flex';
+            if (regGrp) regGrp.style.display = 'none';
+            if (kabGrp) kabGrp.style.display = 'none';
+        } else if (lvl === 'region') {
+            if (areaGrp) areaGrp.style.display = 'flex';
+            if (regGrp) regGrp.style.display = 'flex';
+            if (kabGrp) kabGrp.style.display = 'none';
+            onOoklaAreaChange();
+        } else if (lvl === 'kabupaten') {
+            if (areaGrp) areaGrp.style.display = 'flex';
+            if (regGrp) regGrp.style.display = 'flex';
+            if (kabGrp) kabGrp.style.display = 'flex';
+            onOoklaAreaChange();
+        }
+    }
+
+    function onOoklaAreaChange() {
+        const area = document.getElementById('filterOoklaArea').value;
+        const regSel = document.getElementById('filterOoklaRegion');
+        const lvl = (document.getElementById('filterOoklaLevel').value || '').toLowerCase();
+        if (!regSel) return;
+
+        const regs = (ooklaAreaRegions && ooklaAreaRegions[area]) ? ooklaAreaRegions[area] : [];
+        if (regs.length > 0) {
+            const prev = regSel.value;
+            regSel.innerHTML = regs.map(r => `<option value="${r}" ${r === prev || (r === 'MALUKU DAN PAPUA' && !regs.includes(prev)) ? 'selected' : ''}>${r}</option>`).join('');
+            if (!regSel.value && regs.length > 0) regSel.value = regs[0];
+        }
+
+        if (lvl === 'kabupaten') {
+            onOoklaRegionChange();
+        }
+    }
+
+    function onOoklaRegionChange() {
+        const reg = document.getElementById('filterOoklaRegion').value;
+        const kabSel = document.getElementById('filterOoklaKabupaten');
+        const lvl = (document.getElementById('filterOoklaLevel').value || '').toLowerCase();
+        if (!kabSel || lvl !== 'kabupaten' || !reg) return;
+
+        kabSel.innerHTML = '<option value="">Loading kabupatens...</option>';
+        fetch(`/api/sow/ookla/kabupatens?region=${encodeURIComponent(reg)}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success' && data.kabupatens) {
+                    if (data.kabupatens.length > 0) {
+                        kabSel.innerHTML = data.kabupatens.map(k => `<option value="${k}">${k}</option>`).join('');
+                    } else {
+                        kabSel.innerHTML = '<option value="">No kabupaten found</option>';
+                    }
+                }
+            })
+            .catch(() => {
+                kabSel.innerHTML = '<option value="">Error loading</option>';
+            });
+    }
+
+    let currentOoklaTrendSubTab = 'trend';
+
+    function switchOoklaMainTab(tab) {
+        currentOoklaMainTab = tab;
+        const isAch = tab === 'achievement';
+        const isTrend = tab === 'trend';
+        const isCmp = tab === 'comparison';
+
+        document.getElementById('tabBtnOoklaAchievement').classList.toggle('active', isAch);
+        document.getElementById('tabBtnOoklaTrend').classList.toggle('active', isTrend);
+        document.getElementById('tabBtnOoklaCmp').classList.toggle('active', isCmp);
+
+        document.getElementById('paneOoklaAchievement').style.display = isAch ? 'block' : 'none';
+        document.getElementById('paneOoklaTrend').style.display = isTrend ? 'block' : 'none';
+        document.getElementById('paneOoklaCmp').style.display = isCmp ? 'block' : 'none';
+
+        if (isTrend) {
+            if (currentOoklaTrendSubTab === 'rank') {
+                applyOoklaRankTrends();
+            } else {
+                applyOoklaTrendFilters();
+            }
+        } else if (isCmp) {
+            applyOoklaComparison();
+        } else {
+            setTimeout(() => { if (ooklaChartInstance) ooklaChartInstance.resize(); }, 60);
+        }
+    }
+
+    function switchOoklaTrendSubTab(subTab) {
+        currentOoklaTrendSubTab = subTab;
+        const isTrend = subTab === 'trend';
+        const isRank = subTab === 'rank';
+
+        document.getElementById('btnOoklaSubTrend').classList.toggle('active', isTrend);
+        document.getElementById('btnOoklaSubRank').classList.toggle('active', isRank);
+
+        document.getElementById('ooklaTrendSubPane').style.display = isTrend ? 'block' : 'none';
+        document.getElementById('ooklaRankSubPane').style.display = isRank ? 'block' : 'none';
+
+        if (isTrend) {
+            applyOoklaTrendFilters();
+            setTimeout(() => {
+                Object.values(ooklaTrendChartInstances || {}).forEach(c => c && c.resize());
+            }, 60);
+        } else if (isRank) {
+            applyOoklaRankTrends();
+            setTimeout(() => {
+                Object.values(ooklaRankChartInstances || {}).forEach(c => c && c.resize());
+            }, 60);
+        }
+    }
+
+    function setOoklaGridCols(type, cols) {
+        cols = parseInt(cols, 10) || 2;
+        if (type === 'trend') {
+            ooklaTrendCols = cols;
+            [1, 2, 3].forEach(c => {
+                const btn = document.getElementById(`btnOoklaTrendCol${c}`);
+                if (btn) btn.classList.toggle('active', c === cols);
+            });
+            const grid = document.getElementById('ooklaTrendGrid');
+            if (grid) grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+            setTimeout(() => {
+                Object.values(ooklaTrendChartInstances || {}).forEach(c => c && c.resize());
+            }, 60);
+        } else if (type === 'rank') {
+            ooklaRankCols = cols;
+            [1, 2, 3].forEach(c => {
+                const btn = document.getElementById(`btnOoklaRankCol${c}`);
+                if (btn) btn.classList.toggle('active', c === cols);
+            });
+            const gridAll = document.getElementById('ooklaRankGridAll');
+            const grid5G = document.getElementById('ooklaRankGrid5G');
+            if (gridAll) gridAll.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+            if (grid5G) grid5G.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+            setTimeout(() => {
+                Object.values(ooklaRankChartInstances || {}).forEach(c => c && c.resize());
+            }, 60);
+        }
+    }
+
+    function ooklaQuickRange(type) {
+        const startSel = document.getElementById('ooklaStartYw');
+        const endSel = document.getElementById('ooklaEndYw');
+        if (!startSel || !endSel || !startSel.options.length) return;
+
+        const allOpts = Array.from(startSel.options).map(o => parseInt(o.value)).sort((a,b) => a - b);
+        const latest = allOpts[allOpts.length - 1];
+
+        if (type === '2026') {
+            const y26 = allOpts.filter(w => String(w).startsWith('2026'));
+            startSel.value = y26.length > 0 ? y26[0] : allOpts[0];
+        } else if (type === 'all') {
+            startSel.value = allOpts[0];
+        } else {
+            const count = parseInt(type);
+            const idx = Math.max(0, allOpts.length - count);
+            startSel.value = allOpts[idx];
+        }
+        endSel.value = latest;
+        applyOoklaFilters();
+    }
+
+    function resetOoklaFilters() {
+        document.getElementById('filterOoklaLevel').value = 'Region';
+        document.getElementById('filterOoklaArea').value = 'AREA 4';
+        onOoklaLevelChange();
+        document.getElementById('filterOoklaRegion').value = 'MALUKU DAN PAPUA';
+        document.getElementById('filterOoklaTech').value = 'ALL';
+        document.getElementById('filterOoklaOperator').value = 'Telkomsel';
+        ooklaQuickRange('2026');
+    }
+
+    function applyOoklaFilters() {
+        if (currentOoklaMainTab === 'trend') {
+            applyOoklaTrendFilters();
+            return;
+        } else if (currentOoklaMainTab === 'rank') {
+            applyOoklaRankTrends();
+            return;
+        } else if (currentOoklaMainTab === 'comparison') {
+            applyOoklaComparison();
+            return;
+        }
+
+        const lvl = (document.getElementById('filterOoklaLevel').value || 'region').toLowerCase();
+        const area = document.getElementById('filterOoklaArea').value;
+        const region = document.getElementById('filterOoklaRegion').value;
+        const kabupaten = (document.getElementById('filterOoklaKabupaten') ? document.getElementById('filterOoklaKabupaten').value : '');
+        const tech = document.getElementById('filterOoklaTech').value;
+        const operator = document.getElementById('filterOoklaOperator').value;
+        const startYw = parseInt(document.getElementById('ooklaStartYw').value);
+        const endYw = parseInt(document.getElementById('ooklaEndYw').value);
+
+        const loader = document.getElementById('ooklaChartLoading');
+        if (loader) loader.style.display = 'flex';
+
+        fetch('/api/sow/ookla/chart-data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                level: lvl,
+                area: area,
+                region: region,
+                kabupaten: kabupaten,
+                tech: tech,
+                operator: operator,
+                start_yearweek: startYw,
+                end_yearweek: endYw,
+                target_wins: 4
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (loader) loader.style.display = 'none';
+            if (data.status === 'success') {
+                ooklaCurrentData = data;
+                renderOoklaExecutiveBanner(data.summary, lvl, area, region, kabupaten, tech, operator);
+                renderOoklaKpiCards(data.summary);
+                renderOoklaChart(data);
+                
+                // Populate detail week select
+                const detailWeekSelect = document.getElementById('ooklaDetailWeekSelect');
+                if (detailWeekSelect && data.weeks && data.weeks.length > 0) {
+                    detailWeekSelect.innerHTML = data.weeks.slice().reverse().map(w => `<option value="${w}">${w}</option>`).join('');
+                    detailWeekSelect.value = data.summary.latest_week || data.weeks[data.weeks.length - 1];
+                    loadOoklaMetricsDetail(detailWeekSelect.value);
+                }
+            } else {
+                console.error("Error loading Ookla data:", data.message);
+            }
+        })
+        .catch(err => {
+            if (loader) loader.style.display = 'none';
+            console.error("Failed to fetch Ookla chart data:", err);
+        });
+    }
+
+    function renderOoklaExecutiveBanner(sum, lvl, area, region, kabupaten, tech, operator) {
+        if (!sum) return;
+        const titleEl = document.getElementById('ooklaBannerRegionTitle');
+        const weekNumEl = document.getElementById('ooklaBannerWeekNum');
+        const scopeBadge = document.getElementById('ooklaBannerScopeBadge');
+        const techBadge = document.getElementById('ooklaBannerTechBadge');
+
+        const locName = lvl === 'kabupaten' ? (kabupaten || region) : (lvl === 'region' ? region : (lvl === 'area' ? area : 'NATIONAL'));
+        if (titleEl) titleEl.textContent = locName;
+        if (weekNumEl) weekNumEl.textContent = sum.latest_week || '--';
+        if (scopeBadge) scopeBadge.textContent = operator.toUpperCase();
+        if (techBadge) techBadge.textContent = tech.toUpperCase() + ' TECH';
+
+        const bannerTarget = document.getElementById('ooklaBannerTarget');
+        const bannerAch = document.getElementById('ooklaBannerAch');
+        const bannerGap = document.getElementById('ooklaBannerGap');
+        const bannerStatus = document.getElementById('ooklaBannerStatus');
+
+        if (bannerTarget) bannerTarget.textContent = sum.target;
+        if (bannerAch) bannerAch.textContent = sum.latest_wins;
+        if (bannerGap) {
+            const sign = sum.gap >= 0 ? '+' : '';
+            bannerGap.textContent = `${sign}${sum.gap}`;
+            bannerGap.style.color = sum.gap >= 0 ? '#a7f3d0' : '#fca5a5';
+        }
+        if (bannerStatus) {
+            bannerStatus.textContent = sum.status;
+            bannerStatus.style.color = sum.status === 'TARGET MET' ? '#34d399' : '#f87171';
+        }
+
+        // Executive highlights
+        const listEl = document.getElementById('ooklaExecBulletsList');
+        if (listEl && sum.highlights) {
+            listEl.innerHTML = sum.highlights.map(h => `<li><i class="fas fa-check-circle" style="color:#10b981; margin-right:6px;"></i>${h}</li>`).join('');
+        }
+    }
+
+    function renderOoklaKpiCards(sum) {
+        if (!sum) return;
+        const latestWin = document.getElementById('ooklaCardLatestWin');
+        const latestBadge = document.getElementById('ooklaCardLatestBadge');
+        if (latestWin) latestWin.textContent = sum.latest_wins;
+        if (latestBadge) {
+            const isMet = sum.status === 'TARGET MET';
+            latestBadge.className = isMet ? 'kpi-badge badge-win' : 'kpi-badge badge-lose';
+            latestBadge.innerHTML = `<i class="fas ${isMet ? 'fa-check-circle' : 'fa-times-circle'}"></i> ${sum.status}`;
+        }
+
+        const targetCount = document.getElementById('ooklaCardTargetCount');
+        const targetPct = document.getElementById('ooklaCardTargetPct');
+        const targetRatio = document.getElementById('ooklaCardTargetRatio');
+        if (targetCount) targetCount.textContent = sum.target_met_count;
+        if (targetPct) targetPct.textContent = `(${sum.target_met_ratio}%)`;
+        if (targetRatio) targetRatio.textContent = `Out of ${sum.evaluated_weeks} evaluated weeks`;
+
+        const avgWin = document.getElementById('ooklaCardAvgWin');
+        const avgRate = document.getElementById('ooklaCardAvgRate');
+        if (avgWin) avgWin.textContent = sum.avg_wins;
+        if (avgRate) avgRate.textContent = `Average Win Rate: ${sum.avg_win_rate}%`;
+
+        const bestWeek = document.getElementById('ooklaCardBestWeek');
+        const lowestWeek = document.getElementById('ooklaCardLowestWeek');
+        if (bestWeek) bestWeek.textContent = sum.best_week;
+        if (lowestWeek) lowestWeek.textContent = sum.lowest_week;
+    }
+
+    function renderOoklaChart(data) {
+        const canvas = document.getElementById('ooklaChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        const subTitle = document.getElementById('ooklaChartSubtitle');
+        if (subTitle && data.summary) {
+            subTitle.textContent = `${data.weeks.length} Weeks Evaluated · Quarterly Target: ≥ ${data.summary.target} Wins`;
+        }
+
+        if (ooklaChartInstance) {
+            ooklaChartInstance.destroy();
+            ooklaChartInstance = null;
+        }
+
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const textColor = isDark ? '#cbd5e1' : '#475569';
+        const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+
+        const chartConfig = {
+            type: 'bar',
+            data: {
+                labels: data.weeks,
+                datasets: [
+                    {
+                        label: '#lose',
+                        data: data.lose_counts,
+                        backgroundColor: '#f87171',
+                        borderRadius: 3,
+                        stack: 'stack1',
+                        order: 2
+                    },
+                    {
+                        label: '#win',
+                        data: data.win_counts,
+                        backgroundColor: '#10b981',
+                        borderRadius: 3,
+                        stack: 'stack1',
+                        order: 2
+                    },
+                    {
+                        label: 'Target (4)',
+                        data: data.target_line,
+                        type: 'line',
+                        borderColor: '#0284c7',
+                        borderWidth: 2,
+                        borderDash: [5, 4],
+                        pointRadius: 0,
+                        fill: false,
+                        order: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 400 },
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            title: (items) => `Week ${items[0].label}`,
+                            label: (c) => ` ${c.dataset.label}: ${c.raw}`,
+                            afterBody: (items) => {
+                                const idx = items[0].dataIndex;
+                                const rate = data.win_rates[idx] || 0;
+                                return [`Win Rate: ${rate}%`];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        grid: { display: false },
+                        ticks: {
+                            color: textColor,
+                            font: { size: 10, family: 'Inter, sans-serif' },
+                            maxRotation: 45,
+                            minRotation: 45
+                        }
+                    },
+                    y: {
+                        stacked: true,
+                        min: 0,
+                        max: 5,
+                        grid: { color: gridColor },
+                        ticks: {
+                            stepSize: 1,
+                            color: textColor,
+                            font: { size: 11, family: 'Inter, sans-serif' }
+                        }
+                    }
+                },
+                onClick: (evt, activeEls) => {
+                    if (activeEls && activeEls.length > 0) {
+                        const idx = activeEls[0].index;
+                        const clickedW = data.weeks[idx];
+                        const sel = document.getElementById('ooklaDetailWeekSelect');
+                        if (sel) {
+                            sel.value = clickedW;
+                            loadOoklaMetricsDetail(clickedW);
+                        }
+                    }
+                }
+            }
+        };
+
+        ooklaChartInstance = new Chart(ctx, chartConfig);
+    }
+
+    function toggleOoklaDataset(idx) {
+        if (!ooklaChartInstance) return;
+        const meta = ooklaChartInstance.getDatasetMeta(idx);
+        meta.hidden = !meta.hidden;
+        ooklaChartInstance.update();
+    }
+
+    function toggleOoklaDataLabels() {
+        ooklaShowDataLabels = !ooklaShowDataLabels;
+        const btn = document.getElementById('btnToggleOoklaLabels');
+        if (btn) btn.innerHTML = `<i class="fas fa-tag"></i> Labels: ${ooklaShowDataLabels ? 'ON' : 'OFF'}`;
+    }
+
+    function exportOoklaChartPNG() {
+        if (!ooklaChartInstance) return;
+        const a = document.createElement('a');
+        a.download = `Ookla_WinLose_Trend.png`;
+        a.href = ooklaChartInstance.toBase64Image();
+        a.click();
+    }
+
+    function openOoklaChartModal() {
+        if (!ooklaChartInstance) return;
+        exportOoklaChartPNG();
+    }
+
+    function loadOoklaMetricsDetail(yw) {
+        const lvl = (document.getElementById('filterOoklaLevel').value || 'region').toLowerCase();
+        const area = document.getElementById('filterOoklaArea').value;
+        const region = document.getElementById('filterOoklaRegion').value;
+        const kabupaten = (document.getElementById('filterOoklaKabupaten') ? document.getElementById('filterOoklaKabupaten').value : '');
+        const tech = document.getElementById('filterOoklaTech').value;
+        const operator = document.getElementById('filterOoklaOperator').value;
+
+        const tbody = document.getElementById('ooklaMetricsTableBody');
+        const weekLbl = document.getElementById('ooklaTableWeekLabel');
+        if (weekLbl) weekLbl.textContent = yw;
+
+        fetch(`/api/sow/ookla/metrics-detail?level=${encodeURIComponent(lvl)}&area=${encodeURIComponent(area)}&region=${encodeURIComponent(region)}&kabupaten=${encodeURIComponent(kabupaten)}&tech=${encodeURIComponent(tech)}&operator=${encodeURIComponent(operator)}&yearweek=${encodeURIComponent(yw)}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const winPill = document.getElementById('ooklaPillWinCount');
+                    const losePill = document.getElementById('ooklaPillLoseCount');
+                    if (winPill) winPill.textContent = `${data.wins} Wins`;
+                    if (losePill) losePill.textContent = `${data.loses} Loses`;
+
+                    if (tbody && data.detail) {
+                        tbody.innerHTML = data.detail.map((m, idx) => {
+                            const isWin = m.status === 'WIN';
+                            const isInfo = m.status === 'INFO';
+                            const badgeHtml = isInfo
+                                ? `<span class="kpi-badge" style="background:rgba(100,116,139,0.15); color:#64748b;">INFO</span>`
+                                : (isWin ? `<span class="kpi-badge badge-win"><i class="fas fa-check"></i> WIN</span>` : `<span class="kpi-badge badge-lose"><i class="fas fa-times"></i> LOSE</span>`);
+
+                            const rankDisplay = isInfo ? '-' : (m.rank ? `Rank #${m.rank}` : '-');
+                            const scoreDisplay = m.score !== null ? `${m.score}${m.score_unit || ''}` : '-';
+
+                            const iohData = (m.competitors && m.competitors['IOH']) || {};
+                            const iohScore = iohData.score !== null && iohData.score !== undefined ? `${iohData.score}` : '-';
+
+                            const xlData = (m.competitors && (m.competitors['XLSMART'] || m.competitors['XL'])) || {};
+                            const xlScore = xlData.score !== null && xlData.score !== undefined ? `${xlData.score}` : '-';
+
+                            return `
+                                <tr>
+                                    <td style="color:var(--sow-text-sub);">${idx + 1}</td>
+                                    <td style="font-weight: 700;">
+                                        <i class="fas ${m.icon}" style="color:${m.color}; margin-right: 6px;"></i>
+                                        ${m.name}
+                                    </td>
+                                    <td style="font-size: 11px; color: var(--sow-text-sub);">${m.description}</td>
+                                    <td style="text-align: center; font-weight: 800; color: ${isWin ? '#10b981' : (isInfo ? '#64748b' : '#ef4444')};">
+                                        ${rankDisplay}
+                                    </td>
+                                    <td style="text-align: right; font-weight: 800; font-size: 13px;">${scoreDisplay}</td>
+                                    <td style="text-align: right; color: var(--sow-text-sub);">${iohScore}</td>
+                                    <td style="text-align: right; color: var(--sow-text-sub);">${xlScore}</td>
+                                    <td style="text-align: center;">${badgeHtml}</td>
+                                </tr>
+                            `;
+                        }).join('');
+                    }
+                }
+            })
+            .catch(err => {
+                console.error("Error loading Ookla metrics detail:", err);
+            });
+    }
+
+    let ooklaTrendMetricsRaw = null;
+
+    function applyOoklaTrendFilters() {
+        const lvl = (document.getElementById('filterOoklaLevel').value || 'region').toLowerCase();
+        const area = document.getElementById('filterOoklaArea').value;
+        const region = document.getElementById('filterOoklaRegion').value;
+        const kabupaten = (document.getElementById('filterOoklaKabupaten') ? document.getElementById('filterOoklaKabupaten').value : '');
+        const tech = document.getElementById('filterOoklaTech').value;
+        const startYw = parseInt(document.getElementById('ooklaStartYw').value);
+        const endYw = parseInt(document.getElementById('ooklaEndYw').value);
+
+        fetch('/api/sow/ookla/trend-metrics', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                level: lvl,
+                area: area,
+                region: region,
+                kabupaten: kabupaten,
+                tech: tech,
+                start_yearweek: startYw,
+                end_yearweek: endYw
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success' && data.categories) {
+                ooklaTrendMetricsRaw = data;
+                renderAllOoklaTrendCharts();
+            }
+        })
+        .catch(err => console.error("Error loading Ookla trend metrics:", err));
+    }
+
+    function onOoklaTrendOpToggle() {
+        renderAllOoklaTrendCharts();
+    }
+
+    function renderAllOoklaTrendCharts() {
+        if (!ooklaTrendMetricsRaw || !ooklaTrendMetricsRaw.categories) return;
+        const selOps = Array.from(document.querySelectorAll('.ookla-trend-op-check:checked')).map(cb => cb.value);
+        const weeks = ooklaTrendMetricsRaw.weeks;
+        const cats = ooklaTrendMetricsRaw.categories;
+
+        renderOoklaCategoryChart('chartOoklaSpeed', weeks, cats.speed, selOps);
+        renderOoklaCategoryChart('chartOoklaVideo', weeks, cats.video, selOps);
+        renderOoklaCategoryChart('chartOoklaGame', weeks, cats.game, selOps);
+        renderOoklaCategoryChart('chartOoklaConn', weeks, cats.connectivity, selOps);
+        renderOoklaCategoryChart('chartOoklaWeb', weeks, cats.web, selOps);
+    }
+
+    function renderOoklaCategoryChart(canvasId, weeks, catData, selOps) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas || !catData) return;
+
+        if (ooklaTrendChartInstances[canvasId]) {
+            ooklaTrendChartInstances[canvasId].destroy();
+        }
+
+        const opColors = {
+            'Telkomsel': '#dc2626',
+            'IOH': '#e6af2e',
+            'XLSMART': '#2563eb',
+            'XL': '#2563eb',
+            'Smartfren': '#8b5cf6'
+        };
+
+        const activeOps = (selOps && selOps.length) ? selOps : ['Telkomsel', 'IOH', 'XLSMART', 'Smartfren'];
+        const allSeriesOps = Object.keys(catData.series || {});
+        const displayOps = allSeriesOps.filter(op => activeOps.includes(op));
+
+        const datasets = displayOps.map(op => ({
+            label: op,
+            data: catData.series[op],
+            borderColor: opColors[op] || '#64748b',
+            backgroundColor: opColors[op] || '#64748b',
+            borderWidth: op === 'Telkomsel' ? 2.5 : 1.8,
+            pointRadius: weeks.length > 50 ? 0 : 2,
+            tension: 0.1,
+            spanGaps: true
+        }));
+
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const textColor = isDark ? '#cbd5e1' : '#475569';
+
+        ooklaTrendChartInstances[canvasId] = new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: { labels: weeks, datasets: datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                spanGaps: true,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: { font: { size: 10, family: 'Inter, sans-serif' }, color: textColor, boxWidth: 10, boxHeight: 6 }
+                    },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 9 }, color: textColor, maxRotation: 45, minRotation: 45 }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { font: { size: 9.5 }, color: textColor }
+                    }
+                }
+            }
+        });
+    }
+
+    // ── Ookla Category Ranks Logic (10 Charts: 5 for ALL + 5 for 5G) ──
+    let ooklaRankDataRaw = null;
+
+    function applyOoklaRankTrends() {
+        const lvl = (document.getElementById('filterOoklaLevel').value || 'region').toLowerCase();
+        const area = document.getElementById('filterOoklaArea').value;
+        const region = document.getElementById('filterOoklaRegion').value;
+        const kabupaten = (document.getElementById('filterOoklaKabupaten') ? document.getElementById('filterOoklaKabupaten').value : '');
+        const tech = document.getElementById('filterOoklaTech').value;
+        const startYw = parseInt(document.getElementById('ooklaStartYw').value);
+        const endYw = parseInt(document.getElementById('ooklaEndYw').value);
+
+        fetch('/api/sow/ookla/rank-trends', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                level: lvl,
+                area: area,
+                region: region,
+                kabupaten: kabupaten,
+                tech: tech,
+                start_yearweek: startYw,
+                end_yearweek: endYw
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success' && data.ranks_all && data.ranks_5g) {
+                ooklaRankDataRaw = data;
+                renderAllOoklaRankCharts();
+            }
+        })
+        .catch(err => console.error("Error loading Ookla rank trends:", err));
+    }
+
+    function onOoklaRankOpToggle() {
+        renderAllOoklaRankCharts();
+    }
+
+    function renderAllOoklaRankCharts() {
+        if (!ooklaRankDataRaw) return;
+        const selOps = Array.from(document.querySelectorAll('.ookla-rank-op-check:checked')).map(cb => cb.value);
+        const weeks = ooklaRankDataRaw.weeks;
+        const rAll = ooklaRankDataRaw.ranks_all;
+        const r5G = ooklaRankDataRaw.ranks_5g;
+
+        // 5 charts for ALL
+        renderOoklaRankChart('chartOoklaRankConnAll', weeks, rAll.connectivity, selOps);
+        renderOoklaRankChart('chartOoklaRankSpeedAll', weeks, rAll.speed, selOps);
+        renderOoklaRankChart('chartOoklaRankVideoAll', weeks, rAll.video, selOps);
+        renderOoklaRankChart('chartOoklaRankGameAll', weeks, rAll.game, selOps);
+        renderOoklaRankChart('chartOoklaRankWebAll', weeks, rAll.web, selOps);
+
+        // 5 charts for 5G
+        renderOoklaRankChart('chartOoklaRankConn5G', weeks, r5G.connectivity, selOps);
+        renderOoklaRankChart('chartOoklaRankSpeed5G', weeks, r5G.speed, selOps);
+        renderOoklaRankChart('chartOoklaRankVideo5G', weeks, r5G.video, selOps);
+        renderOoklaRankChart('chartOoklaRankGame5G', weeks, r5G.game, selOps);
+        renderOoklaRankChart('chartOoklaRankWeb5G', weeks, r5G.web, selOps);
+    }
+
+    function renderOoklaRankChart(canvasId, weeks, rankData, selOps) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas || !rankData) return;
+
+        if (ooklaRankChartInstances[canvasId]) {
+            ooklaRankChartInstances[canvasId].destroy();
+        }
+
+        const opColors = {
+            'Telkomsel': '#dc2626',
+            'IOH': '#eab308',
+            'XLSMART': '#2563eb',
+            'XL': '#2563eb',
+            'Smartfren': '#8b5cf6'
+        };
+
+        const activeOps = (selOps && selOps.length) ? selOps : ['Telkomsel', 'IOH', 'XLSMART', 'Smartfren'];
+        const allSeriesOps = Object.keys(rankData.series || {});
+        const displayOps = allSeriesOps.filter(op => activeOps.includes(op));
+
+        const datasets = displayOps.map(op => {
+            const c = opColors[op] || '#64748b';
+            return {
+                label: op,
+                data: rankData.series[op],
+                backgroundColor: c,
+                borderColor: c,
+                borderWidth: 1,
+                borderRadius: 2,
+                categoryPercentage: 0.85,
+                barPercentage: 0.95
+            };
+        });
+
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const textColor = isDark ? '#cbd5e1' : '#475569';
+
+        ooklaRankChartInstances[canvasId] = new Chart(canvas.getContext('2d'), {
+            type: 'bar',
+            data: { labels: weeks, datasets: datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 10,
+                            boxHeight: 10,
+                            color: textColor,
+                            font: { size: 9.5, family: 'Inter, sans-serif', weight: 600 },
+                            padding: 10
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            title: (items) => `Week ${items[0].label}`,
+                            label: (c) => c.raw === 1 ? ` ${c.dataset.label}: Rank 1` : null
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            font: { size: 9 },
+                            color: textColor,
+                            maxRotation: 90,
+                            minRotation: 90
+                        }
+                    },
+                    y: {
+                        min: 0,
+                        max: 1,
+                        grid: { display: false },
+                        ticks: {
+                            stepSize: 1,
+                            font: { size: 10 },
+                            color: textColor,
+                            callback: (v) => v === 1 ? '1' : (v === 0 ? '0' : '')
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // ── Ookla Smart Export Modal Functions ──
+    function openOoklaSmartExportModal(viewType) {
+        _ooklaExportViewType = viewType || 'trend';
+        const isRank = _ooklaExportViewType === 'rank';
+        
+        const listEl = document.getElementById("ooklaExportMetricsList");
+        if (listEl) {
+            const metrics = isRank ? [
+                { id: "conn_all", name: "Connectivity (ALL)" },
+                { id: "speed_all", name: "Speed (ALL)" },
+                { id: "video_all", name: "Video (ALL)" },
+                { id: "game_all", name: "Game (ALL)" },
+                { id: "web_all", name: "Web (ALL)" },
+                { id: "conn_5g", name: "Connectivity (5G)" },
+                { id: "speed_5g", name: "Speed (5G)" },
+                { id: "video_5g", name: "Video (5G)" },
+                { id: "game_5g", name: "Game (5G)" },
+                { id: "web_5g", name: "Web (5G)" }
+            ] : [
+                { id: "connectivity", name: "Connectivity Score" },
+                { id: "speed", name: "Speed Score" },
+                { id: "video", name: "Video Score" },
+                { id: "game", name: "Game Score" },
+                { id: "web", name: "Web Score" }
+            ];
+            listEl.innerHTML = metrics.map(m => `
+                <label style="margin: 0; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                    <input type="checkbox" class="ookla-export-check" value="${m.id}" data-title="${m.name}" checked onchange="updateOoklaSmartFitPreview()">
+                    <span>${m.name}</span>
+                </label>
+            `).join('');
+        }
+
+        updateOoklaSmartFitPreview();
+        const modal = document.getElementById("ooklaSmartExportModal");
+        if (modal) modal.style.display = "flex";
+    }
+
+    function closeOoklaSmartExportModal() {
+        const modal = document.getElementById("ooklaSmartExportModal");
+        if (modal) modal.style.display = "none";
+    }
+
+    function toggleAllOoklaExportMetrics(isChecked) {
+        document.querySelectorAll(".ookla-export-check").forEach(cb => cb.checked = isChecked);
+        updateOoklaSmartFitPreview();
+    }
+
+    function onOoklaExportAspectChange() {
+        const asp = document.getElementById("ooklaExportAspect").value;
+        const colGrp = document.getElementById("ooklaExportCustomColGroup");
+        if (colGrp) colGrp.style.display = (asp === "custom") ? "flex" : "none";
+        updateOoklaSmartFitPreview();
+    }
+
+    function getOoklaExportConfig() {
+        const aspEl = document.getElementById("ooklaExportAspect");
+        const colEl = document.getElementById("ooklaExportCustomCols");
+        const thmEl = document.getElementById("ooklaExportTheme");
+        const resEl = document.getElementById("ooklaExportRes");
+        const hdrEl = document.getElementById("ooklaExportShowHeader");
+
+        return {
+            aspectRatio: aspEl ? aspEl.value : "16:9",
+            customCols: colEl ? parseInt(colEl.value, 10) : 2,
+            theme: thmEl ? thmEl.value : "white",
+            resolution: resEl ? resEl.value : "1080p",
+            showHeader: hdrEl ? hdrEl.checked : true
+        };
+    }
+
+    function getOoklaSmartGrid(count, targetAspect, customCols, isRank) {
+        if (count <= 0) return { cols: 1, rows: 1 };
+        if (targetAspect === "custom" && customCols > 0) {
+            const cols = Math.min(count, Math.max(1, customCols));
+            const rows = Math.ceil(count / cols);
+            return { cols: cols, rows: rows };
+        }
+        if (targetAspect === "auto") {
+            if (isRank && count === 10) return { cols: 5, rows: 2 };
+            let cols = Math.round(Math.sqrt(count * 1.5));
+            cols = Math.max(1, Math.min(6, cols));
+            const rows = Math.ceil(count / cols);
+            return { cols: cols, rows: rows };
+        }
+        // 16:9 or 4:3
+        if (isRank && count === 10) {
+            return { cols: 5, rows: 2 };
+        }
+        const targetRatio = targetAspect === "4:3" ? (4 / 3) : (16 / 9);
+        let bestGrid = null;
+        let bestPenalty = Infinity;
+        const maxC = Math.min(count, 6);
+        for (let c = 1; c <= maxC; c++) {
+            const r = Math.ceil(count / c);
+            const emptySlots = (c * r) - count;
+            const cardRatio = (targetRatio / c) * r;
+            const ratioDiff = Math.abs(cardRatio - 1.55);
+            let penalty = ratioDiff * 15 + emptySlots * 4;
+            if (cardRatio < 0.9) penalty += (0.9 - cardRatio) * 60;
+            if (cardRatio > 2.5) penalty += (cardRatio - 2.5) * 40;
+            if (c < r) penalty += 15;
+            if (penalty < bestPenalty) {
+                bestPenalty = penalty;
+                bestGrid = { cols: c, rows: r };
+            }
+        }
+        return bestGrid || { cols: Math.min(count, 3), rows: Math.ceil(count / 3) };
+    }
+
+    function updateOoklaSmartFitPreview() {
+        const checked = document.querySelectorAll(".ookla-export-check:checked");
+        const count = checked.length;
+        const countBadge = document.getElementById("ooklaExportCountBadge");
+        if (countBadge) countBadge.textContent = `${count} selected`;
+
+        const cfg = getOoklaExportConfig();
+        const isRank = _ooklaExportViewType === 'rank';
+        const grid = getOoklaSmartGrid(count, cfg.aspectRatio, cfg.customCols, isRank);
+        const cols = grid.cols;
+        const rows = grid.rows;
+
+        const scale = cfg.resolution === "4k" ? 2 : 1;
+        let resText = "";
+        if (cfg.aspectRatio === "16:9") {
+            resText = `${1920 * scale}×${1080 * scale} (16:9 Widescreen)`;
+        } else if (cfg.aspectRatio === "4:3") {
+            resText = `${1440 * scale}×${1080 * scale} (4:3 Standard)`;
+        } else {
+            const cwBase = (cols >= 5 ? 420 : (cols === 4 ? 460 : 520)) * scale;
+            const chBase = (isRank ? 320 : 280) * scale;
+            const PadX = 24 * scale;
+            const GapX = 14 * scale;
+            const Hhead = cfg.showHeader ? Math.round(68 * scale) : PadX;
+            const estW = cols * cwBase + (cols - 1) * GapX + 2 * PadX;
+            const estH = Hhead + rows * chBase + (rows - 1) * GapX + PadX;
+            resText = `${estW}×${estH} (Balanced Auto Canvas)`;
+        }
+
+        const badgeTxt = document.getElementById("ooklaExportSmartFitText");
+        if (badgeTxt) {
+            badgeTxt.innerHTML = `<strong>✨ Smart Fit:</strong> ${cols} cols × ${rows} rows • ${resText} • ${count} charts (Proportions Preserved)`;
+        }
+    }
+
+    function renderOoklaExportCanvas(config) {
+        const checked = Array.from(document.querySelectorAll(".ookla-export-check:checked"));
+        if (!checked.length) return null;
+
+        const isRank = _ooklaExportViewType === 'rank';
+        const chartSource = isRank ? ooklaRankChartInstances : ooklaTrendChartInstances;
+        const canvasMap = isRank ? {
+            "conn_all": "chartOoklaRankConnAll",
+            "speed_all": "chartOoklaRankSpeedAll",
+            "video_all": "chartOoklaRankVideoAll",
+            "game_all": "chartOoklaRankGameAll",
+            "web_all": "chartOoklaRankWebAll",
+            "conn_5g": "chartOoklaRankConn5G",
+            "speed_5g": "chartOoklaRankSpeed5G",
+            "video_5g": "chartOoklaRankVideo5G",
+            "game_5g": "chartOoklaRankGame5G",
+            "web_5g": "chartOoklaRankWeb5G"
+        } : {
+            "connectivity": "chartOoklaConn",
+            "speed": "chartOoklaSpeed",
+            "video": "chartOoklaVideo",
+            "game": "chartOoklaGame",
+            "web": "chartOoklaWeb"
+        };
+
+        const validItems = [];
+        checked.forEach(cb => {
+            const key = cb.value;
+            const cvId = canvasMap[key];
+            const ch = chartSource[cvId];
+            if (ch && ch.canvas) {
+                validItems.push({
+                    title: cb.getAttribute("data-title") || key,
+                    chart: ch,
+                    canvas: ch.canvas
+                });
+            }
+        });
+
+        if (!validItems.length) return null;
+
+        const count = validItems.length;
+        const grid = getOoklaSmartGrid(count, config.aspectRatio, config.customCols, isRank);
+        const cols = grid.cols;
+        const rows = grid.rows;
+
+        const scale = config.resolution === "4k" ? 2 : 1;
+        const pad = 24 * scale;
+        const cardGap = 14 * scale;
+        const headerH = config.showHeader ? Math.round(68 * scale) : pad;
+
+        let W, H;
+        if (config.aspectRatio === "16:9") {
+            W = 1920 * scale;
+            H = 1080 * scale;
+        } else if (config.aspectRatio === "4:3") {
+            W = 1440 * scale;
+            H = 1080 * scale;
+        } else {
+            const cwBase = (cols >= 5 ? 420 : (cols === 4 ? 460 : 520)) * scale;
+            const chBase = (isRank ? 320 : 280) * scale;
+            W = cols * cwBase + (cols - 1) * cardGap + (pad * 2);
+            H = headerH + rows * chBase + (rows - 1) * cardGap + pad;
+        }
+
+        const availableW = W - (pad * 2) - ((cols - 1) * cardGap);
+        const cardW = availableW / cols;
+        const availableH = H - headerH - pad - ((rows - 1) * cardGap);
+        const cardH = availableH / rows;
+
+        // Sync colors for charts to match export theme
+        const isExportDark = config.theme === "dark";
+        const textColor = isExportDark ? "#cbd5e1" : "#334155";
+        const origColorStates = [];
+
+        validItems.forEach(item => {
+            const ch = item.chart;
+            if (!ch || !ch.options) return;
+            const orig = { chart: ch };
+            if (ch.options.plugins && ch.options.plugins.legend && ch.options.plugins.legend.labels) {
+                orig.legendColor = ch.options.plugins.legend.labels.color;
+                ch.options.plugins.legend.labels.color = textColor;
+            }
+            if (ch.options.scales) {
+                if (ch.options.scales.x && ch.options.scales.x.ticks) {
+                    orig.xColor = ch.options.scales.x.ticks.color;
+                    ch.options.scales.x.ticks.color = textColor;
+                }
+                if (ch.options.scales.y && ch.options.scales.y.ticks) {
+                    orig.yColor = ch.options.scales.y.ticks.color;
+                    ch.options.scales.y.ticks.color = textColor;
+                }
+            }
+            origColorStates.push(orig);
+            try { ch.update('none'); } catch (e) {}
+        });
+
+        const offCanvas = document.createElement("canvas");
+        offCanvas.width = W;
+        offCanvas.height = H;
+        const ctx = offCanvas.getContext("2d");
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+
+        // Background
+        if (config.theme === "dark") {
+            ctx.fillStyle = "#0f172a";
+            ctx.fillRect(0, 0, W, H);
+        } else if (config.theme === "white") {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, W, H);
+        } else {
+            ctx.clearRect(0, 0, W, H);
+        }
+
+        // Header
+        if (config.showHeader) {
+            const lvl = (document.getElementById('filterOoklaLevel').value || 'region').toUpperCase();
+            const area = document.getElementById('filterOoklaArea').value;
+            const region = document.getElementById('filterOoklaRegion').value;
+            const kabupaten = (document.getElementById('filterOoklaKabupaten') ? document.getElementById('filterOoklaKabupaten').value : '');
+            const locName = lvl === 'KABUPATEN' ? (kabupaten || region) : (lvl === 'REGION' ? region : (lvl === 'AREA' ? area : 'NATIONAL'));
+            const startYw = document.getElementById('ooklaStartYw').value;
+            const endYw = document.getElementById('ooklaEndYw').value;
+
+            ctx.save();
+            ctx.fillStyle = isExportDark ? "#e2e8f0" : "#0f172a";
+            ctx.font = `800 ${22 * scale}px Inter, sans-serif`;
+            ctx.textAlign = "left";
+            const mainTitle = isRank ? "OOKLA CATEGORY RANKS #1 DISTRIBUTION (ALL & 5G)" : "OOKLA CATEGORY TREND METRICS";
+            ctx.fillText(`${mainTitle} — ${locName}`, pad, 36 * scale);
+
+            ctx.font = `600 ${12 * scale}px Inter, sans-serif`;
+            ctx.fillStyle = isExportDark ? "#94a3b8" : "#64748b";
+            ctx.fillText(`Crowdsource Quality of Experience · Weeks ${startYw}–${endYw} · Level: ${lvl}`, pad, 58 * scale);
+            ctx.restore();
+        }
+
+        // Draw cards & charts
+        validItems.forEach((item, idx) => {
+            const r = Math.floor(idx / cols);
+            const c = idx % cols;
+            const x = pad + (c * (cardW + cardGap));
+            const y = headerH + (r * (cardH + cardGap));
+
+            ctx.save();
+            // Card frame
+            ctx.fillStyle = isExportDark ? "#1e293b" : "#f8fafc";
+            ctx.strokeStyle = isExportDark ? "#334155" : "#e2e8f0";
+            ctx.lineWidth = 1 * scale;
+            if (ctx.roundRect) {
+                ctx.beginPath();
+                ctx.roundRect(x, y, cardW, cardH, 8 * scale);
+                ctx.fill();
+                ctx.stroke();
+            } else {
+                ctx.fillRect(x, y, cardW, cardH);
+                ctx.strokeRect(x, y, cardW, cardH);
+            }
+
+            // Title
+            const titleFontSize = cols >= 5 ? (10.5 * scale) : (cols === 4 ? (11.5 * scale) : (13 * scale));
+            const titleH = Math.max(22 * scale, Math.min(28 * scale, Math.round(cardH * 0.1)));
+            ctx.fillStyle = isExportDark ? "#f1f5f9" : "#0f172a";
+            ctx.font = `700 ${titleFontSize}px Inter, sans-serif`;
+            ctx.textAlign = "center";
+            ctx.fillText(item.title, x + (cardW / 2), y + (titleH * 0.75));
+
+            // Chart Canvas — PRESERVE NATURAL ASPECT RATIO (No forced horizontal/vertical stretching!)
+            const cardPad = 8 * scale;
+            const plotX = x + cardPad;
+            const plotY = y + titleH;
+            const plotW = Math.max(10, cardW - (cardPad * 2));
+            const plotH = Math.max(10, cardH - titleH - cardPad);
+
+            const srcW = item.canvas.width;
+            const srcH = item.canvas.height;
+            if (srcW > 0 && srcH > 0 && plotW > 10 && plotH > 10) {
+                const srcRatio = srcW / srcH;
+                const dstRatio = plotW / plotH;
+                let dw, dh, dx, dy;
+                if (srcRatio > dstRatio) {
+                    // Fit width, center vertically — prevents wide stretching!
+                    dw = plotW;
+                    dh = plotW / srcRatio;
+                    dx = plotX;
+                    dy = plotY + (plotH - dh) / 2;
+                } else {
+                    // Fit height, center horizontally
+                    dh = plotH;
+                    dw = plotH * srcRatio;
+                    dx = plotX + (plotW - dw) / 2;
+                    dy = plotY;
+                }
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = "high";
+                ctx.drawImage(item.canvas, 0, 0, srcW, srcH, dx, dy, dw, dh);
+            }
+            ctx.restore();
+        });
+
+        // Restore original chart colors
+        origColorStates.forEach(orig => {
+            const ch = orig.chart;
+            if (!ch || !ch.options) return;
+            if (ch.options.plugins && ch.options.plugins.legend && ch.options.plugins.legend.labels && orig.legendColor !== undefined) {
+                ch.options.plugins.legend.labels.color = orig.legendColor;
+            }
+            if (ch.options.scales) {
+                if (ch.options.scales.x && ch.options.scales.x.ticks && orig.xColor !== undefined) {
+                    ch.options.scales.x.ticks.color = orig.xColor;
+                }
+                if (ch.options.scales.y && ch.options.scales.y.ticks && orig.yColor !== undefined) {
+                    ch.options.scales.y.ticks.color = orig.yColor;
+                }
+            }
+            try { ch.update('none'); } catch (e) {}
+        });
+
+        return offCanvas;
+    }
+
+    function executeOoklaSmartExport() {
+        const cfg = getOoklaExportConfig();
+        const canvas = renderOoklaExportCanvas(cfg);
+        if (!canvas) {
+            alert("No charts available to export. Please ensure charts are rendered.");
+            return;
+        }
+        const a = document.createElement("a");
+        const isRank = _ooklaExportViewType === 'rank';
+        const startYw = document.getElementById('ooklaStartYw').value;
+        const endYw = document.getElementById('ooklaEndYw').value;
+        a.download = `Ookla_${isRank ? 'Ranks' : 'Trends'}_${startYw}-${endYw}.png`;
+        a.href = canvas.toDataURL("image/png");
+        a.click();
+        closeOoklaSmartExportModal();
+    }
+
+    function doCopyOoklaExportClipboard() {
+        const cfg = getOoklaExportConfig();
+        const canvas = renderOoklaExportCanvas(cfg);
+        if (!canvas) return;
+        canvas.toBlob(blob => {
+            if (!blob) return;
+            navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
+                .then(() => {
+                    const btn = document.getElementById("btnOoklaExportClipboardText");
+                    if (btn) {
+                        const orig = btn.textContent;
+                        btn.textContent = "Copied!";
+                        setTimeout(() => btn.textContent = orig, 1800);
+                    }
+                })
+                .catch(err => {
+                    console.error("Clipboard copy failed:", err);
+                    alert("Copy to clipboard not supported on this browser. Use Download PNG instead.");
+                });
+        });
+    }
+
+    // ── Ookla Comparison Table Functions ──
+    function applyOoklaComparison() {
+        const lvl = (document.getElementById('filterOoklaLevel').value || 'kabupaten').toLowerCase();
+        const area = document.getElementById('filterOoklaArea').value;
+        const region = document.getElementById('filterOoklaRegion').value;
+        const tech = document.getElementById('filterOoklaTech').value;
+        const operator = document.getElementById('filterOoklaOperator').value;
+        const yw = parseInt(document.getElementById('ooklaEndYw').value);
+
+        const tbody = document.getElementById('ooklaCmpTableBody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 20px;">Loading comparison data...</td></tr>';
+
+        fetch('/api/sow/ookla/comparison', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                level: lvl === 'kabupaten' ? 'kabupaten' : (lvl === 'nation' ? 'area' : lvl),
+                area: area,
+                region: region,
+                tech: tech,
+                operator: operator,
+                yearweek: yw,
+                target_wins: 4
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                ooklaCmpData = data;
+                renderOoklaCmpSummary(data.summary);
+                renderOoklaCmpTable();
+            } else {
+                if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#ef4444; padding: 20px;">${data.message || 'Error loading comparison'}</td></tr>`;
+            }
+        })
+        .catch(err => {
+            console.error("Error loading Ookla comparison:", err);
+            if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#ef4444; padding: 20px;">Failed to load comparison data</td></tr>';
+        });
+    }
+
+    function renderOoklaCmpSummary(sum) {
+        if (!sum) return;
+        const weekTag = document.getElementById('ooklaCmpWeekTag');
+        const prevWeekTag = document.getElementById('ooklaCmpPrevWeekTag');
+        const weekSub = document.getElementById('ooklaCmpWeekSubtitle');
+        if (weekTag) weekTag.textContent = sum.yearweek || '--';
+        if (prevWeekTag) prevWeekTag.textContent = sum.prev_yearweek || 'N/A';
+        if (weekSub) weekSub.textContent = `Week ${sum.yearweek} vs ${sum.prev_yearweek || 'N/A'}`;
+
+        const totalEl = document.getElementById('ooklaCmpCardTotal');
+        const metEl = document.getElementById('ooklaCmpCardMet');
+        const metPctEl = document.getElementById('ooklaCmpCardMetPct');
+        const avgEl = document.getElementById('ooklaCmpCardAvg');
+        const bestEl = document.getElementById('ooklaCmpCardBest');
+        const lowEl = document.getElementById('ooklaCmpCardLowest');
+
+        if (totalEl) totalEl.textContent = sum.total_locations;
+        if (metEl) metEl.textContent = sum.target_met_count;
+        if (metPctEl) metPctEl.textContent = `(${sum.target_met_pct}%)`;
+        if (avgEl) avgEl.textContent = sum.avg_wins;
+
+        if (bestEl && sum.best_location) {
+            bestEl.textContent = `${sum.best_location.name} (${sum.best_location.wins}W)`;
+        }
+        if (lowEl && sum.lowest_location) {
+            lowEl.textContent = `${sum.lowest_location.name} (${sum.lowest_location.wins}W)`;
+        }
+    }
+
+    function renderOoklaCmpTable() {
+        if (!ooklaCmpData || !ooklaCmpData.items) return;
+        const tbody = document.getElementById('ooklaCmpTableBody');
+        if (!tbody) return;
+
+        const statusFilter = (document.getElementById('ooklaCmpStatusFilter') ? document.getElementById('ooklaCmpStatusFilter').value : '');
+        const query = (document.getElementById('ooklaCmpSearch') ? document.getElementById('ooklaCmpSearch').value : '').trim().toLowerCase();
+
+        let filtered = ooklaCmpData.items.filter(it => {
+            if (statusFilter && it.status !== statusFilter) return false;
+            if (query && !it.location.toLowerCase().includes(query)) return false;
+            return true;
+        });
+
+        if (!filtered.length) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 20px; color:var(--sow-text-sub);">No matching records found</td></tr>';
+            return;
+        }
+
+        function fmtScore(m) {
+            if (!m || m.score === null || m.score === undefined) return '<span style="color:var(--sow-text-sub);">-</span>';
+            const rkBadge = m.rank ? `<span style="font-size:9.5px; font-weight:800; padding:1px 4px; border-radius:3px; margin-right:4px; ${m.rank === 1 ? 'background:rgba(16,185,129,0.18); color:#10b981;' : 'background:rgba(100,116,139,0.15); color:var(--sow-text-sub);'}">#${m.rank}</span>` : '';
+            let dHtml = '';
+            if (m.delta !== null && m.delta !== undefined) {
+                const isPos = m.delta > 0;
+                const isNeg = m.delta < 0;
+                const color = isPos ? '#10b981' : (isNeg ? '#ef4444' : 'var(--sow-text-sub)');
+                const sign = isPos ? '+' : '';
+                dHtml = `<span style="font-size:10px; font-weight:700; color:${color}; margin-left:4px;">(${sign}${m.delta})</span>`;
+            }
+            return `<div style="display:inline-flex; align-items:center; justify-content:flex-end;">${rkBadge}<b>${m.score}</b>${dHtml}</div>`;
+        }
+
+        tbody.innerHTML = filtered.map((it, idx) => {
+            const isMet = it.status === 'TARGET MET';
+            const statusBadge = isMet
+                ? `<span class="kpi-badge badge-win"><i class="fas fa-check"></i> TARGET MET</span>`
+                : `<span class="kpi-badge badge-lose"><i class="fas fa-times"></i> BREACH</span>`;
+
+            return `
+                <tr>
+                    <td style="color:var(--sow-text-sub);">${idx + 1}</td>
+                    <td style="font-weight:700; color:var(--text-main);">${it.location}</td>
+                    <td style="text-align:center; font-weight:800; font-size:13px; color:${it.wins >= 4 ? '#10b981' : (it.wins >= 2 ? '#f59e0b' : '#ef4444')};">${it.wins} / 5</td>
+                    <td style="text-align:center;">${statusBadge}</td>
+                    <td style="text-align:right;">${fmtScore(it.connectivity)}</td>
+                    <td style="text-align:right;">${fmtScore(it.speed)}</td>
+                    <td style="text-align:right;">${fmtScore(it.video)}</td>
+                    <td style="text-align:right;">${fmtScore(it.game)}</td>
+                    <td style="text-align:right;">${fmtScore(it.web)}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function exportOoklaCmpCSV() {
+        if (!ooklaCmpData || !ooklaCmpData.items) return;
+        const rows = [
+            ["Location", "Total Wins", "Status", "Connectivity Score", "Connectivity Rank", "Connectivity WoW", "Speed Score", "Speed Rank", "Speed WoW", "Video Score", "Video Rank", "Video WoW", "Game Score", "Game Rank", "Game WoW", "Web Score", "Web Rank", "Web WoW"]
+        ];
+        ooklaCmpData.items.forEach(it => {
+            rows.push([
+                it.location,
+                it.wins,
+                it.status,
+                (it.connectivity && it.connectivity.score !== null) ? it.connectivity.score : "",
+                (it.connectivity && it.connectivity.rank !== null) ? it.connectivity.rank : "",
+                (it.connectivity && it.connectivity.delta !== null) ? it.connectivity.delta : "",
+                (it.speed && it.speed.score !== null) ? it.speed.score : "",
+                (it.speed && it.speed.rank !== null) ? it.speed.rank : "",
+                (it.speed && it.speed.delta !== null) ? it.speed.delta : "",
+                (it.video && it.video.score !== null) ? it.video.score : "",
+                (it.video && it.video.rank !== null) ? it.video.rank : "",
+                (it.video && it.video.delta !== null) ? it.video.delta : "",
+                (it.game && it.game.score !== null) ? it.game.score : "",
+                (it.game && it.game.rank !== null) ? it.game.rank : "",
+                (it.game && it.game.delta !== null) ? it.game.delta : "",
+                (it.web && it.web.score !== null) ? it.web.score : "",
+                (it.web && it.web.rank !== null) ? it.web.rank : "",
+                (it.web && it.web.delta !== null) ? it.web.delta : ""
+            ]);
+        });
+        const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.map(val => `"${val}"`).join(",")).join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `Ookla_Comparison_${ooklaCmpData.yearweek}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
 
     function fbQuickRange(type) {
         if (!FB_YEARWEEKS.length) return;
@@ -6500,12 +8719,14 @@
                         type: "line", label: "win trend (%)", data: a.win_pct, yAxisID: "y1", order: 1,
                         borderColor: "#ed7d31", backgroundColor: "#ed7d31", borderWidth: 2.5, borderDash: [6, 4],
                         pointRadius: d.weeks.length > 80 ? 0 : 3.5, pointHoverRadius: 5,
-                        pointBackgroundColor: "#ed7d31", pointBorderColor: "#fff", pointBorderWidth: 1.2, tension: 0
+                        pointBackgroundColor: "#ed7d31", pointBorderColor: "#fff", pointBorderWidth: 1.2, tension: 0,
+                        spanGaps: true
                     }
                 ]
             },
             options: {
                 responsive: true, maintainAspectRatio: false, animation: false,
+                spanGaps: true,
                 interaction: { mode: "index", intersect: false },
                 plugins: {
                     legend: { display: false },
@@ -6614,9 +8835,9 @@
         const on = fbProvSelected();
         const showY1 = on.has('ioh') || on.has('xls');
         const datasets = [
-            { label: "Telkomsel", data: series.tsel, borderColor: "#dc2626", backgroundColor: "#dc2626", yAxisID: 'y', borderWidth: 2, pointRadius: 0, tension: 0.1, hidden: !on.has('tsel') },
-            { label: "IOH", data: series.ioh, borderColor: "#e6af2e", backgroundColor: "#e6af2e", yAxisID: showY1 ? 'y1' : 'y', borderWidth: 2, pointRadius: 0, tension: 0.1, hidden: !on.has('ioh') },
-            { label: "XLS", data: series.xls, borderColor: "#2563eb", backgroundColor: "#2563eb", yAxisID: showY1 ? 'y1' : 'y', borderWidth: 2, pointRadius: 0, tension: 0.1, hidden: !on.has('xls') }
+            { label: "Telkomsel", data: series.tsel, borderColor: "#dc2626", backgroundColor: "#dc2626", yAxisID: 'y', borderWidth: 2, pointRadius: 0, tension: 0.1, spanGaps: true, hidden: !on.has('tsel') },
+            { label: "IOH", data: series.ioh, borderColor: "#e6af2e", backgroundColor: "#e6af2e", yAxisID: showY1 ? 'y1' : 'y', borderWidth: 2, pointRadius: 0, tension: 0.1, spanGaps: true, hidden: !on.has('ioh') },
+            { label: "XLS", data: series.xls, borderColor: "#2563eb", backgroundColor: "#2563eb", yAxisID: showY1 ? 'y1' : 'y', borderWidth: 2, pointRadius: 0, tension: 0.1, spanGaps: true, hidden: !on.has('xls') }
         ];
         // Dynamic Y-axis: compute min/max from visible data so lines are never clipped
         const visible = datasets.filter(ds => !ds.hidden && ds.data && ds.data.some(v => v !== null && v !== undefined && !isNaN(v)));
@@ -6642,6 +8863,7 @@
             data: { labels: fbTrendStore.weeks, datasets: datasets },
             options: {
                 responsive: true, maintainAspectRatio: false, animation: false,
+                spanGaps: true,
                 plugins: { legend: { display: false }, tooltip: { mode: "index", intersect: false } },
                 scales: scales
             },
@@ -7352,6 +9574,9 @@
         if (target === 'crowdsource_fb') {
             sourceStart = document.getElementById('fbStartYw');
             sourceEnd = document.getElementById('fbEndYw');
+        } else if (target === 'crowdsource_ookla') {
+            sourceStart = document.getElementById('ooklaStartYw');
+            sourceEnd = document.getElementById('ooklaEndYw');
         }
 
         if (sourceStart) {

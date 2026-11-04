@@ -33,6 +33,7 @@
     let globalMode = 'rci'; // 'rci' or 'unbalance'
     let bannerMode = 'rci';
     let trendMode = 'rci';
+    let unbMacroFocusMode = 'focus'; // 'focus' (hide Balance, zoom P1-P3) or 'all'
     let transMode = 'rci';
     let breakdownMode = 'rci';
     let gaugeMode = 'rci';
@@ -41,6 +42,7 @@
     let nopTrendMode = 'rci';
     let topKabMode = 'rci';
     let kabTrendMode = 'rci';
+    let unbKabFocusMode = 'focus'; // 'focus' or 'all'
     let trajMode = 'rci';
     let tab3Mode = 'rci';
     let selectedTrendKab = '';
@@ -120,6 +122,7 @@
                     renderBreakdownSection();
                     renderBulletins();
                     renderRegionalTable();
+                    renderTopContributorsChart();
                     if (callback) callback();
                 } else {
                     console.error('Summary API Error:', data.message);
@@ -247,7 +250,40 @@
             if (rEl) rEl.classList.toggle('active', curr === 'rci');
             if (uEl) uEl.classList.toggle('active', curr === 'unbalance');
         });
+        syncUnbalanceFocusButtons();
     }
+
+    function syncUnbalanceFocusButtons() {
+        const focusGrp = document.getElementById('unbFocusToggleGroup');
+        if (focusGrp) {
+            focusGrp.style.display = trendMode === 'unbalance' ? 'inline-flex' : 'none';
+        }
+        const btnFocus = document.getElementById('btnUnbFocusOnly');
+        const btnAll = document.getElementById('btnUnbFocusAll');
+        if (btnFocus) btnFocus.classList.toggle('active', unbMacroFocusMode === 'focus');
+        if (btnAll) btnAll.classList.toggle('active', unbMacroFocusMode === 'all');
+
+        const kabFocusGrp = document.getElementById('kabUnbFocusToggleGroup');
+        if (kabFocusGrp) {
+            kabFocusGrp.style.display = kabTrendMode === 'unbalance' ? 'inline-flex' : 'none';
+        }
+        const btnKabFocus = document.getElementById('btnKabUnbFocusOnly');
+        const btnKabAll = document.getElementById('btnKabUnbFocusAll');
+        if (btnKabFocus) btnKabFocus.classList.toggle('active', unbKabFocusMode === 'focus');
+        if (btnKabAll) btnKabAll.classList.toggle('active', unbKabFocusMode === 'all');
+    }
+
+    window.setUnbalanceFocusMode = function (mode) {
+        unbMacroFocusMode = mode;
+        syncUnbalanceFocusButtons();
+        renderMacroTrendChart();
+    };
+
+    window.setKabUnbalanceFocusMode = function (mode) {
+        unbKabFocusMode = mode;
+        syncUnbalanceFocusButtons();
+        renderKabTrendChart();
+    };
 
     // Individual Section Toggles
     window.setBannerSectionMode = function (mode) {
@@ -321,6 +357,7 @@
         if (select) {
             selectedTrendKab = select.value;
             renderKabTrendChart();
+            renderDomainTrajectoryChart();
         }
     };
 
@@ -606,14 +643,81 @@
             ];
         }
 
+        const isFocus = !isRci && unbMacroFocusMode === 'focus';
+        const legendSelected = isRci ? {} : {
+            'Balance': !isFocus,
+            'P3': true,
+            'P2': true,
+            'P1': true,
+            'P1 Percentage': true,
+            'Target (Unbalance)': true
+        };
+
         const option = {
             tooltip: {
                 trigger: 'axis',
                 confine: true,
-                ...TOOLTIP_STYLE
+                ...TOOLTIP_STYLE,
+                formatter: function (params) {
+                    if (!params || !params.length) return '';
+                    const weekName = params[0].name;
+                    const weekIdx = weeks.indexOf(weekName);
+                    let html = `<div style="font-weight: 700; margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 3px;">Week ${weekName}</div>`;
+
+                    if (isRci) {
+                        params.forEach(p => {
+                            const val = p.value;
+                            const isRate = p.seriesName.includes('%') || p.seriesName.includes('Target');
+                            const formatted = isRate ? (Number(val).toFixed(2) + '%') : Number(val).toLocaleString();
+                            html += `<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px; margin: 2px 0;">
+                                <span>${p.marker} ${p.seriesName}</span>
+                                <span style="font-weight: 600;">${formatted}</span>
+                            </div>`;
+                        });
+                    } else {
+                        const u = trendData.unbalance_trend;
+                        const bal = (u.balanced && weekIdx >= 0) ? (Number(u.balanced[weekIdx]) || 0) : 0;
+                        const p3Val = (u.p3 && weekIdx >= 0) ? (Number(u.p3[weekIdx]) || 0) : 0;
+                        const p2Val = (u.p2 && weekIdx >= 0) ? (Number(u.p2[weekIdx]) || 0) : 0;
+                        const p1Val = (u.p1 && weekIdx >= 0) ? (Number(u.p1[weekIdx]) || 0) : 0;
+                        const totalSec = bal + p3Val + p2Val + p1Val;
+                        const p1Pct = (u.p1_pct && weekIdx >= 0) ? Number(u.p1_pct[weekIdx]) : 0;
+                        const tgt = (u.target_series && weekIdx >= 0) ? Number(u.target_series[weekIdx]) : 1.85;
+
+                        html += `<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px; margin-bottom: 4px; color: ${th.textMuted};">
+                            <span>Total Sectors</span>
+                            <span style="font-weight: 700;">${totalSec.toLocaleString()}</span>
+                        </div>`;
+
+                        html += `<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px; margin: 2px 0;">
+                            <span><span style="display:inline-block;width:8px;height:8px;background:#1e3a8a;border-radius:2px;margin-right:4px;"></span>Balance</span>
+                            <span style="font-weight: 600;">${bal.toLocaleString()} (${totalSec ? ((bal/totalSec)*100).toFixed(1) : 0}%)</span>
+                        </div>`;
+                        html += `<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px; margin: 2px 0;">
+                            <span><span style="display:inline-block;width:8px;height:8px;background:#7c3aed;border-radius:2px;margin-right:4px;"></span>P3 (Low)</span>
+                            <span style="font-weight: 600;">${p3Val.toLocaleString()} (${totalSec ? ((p3Val/totalSec)*100).toFixed(2) : 0}%)</span>
+                        </div>`;
+                        html += `<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px; margin: 2px 0;">
+                            <span><span style="display:inline-block;width:8px;height:8px;background:#0d9488;border-radius:2px;margin-right:4px;"></span>P2 (Medium)</span>
+                            <span style="font-weight: 600;">${p2Val.toLocaleString()} (${totalSec ? ((p2Val/totalSec)*100).toFixed(2) : 0}%)</span>
+                        </div>`;
+                        const p1Meets = p1Pct <= tgt;
+                        html += `<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px; margin: 2px 0;">
+                            <span><span style="display:inline-block;width:8px;height:8px;background:#f97316;border-radius:2px;margin-right:4px;"></span>P1 (High)</span>
+                            <span style="font-weight: 700; color: #f97316;">${p1Val.toLocaleString()} (${totalSec ? ((p1Val/totalSec)*100).toFixed(2) : 0}%)</span>
+                        </div>`;
+                        html += `<div style="border-top: 1px dashed rgba(255,255,255,0.15); margin-top: 4px; padding-top: 4px;"></div>`;
+                        html += `<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px; margin: 2px 0;">
+                            <span>P1 Rate vs Target</span>
+                            <span style="font-weight: 700; color: ${p1Meets ? '#10b981' : '#ef4444'};">${p1Pct.toFixed(2)}% (Tgt: ${tgt}%) ${p1Meets ? '✓' : '⚠️'}</span>
+                        </div>`;
+                    }
+                    return html;
+                }
             },
             legend: {
                 data: legendData,
+                selected: legendSelected,
                 textStyle: { color: th.legendColor, fontSize: 10 },
                 icon: 'roundRect',
                 itemWidth: 10,
@@ -637,6 +741,13 @@
         };
 
         chartMacroTrendInstance.setOption(option, true);
+        chartMacroTrendInstance.off('legendselectchanged');
+        chartMacroTrendInstance.on('legendselectchanged', function (ev) {
+            if (ev.name === 'Balance') {
+                unbMacroFocusMode = ev.selected['Balance'] ? 'all' : 'focus';
+                syncUnbalanceFocusButtons();
+            }
+        });
     }
 
     // ── Render 3: Transition & Moving Dynamics Chart ────────────────────────
@@ -1477,6 +1588,8 @@
 
         if (!chartTopContributorsInstance) {
             chartTopContributorsInstance = echarts.init(container);
+        } else {
+            chartTopContributorsInstance.resize();
         }
 
         const th = getEChartsTheme();
@@ -1488,7 +1601,9 @@
                 : 'Top 10 Contributor Unbalance P1 (Kabupaten)';
         }
 
-        const topList = isRci ? summaryData.rci.top_contributors : summaryData.unbalance.top_contributors;
+        const topList = isRci
+            ? (summaryData.rci ? summaryData.rci.top_contributors : [])
+            : (summaryData.unbalance ? summaryData.unbalance.top_contributors : []);
         const reversedList = (topList || []).slice().reverse();
 
         const categories = reversedList.map(item => item.kabupaten);
@@ -1502,22 +1617,25 @@
                 formatter: '{b}: <b>{c} sectors</b>'
             },
             grid: {
-                top: 20,
-                right: 36,
-                bottom: 20,
-                left: 165
+                top: 24,
+                right: 75,
+                bottom: 24,
+                left: 16,
+                containLabel: true
             },
             xAxis: {
                 type: 'value',
                 name: '# Sectors',
-                nameTextStyle: { fontSize: 9, color: th.textMuted },
+                nameLocation: 'end',
+                nameGap: 8,
+                nameTextStyle: { fontSize: 9.5, color: th.textMuted, align: 'left', verticalAlign: 'middle' },
                 axisLabel: { color: th.textMuted, fontSize: 9.5 },
                 splitLine: { lineStyle: { color: th.splitLineColor } }
             },
             yAxis: {
                 type: 'category',
                 data: categories,
-                axisLabel: { color: th.textMuted, fontSize: 10 }
+                axisLabel: { color: th.textMuted, fontSize: 10, fontWeight: 600 }
             },
             series: [
                 {
@@ -1547,6 +1665,8 @@
 
         if (!chartKabTrendInstance) {
             chartKabTrendInstance = echarts.init(container);
+        } else {
+            chartKabTrendInstance.resize();
         }
 
         const th = getEChartsTheme();
@@ -1555,8 +1675,15 @@
         const titleEl = document.getElementById('kabTrendTitle');
 
         const kabList = trendData.kabupaten_list || [];
-        if (selectEl && kabList.length > 0 && selectEl.options.length <= 1) {
-            selectEl.innerHTML = kabList.map(k => `<option value="${k}" ${k === selectedTrendKab ? 'selected' : ''}>${k}</option>`).join('');
+        if (selectEl && kabList.length > 0) {
+            const currentOpts = Array.from(selectEl.options).map(o => o.value);
+            const needsUpdate = currentOpts.length !== kabList.length || !kabList.every((k, i) => k === currentOpts[i]);
+            if (needsUpdate) {
+                if (!kabList.includes(selectedTrendKab)) {
+                    selectedTrendKab = kabList[0];
+                }
+                selectEl.innerHTML = kabList.map(k => `<option value="${k}" ${k === selectedTrendKab ? 'selected' : ''}>${k}</option>`).join('');
+            }
         }
 
         if (!selectedTrendKab && kabList.length > 0) {
@@ -1661,15 +1788,78 @@
             ];
         }
 
+        const isKabFocus = !isRci && unbKabFocusMode === 'focus';
+        const kabLegendSelected = isRci ? {} : {
+            'Balance': !isKabFocus,
+            'P3': true,
+            'P2': true,
+            'P1': true,
+            '% Unbalance P1': true
+        };
+
         chartKabTrendInstance.setOption({
             tooltip: {
                 trigger: 'axis',
                 confine: true,
-                ...TOOLTIP_STYLE
+                ...TOOLTIP_STYLE,
+                formatter: function (params) {
+                    if (!params || !params.length) return '';
+                    const weekName = params[0].name;
+                    const weekIdx = (kt.weeks || []).indexOf(weekName);
+                    let html = `<div style="font-weight: 700; margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 3px;">Week ${weekName} · ${selectedTrendKab}</div>`;
+
+                    if (isRci) {
+                        params.forEach(p => {
+                            const val = p.value;
+                            const isRate = p.seriesName.includes('%');
+                            const formatted = isRate ? (Number(val).toFixed(2) + '%') : Number(val).toLocaleString();
+                            html += `<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px; margin: 2px 0;">
+                                <span>${p.marker} ${p.seriesName}</span>
+                                <span style="font-weight: 600;">${formatted}</span>
+                            </div>`;
+                        });
+                    } else {
+                        const bal = (kt.balanced && weekIdx >= 0) ? (Number(kt.balanced[weekIdx]) || 0) : 0;
+                        const p3Val = (kt.p3 && weekIdx >= 0) ? (Number(kt.p3[weekIdx]) || 0) : 0;
+                        const p2Val = (kt.p2 && weekIdx >= 0) ? (Number(kt.p2[weekIdx]) || 0) : 0;
+                        const p1Val = (kt.p1 && weekIdx >= 0) ? (Number(kt.p1[weekIdx]) || 0) : 0;
+                        const totalSec = bal + p3Val + p2Val + p1Val;
+                        const p1Pct = (kt.p1_pct && weekIdx >= 0) ? Number(kt.p1_pct[weekIdx]) : 0;
+
+                        html += `<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px; margin-bottom: 4px; color: ${th.textMuted};">
+                            <span>Total Sectors</span>
+                            <span style="font-weight: 700;">${totalSec.toLocaleString()}</span>
+                        </div>`;
+
+                        html += `<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px; margin: 2px 0;">
+                            <span><span style="display:inline-block;width:8px;height:8px;background:#1e3a8a;border-radius:2px;margin-right:4px;"></span>Balance</span>
+                            <span style="font-weight: 600;">${bal.toLocaleString()} (${totalSec ? ((bal/totalSec)*100).toFixed(1) : 0}%)</span>
+                        </div>`;
+                        html += `<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px; margin: 2px 0;">
+                            <span><span style="display:inline-block;width:8px;height:8px;background:#7c3aed;border-radius:2px;margin-right:4px;"></span>P3 (Low)</span>
+                            <span style="font-weight: 600;">${p3Val.toLocaleString()} (${totalSec ? ((p3Val/totalSec)*100).toFixed(2) : 0}%)</span>
+                        </div>`;
+                        html += `<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px; margin: 2px 0;">
+                            <span><span style="display:inline-block;width:8px;height:8px;background:#0d9488;border-radius:2px;margin-right:4px;"></span>P2 (Medium)</span>
+                            <span style="font-weight: 600;">${p2Val.toLocaleString()} (${totalSec ? ((p2Val/totalSec)*100).toFixed(2) : 0}%)</span>
+                        </div>`;
+                        html += `<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px; margin: 2px 0;">
+                            <span><span style="display:inline-block;width:8px;height:8px;background:#f97316;border-radius:2px;margin-right:4px;"></span>P1 (High)</span>
+                            <span style="font-weight: 700; color: #f97316;">${p1Val.toLocaleString()} (${totalSec ? ((p1Val/totalSec)*100).toFixed(2) : 0}%)</span>
+                        </div>`;
+                        html += `<div style="border-top: 1px dashed rgba(255,255,255,0.15); margin-top: 4px; padding-top: 4px;"></div>`;
+                        html += `<div style="display: flex; justify-content: space-between; gap: 12px; font-size: 11px; margin: 2px 0;">
+                            <span>% Unbalance P1</span>
+                            <span style="font-weight: 700; color: #eab308;">${p1Pct.toFixed(2)}%</span>
+                        </div>`;
+                    }
+                    return html;
+                }
             },
             legend: {
                 top: 4,
                 left: 'center',
+                selected: kabLegendSelected,
                 textStyle: { color: th.legendColor, fontSize: 10 },
                 icon: 'roundRect',
                 itemWidth: 10,
@@ -1706,6 +1896,13 @@
             ],
             series: series
         }, true);
+        chartKabTrendInstance.off('legendselectchanged');
+        chartKabTrendInstance.on('legendselectchanged', function (ev) {
+            if (ev.name === 'Balance') {
+                unbKabFocusMode = ev.selected['Balance'] ? 'all' : 'focus';
+                syncUnbalanceFocusButtons();
+            }
+        });
     }
 
     // ── Render 11: Tab 2 Methodology / Domain Trajectory Trend ──────────────
@@ -1716,29 +1913,46 @@
 
         if (!chartDomainTrajectoryInstance) {
             chartDomainTrajectoryInstance = echarts.init(container);
+        } else {
+            chartDomainTrajectoryInstance.resize();
         }
 
         const th = getEChartsTheme();
         const isRci = trajMode === 'rci';
         const titleEl = document.getElementById('domainTrajectoryTitle');
-        if (titleEl) {
-            titleEl.textContent = isRci
-                ? 'Operational Domain Weekly Trajectory'
-                : 'Methodology Version Weekly Trajectory (V1, V2, V3)';
+
+        const selectEl = document.getElementById('trendKabSelect');
+        if (!selectedTrendKab && selectEl && selectEl.value) {
+            selectedTrendKab = selectEl.value;
+        } else if (!selectedTrendKab && trendData.kabupaten_list && trendData.kabupaten_list.length > 0) {
+            selectedTrendKab = trendData.kabupaten_list[0];
         }
 
-        const weeks = trendData.week_labels;
+        const kt = (selectedTrendKab && trendData.kabupaten_trends && trendData.kabupaten_trends[selectedTrendKab]) || null;
+        const weeks = (kt && kt.weeks && kt.weeks.length) ? kt.weeks : trendData.week_labels;
+        const scopeLabel = selectedTrendKab ? ` (${selectedTrendKab})` : '';
+
+        if (titleEl) {
+            titleEl.textContent = isRci
+                ? `Operational Domain Weekly Trajectory${scopeLabel}`
+                : `Methodology Version Weekly Trajectory (V1, V2, V3)${scopeLabel}`;
+        }
+
         let series = [];
         let legendData = [];
 
         if (isRci) {
-            const r = trendData.rci_trend;
+            const optData = kt ? kt.optim : trendData.rci_trend.optimization;
+            const opData = kt ? kt.operation : trendData.rci_trend.operation;
+            const engData = kt ? kt.engineering : trendData.rci_trend.engineering;
+            const venData = kt ? kt.ran_vendor : trendData.rci_trend.ran_vendor;
+
             legendData = ['Optimization Part', 'Operation Part', 'Direct Investment', 'RAN Vendor'];
             series = [
                 {
                     name: 'Optimization Part',
                     type: 'line',
-                    data: r.optimization,
+                    data: optData,
                     itemStyle: { color: '#ea580c' },
                     lineStyle: { width: 2.8, color: '#ea580c' },
                     symbol: 'circle',
@@ -1747,7 +1961,7 @@
                 {
                     name: 'Operation Part',
                     type: 'line',
-                    data: r.operation,
+                    data: opData,
                     itemStyle: { color: '#64748b' },
                     lineStyle: { width: 2.2, color: '#64748b' },
                     symbol: 'circle',
@@ -1756,7 +1970,7 @@
                 {
                     name: 'Direct Investment',
                     type: 'line',
-                    data: r.engineering,
+                    data: engData,
                     itemStyle: { color: '#0284c7' },
                     lineStyle: { width: 2.2, color: '#0284c7' },
                     symbol: 'circle',
@@ -1765,7 +1979,7 @@
                 {
                     name: 'RAN Vendor',
                     type: 'line',
-                    data: r.ran_vendor,
+                    data: venData,
                     itemStyle: { color: '#06b6d4' },
                     lineStyle: { width: 2.2, color: '#06b6d4' },
                     symbol: 'circle',
@@ -1773,13 +1987,16 @@
                 }
             ];
         } else {
-            const u = trendData.unbalance_trend;
+            const v1Data = kt ? kt.v1_unb : trendData.unbalance_trend.v1_unb;
+            const v2Data = kt ? kt.v2_unb : trendData.unbalance_trend.v2_unb;
+            const v3Data = kt ? kt.v3_unb : trendData.unbalance_trend.v3_unb;
+
             legendData = ['V1 Unbalance (PRB L18/L21)', 'V2 Unbalance (FDD-TDD Gap)', 'V3 Unbalance (Throughput L9)'];
             series = [
                 {
                     name: 'V1 Unbalance (PRB L18/L21)',
                     type: 'line',
-                    data: u.v1_unb,
+                    data: v1Data,
                     itemStyle: { color: '#7c3aed' },
                     lineStyle: { width: 2.8, color: '#7c3aed' },
                     symbol: 'circle',
@@ -1788,7 +2005,7 @@
                 {
                     name: 'V2 Unbalance (FDD-TDD Gap)',
                     type: 'line',
-                    data: u.v2_unb,
+                    data: v2Data,
                     itemStyle: { color: '#0284c7' },
                     lineStyle: { width: 2.8, color: '#0284c7' },
                     symbol: 'circle',
@@ -1797,7 +2014,7 @@
                 {
                     name: 'V3 Unbalance (Throughput L9)',
                     type: 'line',
-                    data: u.v3_unb,
+                    data: v3Data,
                     itemStyle: { color: '#ea580c' },
                     lineStyle: { width: 2.8, color: '#ea580c' },
                     symbol: 'circle',
@@ -2015,9 +2232,22 @@
         const activePane = document.getElementById(`pane-${tabName}`);
         if (activePane) activePane.classList.add('active');
 
-        // Resize charts upon tab reveal
+        // Resize & re-render charts upon tab reveal
         requestAnimationFrame(() => {
-            setTimeout(resizeAllCharts, 80);
+            setTimeout(() => {
+                if (tabName === 'achievement') {
+                    if (chartMacroTrendInstance) chartMacroTrendInstance.resize();
+                    if (chartTransitionInstance) chartTransitionInstance.resize();
+                    if (chartBehaviorDonutInstance) chartBehaviorDonutInstance.resize();
+                    if (chartVersionBarInstance) chartVersionBarInstance.resize();
+                } else if (tabName === 'trend') {
+                    renderNopTrendChart();
+                    renderTopContributorsChart();
+                    renderKabTrendChart();
+                    renderDomainTrajectoryChart();
+                }
+                resizeAllCharts();
+            }, 60);
         });
 
         if (tabName === 'comparison' && !comparisonData) {
@@ -2033,6 +2263,8 @@
         const p3 = (activeTab === 'comparison') ? fetchComparisonData() : Promise.resolve();
 
         Promise.all([p1, p2, p3]).finally(() => {
+            renderTopContributorsChart();
+            renderDomainTrajectoryChart();
             hideLoading();
         });
     };
@@ -2090,7 +2322,9 @@
                 chartEnlargedInstance.setOption(chartKabTrendInstance.getOption());
             }
         } else if (type === 'domainTrajectory') {
-            titleEl.textContent = trajMode === 'rci' ? 'Operational Domain Weekly Trajectory' : 'Methodology Version Weekly Trajectory (V1, V2, V3)';
+            titleEl.textContent = trajMode === 'rci'
+                ? (selectedTrendKab ? `Operational Domain Weekly Trajectory (${selectedTrendKab})` : 'Operational Domain Weekly Trajectory')
+                : (selectedTrendKab ? `Methodology Version Weekly Trajectory (${selectedTrendKab})` : 'Methodology Version Weekly Trajectory (V1, V2, V3)');
             if (chartDomainTrajectoryInstance) {
                 chartEnlargedInstance.setOption(chartDomainTrajectoryInstance.getOption());
             }
@@ -2682,6 +2916,8 @@
             fetchSummaryData(),
             fetchTrendData()
         ]).finally(() => {
+            renderTopContributorsChart();
+            renderDomainTrajectoryChart();
             hideLoading();
         });
     });

@@ -28,12 +28,15 @@ _LOCATIONS_CACHE = {}
 _KAB_REGIONS_CACHE = {"data": None, "timestamp": 0}
 _YEARWEEKS_CACHE = {"data": None, "timestamp": 0}
 _SUMMARY_YEARS_CACHE = {"data": None, "timestamp": 0}
+_OOKLA_YEARWEEKS_CACHE = {"data": None, "timestamp": 0}
+_OOKLA_DIMENSIONS_CACHE = {"data": None, "timestamp": 0}
+_OOKLA_KABUPATENS_CACHE = {}
 _CACHE_TTL = 1800  # 30 minutes
 
 
 def clear_sow_caches():
     """Clear memory caches after data updates/imports."""
-    global _LOCATIONS_CACHE, _KAB_REGIONS_CACHE, _YEARWEEKS_CACHE, _SUMMARY_YEARS_CACHE
+    global _LOCATIONS_CACHE, _KAB_REGIONS_CACHE, _YEARWEEKS_CACHE, _SUMMARY_YEARS_CACHE, _OOKLA_KABUPATENS_CACHE
     _LOCATIONS_CACHE.clear()
     _KAB_REGIONS_CACHE = {"data": None, "timestamp": 0}
     _YEARWEEKS_CACHE = {"data": None, "timestamp": 0}
@@ -44,6 +47,11 @@ def clear_sow_caches():
     _FB_DATA_WEEKS_CACHE["timestamp"] = 0
     _FB_CITY_MASTER_CACHE["data"] = None
     _FB_CITY_MASTER_CACHE["timestamp"] = 0
+    _OOKLA_YEARWEEKS_CACHE["data"] = None
+    _OOKLA_YEARWEEKS_CACHE["timestamp"] = 0
+    _OOKLA_DIMENSIONS_CACHE["data"] = None
+    _OOKLA_DIMENSIONS_CACHE["timestamp"] = 0
+    _OOKLA_KABUPATENS_CACHE.clear()
 
 
 def get_cached_kab_regions():
@@ -269,6 +277,38 @@ def api_sow_crowdsource_fb_csv_export():
     return _stream_table_csv(
         "fb_share", "yearweek", start_yw, end_yw,
         f"FB_Share_Crowdsource_Export_{start_yw}-{end_yw}.csv",
+    )
+
+
+@sow.route('/api/sow/crowdsource_ookla-csv-export', methods=['GET'])
+@login_required
+def api_sow_crowdsource_ookla_csv_export():
+    """
+    Export Ookla city-level score data to CSV, filtered by week or week range.
+    Accepts 'week' (single ISO YYYYWW) or 'start_week'/'end_week'.
+    """
+    try:
+        week = request.args.get("week")
+        start_week = request.args.get("start_week")
+        end_week = request.args.get("end_week")
+
+        if week:
+            start_yw = int(week)
+            end_yw = int(week)
+        elif start_week and end_week:
+            start_yw = int(start_week)
+            end_yw = int(end_week)
+            if start_yw > end_yw:
+                start_yw, end_yw = end_yw, start_yw
+        else:
+            return jsonify({"status": "error", "message": "Must provide 'week' or 'start_week'/'end_week'"}), 400
+
+    except (ValueError, TypeError):
+        return jsonify({"status": "error", "message": "Invalid yearweek format"}), 400
+
+    return _stream_table_csv(
+        "ookla_score_cityLevel", "yearweek", start_yw, end_yw,
+        f"Ookla_Crowdsource_Export_{start_yw}-{end_yw}.csv",
     )
 
 
@@ -769,6 +809,891 @@ def build_fb_share_compare(ref_yw, threshold=95.0):
     except Exception as e:
         logger.exception("Error loading FB share comparison: %s", e)
         raise
+
+
+# ══════════════════════════════════════════════════════════════════
+# OOKLA SCENE / TAB (sow.ookla_score_cityLevel)
+# ══════════════════════════════════════════════════════════════════
+
+OOKLA_METRICS = [
+    {
+        "id": "connectivity",
+        "name": "Connectivity",
+        "score_col": "connectivity_score",
+        "rank_col": "rank_connectivity",
+        "desc": "Overall Cellular Connectivity Score",
+        "icon": "fa-wifi",
+        "color": "#38bdf8"
+    },
+    {
+        "id": "speed",
+        "name": "Speed",
+        "score_col": "speed_score",
+        "rank_col": "rank_speed",
+        "desc": "Download & Upload Speed Performance Score",
+        "icon": "fa-bolt",
+        "color": "#10b981"
+    },
+    {
+        "id": "video",
+        "name": "Video",
+        "score_col": "video_score",
+        "rank_col": "rank_video",
+        "desc": "Video Streaming Experience & Quality Score",
+        "icon": "fa-play-circle",
+        "color": "#f59e0b"
+    },
+    {
+        "id": "game",
+        "name": "Game",
+        "score_col": "game_score",
+        "rank_col": "rank_game",
+        "desc": "Mobile Gaming Latency & Stability Score",
+        "icon": "fa-gamepad",
+        "color": "#8b5cf6"
+    },
+    {
+        "id": "web",
+        "name": "Web",
+        "score_col": "web_score",
+        "rank_col": "rank_web",
+        "desc": "Web Browsing Experience Score",
+        "icon": "fa-globe",
+        "color": "#ec4899"
+    }
+]
+
+
+def get_cached_ookla_yearweeks():
+    """Distinct yearweeks in sow.ookla_score_cityLevel."""
+    now = time.time()
+    db_max = 0
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute('SELECT MAX(yearweek) FROM sow."ookla_score_cityLevel"')
+            row = cur.fetchone()
+            if row and row[0]:
+                db_max = int(row[0])
+    except Exception:
+        pass
+
+    if _OOKLA_YEARWEEKS_CACHE["data"] and (now - _OOKLA_YEARWEEKS_CACHE["timestamp"] < _CACHE_TTL):
+        val = _OOKLA_YEARWEEKS_CACHE["data"]
+        cached_max = val[0] if val else 0
+        if db_max == cached_max and db_max > 0:
+            return val
+
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute('SELECT DISTINCT yearweek FROM sow."ookla_score_cityLevel" WHERE yearweek IS NOT NULL ORDER BY yearweek DESC')
+            yws = [int(r[0]) for r in cur.fetchall()]
+            _OOKLA_YEARWEEKS_CACHE["data"] = yws
+            _OOKLA_YEARWEEKS_CACHE["timestamp"] = now
+            return yws
+    except Exception as e:
+        logger.exception("Error loading Ookla yearweeks: %s", e)
+        return []
+
+
+def get_cached_ookla_dimensions():
+    """Retrieve distinct areas, regions per area, techs, and operators from sow.ookla_score_cityLevel."""
+    now = time.time()
+    if _OOKLA_DIMENSIONS_CACHE["data"] and (now - _OOKLA_DIMENSIONS_CACHE["timestamp"] < _CACHE_TTL):
+        return _OOKLA_DIMENSIONS_CACHE["data"]
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute("""
+                SELECT DISTINCT area, region
+                FROM sow."ookla_score_cityLevel"
+                WHERE area IS NOT NULL AND region IS NOT NULL AND region <> 'None'
+                ORDER BY area, region
+            """)
+            ar_rows = cur.fetchall()
+            area_regions = {}
+            for a, r in ar_rows:
+                area_regions.setdefault(a, []).append(r)
+            
+            areas = sorted(list(area_regions.keys()))
+            techs = ["ALL", "4G", "5G"]
+            operators = ["Telkomsel", "IOH", "XLSMART", "Smartfren"]
+            levels = ["Nation", "Area", "Region", "Kabupaten"]
+
+            data = {
+                "levels": levels,
+                "areas": areas,
+                "area_regions": area_regions,
+                "techs": techs,
+                "operators": operators
+            }
+            _OOKLA_DIMENSIONS_CACHE["data"] = data
+            _OOKLA_DIMENSIONS_CACHE["timestamp"] = now
+            return data
+    except Exception as e:
+        logger.exception("Error loading Ookla dimensions: %s", e)
+        return {
+            "levels": ["Nation", "Area", "Region", "Kabupaten"],
+            "areas": ["AREA 1", "AREA 2", "AREA 3", "AREA 4"],
+            "area_regions": {
+                "AREA 1": ["SUMBAGSEL", "SUMBAGTENG", "SUMBAGUT"],
+                "AREA 2": ["CENTRAL JABOTABEK", "EASTERN JABOTABEK", "JABAR", "JAKARTA BANTEN", "WESTERN JABOTABEK"],
+                "AREA 3": ["BALI NUSRA", "JATENG-DIY", "JATIM"],
+                "AREA 4": ["KALIMANTAN", "MALUKU DAN PAPUA", "SULAWESI"]
+            },
+            "techs": ["ALL", "4G", "5G"],
+            "operators": ["Telkomsel", "IOH", "XLSMART", "Smartfren"]
+        }
+
+
+def get_cached_ookla_kabupatens(region):
+    """Retrieve distinct kabupatens for a region in sow.ookla_score_cityLevel."""
+    if not region:
+        return []
+    reg_key = region.strip().upper()
+    if reg_key in _OOKLA_KABUPATENS_CACHE:
+        return _OOKLA_KABUPATENS_CACHE[reg_key]
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute("""
+                SELECT DISTINCT UPPER(TRIM(kabupaten))
+                FROM sow."ookla_score_cityLevel"
+                WHERE level = 'kabupaten' AND UPPER(TRIM(region)) = %s
+                  AND kabupaten IS NOT NULL AND kabupaten <> '' AND kabupaten <> 'None'
+                ORDER BY UPPER(TRIM(kabupaten)) ASC
+            """, (reg_key,))
+            kabs = [r[0] for r in cur.fetchall() if r[0]]
+            _OOKLA_KABUPATENS_CACHE[reg_key] = kabs
+            return kabs
+    except Exception as e:
+        logger.exception("Error loading Ookla kabupatens for %s: %s", region, e)
+        return []
+
+
+@sow.route("/api/sow/ookla/dimensions", methods=["GET"])
+@login_required
+def api_sow_ookla_dimensions():
+    """Return available levels, areas, area-region mappings, techs, operators, and yearweeks."""
+    dims = get_cached_ookla_dimensions()
+    yws = get_cached_ookla_yearweeks()
+    return jsonify({
+        "status": "success",
+        "dimensions": dims,
+        "yearweeks": yws
+    })
+
+
+@sow.route("/api/sow/ookla/kabupatens", methods=["GET"])
+@login_required
+def api_sow_ookla_kabupatens():
+    """Return distinct kabupatens for a given region."""
+    region = request.args.get("region", "")
+    kabs = get_cached_ookla_kabupatens(region)
+    return jsonify({
+        "status": "success",
+        "region": region,
+        "kabupatens": kabs
+    })
+
+
+@sow.route("/api/sow/ookla/chart-data", methods=["POST"])
+@csrf.exempt
+@login_required
+def api_sow_ookla_chart_data():
+    req = request.get_json(silent=True) or {}
+    level = (req.get("level") or "region").strip().lower()
+    area = (req.get("area") or "AREA 4").strip()
+    region = (req.get("region") or "MALUKU DAN PAPUA").strip()
+    kabupaten = (req.get("kabupaten") or "").strip()
+    tech = (req.get("tech") or "ALL").strip()
+    operator = (req.get("operator") or "Telkomsel").strip()
+    target_wins = int(req.get("target_wins", 4))
+
+    all_yws = get_cached_ookla_yearweeks()
+    if not all_yws:
+        return jsonify({"status": "error", "message": "No Ookla data found"}), 404
+
+    try:
+        start_yw = int(req.get("start_yearweek") or (202601 if 202601 in all_yws else all_yws[-1]))
+        end_yw = int(req.get("end_yearweek") or all_yws[0])
+        if start_yw > end_yw:
+            start_yw, end_yw = end_yw, start_yw
+    except (ValueError, TypeError):
+        start_yw = all_yws[-1]
+        end_yw = all_yws[0]
+
+    where_clauses = ['"level" = %s', '"tech" = %s', '"yearweek" >= %s', '"yearweek" <= %s']
+    params = [level, tech, start_yw, end_yw]
+
+    if level == "area":
+        where_clauses.append('"area" = %s')
+        params.append(area)
+    elif level == "region":
+        where_clauses.append('UPPER(TRIM("region")) = UPPER(TRIM(%s))')
+        params.append(region)
+    elif level == "kabupaten":
+        where_clauses.append('UPPER(TRIM("region")) = UPPER(TRIM(%s))')
+        params.append(region)
+        if kabupaten:
+            where_clauses.append('UPPER(TRIM("kabupaten")) = UPPER(TRIM(%s))')
+            params.append(kabupaten)
+
+    sql = f"""
+        SELECT yearweek, operator,
+               rank_connectivity, connectivity_score,
+               rank_speed, speed_score,
+               rank_video, video_score,
+               rank_game, game_score,
+               rank_web, web_score,
+               page_load_time_percent, avg_val_web_page_load_time
+        FROM sow."ookla_score_cityLevel"
+        WHERE {' AND '.join(where_clauses)}
+        ORDER BY yearweek ASC, operator ASC;
+    """
+
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute(sql, tuple(params))
+            rows = cur.fetchall()
+
+        by_week = {}
+        for r in rows:
+            yw, op = int(r[0]), r[1]
+            by_week.setdefault(yw, {})[op] = r
+
+        weeks = sorted(by_week.keys())
+        if not weeks:
+            return jsonify({
+                "status": "success",
+                "weeks": [],
+                "win_counts": [],
+                "lose_counts": [],
+                "win_rates": [],
+                "target_line": [],
+                "summary": {
+                    "latest_week": None, "latest_wins": 0, "latest_loses": 0, "target": target_wins,
+                    "gap": 0, "status": "NO DATA", "target_met_count": 0, "target_met_ratio": 0.0,
+                    "avg_wins": 0.0, "avg_win_rate": 0.0, "best_week": "-", "lowest_week": "-",
+                    "evaluated_weeks": 0, "highlights": ["No Ookla data recorded for the selected scope."]
+                },
+                "latest_detail": [],
+                "competitors": {}
+            })
+
+        win_counts = []
+        lose_counts = []
+        win_rates = []
+
+        # Weekly aggregation for target operator
+        for w in weeks:
+            ops_in_w = by_week[w]
+            op_data = ops_in_w.get(operator)
+            if op_data:
+                ranks = []
+                for score_idx, rank_idx in [(3, 2), (5, 4), (7, 6), (9, 8), (11, 10)]:
+                    db_rk = op_data[rank_idx]
+                    if db_rk is not None and db_rk > 0:
+                        ranks.append(db_rk)
+                    else:
+                        my_sc = op_data[score_idx]
+                        if my_sc is not None:
+                            all_scs = [o[score_idx] for o in ops_in_w.values() if o[score_idx] is not None]
+                            all_scs.sort(reverse=True)
+                            ranks.append(all_scs.index(my_sc) + 1 if my_sc in all_scs else 99)
+                        else:
+                            ranks.append(99)
+                wins = sum(1 for rk in ranks if rk == 1)
+                loses = 5 - wins
+            else:
+                wins, loses = 0, 5
+            win_counts.append(wins)
+            lose_counts.append(loses)
+            win_rates.append(round(wins / 5.0 * 100.0, 1))
+
+        latest_yw = weeks[-1]
+        latest_ops = by_week[latest_yw]
+        latest_op_data = latest_ops.get(operator)
+
+        latest_wins = win_counts[-1]
+        latest_loses = lose_counts[-1]
+        gap = latest_wins - target_wins
+        status = "TARGET MET" if latest_wins >= target_wins else "BREACH"
+
+        target_met_count = sum(1 for w in win_counts if w >= target_wins)
+        total_eval_weeks = len(weeks)
+        target_met_ratio = round(target_met_count / total_eval_weeks * 100.0, 1) if total_eval_weeks else 0.0
+
+        avg_wins = round(sum(win_counts) / total_eval_weeks, 2) if total_eval_weeks else 0.0
+        avg_win_rate = round(avg_wins / 5.0 * 100.0, 1) if total_eval_weeks else 0.0
+
+        max_w_val = max(win_counts)
+        min_w_val = min(win_counts)
+        best_w_list = [str(weeks[i]) for i, v in enumerate(win_counts) if v == max_w_val]
+        lowest_w_list = [str(weeks[i]) for i, v in enumerate(win_counts) if v == min_w_val]
+
+        metric_configs = [
+            ("connectivity", "Connectivity", 3, 2, "Cellular Connectivity Score", "fa-wifi", "#38bdf8"),
+            ("speed", "Speed", 5, 4, "Download / Upload Speed Score", "fa-bolt", "#10b981"),
+            ("video", "Video", 7, 6, "Video Streaming Experience", "fa-play-circle", "#f59e0b"),
+            ("game", "Game", 9, 8, "Mobile Gaming Latency & Stability", "fa-gamepad", "#8b5cf6"),
+            ("web", "Web", 11, 10, "Web Browsing Experience", "fa-globe", "#ec4899"),
+        ]
+
+        latest_detail = []
+        winning_metrics = []
+        losing_metrics = []
+
+        for m_id, m_name, sc_idx, rk_idx, desc, icon, color in metric_configs:
+            my_sc = latest_op_data[sc_idx] if latest_op_data else None
+            my_rk = latest_op_data[rk_idx] if latest_op_data else None
+
+            comp_scores = {}
+            for comp_op, comp_row in latest_ops.items():
+                c_sc = comp_row[sc_idx]
+                c_rk = comp_row[rk_idx]
+                comp_scores[comp_op] = {
+                    "score": round(c_sc, 2) if c_sc is not None else None,
+                    "rank": c_rk
+                }
+
+            if (my_rk is None or my_rk == 0) and my_sc is not None:
+                all_scs = [comp_scores[op]["score"] for op in comp_scores if comp_scores[op]["score"] is not None]
+                all_scs.sort(reverse=True)
+                my_rk = all_scs.index(round(my_sc, 2)) + 1 if round(my_sc, 2) in all_scs else None
+
+            is_win = (my_rk == 1)
+            if is_win:
+                winning_metrics.append(m_name)
+            else:
+                losing_metrics.append(m_name)
+
+            latest_detail.append({
+                "id": m_id,
+                "name": m_name,
+                "description": desc,
+                "icon": icon,
+                "color": color,
+                "score": round(my_sc, 2) if my_sc is not None else None,
+                "rank": my_rk,
+                "status": "WIN" if is_win else "LOSE",
+                "competitors": comp_scores
+            })
+
+        # Add Web Page Load Time metric as informative row
+        if latest_op_data:
+            plt_pct = latest_op_data[12]
+            plt_ms = latest_op_data[13]
+        else:
+            plt_pct, plt_ms = None, None
+
+        latest_detail.append({
+            "id": "page_load",
+            "name": "Web Page Load Time",
+            "description": "Page Load Success Rate & Average Response Time",
+            "icon": "fa-clock",
+            "color": "#64748b",
+            "score": round(plt_pct, 2) if plt_pct is not None else None,
+            "score_unit": "%",
+            "secondary_val": f"{round(plt_ms, 0):.0f} ms" if plt_ms is not None else None,
+            "rank": "-",
+            "status": "INFO",
+            "competitors": {
+                op: {
+                    "score": round(r[12], 2) if r[12] is not None else None,
+                    "secondary": f"{round(r[13], 0):.0f} ms" if r[13] is not None else None
+                } for op, r in latest_ops.items()
+            }
+        })
+
+        # Smart highlights
+        highlights = []
+        loc_str = kabupaten if level == "kabupaten" else (region if level == "region" else (area if level == "area" else "National"))
+        highlights.append(f"In Week {latest_yw}, <strong>{operator}</strong> secured <strong>{latest_wins} out of 5</strong> Rank #1 victories across evaluated Ookla categories in {loc_str}.")
+        if winning_metrics:
+            highlights.append(f"Leading categories (Rank #1): <strong>{', '.join(winning_metrics)}</strong>.")
+        if losing_metrics:
+            highlights.append(f"Opportunities for improvement: <strong>{', '.join(losing_metrics)}</strong>.")
+        highlights.append(f"Performance consistency: <strong>{target_met_count} of {total_eval_weeks}</strong> evaluated weeks ({target_met_ratio}%) met the benchmark target of ≥ {target_wins} wins.")
+
+        summary = {
+            "latest_week": latest_yw,
+            "latest_wins": latest_wins,
+            "latest_loses": latest_loses,
+            "target": target_wins,
+            "gap": gap,
+            "status": status,
+            "target_met_count": target_met_count,
+            "target_met_ratio": target_met_ratio,
+            "avg_wins": avg_wins,
+            "avg_win_rate": avg_win_rate,
+            "best_week": f"{max_w_val} Wins ({', '.join(best_w_list[:2])})",
+            "lowest_week": f"{min_w_val} Wins ({', '.join(lowest_w_list[:2])})",
+            "evaluated_weeks": total_eval_weeks,
+            "highlights": highlights
+        }
+
+        return jsonify({
+            "status": "success",
+            "weeks": [str(w) for w in weeks],
+            "win_counts": win_counts,
+            "lose_counts": lose_counts,
+            "win_rates": win_rates,
+            "target_line": [target_wins] * len(weeks),
+            "summary": summary,
+            "latest_detail": latest_detail
+        })
+    except Exception as e:
+        logger.exception("Error loading Ookla chart data: %s", e)
+        return jsonify({"status": "error", "message": f"Failed to load Ookla chart data: {str(e)}"}), 500
+
+
+@sow.route("/api/sow/ookla/metrics-detail", methods=["GET"])
+@login_required
+def api_sow_ookla_metrics_detail():
+    """Return specific week 5-category breakdown across all operators."""
+    level = (request.args.get("level") or "region").strip().lower()
+    area = (request.args.get("area") or "AREA 4").strip()
+    region = (request.args.get("region") or "MALUKU DAN PAPUA").strip()
+    kabupaten = (request.args.get("kabupaten") or "").strip()
+    tech = (request.args.get("tech") or "ALL").strip()
+    operator = (request.args.get("operator") or "Telkomsel").strip()
+    try:
+        yw = int(request.args.get("yearweek") or 202640)
+    except (ValueError, TypeError):
+        yw = 202640
+
+    where_clauses = ['"level" = %s', '"tech" = %s', '"yearweek" = %s']
+    params = [level, tech, yw]
+
+    if level == "area":
+        where_clauses.append('"area" = %s')
+        params.append(area)
+    elif level == "region":
+        where_clauses.append('UPPER(TRIM("region")) = UPPER(TRIM(%s))')
+        params.append(region)
+    elif level == "kabupaten":
+        where_clauses.append('UPPER(TRIM("region")) = UPPER(TRIM(%s))')
+        params.append(region)
+        if kabupaten:
+            where_clauses.append('UPPER(TRIM("kabupaten")) = UPPER(TRIM(%s))')
+            params.append(kabupaten)
+
+    sql = f"""
+        SELECT operator,
+               rank_connectivity, connectivity_score,
+               rank_speed, speed_score,
+               rank_video, video_score,
+               rank_game, game_score,
+               rank_web, web_score,
+               page_load_time_percent, avg_val_web_page_load_time
+        FROM sow."ookla_score_cityLevel"
+        WHERE {' AND '.join(where_clauses)}
+        ORDER BY operator ASC;
+    """
+
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute(sql, tuple(params))
+            rows = cur.fetchall()
+
+        ops_map = {r[0]: r for r in rows}
+        my_row = ops_map.get(operator)
+
+        metric_configs = [
+            ("connectivity", "Connectivity", 2, 1, "Cellular Connectivity Score", "fa-wifi", "#38bdf8"),
+            ("speed", "Speed", 4, 3, "Download / Upload Speed Score", "fa-bolt", "#10b981"),
+            ("video", "Video", 6, 5, "Video Streaming Experience", "fa-play-circle", "#f59e0b"),
+            ("game", "Game", 8, 7, "Mobile Gaming Latency & Stability", "fa-gamepad", "#8b5cf6"),
+            ("web", "Web", 10, 9, "Web Browsing Experience", "fa-globe", "#ec4899"),
+        ]
+
+        detail = []
+        for m_id, m_name, sc_idx, rk_idx, desc, icon, color in metric_configs:
+            my_sc = my_row[sc_idx] if my_row else None
+            my_rk = my_row[rk_idx] if my_row else None
+
+            comp_scores = {}
+            for comp_op, comp_row in ops_map.items():
+                c_sc = comp_row[sc_idx]
+                c_rk = comp_row[rk_idx]
+                comp_scores[comp_op] = {
+                    "score": round(c_sc, 2) if c_sc is not None else None,
+                    "rank": c_rk
+                }
+
+            if (my_rk is None or my_rk == 0) and my_sc is not None:
+                all_scs = [comp_scores[op]["score"] for op in comp_scores if comp_scores[op]["score"] is not None]
+                all_scs.sort(reverse=True)
+                my_rk = all_scs.index(round(my_sc, 2)) + 1 if round(my_sc, 2) in all_scs else None
+
+            is_win = (my_rk == 1)
+            detail.append({
+                "id": m_id,
+                "name": m_name,
+                "description": desc,
+                "icon": icon,
+                "color": color,
+                "score": round(my_sc, 2) if my_sc is not None else None,
+                "rank": my_rk,
+                "status": "WIN" if is_win else "LOSE",
+                "competitors": comp_scores
+            })
+
+        detail.append({
+            "id": "page_load",
+            "name": "Web Page Load Time",
+            "description": "Page Load Success Rate & Average Response Time",
+            "icon": "fa-clock",
+            "color": "#64748b",
+            "score": round(my_row[11], 2) if (my_row and my_row[11] is not None) else None,
+            "score_unit": "%",
+            "secondary_val": f"{round(my_row[12], 0):.0f} ms" if (my_row and my_row[12] is not None) else None,
+            "rank": "-",
+            "status": "INFO",
+            "competitors": {
+                op: {
+                    "score": round(r[11], 2) if r[11] is not None else None,
+                    "secondary": f"{round(r[12], 0):.0f} ms" if r[12] is not None else None
+                } for op, r in ops_map.items()
+            }
+        })
+
+        wins = sum(1 for d in detail[:5] if d["status"] == "WIN")
+        loses = 5 - wins
+
+        return jsonify({
+            "status": "success",
+            "yearweek": yw,
+            "wins": wins,
+            "loses": loses,
+            "detail": detail
+        })
+    except Exception as e:
+        logger.exception("Error loading Ookla metrics detail: %s", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@sow.route("/api/sow/ookla/trend-metrics", methods=["POST"])
+@csrf.exempt
+@login_required
+def api_sow_ookla_trend_metrics():
+    """Return historical weekly score trends for each of the 5 Ookla categories."""
+    req = request.get_json(silent=True) or {}
+    level = (req.get("level") or "region").strip().lower()
+    area = (req.get("area") or "AREA 4").strip()
+    region = (req.get("region") or "MALUKU DAN PAPUA").strip()
+    kabupaten = (req.get("kabupaten") or "").strip()
+    tech = (req.get("tech") or "ALL").strip()
+
+    all_yws = get_cached_ookla_yearweeks()
+    try:
+        start_yw = int(req.get("start_yearweek") or (202601 if 202601 in all_yws else all_yws[-1]))
+        end_yw = int(req.get("end_yearweek") or all_yws[0])
+        if start_yw > end_yw:
+            start_yw, end_yw = end_yw, start_yw
+    except (ValueError, TypeError):
+        start_yw = 202601
+        end_yw = 202643
+
+    where_clauses = ['"level" = %s', '"tech" = %s', '"yearweek" >= %s', '"yearweek" <= %s']
+    params = [level, tech, start_yw, end_yw]
+
+    if level == "area":
+        where_clauses.append('"area" = %s')
+        params.append(area)
+    elif level == "region":
+        where_clauses.append('UPPER(TRIM("region")) = UPPER(TRIM(%s))')
+        params.append(region)
+    elif level == "kabupaten":
+        where_clauses.append('UPPER(TRIM("region")) = UPPER(TRIM(%s))')
+        params.append(region)
+        if kabupaten:
+            where_clauses.append('UPPER(TRIM("kabupaten")) = UPPER(TRIM(%s))')
+            params.append(kabupaten)
+
+    sql = f"""
+        SELECT yearweek, operator,
+               connectivity_score, speed_score, video_score, game_score, web_score
+        FROM sow."ookla_score_cityLevel"
+        WHERE {' AND '.join(where_clauses)}
+        ORDER BY yearweek ASC, operator ASC;
+    """
+
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute(sql, tuple(params))
+            rows = cur.fetchall()
+
+        by_week_op = {}
+        all_ops = set()
+        weeks_set = set()
+        for r in rows:
+            yw, op = int(r[0]), r[1]
+            weeks_set.add(yw)
+            all_ops.add(op)
+            by_week_op.setdefault(yw, {})[op] = (r[2], r[3], r[4], r[5], r[6])
+
+        weeks = sorted(weeks_set)
+        ops_sorted = sorted(all_ops, key=lambda x: (0 if x == "Telkomsel" else (1 if x == "IOH" else (2 if "XL" in x else 3))))
+
+        categories = {
+            "connectivity": {"name": "Connectivity Score", "series": {}},
+            "speed": {"name": "Speed Score", "series": {}},
+            "video": {"name": "Video Score", "series": {}},
+            "game": {"name": "Game Score", "series": {}},
+            "web": {"name": "Web Score", "series": {}}
+        }
+
+        for op in ops_sorted:
+            for cat in categories:
+                categories[cat]["series"][op] = []
+
+        cat_indices = {"connectivity": 0, "speed": 1, "video": 2, "game": 3, "web": 4}
+
+        for w in weeks:
+            w_data = by_week_op.get(w, {})
+            for op in ops_sorted:
+                vals = w_data.get(op)
+                for cat, idx in cat_indices.items():
+                    val = vals[idx] if vals else None
+                    categories[cat]["series"][op].append(round(val, 2) if val is not None else None)
+
+        return jsonify({
+            "status": "success",
+            "weeks": [str(w) for w in weeks],
+            "categories": categories,
+            "operators": ops_sorted
+        })
+    except Exception as e:
+        logger.exception("Error loading Ookla trend metrics: %s", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@sow.route("/api/sow/ookla/rank-trends", methods=["POST"])
+@csrf.exempt
+@login_required
+def api_sow_ookla_rank_trends():
+    """Return weekly Rank 1 winners for each of the 5 Ookla categories for ALL and 5G tech."""
+    req = request.get_json(silent=True) or {}
+    level = (req.get("level") or "region").strip().lower()
+    area = (req.get("area") or "AREA 4").strip()
+    region = (req.get("region") or "MALUKU DAN PAPUA").strip()
+    kabupaten = (req.get("kabupaten") or "").strip()
+
+    all_yws = get_cached_ookla_yearweeks()
+    try:
+        start_yw = int(req.get("start_yearweek") or (202601 if 202601 in all_yws else all_yws[-1]))
+        end_yw = int(req.get("end_yearweek") or all_yws[0])
+        if start_yw > end_yw:
+            start_yw, end_yw = end_yw, start_yw
+    except (ValueError, TypeError):
+        start_yw = 202601
+        end_yw = 202641
+
+    where_clauses = ['"level" = %s', '"yearweek" >= %s', '"yearweek" <= %s']
+    params = [level, start_yw, end_yw]
+
+    if level == "area":
+        where_clauses.append('"area" = %s')
+        params.append(area)
+    elif level == "region":
+        where_clauses.append('UPPER(TRIM("region")) = UPPER(TRIM(%s))')
+        params.append(region)
+    elif level == "kabupaten":
+        where_clauses.append('UPPER(TRIM("region")) = UPPER(TRIM(%s))')
+        params.append(region)
+        if kabupaten:
+            where_clauses.append('UPPER(TRIM("kabupaten")) = UPPER(TRIM(%s))')
+            params.append(kabupaten)
+
+    where_clauses.append('"tech" IN (\'ALL\', \'5G\')')
+
+    sql = f"""
+        SELECT yearweek, tech, operator,
+               rank_connectivity, rank_speed, rank_video, rank_game, rank_web
+        FROM sow."ookla_score_cityLevel"
+        WHERE {' AND '.join(where_clauses)}
+          AND (rank_connectivity = 1 OR rank_speed = 1 OR rank_video = 1 OR rank_game = 1 OR rank_web = 1)
+        ORDER BY yearweek ASC, operator ASC;
+    """
+
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute(sql, tuple(params))
+            rows = cur.fetchall()
+
+            cur.execute(
+                'SELECT DISTINCT yearweek FROM sow."ookla_score_cityLevel" WHERE yearweek >= %s AND yearweek <= %s ORDER BY yearweek ASC;',
+                (start_yw, end_yw)
+            )
+            weeks = [str(r[0]) for r in cur.fetchall()]
+
+        metric_defs = [
+            ("connectivity", "Rank Connectivity", 3),
+            ("speed", "Rank Speed", 4),
+            ("video", "Rank Video", 5),
+            ("game", "Rank Game", 6),
+            ("web", "Rank Web", 7),
+        ]
+
+        w_idx = {w: i for i, w in enumerate(weeks)}
+        all_ops = sorted(list(set(r[2] for r in rows)), key=lambda x: (0 if x == "Telkomsel" else (1 if x == "IOH" else (2 if "XL" in x else 3))))
+
+        def _build_rank_dict(tech_val, tech_label):
+            t_rows = [r for r in rows if r[1] == tech_val]
+            t_dict = {}
+            for m_key, m_title, col_idx in metric_defs:
+                winners = sorted(list(set(r[2] for r in t_rows if r[col_idx] == 1)), key=lambda x: (0 if x == "Telkomsel" else (1 if x == "IOH" else (2 if "XL" in x else 3))))
+                series = {op: [None] * len(weeks) for op in winners}
+                for r in t_rows:
+                    yw_str = str(r[0])
+                    op = r[2]
+                    rk = r[col_idx]
+                    if rk == 1 and op in series and yw_str in w_idx:
+                        series[op][w_idx[yw_str]] = 1
+                t_dict[m_key] = {
+                    "title": f"{m_title} ({tech_label})",
+                    "series": series
+                }
+            return t_dict
+
+        ranks_all = _build_rank_dict("ALL", "ALL")
+        ranks_5g = _build_rank_dict("5G", "5G")
+
+        return jsonify({
+            "status": "success",
+            "weeks": weeks,
+            "ranks": ranks_all,
+            "ranks_all": ranks_all,
+            "ranks_5g": ranks_5g,
+            "operators": all_ops
+        })
+    except Exception as e:
+        logger.exception("Error loading Ookla rank trends: %s", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@sow.route("/api/sow/ookla/comparison", methods=["POST"])
+@csrf.exempt
+@login_required
+def api_sow_ookla_comparison():
+    """Return comparison table of locations for Ookla metrics (scores, ranks, WoW delta)."""
+    req = request.get_json(silent=True) or {}
+    level = (req.get("level") or "kabupaten").strip().lower()
+    area = (req.get("area") or "AREA 4").strip()
+    region = (req.get("region") or "MALUKU DAN PAPUA").strip()
+    tech = (req.get("tech") or "ALL").strip()
+    operator = (req.get("operator") or "Telkomsel").strip()
+    target_wins = int(req.get("target_wins", 4))
+
+    all_yws = get_cached_ookla_yearweeks()
+    if not all_yws:
+        return jsonify({"status": "error", "message": "No Ookla data"}), 404
+
+    try:
+        ref_yw = int(req.get("yearweek") or all_yws[0])
+    except (ValueError, TypeError):
+        ref_yw = all_yws[0]
+
+    # Find previous yearweek with data
+    prev_yw = None
+    for y in all_yws:
+        if y < ref_yw:
+            prev_yw = y
+            break
+
+    target_col = "kabupaten" if level == "kabupaten" else ("region" if level == "region" else ("area" if level == "area" else "level"))
+    where_conds = ['c."level" = %s', 'c."tech" = %s', 'c."operator" = %s', 'c."yearweek" = %s']
+    params = [level, tech, operator, ref_yw]
+
+    if level == "region" and area and area != "ALL":
+        where_conds.append('c."area" = %s')
+        params.append(area)
+    elif level == "kabupaten" and region:
+        where_conds.append('UPPER(TRIM(c."region")) = UPPER(TRIM(%s))')
+        params.append(region)
+
+    sql = f"""
+        SELECT c."{target_col}" as loc_name,
+               c.rank_connectivity, c.connectivity_score,
+               c.rank_speed, c.speed_score,
+               c.rank_video, c.video_score,
+               c.rank_game, c.game_score,
+               c.rank_web, c.web_score,
+               p.connectivity_score as prev_conn,
+               p.speed_score as prev_speed,
+               p.video_score as prev_video,
+               p.game_score as prev_game,
+               p.web_score as prev_web
+        FROM sow."ookla_score_cityLevel" c
+        LEFT JOIN sow."ookla_score_cityLevel" p
+          ON p."level" = c."level"
+         AND COALESCE(p."region",'') = COALESCE(c."region",'')
+         AND COALESCE(p."kabupaten",'') = COALESCE(c."kabupaten",'')
+         AND COALESCE(p."area",'') = COALESCE(c."area",'')
+         AND p."tech" = c."tech" AND p."operator" = c."operator" AND p."yearweek" = %s
+        WHERE {' AND '.join(where_conds)}
+          AND c."{target_col}" IS NOT NULL AND c."{target_col}" <> '' AND c."{target_col}" <> 'None'
+        ORDER BY c."{target_col}" ASC;
+    """
+
+    try:
+        with db_query(get_postgres_connection) as (conn, cur):
+            cur.execute(sql, (prev_yw, *params))
+            rows = cur.fetchall()
+
+        items = []
+        for r in rows:
+            loc = r[0]
+            ranks = [r[1], r[3], r[5], r[7], r[9]]
+            wins = sum(1 for rk in ranks if rk == 1)
+
+            def _m(sc, rk, p_sc):
+                delta = round(sc - p_sc, 2) if (sc is not None and p_sc is not None) else None
+                return {
+                    "score": round(sc, 2) if sc is not None else None,
+                    "rank": rk,
+                    "prev_score": round(p_sc, 2) if p_sc is not None else None,
+                    "delta": delta
+                }
+
+            items.append({
+                "location": loc,
+                "wins": wins,
+                "status": "TARGET MET" if wins >= target_wins else "BREACH",
+                "connectivity": _m(r[2], r[1], r[10]),
+                "speed": _m(r[4], r[3], r[11]),
+                "video": _m(r[6], r[5], r[12]),
+                "game": _m(r[8], r[7], r[13]),
+                "web": _m(r[10], r[9], r[14]),
+            })
+
+        total = len(items)
+        met = sum(1 for it in items if it["wins"] >= target_wins)
+        met_pct = round(met / total * 100.0, 1) if total else 0.0
+        avg_w = round(sum(it["wins"] for it in items) / total, 2) if total else 0.0
+        best_loc = max(items, key=lambda x: x["wins"]) if items else None
+        low_loc = min(items, key=lambda x: x["wins"]) if items else None
+
+        summary = {
+            "total_locations": total,
+            "target_met_count": met,
+            "target_met_pct": met_pct,
+            "avg_wins": avg_w,
+            "best_location": {"name": best_loc["location"], "wins": best_loc["wins"]} if best_loc else None,
+            "lowest_location": {"name": low_loc["location"], "wins": low_loc["wins"]} if low_loc else None,
+            "yearweek": ref_yw,
+            "prev_yearweek": prev_yw
+        }
+
+        return jsonify({
+            "status": "success",
+            "yearweek": ref_yw,
+            "prev_yearweek": prev_yw,
+            "summary": summary,
+            "items": items
+        })
+    except Exception as e:
+        logger.exception("Error loading Ookla comparison: %s", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 
@@ -1358,6 +2283,12 @@ def crowdsource_page():
         older = [y for y in fb_yearweeks if y <= (fb_default_start_yw or 0)]
         fb_default_start_yw = older[0] if older else fb_yearweeks[-1]
 
+    # Ookla tab defaults (independent from sow.ookla_score_cityLevel)
+    ookla_yearweeks = get_cached_ookla_yearweeks()
+    ookla_dimensions = get_cached_ookla_dimensions()
+    ookla_default_end_yw = ookla_yearweeks[0] if ookla_yearweeks else default_end_yw
+    ookla_default_start_yw = 202601 if 202601 in ookla_yearweeks else (ookla_yearweeks[-1] if ookla_yearweeks else default_start_yw)
+
     return render_template(
         "sow_crowdsource.html",
         username=session.get("username", "User"),
@@ -1375,7 +2306,11 @@ def crowdsource_page():
         metric_titles=METRIC_TITLES,
         fb_yearweeks=fb_yearweeks,
         fb_default_start_yw=fb_default_start_yw,
-        fb_default_end_yw=fb_default_end_yw
+        fb_default_end_yw=fb_default_end_yw,
+        ookla_yearweeks=ookla_yearweeks,
+        ookla_dimensions=ookla_dimensions,
+        ookla_default_start_yw=ookla_default_start_yw,
+        ookla_default_end_yw=ookla_default_end_yw
     )
 
 

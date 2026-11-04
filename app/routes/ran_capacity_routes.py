@@ -1108,55 +1108,81 @@ def api_ran_capacity_trend():
         target_dict_unb = _get_all_targets("unbalance").get(2026, {})
 
         # Build Kabupaten trends for deep-dive analysis
-        kab_trend_map = defaultdict(lambda: {
-            "weeks": [],
-            "total": [],
-            "optim": [],
-            "engineering": [],
-            "operation": [],
-            "ran_vendor": [],
-            "optim_pct": [],
-            "p1": [],
-            "p2": [],
-            "p3": [],
-            "balanced": [],
-            "p1_pct": [],
-            "v1_unb": [],
-            "v2_unb": [],
-            "v3_unb": []
-        })
+        kab_yw_map = {}
+        all_kabs = set()
+        for r in kab_agg_rows:
+            yw_val, kab, tot, opt, eng, op, ven, p1, p2, p3, bal, v1, v2, v3 = r
+            if not kab or kab == "UNKNOWN":
+                continue
+            nop = branch_map.get(kab, "UNKNOWN")
+            if branch != "ALL" and nop != branch:
+                continue
+            all_kabs.add(kab)
+            kab_yw_map[(kab, yw_val)] = (tot, opt, eng, op, ven, p1, p2, p3, bal, v1, v2, v3)
 
-        for yw in yws_in_range:
-            rows_w = week_kab_data[yw]
-            w_str = f"W{str(yw)[-2:]}"
-            for r in rows_w:
-                _, kab, tot, opt, eng, op, ven, p1, p2, p3, bal, v1, v2, v3 = r
-                if not kab or kab == "UNKNOWN":
-                    continue
-                kt = kab_trend_map[kab]
+        sorted_kabs = sorted(list(all_kabs))
+        kab_trend_map = {}
+        for kab in sorted_kabs:
+            kt = {
+                "weeks": [],
+                "total": [],
+                "optim": [],
+                "engineering": [],
+                "operation": [],
+                "ran_vendor": [],
+                "optim_pct": [],
+                "p1": [],
+                "p2": [],
+                "p3": [],
+                "balanced": [],
+                "p1_pct": [],
+                "v1_unb": [],
+                "v2_unb": [],
+                "v3_unb": []
+            }
+            for yw in yws_in_range:
+                w_str = f"W{str(yw)[-2:]}"
                 kt["weeks"].append(w_str)
-                kt["total"].append(tot)
-                kt["optim"].append(opt)
-                kt["engineering"].append(eng)
-                kt["operation"].append(op)
-                kt["ran_vendor"].append(ven)
-                kt["optim_pct"].append(round(opt / tot * 100.0, 2) if tot else 0.0)
-                kt["p1"].append(p1)
-                kt["p2"].append(p2)
-                kt["p3"].append(p3)
-                kt["balanced"].append(bal)
-                kt["p1_pct"].append(round(p1 / tot * 100.0, 2) if tot else 0.0)
-                kt["v1_unb"].append(v1)
-                kt["v2_unb"].append(v2)
-                kt["v3_unb"].append(v3)
+                if (kab, yw) in kab_yw_map:
+                    tot, opt, eng, op, ven, p1, p2, p3, bal, v1, v2, v3 = kab_yw_map[(kab, yw)]
+                    kt["total"].append(tot)
+                    kt["optim"].append(opt)
+                    kt["engineering"].append(eng)
+                    kt["operation"].append(op)
+                    kt["ran_vendor"].append(ven)
+                    kt["optim_pct"].append(round(opt / tot * 100.0, 2) if tot else 0.0)
+                    kt["p1"].append(p1)
+                    kt["p2"].append(p2)
+                    kt["p3"].append(p3)
+                    kt["balanced"].append(bal)
+                    kt["p1_pct"].append(round(p1 / tot * 100.0, 2) if tot else 0.0)
+                    kt["v1_unb"].append(v1)
+                    kt["v2_unb"].append(v2)
+                    kt["v3_unb"].append(v3)
+                else:
+                    kt["total"].append(0)
+                    kt["optim"].append(0)
+                    kt["engineering"].append(0)
+                    kt["operation"].append(0)
+                    kt["ran_vendor"].append(0)
+                    kt["optim_pct"].append(0.0)
+                    kt["p1"].append(0)
+                    kt["p2"].append(0)
+                    kt["p3"].append(0)
+                    kt["balanced"].append(0)
+                    kt["p1_pct"].append(0.0)
+                    kt["v1_unb"].append(0)
+                    kt["v2_unb"].append(0)
+                    kt["v3_unb"].append(0)
+            kab_trend_map[kab] = kt
 
         response_data = {
             "status": "success",
             "yearweeks": yws_in_range,
             "week_labels": week_labels,
             "full_week_labels": full_week_labels,
-            "kabupaten_list": sorted(list(kab_trend_map.keys())),
-            "kabupaten_trends": dict(kab_trend_map),
+            "kabupaten_list": sorted_kabs,
+            "kabupaten_trends": kab_trend_map,
             "rci_trend": {
                 **rci_trend,
                 "moving_series": rci_moving_trend_series,

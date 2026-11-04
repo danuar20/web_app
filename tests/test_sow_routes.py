@@ -175,6 +175,116 @@ def test_fb_share_pptx_export_blank_week(auth_client):
     assert res.get_json()["status"] == "error"
 
 
+def test_ookla_dimensions(auth_client):
+    """Test Ookla dimensions API."""
+    res = auth_client.get("/api/sow/ookla/dimensions")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["status"] == "success"
+    assert "dimensions" in data
+    assert "AREA 4" in data["dimensions"]["areas"]
+    assert "yearweeks" in data
+    assert len(data["yearweeks"]) > 0
+
+
+def test_ookla_chart_data(auth_client):
+    """Test Ookla chart data calculation."""
+    payload = {
+        "level": "region",
+        "area": "AREA 4",
+        "region": "MALUKU DAN PAPUA",
+        "tech": "ALL",
+        "operator": "Telkomsel",
+        "start_yearweek": 202635,
+        "end_yearweek": 202640,
+        "target_wins": 4
+    }
+    res = auth_client.post("/api/sow/ookla/chart-data", json=payload)
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["status"] == "success"
+    assert len(data["weeks"]) > 0
+    assert "summary" in data
+    assert "latest_wins" in data["summary"]
+    assert len(data["latest_detail"]) == 6
+
+
+def test_ookla_metrics_detail(auth_client):
+    """Test Ookla 5-category breakdown for a week."""
+    res = auth_client.get("/api/sow/ookla/metrics-detail?level=region&area=AREA%204&region=MALUKU%20DAN%20PAPUA&tech=ALL&operator=Telkomsel&yearweek=202640")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["status"] == "success"
+    assert data["yearweek"] == 202640
+    assert len(data["detail"]) == 6
+
+
+def test_ookla_trend_metrics(auth_client):
+    """Test Ookla 5-category historical trend lines."""
+    payload = {
+        "level": "region",
+        "area": "AREA 4",
+        "region": "MALUKU DAN PAPUA",
+        "tech": "ALL",
+        "start_yearweek": 202638,
+        "end_yearweek": 202640
+    }
+    res = auth_client.post("/api/sow/ookla/trend-metrics", json=payload)
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["status"] == "success"
+    assert "categories" in data
+    assert "speed" in data["categories"]
+    assert "video" in data["categories"]
+
+
+def test_ookla_rank_trends(auth_client):
+    """Test Ookla weekly rank 1 trends endpoint."""
+    payload = {
+        "level": "region",
+        "region": "MALUKU DAN PAPUA",
+        "tech": "ALL",
+        "start_yearweek": 202635,
+        "end_yearweek": 202640
+    }
+    res = auth_client.post("/api/sow/ookla/rank-trends", json=payload)
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["status"] == "success"
+    assert "ranks" in data
+    assert "connectivity" in data["ranks"]
+    assert "speed" in data["ranks"]
+    assert len(data["weeks"]) > 0
+
+
+def test_ookla_comparison(auth_client):
+    """Test Ookla comparison API."""
+    payload = {
+        "level": "kabupaten",
+        "region": "MALUKU DAN PAPUA",
+        "tech": "ALL",
+        "operator": "Telkomsel",
+        "yearweek": 202640,
+        "target_wins": 4
+    }
+    res = auth_client.post("/api/sow/ookla/comparison", json=payload)
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["status"] == "success"
+    assert "items" in data
+    assert len(data["items"]) > 0
+    assert "summary" in data
+    assert "target_met_count" in data["summary"]
+
+
+def test_ookla_csv_export(auth_client):
+    """Test Ookla CSV export endpoint."""
+    res = auth_client.get("/api/sow/crowdsource_ookla-csv-export?week=202640")
+    assert res.status_code == 200
+    assert "text/csv" in res.headers.get("Content-Type", "")
+    assert "attachment" in res.headers.get("Content-Disposition", "")
+
+
 def test_api_sow_import_csv(auth_client):
     """Test importing and upserting sample benchmark records via CSV."""
     import os
