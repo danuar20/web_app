@@ -3866,21 +3866,24 @@
                             <span class="sub-item-dot"></span> Site Level
                         </a>
                     </div>
-                    {% if session.get('role') == 'admin' %}
                     <div class="menu-item {% block nav_database %}{% endblock %}" onclick="toggleSub('subDB', this)">
                         <div class="menu-icon"><i class="fas fa-database"></i></div>
                         <span class="menu-item-label">Database</span>
                         <i class="fas fa-chevron-right menu-arrow"></i>
                     </div>
                     <div class="sub-menu {% block subDB_open %}{% endblock %}" id="subDB">
+                        {% if session.get('role') == 'admin' %}
                         <a href="/database/postgres" class="sub-item {% block nav_db_postgres %}{% endblock %}">
                             <span class="sub-item-dot"></span> Postgres DB
                         </a>
                         <a href="/database/sites_db" class="sub-item {% block nav_db_sites %}{% endblock %}">
                             <span class="sub-item-dot"></span> Sites DB
                         </a>
+                        {% endif %}
+                        <a href="/database/query" class="sub-item {% block nav_db_query %}{% endblock %}">
+                            <span class="sub-item-dot"></span> Query Database
+                        </a>
                     </div>
-                    {% endif %}
                 </div>
 
                 <div class="menu-section">

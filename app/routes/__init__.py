@@ -105,6 +105,10 @@ unbalance_prb = unbalance_prb_routes.unbalance_prb
 from . import sites_db_routes
 sites_db_bp = sites_db_routes.sites_db_bp
 
+# Query Database — /database/query (read-only SQL console, admin only)
+from . import query_db_routes
+query_db_bp = query_db_routes.query_db_bp
+
 # SOW Crowdsource — /sow/crowdsource
 from . import sow_routes
 sow = sow_routes.sow

@@ -107,7 +107,12 @@ def _fetch_healthy_dataset(week):
                 SUBSTRING(cell_name FROM '(\\d+)$')
             )::int AS sector_num,
             MAX(UPPER(TRIM(kabupaten))) AS kabupaten,
-            MAX(CASE WHEN UPPER(TRIM(remark_week)) = 'FAIL' THEN 1 ELSE 0 END) AS rhi
+            MAX(CASE WHEN UPPER(TRIM(remark_week)) = 'FAIL' THEN 1 ELSE 0 END) AS rhi,
+            MAX(CASE 
+                WHEN availability_cellbasedconsecutive_remark = 'fail' 
+                     OR total_fail_availability_cellbasedconsecutive_remark = 1 THEN 1 
+                ELSE 0 
+            END) AS avail
         FROM sow.rhi_score
         WHERE weeknum = %(week)s AND site_id IS NOT NULL AND TRIM(site_id) != ''
         GROUP BY UPPER(TRIM(site_id)), sector_num
@@ -122,6 +127,17 @@ def _fetch_healthy_dataset(week):
         FROM sow.rci_redsector
         WHERE week = %(week)s AND site_id IS NOT NULL AND TRIM(site_id) != ''
         GROUP BY UPPER(TRIM(site_id)), sector_id_new
+    ),
+    pl_site AS (
+        SELECT 
+            UPPER(TRIM(siteid)) AS site_id,
+            CASE 
+                WHEN (SUM(packet_loss_num)::numeric / NULLIF(SUM(packet_loss_denum), 0) * 100.0) > 0.10 THEN 1 
+                ELSE 0 
+            END AS pl
+        FROM "4G_pl_hy_daily"
+        WHERE TO_CHAR(date, 'IYYYIW') = %(week_str)s AND siteid IS NOT NULL AND TRIM(siteid) != ''
+        GROUP BY UPPER(TRIM(siteid))
     ),
     all_sec_keys AS (
         SELECT site_id, sector_num FROM cei_sec WHERE sector_num IS NOT NULL
@@ -138,17 +154,20 @@ def _fetch_healthy_dataset(week):
         COALESCE(c.cei, 0) AS cei,
         COALESCE(rh.rhi, 0) AS rhi,
         COALESCE(rc.rci, 0) AS rci,
-        COALESCE(rc.unb, 0) AS unbalance
+        COALESCE(rc.unb, 0) AS unbalance,
+        COALESCE(rh.avail, 0) AS availability,
+        COALESCE(pl.pl, 0) AS pl
     FROM all_sec_keys k
     LEFT JOIN cei_sec c ON k.site_id = c.site_id AND k.sector_num = c.sector_num
     LEFT JOIN rhi_sec rh ON k.site_id = rh.site_id AND k.sector_num = rh.sector_num
     LEFT JOIN rci_sec rc ON k.site_id = rc.site_id AND k.sector_num = rc.sector_num
+    LEFT JOIN pl_site pl ON k.site_id = pl.site_id
     ORDER BY k.site_id, k.sector_num
     """
 
     sectors = []
     with db_query(get_postgres_connection) as (conn, cur):
-        cur.execute(query, {"week": week})
+        cur.execute(query, {"week": week, "week_str": str(week)})
         sectors = cur.fetchall()
 
     logger.info("Fetched %d sectors for week %s in %.2fs", len(sectors), week, time.time() - t0)
@@ -158,18 +177,22 @@ def _fetch_healthy_dataset(week):
     site_map = {}
 
     for row in sectors:
-        site_id, sec_num, sec_id, kab, cei, rhi, rci, unb = row
+        site_id, sec_num, sec_id, kab, cei, rhi, rci, unb, avail, pl = row
         cei = int(cei or 0)
         rhi = int(rhi or 0)
         rci = int(rci or 0)
         unb = int(unb or 0)
-        issues = cei + rhi + rci + unb
+        avail = int(avail or 0)
+        pl = int(pl or 0)
+        issues = cei + rhi + rci + unb + avail + pl
 
         issue_names = []
         if cei: issue_names.append("CEI")
         if rhi: issue_names.append("RHI")
         if rci: issue_names.append("RCI")
         if unb: issue_names.append("UNBALANCE")
+        if avail: issue_names.append("AVAILABILITY")
+        if pl: issue_names.append("PL")
 
         remark_str = "Healthy" if issues == 0 else f"Issue: {', '.join(issue_names)}"
 
@@ -182,6 +205,8 @@ def _fetch_healthy_dataset(week):
             "rhi": rhi,
             "rci": rci,
             "unbalance": unb,
+            "availability": avail,
+            "pl": pl,
             "issues_count": issues,
             "remark": remark_str,
             "issue_names": issue_names
@@ -197,6 +222,8 @@ def _fetch_healthy_dataset(week):
                 "rhi": 0,
                 "rci": 0,
                 "unbalance": 0,
+                "availability": 0,
+                "pl": 0,
                 "sectors": []
             }
 
@@ -209,6 +236,8 @@ def _fetch_healthy_dataset(week):
         if rhi: s_entry["rhi"] = 1
         if rci: s_entry["rci"] = 1
         if unb: s_entry["unbalance"] = 1
+        if avail: s_entry["availability"] = 1
+        if pl: s_entry["pl"] = 1
 
     site_records = []
     for s_id, s_data in site_map.items():
@@ -216,13 +245,17 @@ def _fetch_healthy_dataset(week):
         rhi = s_data["rhi"]
         rci = s_data["rci"]
         unb = s_data["unbalance"]
-        issues = cei + rhi + rci + unb
+        avail = s_data["availability"]
+        pl = s_data["pl"]
+        issues = cei + rhi + rci + unb + avail + pl
 
         issue_names = []
         if cei: issue_names.append("CEI")
         if rhi: issue_names.append("RHI")
         if rci: issue_names.append("RCI")
         if unb: issue_names.append("UNBALANCE")
+        if avail: issue_names.append("AVAILABILITY")
+        if pl: issue_names.append("PL")
 
         remark_str = "Healthy" if issues == 0 else f"Issue: {', '.join(issue_names)}"
 
@@ -234,6 +267,8 @@ def _fetch_healthy_dataset(week):
             "rhi": rhi,
             "rci": rci,
             "unbalance": unb,
+            "availability": avail,
+            "pl": pl,
             "issues_count": issues,
             "remark": remark_str,
             "issue_names": issue_names
@@ -258,20 +293,24 @@ def _fetch_healthy_dataset(week):
     rhi_sites = sum(1 for s in site_records if s["rhi"] == 1)
     rci_sites = sum(1 for s in site_records if s["rci"] == 1)
     unb_sites = sum(1 for s in site_records if s["unbalance"] == 1)
+    avail_sites = sum(1 for s in site_records if s["availability"] == 1)
+    pl_sites = sum(1 for s in site_records if s["pl"] == 1)
 
     cei_sec = sum(1 for s in sector_records if s["cei"] == 1)
     rhi_sec = sum(1 for s in sector_records if s["rhi"] == 1)
     rci_sec = sum(1 for s in sector_records if s["rci"] == 1)
     unb_sec = sum(1 for s in sector_records if s["unbalance"] == 1)
+    avail_sec = sum(1 for s in sector_records if s["availability"] == 1)
+    pl_sec = sum(1 for s in sector_records if s["pl"] == 1)
 
-    # Issue count distribution (0, 1, 2, 3, 4)
-    distrib = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}
+    # Issue count distribution (0, 1, 2, 3, 4, 5, 6)
+    distrib = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0}
     for s in site_records:
-        cnt = min(s["issues_count"], 4)
+        cnt = min(s["issues_count"], 6)
         distrib[cnt] = distrib.get(cnt, 0) + 1
 
     # Kabupaten breakdown
-    kab_map = defaultdict(lambda: {"total": 0, "healthy": 0, "issue": 0, "cei": 0, "rhi": 0, "rci": 0, "unb": 0})
+    kab_map = defaultdict(lambda: {"total": 0, "healthy": 0, "issue": 0, "cei": 0, "rhi": 0, "rci": 0, "unb": 0, "avail": 0, "pl": 0})
     for s in site_records:
         k = s["kabupaten"] or "UNKNOWN"
         kab_map[k]["total"] += 1
@@ -283,6 +322,8 @@ def _fetch_healthy_dataset(week):
         if s["rhi"]: kab_map[k]["rhi"] += 1
         if s["rci"]: kab_map[k]["rci"] += 1
         if s["unbalance"]: kab_map[k]["unb"] += 1
+        if s["availability"]: kab_map[k]["avail"] += 1
+        if s["pl"]: kab_map[k]["pl"] += 1
 
     kab_list = []
     for k, v in kab_map.items():
@@ -296,7 +337,9 @@ def _fetch_healthy_dataset(week):
             "cei": v["cei"],
             "rhi": v["rhi"],
             "rci": v["rci"],
-            "unb": v["unb"]
+            "unb": v["unb"],
+            "avail": v["avail"],
+            "pl": v["pl"]
         })
     kab_list.sort(key=lambda x: x["total"], reverse=True)
 
@@ -315,10 +358,14 @@ def _fetch_healthy_dataset(week):
             "rhi_sites": rhi_sites,
             "rci_sites": rci_sites,
             "unbalance_sites": unb_sites,
+            "availability_sites": avail_sites,
+            "pl_sites": pl_sites,
             "cei_sectors": cei_sec,
             "rhi_sectors": rhi_sec,
             "rci_sectors": rci_sec,
             "unbalance_sectors": unb_sec,
+            "availability_sectors": avail_sec,
+            "pl_sectors": pl_sec,
             "issue_distribution": distrib,
         },
         "kabupaten_list": kab_list,
@@ -420,6 +467,12 @@ def api_healthy_site_data():
     elif status_filter == "UNBALANCE":
         sites = [s for s in sites if s["unbalance"] == 1]
         sectors = [s for s in sectors if s["unbalance"] == 1]
+    elif status_filter == "AVAILABILITY":
+        sites = [s for s in sites if s["availability"] == 1]
+        sectors = [s for s in sectors if s["availability"] == 1]
+    elif status_filter == "PL":
+        sites = [s for s in sites if s["pl"] == 1]
+        sectors = [s for s in sectors if s["pl"] == 1]
     elif status_filter == "MULTI":
         sites = [s for s in sites if s["issues_count"] >= 2]
         sectors = [s for s in sectors if s["issues_count"] >= 2]
@@ -436,6 +489,8 @@ def api_healthy_site_data():
         "rhi_sites": sum(1 for s in sites if s["rhi"] == 1),
         "rci_sites": sum(1 for s in sites if s["rci"] == 1),
         "unbalance_sites": sum(1 for s in sites if s["unbalance"] == 1),
+        "availability_sites": sum(1 for s in sites if s["availability"] == 1),
+        "pl_sites": sum(1 for s in sites if s["pl"] == 1),
     }
 
     return jsonify({
@@ -505,6 +560,10 @@ def api_healthy_site_export():
         records = [r for r in records if r["rci"] == 1]
     elif status_filter == "UNBALANCE":
         records = [r for r in records if r["unbalance"] == 1]
+    elif status_filter == "AVAILABILITY":
+        records = [r for r in records if r["availability"] == 1]
+    elif status_filter == "PL":
+        records = [r for r in records if r["pl"] == 1]
     elif status_filter == "MULTI":
         records = [r for r in records if r["issues_count"] >= 2]
 
@@ -512,7 +571,7 @@ def api_healthy_site_export():
     string_buffer = io.StringIO()
     writer = csv.writer(string_buffer)
 
-    headers = [id_col, "Kabupaten", "CEI", "RHI", "RCI", "UNBALANCE", "Total Issues", "Remark"]
+    headers = [id_col, "Kabupaten", "CEI", "RHI", "RCI", "UNBALANCE", "AVAILABILITY", "PL", "Total Issues", "Remark"]
     writer.writerow(headers)
 
     for r in records:
@@ -524,6 +583,8 @@ def api_healthy_site_export():
             r["rhi"],
             r["rci"],
             r["unbalance"],
+            r["availability"],
+            r["pl"],
             r["issues_count"],
             r["remark"]
         ])

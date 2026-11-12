@@ -1,0 +1,1638 @@
+{% extends "base.html" %}
+
+{% block nav_database %}active sub-open{% endblock %}
+{% block subDB_open %}open{% endblock %}
+{% block nav_db_query %}active{% endblock %}
+
+{% block page_title %}Query Database{% endblock %}
+{% block page_sub %}Read-only SQL console · public schema{% endblock %}
+
+{% block page_content %}
+<style>
+    /* ── Shell ── */
+    .qdb-shell {
+        /* Fixed-height console: topbar is 52px, shell padding adds 36px.
+           Without this the grid row grows to the full table list and the
+           whole page scrolls instead of the panels scrolling internally. */
+        height: calc(100vh - 88px);
+        max-height: calc(100vh - 88px);
+        flex: 1;
+        display: grid;
+        grid-template-columns: 306px minmax(0, 1fr);
+        gap: 14px;
+        padding: 16px 20px 20px;
+        min-height: 460px;
+        overflow: hidden;
+    }
+
+    .qdb-panel {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        border-radius: 14px;
+        overflow: hidden;
+    }
+
+    /* `display: flex` above beats the UA [hidden] rule — keep it explicit. */
+    .qdb-panel[hidden] { display: none !important; }
+
+    [data-theme="dark"] .qdb-panel {
+        background: rgba(30, 30, 58, 0.5);
+        border: 1px solid rgba(79, 172, 254, 0.10);
+    }
+
+    [data-theme="light"] .qdb-panel {
+        background: rgba(255, 255, 255, 0.88);
+        border: 1px solid rgba(0, 0, 0, 0.07);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    }
+
+    .qdb-main {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-height: 0;
+        min-width: 0;
+    }
+
+    /* ── Sidebar: table browser ── */
+    .qdb-side-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 12px 14px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    [data-theme="dark"] .qdb-side-head { color: #9fb0c9; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+    [data-theme="light"] .qdb-side-head { color: #64748b; border-bottom: 1px solid rgba(0, 0, 0, 0.06); }
+
+    .qdb-side-head .qdb-count {
+        font-weight: 600;
+        text-transform: none;
+        letter-spacing: 0;
+        opacity: 0.75;
+    }
+
+    .qdb-icon-btn {
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        padding: 5px 7px;
+        border-radius: 7px;
+        font-size: 12px;
+        line-height: 1;
+    }
+
+    [data-theme="dark"] .qdb-icon-btn { color: #8fa3bd; }
+    [data-theme="light"] .qdb-icon-btn { color: #64748b; }
+    [data-theme="dark"] .qdb-icon-btn:hover { background: rgba(79, 172, 254, 0.12); color: #4facfe; }
+    [data-theme="light"] .qdb-icon-btn:hover { background: rgba(79, 172, 254, 0.12); color: #1a72c7; }
+
+    .qdb-filter-wrap { padding: 10px 12px; }
+
+    #qdbTableFilter {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px 11px;
+        border-radius: 9px;
+        font-size: 12.5px;
+        font-family: inherit;
+        outline: none;
+    }
+
+    [data-theme="dark"] #qdbTableFilter { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.10); color: #e5ecf6; }
+    [data-theme="dark"] #qdbTableFilter::placeholder { color: #6f8099; }
+    [data-theme="light"] #qdbTableFilter { background: #fff; border: 1px solid rgba(0, 0, 0, 0.12); color: #1e293b; }
+    [data-theme="dark"] #qdbTableFilter:focus { border-color: rgba(79, 172, 254, 0.6); }
+    [data-theme="light"] #qdbTableFilter:focus { border-color: #4facfe; }
+
+    .qdb-table-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0 8px 10px;
+        min-height: 0;
+    }
+
+    .qdb-tbl {
+        border-radius: 9px;
+        overflow: hidden;
+        margin-bottom: 2px;
+    }
+
+    .qdb-tbl-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 7px 8px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        text-align: left;
+        font-family: inherit;
+        font-size: 12.5px;
+        border-radius: 9px;
+    }
+
+    [data-theme="dark"] .qdb-tbl-row { color: #cbd5e1; }
+    [data-theme="light"] .qdb-tbl-row { color: #334155; }
+    [data-theme="dark"] .qdb-tbl-row:hover { background: rgba(79, 172, 254, 0.10); color: #fff; }
+    [data-theme="light"] .qdb-tbl-row:hover { background: rgba(79, 172, 254, 0.10); color: #0f172a; }
+    .qdb-tbl-row.is-open { font-weight: 600; }
+
+    .qdb-tbl-row .qdb-tbl-name {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .qdb-kind-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex: 0 0 auto;
+        background: #4facfe;
+    }
+
+    .qdb-kind-dot.k-view { background: #a855f7; }
+    .qdb-kind-dot.k-matview { background: #f59e0b; }
+    .qdb-kind-dot.k-foreign { background: #64748b; }
+
+    .qdb-tbl-meta {
+        font-size: 10.5px;
+        font-variant-numeric: tabular-nums;
+        opacity: 0.72;
+        flex: 0 0 auto;
+    }
+
+    .qdb-cols {
+        padding: 4px 6px 8px 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+    }
+
+    .qdb-col {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        padding: 3px 6px;
+        border-radius: 6px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 11.5px;
+        text-align: left;
+        width: 100%;
+    }
+
+    [data-theme="dark"] .qdb-col { color: #a9b8cc; }
+    [data-theme="light"] .qdb-col { color: #4b5563; }
+    [data-theme="dark"] .qdb-col:hover { background: rgba(79, 172, 254, 0.12); color: #fff; }
+    [data-theme="light"] .qdb-col:hover { background: rgba(79, 172, 254, 0.12); color: #0f172a; }
+
+    .qdb-col .qdb-col-name { font-weight: 600; }
+    .qdb-col .qdb-col-type { font-size: 10px; opacity: 0.65; margin-left: auto; white-space: nowrap; }
+    .qdb-col .qdb-pk { color: #fbbf24; font-size: 9px; }
+
+    .qdb-side-note {
+        padding: 9px 14px;
+        font-size: 10.5px;
+        line-height: 1.45;
+        opacity: 0.65;
+    }
+
+    [data-theme="dark"] .qdb-side-note { border-top: 1px solid rgba(255, 255, 255, 0.06); }
+    [data-theme="light"] .qdb-side-note { border-top: 1px solid rgba(0, 0, 0, 0.06); }
+
+    /* ── Toolbar & editor ── */
+    .qdb-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 9px;
+        padding: 12px 14px;
+    }
+
+    .qdb-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px 14px;
+        border-radius: 9px;
+        font-size: 12.5px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: all 0.18s ease;
+    }
+
+    [data-theme="dark"] .qdb-btn { background: rgba(255, 255, 255, 0.05); color: #cbd5e1; border-color: rgba(255, 255, 255, 0.10); }
+    [data-theme="light"] .qdb-btn { background: #fff; color: #334155; border-color: rgba(0, 0, 0, 0.12); }
+    [data-theme="dark"] .qdb-btn:hover:not(:disabled) { border-color: rgba(79, 172, 254, 0.5); color: #fff; }
+    [data-theme="light"] .qdb-btn:hover:not(:disabled) { border-color: #4facfe; color: #0f172a; }
+
+    .qdb-btn.primary {
+        background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+        color: #062033;
+        border-color: transparent;
+        box-shadow: 0 4px 14px rgba(79, 172, 254, 0.28);
+    }
+
+    .qdb-btn.primary:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(79, 172, 254, 0.4); color: #062033; }
+    .qdb-btn:disabled { opacity: 0.42; cursor: not-allowed; box-shadow: none; }
+    .qdb-btn:focus-visible,
+    .qdb-icon-btn:focus-visible,
+    .qdb-tbl-row:focus-visible,
+    .qdb-col:focus-visible { outline: 2px solid #4facfe; outline-offset: 1px; }
+
+    .qdb-btn kbd {
+        font-family: inherit;
+        font-size: 9.5px;
+        font-weight: 700;
+        padding: 2px 5px;
+        border-radius: 4px;
+        background: rgba(6, 32, 51, 0.18);
+    }
+
+    .qdb-hint {
+        font-size: 10.5px;
+        line-height: 1.4;
+        opacity: 0.72;
+        margin-left: auto;
+        text-align: right;
+    }
+
+    .qdb-editor-wrap { padding: 0 14px 14px; }
+
+    #qdbSql {
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 122px;
+        max-height: 40vh;
+        resize: vertical;
+        padding: 12px 14px;
+        border-radius: 10px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Courier New", monospace;
+        font-size: 13px;
+        line-height: 1.6;
+        outline: none;
+        tab-size: 2;
+    }
+
+    [data-theme="dark"] #qdbSql { background: rgba(10, 12, 26, 0.75); border: 1px solid rgba(255, 255, 255, 0.10); color: #d7e2f0; }
+    [data-theme="dark"] #qdbSql::placeholder { color: #64748b; }
+    [data-theme="light"] #qdbSql { background: #fbfdff; border: 1px solid rgba(0, 0, 0, 0.12); color: #1e293b; }
+    [data-theme="dark"] #qdbSql:focus { border-color: rgba(79, 172, 254, 0.55); box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.10); }
+    [data-theme="light"] #qdbSql:focus { border-color: #4facfe; box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.12); }
+
+    /* ── Sample queries ── */
+    .qdb-samples {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        padding: 0 14px 12px;
+    }
+
+    .qdb-samples-label {
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        opacity: 0.6;
+        margin-right: 2px;
+        white-space: nowrap;
+    }
+
+    .qdb-chip {
+        font-family: inherit;
+        font-size: 10.5px;
+        font-weight: 600;
+        padding: 4px 9px;
+        border-radius: 999px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.16s ease;
+    }
+
+    [data-theme="dark"] .qdb-chip {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        color: #a9b8cc;
+    }
+
+    [data-theme="light"] .qdb-chip {
+        background: #fff;
+        border: 1px solid rgba(0, 0, 0, 0.10);
+        color: #475569;
+    }
+
+    [data-theme="dark"] .qdb-chip:hover { border-color: rgba(79, 172, 254, 0.55); color: #fff; background: rgba(79, 172, 254, 0.12); }
+    [data-theme="light"] .qdb-chip:hover { border-color: #4facfe; color: #0f172a; background: rgba(79, 172, 254, 0.08); }
+    .qdb-chip:focus-visible { outline: 2px solid #4facfe; outline-offset: 1px; }
+
+    /* ── Status / error ── */
+    .qdb-status {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        font-size: 11.5px;
+        border-radius: 10px;
+        border: 1px solid transparent;
+    }
+
+    .qdb-status.is-hidden { display: none; }
+
+    [data-theme="dark"] .qdb-status.ok { background: rgba(0, 230, 118, 0.07); border-color: rgba(0, 230, 118, 0.22); color: #7ee7b0; }
+    [data-theme="light"] .qdb-status.ok { background: #f0fdf4; border-color: rgba(21, 128, 61, 0.20); color: #15803d; }
+
+    .qdb-status .qdb-status-tag { font-weight: 700; }
+    .qdb-status .qdb-warn { color: #f59e0b; font-weight: 600; }
+
+    .qdb-error {
+        padding: 12px 14px;
+        border-radius: 10px;
+        font-size: 12px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .qdb-error.is-hidden { display: none; }
+
+    [data-theme="dark"] .qdb-error { background: rgba(255, 82, 82, 0.09); border: 1px solid rgba(255, 82, 82, 0.28); color: #ffb4b4; }
+    [data-theme="light"] .qdb-error { background: #fef2f2; border: 1px solid rgba(185, 28, 28, 0.22); color: #b91c1c; }
+
+    /* ── Result grid ── */
+    .qdb-result-panel { flex: 1; min-height: 0; }
+
+    .qdb-result-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 9px 14px;
+        font-size: 11.5px;
+        font-weight: 600;
+    }
+
+    [data-theme="dark"] .qdb-result-head { border-bottom: 1px solid rgba(255, 255, 255, 0.07); color: #9fb0c9; }
+    [data-theme="light"] .qdb-result-head { border-bottom: 1px solid rgba(0, 0, 0, 0.07); color: #64748b; }
+
+    .qdb-result-scroll {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+    }
+
+    table.qdb-result {
+        border-collapse: separate;
+        border-spacing: 0;
+        width: max-content;
+        min-width: 100%;
+        font-size: 12.5px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .qdb-result thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        text-align: left;
+        padding: 8px 12px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    [data-theme="dark"] .qdb-result thead th { background: #191d33; color: #9fb0c9; border-bottom: 1px solid rgba(79, 172, 254, 0.22); }
+    [data-theme="light"] .qdb-result thead th { background: #eef4fb; color: #475569; border-bottom: 1px solid rgba(0, 0, 0, 0.10); }
+
+    .qdb-result thead th .qdb-th-idx {
+        font-size: 9px;
+        font-weight: 600;
+        opacity: 0.5;
+        margin-left: 6px;
+        text-transform: none;
+    }
+
+    .qdb-result tbody td {
+        padding: 7px 12px;
+        border-bottom: 1px solid transparent;
+        max-width: 380px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        vertical-align: top;
+    }
+
+    [data-theme="dark"] .qdb-result tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.022); }
+    [data-theme="light"] .qdb-result tbody tr:nth-child(even) { background: rgba(0, 0, 0, 0.018); }
+    [data-theme="dark"] .qdb-result tbody tr:hover { background: rgba(79, 172, 254, 0.10); }
+    [data-theme="light"] .qdb-result tbody tr:hover { background: rgba(79, 172, 254, 0.10); }
+    [data-theme="dark"] .qdb-result tbody td { color: #d5dee9; border-bottom-color: rgba(255, 255, 255, 0.045); }
+    [data-theme="light"] .qdb-result tbody td { color: #1e293b; border-bottom-color: rgba(0, 0, 0, 0.05); }
+
+    .qdb-result td.num { text-align: right; }
+    .qdb-result td.idx { text-align: right; width: 1%; opacity: 0.45; font-size: 10.5px; padding-right: 8px; }
+
+    .qdb-null {
+        font-size: 9.5px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        padding: 1px 5px;
+        border-radius: 4px;
+        opacity: 0.7;
+    }
+
+    [data-theme="dark"] .qdb-null { background: rgba(148, 163, 184, 0.16); color: #94a3b8; }
+    [data-theme="light"] .qdb-null { background: rgba(100, 116, 139, 0.12); color: #64748b; }
+
+    /* ── Empty state ── */
+    .qdb-empty {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 30px 24px;
+        text-align: center;
+        min-height: 0;
+    }
+
+    .qdb-empty.is-hidden { display: none; }
+    .qdb-empty .qdb-empty-icon { font-size: 34px; opacity: 0.35; }
+    .qdb-empty .qdb-empty-title { font-size: 14px; font-weight: 700; }
+    .qdb-empty .qdb-empty-sub { font-size: 11.5px; line-height: 1.6; max-width: 430px; opacity: 0.7; }
+    .qdb-empty code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 5px;
+    }
+
+    [data-theme="dark"] .qdb-empty code { background: rgba(255, 255, 255, 0.07); color: #9fd4ff; }
+    [data-theme="light"] .qdb-empty code { background: rgba(0, 0, 0, 0.05); color: #1a6fb5; }
+
+    /* ── Responsive ── */
+    @media (max-width: 1024px) {
+        .qdb-shell {
+            height: auto;
+            max-height: none;
+            grid-template-columns: 1fr;
+            grid-template-rows: minmax(180px, 32vh) minmax(0, 1fr);
+            overflow-y: auto;
+            padding: 12px;
+        }
+        .qdb-hint { margin-left: 0; text-align: left; }
+        .qdb-result-scroll { max-height: 52vh; }
+    }
+
+    @media (max-width: 640px) {
+        .qdb-toolbar .qdb-btn { flex: 1 1 auto; justify-content: center; }
+    }
+
+    /* ── Query Builder dialog ── */
+    .qb-dialog {
+        width: min(1060px, calc(100vw - 32px));
+        max-width: none;
+        max-height: min(92vh, 920px);
+        margin: auto;
+        padding: 0;
+        border-radius: 16px;
+        border: 1px solid transparent;
+        overflow: hidden;
+        flex-direction: column;
+        font-family: inherit;
+        font-size: 13px;
+        line-height: 1.45;
+    }
+
+    /* Author display would beat the UA [hidden] rule — keep it explicit. */
+    .qb-dialog:not([open]) { display: none; }
+    .qb-dialog[open] { display: flex; }
+
+    .qb-dialog::backdrop {
+        background: rgba(2, 6, 23, 0.62);
+        backdrop-filter: blur(3px);
+    }
+
+    [data-theme="dark"] .qb-dialog {
+        color-scheme: dark;
+        background: #111827;
+        border-color: rgba(79, 172, 254, 0.20);
+        color: #e5ecf6;
+        box-shadow: 0 28px 70px rgba(0, 0, 0, 0.55);
+    }
+
+    [data-theme="light"] .qb-dialog {
+        color-scheme: light;
+        background: #ffffff;
+        border-color: rgba(0, 0, 0, 0.08);
+        color: #1e293b;
+        box-shadow: 0 28px 70px rgba(15, 23, 42, 0.22);
+    }
+
+    .qb-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px 12px;
+        flex: 0 0 auto;
+    }
+
+    [data-theme="dark"] .qb-head { border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+    [data-theme="light"] .qb-head { border-bottom: 1px solid rgba(0, 0, 0, 0.07); }
+
+    .qb-title {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    [data-theme="dark"] .qb-title i { color: #4facfe; }
+    [data-theme="light"] .qb-title i { color: #1a72c7; }
+
+    .qb-sub {
+        margin: 5px 0 0;
+        font-size: 11.5px;
+        line-height: 1.5;
+        opacity: 0.72;
+        max-width: 70ch;
+    }
+
+    .qb-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 14px 18px 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .qb-topbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 10px 18px;
+    }
+
+    .qb-field {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        opacity: 0.9;
+    }
+
+    .qb-field.qb-grow { flex: 1 1 260px; min-width: 0; }
+    .qb-field select { min-width: 0; width: 100%; }
+    .qb-field-note { font-size: 10px; font-weight: 600; opacity: 0.55; text-transform: none; letter-spacing: 0; }
+
+    .qb-inp {
+        font-family: inherit;
+        font-size: 12px;
+        padding: 7px 9px;
+        border-radius: 8px;
+        min-width: 0;
+        outline: none;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    [data-theme="dark"] .qb-inp {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.13);
+        color: #e5ecf6;
+    }
+
+    [data-theme="light"] .qb-inp {
+        background: #ffffff;
+        border: 1px solid rgba(0, 0, 0, 0.14);
+        color: #1e293b;
+    }
+
+    [data-theme="dark"] .qb-inp::placeholder { color: #6f8099; }
+    [data-theme="light"] .qb-inp::placeholder { color: #94a3b8; }
+    .qb-inp:focus { border-color: #4facfe; box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.14); }
+    .qb-inp:disabled { opacity: 0.42; cursor: not-allowed; }
+
+    .qb-check {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 11px;
+        border-radius: 8px;
+        font-size: 11.5px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    [data-theme="dark"] .qb-check { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.13); }
+    [data-theme="light"] .qb-check { background: #ffffff; border: 1px solid rgba(0, 0, 0, 0.14); }
+    .qb-check input { accent-color: #4facfe; margin: 0; }
+
+    .qb-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+        gap: 12px;
+        align-items: start;
+    }
+
+    .qb-card {
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+        min-width: 0;
+        padding: 12px 13px;
+        border-radius: 12px;
+    }
+
+    .qb-card-wide { grid-column: 1 / -1; }
+
+    [data-theme="dark"] .qb-card { background: rgba(255, 255, 255, 0.032); border: 1px solid rgba(255, 255, 255, 0.075); }
+    [data-theme="light"] .qb-card { background: #f8fafc; border: 1px solid rgba(0, 0, 0, 0.07); }
+
+    .qb-card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 6px 10px;
+        font-size: 10.5px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    .qb-card-head > span:first-child { display: inline-flex; align-items: center; gap: 7px; }
+    .qb-card-head i { color: #4facfe; font-size: 11px; }
+    .qb-count { font-weight: 600; letter-spacing: 0; text-transform: none; opacity: 0.55; }
+
+    .qb-head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+    .qb-mini {
+        font-family: inherit;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0;
+        text-transform: none;
+        padding: 4px 8px;
+        border-radius: 7px;
+        cursor: pointer;
+        border: 1px solid transparent;
+    }
+
+    [data-theme="dark"] .qb-mini { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.12); color: #a9b8cc; }
+    [data-theme="light"] .qb-mini { background: #ffffff; border-color: rgba(0, 0, 0, 0.12); color: #475569; }
+    [data-theme="dark"] .qb-mini:hover { border-color: rgba(79, 172, 254, 0.55); color: #fff; }
+    [data-theme="light"] .qb-mini:hover { border-color: #4facfe; color: #0f172a; }
+
+    .qb-col-filter { flex: 1 1 150px; min-width: 130px; max-width: 220px; font-size: 11px; padding: 5px 8px; }
+
+    .qb-col-list {
+        max-height: 238px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding-right: 2px;
+    }
+
+    .qb-col-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 4px;
+        border-radius: 8px;
+    }
+
+    [data-theme="dark"] .qb-col-row:hover { background: rgba(79, 172, 254, 0.06); }
+    [data-theme="light"] .qb-col-row:hover { background: rgba(79, 172, 254, 0.07); }
+
+    .qb-col-pick {
+        flex: 1 1 220px;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        cursor: pointer;
+        font-size: 12px;
+    }
+
+    .qb-col-pick input { accent-color: #4facfe; margin: 0; flex: 0 0 auto; }
+    .qb-col-pick .qb-pk { color: #fbbf24; font-size: 9px; flex: 0 0 auto; }
+    .qb-col-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+    .qb-col-type {
+        flex: 0 1 108px;
+        min-width: 70px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 10px;
+        opacity: 0.62;
+    }
+
+    .qb-agg { flex: 0 0 86px; width: 86px; font-size: 11px; padding: 5px 6px; }
+    .qb-alias { flex: 1 1 120px; min-width: 96px; max-width: 190px; font-size: 11px; padding: 5px 8px; }
+
+    .qb-rule {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 6px;
+    }
+
+    .qb-rule .qb-grow { flex: 1 1 140px; }
+    .qb-rule .qb-op { flex: 0 0 92px; width: 92px; }
+    .qb-rule > select[data-role="join"] { flex: 0 0 74px; width: 74px; }
+
+    .qb-join-first {
+        flex: 0 0 74px;
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        opacity: 0.62;
+        padding-left: 2px;
+    }
+
+    .qb-join-first.qb-then { opacity: 0.45; }
+
+    .qb-remove {
+        flex: 0 0 28px;
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 7px;
+        border: 1px solid transparent;
+        background: transparent;
+        cursor: pointer;
+        font-size: 11px;
+        opacity: 0.55;
+    }
+
+    [data-theme="dark"] .qb-remove { color: #fca5a5; }
+    [data-theme="light"] .qb-remove { color: #b91c1c; }
+    [data-theme="dark"] .qb-remove:hover { background: rgba(255, 82, 82, 0.14); opacity: 1; }
+    [data-theme="light"] .qb-remove:hover { background: rgba(185, 28, 28, 0.09); opacity: 1; }
+
+    .qb-add {
+        align-self: flex-start;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-family: inherit;
+        font-size: 10.5px;
+        font-weight: 700;
+        padding: 5px 9px;
+        border-radius: 7px;
+        border: 1px dashed rgba(79, 172, 254, 0.45);
+        background: transparent;
+        color: #1a72c7;
+        cursor: pointer;
+    }
+
+    [data-theme="dark"] .qb-add { color: #7cc7ff; border-color: rgba(79, 172, 254, 0.45); }
+    [data-theme="dark"] .qb-add:hover { background: rgba(79, 172, 254, 0.12); }
+    [data-theme="light"] .qb-add:hover { background: rgba(79, 172, 254, 0.10); }
+
+    .qb-subhead {
+        margin-top: 2px;
+        font-size: 9.5px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        opacity: 0.62;
+    }
+
+    .qb-subhead span { font-weight: 600; letter-spacing: 0; text-transform: none; opacity: 0.75; }
+
+    .qb-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        max-height: 132px;
+        overflow-y: auto;
+    }
+
+    .qb-chipbox {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 9px;
+        border-radius: 999px;
+        font-size: 10.5px;
+        cursor: pointer;
+        border: 1px solid transparent;
+    }
+
+    [data-theme="dark"] .qb-chipbox { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.11); color: #cbd5e1; }
+    [data-theme="light"] .qb-chipbox { background: #ffffff; border-color: rgba(0, 0, 0, 0.11); color: #475569; }
+    .qb-chipbox input { accent-color: #4facfe; margin: 0; }
+    [data-theme="dark"] .qb-chipbox.is-on { border-color: rgba(79, 172, 254, 0.6); color: #fff; background: rgba(79, 172, 254, 0.14); }
+    [data-theme="light"] .qb-chipbox.is-on { border-color: #4facfe; color: #0f172a; background: rgba(79, 172, 254, 0.12); }
+
+    .qb-empty-note {
+        font-size: 11px;
+        line-height: 1.5;
+        opacity: 0.7;
+        padding: 4px 2px;
+    }
+
+    .qb-card-hint {
+        font-size: 10px;
+        line-height: 1.5;
+        opacity: 0.68;
+    }
+
+    .qb-preview {
+        flex: 0 0 auto;
+        padding: 10px 18px 8px;
+    }
+
+    [data-theme="dark"] .qb-preview { border-top: 1px solid rgba(255, 255, 255, 0.07); }
+    [data-theme="light"] .qb-preview { border-top: 1px solid rgba(0, 0, 0, 0.07); }
+
+    .qb-preview-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 6px;
+        font-size: 9.5px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        opacity: 0.75;
+    }
+
+    #qbSqlPreview {
+        margin: 0;
+        min-height: 52px;
+        max-height: 152px;
+        overflow: auto;
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Courier New", monospace;
+        font-size: 11.5px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-break: break-word;
+        tab-size: 2;
+    }
+
+    [data-theme="dark"] #qbSqlPreview { background: rgba(2, 6, 23, 0.55); border: 1px solid rgba(255, 255, 255, 0.08); color: #cfe3ff; }
+    [data-theme="light"] #qbSqlPreview { background: #f8fafc; border: 1px solid rgba(0, 0, 0, 0.09); color: #1e293b; }
+
+    .qb-note {
+        margin-top: 5px;
+        font-size: 10.5px;
+        line-height: 1.5;
+        color: #b45309;
+    }
+
+    [data-theme="dark"] .qb-note { color: #fbbf24; }
+
+    .qb-foot {
+        flex: 0 0 auto;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 18px;
+    }
+
+    [data-theme="dark"] .qb-foot { border-top: 1px solid rgba(255, 255, 255, 0.07); background: rgba(255, 255, 255, 0.02); }
+    [data-theme="light"] .qb-foot { border-top: 1px solid rgba(0, 0, 0, 0.07); background: #fbfdff; }
+
+    .qb-foot-hint { font-size: 10.5px; line-height: 1.45; opacity: 0.68; flex: 1 1 220px; }
+    .qb-foot-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+
+    .qb-dialog button:focus-visible,
+    .qb-dialog select:focus-visible,
+    .qb-dialog input:focus-visible { outline: 2px solid #4facfe; outline-offset: 1px; }
+
+    @media (max-height: 620px) {
+        .qb-dialog { max-height: 96vh; }
+        .qb-head { padding-top: 10px; padding-bottom: 8px; }
+        .qb-sub { display: none; }
+        .qb-body { padding-top: 10px; }
+        .qb-preview { padding-top: 6px; padding-bottom: 4px; }
+        #qbSqlPreview { min-height: 40px; max-height: 84px; }
+        .qb-foot { padding-top: 8px; padding-bottom: 8px; }
+        .qb-foot-hint { display: none; }
+    }
+
+    @media (max-width: 720px) {
+        .qb-dialog {
+            width: calc(100vw - 12px);
+            max-height: 94vh;
+            border-radius: 12px;
+        }
+        .qb-head, .qb-body, .qb-preview, .qb-foot { padding-left: 12px; padding-right: 12px; }
+        .qb-col-type { display: none; }
+        .qb-col-pick { flex: 1 1 100%; }
+        .qb-agg { flex: 1 1 86px; }
+        .qb-foot-hint { display: none; }
+        .qb-foot-actions { width: 100%; }
+        .qb-foot-actions .qdb-btn { flex: 1 1 auto; justify-content: center; }
+        .qb-join-first, .qb-rule > select[data-role="join"] { flex-basis: 56px; }
+        .qb-rule .qb-op { flex: 1 1 80px; }
+    }
+</style>
+
+<div class="qdb-shell">
+    <!-- ── Table browser ── -->
+    <aside class="qdb-panel">
+        <div class="qdb-side-head">
+            <span><i class="fas fa-table-list"></i> public tables <span class="qdb-count" id="qdbTableCount"></span></span>
+            <button type="button" class="qdb-icon-btn" id="qdbReloadTables" title="Reload table list" aria-label="Reload table list">
+                <i class="fas fa-rotate"></i>
+            </button>
+        </div>
+        <div class="qdb-filter-wrap">
+            <input type="search" id="qdbTableFilter" placeholder="Filter tables…" aria-label="Filter tables" autocomplete="off">
+        </div>
+        <div class="qdb-table-list" id="qdbTableList" role="list">
+            <div class="qdb-side-note">Loading tables…</div>
+        </div>
+        <div class="qdb-side-note">
+            Click a table to list its columns, double-click to insert a
+            <code>SELECT *</code> template. Row estimates come from the Postgres
+            catalog, not from a live <code>COUNT(*)</code>.
+        </div>
+    </aside>
+
+    <!-- ── Editor + result ── -->
+    <section class="qdb-main">
+        <div class="qdb-panel">
+            <div class="qdb-toolbar">
+                <button type="button" class="qdb-btn" id="qdbBuilderOpen" title="Build a single-table SELECT without writing SQL">
+                    <i class="fas fa-wand-magic-sparkles"></i> Query Builder
+                </button>
+                <button type="button" class="qdb-btn primary" id="qdbRun">
+                    <i class="fas fa-play"></i> Run Query <kbd>Ctrl</kbd>+<kbd>Enter</kbd>
+                </button>
+                <button type="button" class="qdb-btn" id="qdbExport" disabled title="Download the last executed query as CSV">
+                    <i class="fas fa-file-csv"></i> Export CSV
+                </button>
+                <button type="button" class="qdb-btn" id="qdbClear" title="Clear the editor and results">
+                    <i class="fas fa-eraser"></i> Clear
+                </button>
+                <span class="qdb-hint">
+                    Read-only · schema <strong>public</strong><br>
+                    preview {{ preview_rows }} rows · timeout {{ timeout_s }}s · CSV max {{ export_rows }} rows
+                </span>
+            </div>
+            <div class="qdb-editor-wrap">
+                <textarea id="qdbSql" spellcheck="false" autocomplete="off" autocapitalize="off"
+                          aria-label="SQL query"
+                          placeholder="SELECT * FROM &quot;sites_db&quot; LIMIT 50;"></textarea>
+            </div>
+            <div class="qdb-samples">
+                <span class="qdb-samples-label"><i class="fas fa-lightbulb"></i> Sample queries</span>
+                {% for sample in sample_queries %}
+                <button type="button" class="qdb-chip" data-sql="{{ sample.sql }}"
+                        title="{{ sample.sql }}">{{ sample.title }}</button>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="qdb-status is-hidden" id="qdbStatus" role="status" aria-live="polite"></div>
+        <div class="qdb-error is-hidden" id="qdbError" role="alert"></div>
+
+        <div class="qdb-panel qdb-result-panel" id="qdbResultPanel" hidden>
+            <div class="qdb-result-head">
+                <span id="qdbResultMeta"></span>
+                <button type="button" class="qdb-icon-btn" id="qdbCopy" title="Copy result to clipboard (TSV)">
+                    <i class="fas fa-copy"></i> Copy
+                </button>
+            </div>
+            <div class="qdb-result-scroll" id="qdbResultScroll">
+                <table class="qdb-result" id="qdbResult"></table>
+            </div>
+        </div>
+
+        <div class="qdb-panel qdb-empty" id="qdbEmpty">
+            <div class="qdb-empty-icon"><i class="fas fa-database"></i></div>
+            <div class="qdb-empty-title">Read-only SQL console</div>
+            <div class="qdb-empty-sub">
+                Write a single <code>SELECT</code> statement and press <strong>Run Query</strong>
+                (or <code>Ctrl</code>+<code>Enter</code>). Only the <code>public</code> schema is reachable and
+                nothing can be written to the database. Pick a table on the left, use one of the
+                <strong>Sample queries</strong> as a starting point, or try
+                <code>SELECT * FROM "sites_db" LIMIT 50;</code>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- ── Visual Query Builder ─────────────────────────────────────────────── -->
+<dialog class="qb-dialog" id="qdbBuilderDialog" aria-labelledby="qbTitle" aria-describedby="qbSub">
+    <div class="qb-head">
+        <div>
+            <h2 class="qb-title" id="qbTitle"><i class="fas fa-wand-magic-sparkles"></i> Query Builder</h2>
+            <p class="qb-sub" id="qbSub">
+                Point-and-click <code>SELECT</code> on one table in the public schema.
+                <strong>No JOINs yet</strong> — build a single-table query here, then refine it in the SQL editor.
+                Nothing runs until you press <strong>Build and Run</strong>.
+            </p>
+        </div>
+        <button type="button" class="qdb-icon-btn" id="qbClose" title="Close query builder (Esc)" aria-label="Close query builder">
+            <i class="fas fa-xmark"></i>
+        </button>
+    </div>
+
+    <div class="qb-body">
+        <div class="qb-topbar">
+            <label class="qb-field qb-grow" for="qbTable">
+                <span>Table <span class="qb-field-note">public schema</span></span>
+                <select class="qb-inp" id="qbTable" aria-label="Table">
+                    <option value="">Loading tables…</option>
+                </select>
+            </label>
+            <label class="qb-check" for="qbDistinct" title="Add DISTINCT to the SELECT">
+                <input type="checkbox" id="qbDistinct"> DISTINCT
+            </label>
+            <label class="qb-field" for="qbLimit">
+                <span>Limit <span class="qb-field-note">1–1000</span></span>
+                <input class="qb-inp" id="qbLimit" type="number" min="1" max="1000" step="1" value="100" aria-label="Row limit">
+            </label>
+        </div>
+
+        <div class="qb-grid">
+            <section class="qb-card qb-card-wide">
+                <div class="qb-card-head">
+                    <span><i class="fas fa-table-columns"></i> Output columns <span class="qb-count" id="qbColumnCount"></span></span>
+                    <span class="qb-head-actions">
+                        <button type="button" class="qb-mini" id="qbSelectAll">Select all</button>
+                        <button type="button" class="qb-mini" id="qbSelectNone">Clear</button>
+                        <input class="qb-inp qb-col-filter" id="qbColumnFilter" type="search" placeholder="Filter columns…" aria-label="Filter columns" autocomplete="off">
+                    </span>
+                </div>
+                <div class="qb-col-list" id="qbColumnList" role="group" aria-label="Selectable output columns">
+                    <div class="qb-empty-note">Choose a table to load its columns.</div>
+                </div>
+                <div class="qb-card-hint">
+                    Tick a column to include it. An aggregate wraps the column; leave the alias blank to use an automatic name.
+                    With no columns ticked the builder emits <code>SELECT *</code>.
+                </div>
+            </section>
+
+            <section class="qb-card">
+                <div class="qb-card-head"><span><i class="fas fa-filter"></i> Filters <span class="qb-count">WHERE</span></span></div>
+                <div id="qbWhereRows"></div>
+                <button type="button" class="qb-add" id="qbAddWhere"><i class="fas fa-plus"></i> Add filter</button>
+                <div class="qb-card-hint">
+                    Text values are safely quoted as PostgreSQL literals. <code>IS NULL</code> and
+                    <code>IS NOT NULL</code> take no value. Incomplete rows are ignored in the preview.
+                </div>
+            </section>
+
+            <section class="qb-card">
+                <div class="qb-card-head"><span><i class="fas fa-layer-group"></i> Group &amp; HAVING</span></div>
+                <div id="qbGroupList"></div>
+                <div class="qb-subhead">HAVING <span>aggregate filter</span></div>
+                <div id="qbHavingRows"></div>
+                <button type="button" class="qb-add" id="qbAddHaving"><i class="fas fa-plus"></i> Add HAVING</button>
+                <div class="qb-card-hint">
+                    GROUP BY uses the ticked fields. HAVING filters an aggregate such as
+                    <code>SUM(payload)</code> and needs a grouped query.
+                </div>
+            </section>
+
+            <section class="qb-card">
+                <div class="qb-card-head"><span><i class="fas fa-arrow-down-wide-short"></i> Sort <span class="qb-count">ORDER BY</span></span></div>
+                <div id="qbOrderRows"></div>
+                <button type="button" class="qb-add" id="qbAddOrder"><i class="fas fa-plus"></i> Add sort</button>
+                <div class="qb-card-hint">Sort by one or more columns, each with its own direction.</div>
+            </section>
+        </div>
+    </div>
+
+    <div class="qb-preview">
+        <div class="qb-preview-head">
+            <span>SQL preview <span class="qb-count">live</span></span>
+            <button type="button" class="qb-mini" id="qbCopySql"><i class="fas fa-copy"></i> Copy SQL</button>
+        </div>
+        <pre id="qbSqlPreview" aria-live="polite" aria-label="Generated SQL preview">-- Pick a table to generate a SELECT.</pre>
+        <div class="qb-note" id="qbNote" aria-live="polite"></div>
+    </div>
+
+    <div class="qb-foot">
+        <span class="qb-foot-hint">
+            Single table only · identifiers quoted · read-only console guards still apply.<br>
+            <strong>Esc</strong> cancels without touching the editor.
+        </span>
+        <div class="qb-foot-actions">
+            <button type="button" class="qdb-btn" id="qbCancel">Cancel</button>
+            <button type="button" class="qdb-btn" id="qbBuild" title="Put this SQL in the editor without running it">
+                <i class="fas fa-arrow-right-to-bracket"></i> Build
+            </button>
+            <button type="button" class="qdb-btn primary" id="qbBuildRun" title="Put this SQL in the editor and run it">
+                <i class="fas fa-play"></i> Build and Run
+            </button>
+        </div>
+    </div>
+</dialog>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+(function () {
+    "use strict";
+
+    var PREVIEW_LIMIT = {{ preview_rows }};
+    var EXPORT_LIMIT = {{ export_rows }};
+    var CSRF_TOKEN = "{{ csrf_token() }}";
+
+    var state = {
+        tables: [],
+        openTable: null,
+        columns: {},
+        lastRun: null,
+        running: false
+    };
+
+    var el = {
+        list: document.getElementById("qdbTableList"),
+        count: document.getElementById("qdbTableCount"),
+        filter: document.getElementById("qdbTableFilter"),
+        reload: document.getElementById("qdbReloadTables"),
+        run: document.getElementById("qdbRun"),
+        exportBtn: document.getElementById("qdbExport"),
+        clear: document.getElementById("qdbClear"),
+        sql: document.getElementById("qdbSql"),
+        status: document.getElementById("qdbStatus"),
+        error: document.getElementById("qdbError"),
+        resultPanel: document.getElementById("qdbResultPanel"),
+        resultMeta: document.getElementById("qdbResultMeta"),
+        result: document.getElementById("qdbResult"),
+        empty: document.getElementById("qdbEmpty"),
+        copy: document.getElementById("qdbCopy"),
+        samples: document.querySelector(".qdb-samples")
+    };
+
+    function esc(value) {
+        return String(value == null ? "" : value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function fmtInt(n) {
+        if (n === null || n === undefined || isNaN(n)) return "0";
+        return Number(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    function fmtCompact(n) {
+        var v = Number(n) || 0;
+        if (v >= 1e9) return "~" + (v / 1e9).toFixed(1) + "B";
+        if (v >= 1e6) return "~" + (v / 1e6).toFixed(1) + "M";
+        if (v >= 1e3) return "~" + (v / 1e3).toFixed(1) + "k";
+        return v ? String(v) : "0";
+    }
+
+    function quoteIdent(name) {
+        return '"' + String(name).replace(/"/g, '""') + '"';
+    }
+
+    function kindClass(kind) {
+        if (kind === "view") return "k-view";
+        if (kind === "materialized view") return "k-matview";
+        if (kind === "foreign table") return "k-foreign";
+        return "";
+    }
+
+    // ── Table browser ───────────────────────────────────────────────────────
+    function renderTables() {
+        var term = (el.filter.value || "").trim().toLowerCase();
+        var rows = state.tables.filter(function (t) {
+            return !term || t.name.toLowerCase().indexOf(term) !== -1;
+        });
+
+        el.count.textContent = term
+            ? "(" + rows.length + "/" + state.tables.length + ")"
+            : "(" + state.tables.length + ")";
+
+        if (!rows.length) {
+            el.list.innerHTML = '<div class="qdb-side-note">' +
+                (state.tables.length ? "No table matches the filter." : "No tables found in schema public.") +
+                "</div>";
+            return;
+        }
+
+        var html = rows.map(function (t) {
+            var open = state.openTable === t.name;
+            return '' +
+                '<div class="qdb-tbl" data-table="' + esc(t.name) + '">' +
+                    '<button type="button" class="qdb-tbl-row' + (open ? " is-open" : "") + '"' +
+                        ' data-table="' + esc(t.name) + '"' +
+                        ' title="' + esc(t.kind + " · " + fmtInt(t.columns) + " columns · est. " + fmtInt(t.est_rows) + " rows") + '">' +
+                        '<span class="qdb-kind-dot ' + kindClass(t.kind) + '"></span>' +
+                        '<span class="qdb-tbl-name">' + esc(t.name) + "</span>" +
+                        '<span class="qdb-tbl-meta">' + fmtCompact(t.est_rows) + "</span>" +
+                    "</button>" +
+                    '<div class="qdb-cols" id="qdbCols-' + esc(t.name) + '"></div>' +
+                "</div>";
+        }).join("");
+
+        el.list.innerHTML = html;
+
+        if (state.openTable) {
+            var box = document.getElementById("qdbCols-" + state.openTable);
+            if (box) renderColumns(state.openTable, box);
+        }
+    }
+
+    function renderColumns(name, box) {
+        var info = state.columns[name];
+        if (!info) {
+            box.innerHTML = '<div class="qdb-side-note">Loading columns…</div>';
+            return;
+        }
+        if (info.error) {
+            box.innerHTML = '<div class="qdb-side-note">' + esc(info.error) + "</div>";
+            return;
+        }
+        box.innerHTML = info.columns.map(function (c) {
+            return '' +
+                '<button type="button" class="qdb-col" data-column="' + esc(c.name) + '"' +
+                    ' title="' + esc(c.name + " · " + c.type + (c.nullable ? " · NULL" : " · NOT NULL") + (c.is_pk ? " · primary key" : "")) + '">' +
+                    '<span class="qdb-col-name">' + esc(c.name) + "</span>" +
+                    (c.is_pk ? '<span class="qdb-pk" title="primary key"><i class="fas fa-key"></i></span>' : "") +
+                    '<span class="qdb-col-type">' + esc(c.type) + "</span>" +
+                "</button>";
+        }).join("") || '<div class="qdb-side-note">No columns reported.</div>';
+    }
+
+    function toggleTable(name) {
+        var box = document.getElementById("qdbCols-" + name);
+        if (state.openTable === name) {
+            state.openTable = null;
+            if (box) box.innerHTML = "";
+            renderTables();
+            return;
+        }
+        state.openTable = name;
+        renderTables();
+        if (state.columns[name] && !state.columns[name].error) return;
+
+        fetch("/api/query_db/columns?table=" + encodeURIComponent(name), { headers: { "Accept": "application/json" } })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+            .then(function (res) {
+                state.columns[name] = res.ok
+                    ? { columns: res.d.columns || [] }
+                    : { error: res.d.message || "Could not read columns." };
+                var target = document.getElementById("qdbCols-" + name);
+                if (target) renderColumns(name, target);
+            })
+            .catch(function () {
+                state.columns[name] = { error: "Network error while loading columns." };
+                var target = document.getElementById("qdbCols-" + name);
+                if (target) renderColumns(name, target);
+            });
+    }
+
+    function loadTables(force) {
+        if (force) state.columns = {};
+        el.list.innerHTML = '<div class="qdb-side-note">Loading tables…</div>';
+        fetch("/api/query_db/tables", { headers: { "Accept": "application/json" } })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+            .then(function (res) {
+                if (!res.ok || res.d.status !== "success") {
+                    el.list.innerHTML = '<div class="qdb-side-note">' + esc(res.d.message || "Could not load tables.") + "</div>";
+                    el.count.textContent = "";
+                    return;
+                }
+                state.tables = res.d.tables || [];
+                renderTables();
+            })
+            .catch(function () {
+                el.list.innerHTML = '<div class="qdb-side-note">Network error while loading tables.</div>';
+            });
+    }
+
+    // ── Editor helpers ──────────────────────────────────────────────────────
+    function insertAtCursor(text) {
+        var ta = el.sql;
+        var start = ta.selectionStart || 0;
+        var end = ta.selectionEnd || 0;
+        var value = ta.value || "";
+        var needsSpace = start > 0 && !/\s/.test(value.charAt(start - 1));
+        var insert = (needsSpace ? " " : "") + text;
+        ta.value = value.slice(0, start) + insert + value.slice(end);
+        var caret = start + insert.length;
+        ta.focus();
+        ta.setSelectionRange(caret, caret);
+    }
+
+    // ── Status & result rendering ───────────────────────────────────────────
+    function showStatus(html, kind) {
+        el.status.className = "qdb-status " + (kind || "ok");
+        el.status.innerHTML = html;
+    }
+
+    function hideStatus() {
+        el.status.className = "qdb-status is-hidden";
+        el.status.innerHTML = "";
+    }
+
+    function showError(message) {
+        el.error.className = "qdb-error";
+        el.error.innerHTML = '<i class="fas fa-triangle-exclamation" style="margin-right:8px"></i>' + esc(message);
+    }
+
+    function hideError() {
+        el.error.className = "qdb-error is-hidden";
+        el.error.textContent = "";
+    }
+
+    function renderResult(data) {
+        var columns = data.columns || [];
+        var rows = data.rows || [];
+        var head = '<thead><tr><th class="idx">#</th>' +
+            columns.map(function (c, i) {
+                return '<th title="' + esc(c) + '">' + esc(c) +
+                    '<span class="qdb-th-idx">c' + (i + 1) + "</span></th>";
+            }).join("") + "</tr></thead>";
+
+        var body = '<tbody>' + rows.map(function (row, r) {
+            var cells = row.map(function (v) {
+                if (v === null) return '<td><span class="qdb-null">NULL</span></td>';
+                var isNum = typeof v === "number";
+                var text = String(v);
+                var shown = text.length > 160 ? text.slice(0, 160) + "…" : text;
+                return '<td class="' + (isNum ? "num" : "") + '" title="' + esc(text) + '">' + esc(shown) + "</td>";
+            }).join("");
+            return '<tr><td class="idx">' + (r + 1) + "</td>" + cells + "</tr>";
+        }).join("") + "</tbody>";
+
+        el.result.innerHTML = head + body;
+        el.resultMeta.textContent = fmtInt(data.row_count) + " row" + (data.row_count === 1 ? "" : "s") +
+            " · " + columns.length + " column" + (columns.length === 1 ? "" : "s") +
+            " · " + fmtInt(data.elapsed_ms) + " ms";
+
+        el.empty.classList.add("is-hidden");
+        el.resultPanel.hidden = false;
+
+        if (data.truncated) {
+            var why = data.cell_limited
+                ? "This result is wide (" + columns.length + " columns), so the preview is capped at " +
+                  fmtInt(data.preview_limit) + " rows to keep the browser responsive."
+                : "Showing the first " + fmtInt(data.preview_limit) + " rows.";
+            showStatus(
+                '<span class="qdb-status-tag">Preview</span>' +
+                "<span>" + why +
+                ' <span class="qdb-warn">Result is larger than the preview limit</span> — use <strong>Export CSV</strong> (max ' +
+                fmtInt(EXPORT_LIMIT) + " rows).</span>"
+            );
+        } else if (data.row_count === 0) {
+            showStatus('<span class="qdb-status-tag">Done</span><span>Query returned no rows · ' + fmtInt(data.elapsed_ms) + " ms</span>");
+        } else {
+            showStatus(
+                '<span class="qdb-status-tag">Done</span><span>' + fmtInt(data.row_count) + " row" +
+                (data.row_count === 1 ? "" : "s") + " · " + fmtInt(data.elapsed_ms) + " ms · read-only</span>"
+            );
+        }
+    }
+
+    function clearResult() {
+        el.result.innerHTML = "";
+        el.resultMeta.textContent = "";
+        el.resultPanel.hidden = true;
+        el.empty.classList.remove("is-hidden");
+        hideStatus();
+        hideError();
+        state.lastRun = null;
+        el.exportBtn.disabled = true;
+    }
+
+    // ── Run ─────────────────────────────────────────────────────────────────
+    function setRunning(flag) {
+        state.running = flag;
+        el.run.disabled = flag;
+        el.run.innerHTML = flag
+            ? '<i class="fas fa-circle-notch fa-spin"></i> Running…'
+            : '<i class="fas fa-play"></i> Run Query <kbd>Ctrl</kbd>+<kbd>Enter</kbd>';
+        if (flag) el.exportBtn.disabled = true;
+    }
+
+    function runQuery() {
+        if (state.running) return;
+        var sql = (el.sql.value || "").trim();
+        if (!sql) {
+            showError("Write a SELECT statement first.");
+            return;
+        }
+
+        hideError();
+        setRunning(true);
+        showStatus('<span class="qdb-status-tag">Running…</span><span>Waiting for the database (timeout {{ timeout_s }}s)</span>');
+
+        fetch("/api/query_db/run", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "X-CSRFToken": CSRF_TOKEN
+            },
+            body: JSON.stringify({ sql: sql })
+        })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, d: d }; }); })
+            .then(function (res) {
+                setRunning(false);
+                if (!res.ok || res.d.status !== "success") {
+                    hideStatus();
+                    showError(res.d.message || ("Query failed (HTTP " + res.status + ")."));
+                    state.lastRun = null;
+                    el.exportBtn.disabled = true;
+                    return;
+                }
+                state.lastRun = { sql: res.d.executed_sql || sql };
+                el.exportBtn.disabled = false;
+                renderResult(res.d);
+            })
+            .catch(function () {
+                setRunning(false);
+                hideStatus();
+                showError("Network error: the query request could not be completed.");
+            });
+    }
+
+    // ── CSV export ──────────────────────────────────────────────────────────
+    function exportCsv() {
+        if (!state.lastRun) {
+            showError("Run a query first — Export CSV uses the last executed statement.");
+            return;
+        }
+        var previous = el.exportBtn.innerHTML;
+        el.exportBtn.disabled = true;
+        el.exportBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Exporting…';
+
+        fetch("/api/query_db/export", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": CSRF_TOKEN
+            },
+            body: JSON.stringify({ sql: state.lastRun.sql })
+        })
+            .then(function (res) {
+                if (!res.ok) {
+                    return res.json().then(function (d) {
+                        throw new Error(d.message || ("Export failed (HTTP " + res.status + ")."));
+                    });
+                }
+                var disposition = res.headers.get("Content-Disposition") || "";
+                var match = /filename=([^;]+)/.exec(disposition);
+                var filename = match ? match[1].trim() : "query_export.csv";
+                return res.blob().then(function (blob) {
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement("a");
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+                    showStatus(
+                        '<span class="qdb-status-tag">Exported</span><span>' + esc(filename) +
+                        " · max " + fmtInt(EXPORT_LIMIT) + " rows · read-only</span>"
+                    );
+                });
+            })
+            .catch(function (err) {
+                showError(err && err.message ? err.message : "Export failed.");
+            })
+            .then(function () {
+                el.exportBtn.disabled = !state.lastRun || state.running;
+                el.exportBtn.innerHTML = previous;
+            });
+    }
+
+    // ── Clipboard ───────────────────────────────────────────────────────────
+    function copyResult() {
+        if (!state.lastRun) return;
+        var head = Array.prototype.map.call(el.result.querySelectorAll("thead th"), function (th) {
+            return (th.getAttribute("title") || th.textContent || "").trim();
+        });
+        var lines = [];
+        if (head.length) lines.push(head.join("\t"));
+        Array.prototype.forEach.call(el.result.querySelectorAll("tbody tr"), function (tr) {
+            var cells = Array.prototype.map.call(tr.querySelectorAll("td"), function (td) {
+                return (td.getAttribute("title") || td.textContent || "").trim();
+            });
+            if (cells.length) lines.push(cells.join("\t"));
+        });
+        var text = lines.join("\n");
+        var done = function () {
+            el.copy.innerHTML = '<i class="fas fa-check"></i> Copied';
+            setTimeout(function () { el.copy.innerHTML = '<i class="fas fa-copy"></i> Copy'; }, 1600);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, function () { showError("Clipboard permission denied."); });
+        } else {
+            var ta = document.createElement("textarea");
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand("copy"); done(); } catch (e) { showError("Clipboard is not available."); }
+            document.body.removeChild(ta);
+        }
+    }
+
+    // ── Events ──────────────────────────────────────────────────────────────
+    el.list.addEventListener("click", function (ev) {
+        var colBtn = ev.target.closest(".qdb-col");
+        if (colBtn) {
+            insertAtCursor(quoteIdent(colBtn.getAttribute("data-column")));
+            return;
+        }
+        var rowBtn = ev.target.closest(".qdb-tbl-row");
+        if (rowBtn) toggleTable(rowBtn.getAttribute("data-table"));
+    });
+
+    el.list.addEventListener("dblclick", function (ev) {
+        var rowBtn = ev.target.closest(".qdb-tbl-row");
+        if (!rowBtn) return;
+        var name = rowBtn.getAttribute("data-table");
+        el.sql.value = 'SELECT * FROM ' + quoteIdent(name) + " LIMIT 100;";
+        el.sql.focus();
+        el.sql.setSelectionRange(el.sql.value.length, el.sql.value.length);
+    });
+
+    el.filter.addEventListener("input", renderTables);
+    el.reload.addEventListener("click", function () {
+        state.openTable = null;
+        loadTables(true);
+    });
+    if (el.samples) {
+        el.samples.addEventListener("click", function (ev) {
+            var chip = ev.target.closest(".qdb-chip");
+            if (!chip) return;
+            el.sql.value = chip.getAttribute("data-sql") || "";
+            el.sql.focus();
+            el.sql.setSelectionRange(el.sql.value.length, el.sql.value.length);
+        });
+    }
+    el.run.addEventListener("click", runQuery);
+    el.exportBtn.addEventListener("click", exportCsv);
+    el.clear.addEventListener("click", function () {
+        el.sql.value = "";
+        clearResult();
+        el.sql.focus();
+    });
+    el.copy.addEventListener("click", copyResult);
+
+    document.addEventListener("keydown", function (ev) {
+        if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") {
+            ev.preventDefault();
+            runQuery();
+        }
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+        el.sql.value = 'SELECT * FROM "sites_db" LIMIT 50;';
+        loadTables(false);
+        el.sql.focus();
+        el.sql.setSelectionRange(0, 0);
+    });
+})();
+</script>
+<script src="{{ url_for('static', filename='js/query_builder.js') }}?v=1.0.1"></script>
+{% endblock %}
